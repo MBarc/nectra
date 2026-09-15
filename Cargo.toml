@@ -1,0 +1,27 @@
+[package]
+name = "nectra"
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.89"
+description = "Local conversation router for Claude Code, Codex, Gemini CLI, and Ollama"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+dirs = "6"
+anstream = "1"
+crossterm = "0.28"
+portable-pty = "0.9"
+vt100 = "0.15"
+tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+
+[patch.crates-io]
+portable-pty = { path = "vendor/portable-pty" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }

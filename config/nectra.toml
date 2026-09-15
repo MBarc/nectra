@@ -1,0 +1,15 @@
+# Nectra runtime configuration.
+# Copy this file to ~/.config/nectra/config.toml on Linux or pass --config explicitly.
+registry = "models.toml"
+
+[claude]
+command = "claude"
+extra_args = []
+
+[codex]
+command = "codex"
+extra_args = []
+
+[routing]
+confidence_margin = 0.035
+default_mode = "balanced"

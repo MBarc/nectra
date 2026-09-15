@@ -1,0 +1,652 @@
+use crate::{
+    classifier,
+    cli::{Cli, Commands, Mode, ProviderArg},
+    config::Config,
+    executor,
+    models::{Registry, Runtime},
+    router::{self, Decision},
+    session::{Session, CONTEXT_BYTES},
+};
+use anyhow::{bail, Result};
+use clap::ValueEnum;
+use std::io::{self, BufRead, Write};
+
+const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
+
+pub const BANNER: &str = r"
+ _   _ _____ ____ _____ ____      _
+| \ | | ____/ ___|_   _|  _ \    / \
+|  \| |  _|| |     | | | |_) |  / _ \
+| |\  | |__| |___  | | |  _ <  / ___ \
+|_| \_|_____\____| |_| |_| \_\/_/   \_\
+";
+
+pub trait Backend {
+    fn take_queued_messages(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+    fn login(&mut self, _provider: &str, _cfg: &Config) -> Result<()> {
+        bail!("login is not supported by this backend")
+    }
+    fn available(&self, runtime: Runtime, cfg: &Config) -> bool;
+    fn respond(
+        &mut self,
+        decision: &Decision,
+        prompt: &str,
+        cfg: &Config,
+        output: &mut dyn Write,
+    ) -> Result<String>;
+}
+pub struct NativeBackend;
+impl Backend for NativeBackend {
+    fn take_queued_messages(&mut self) -> Vec<String> {
+        executor::native::take_queued_messages()
+    }
+    fn login(&mut self, provider: &str, cfg: &Config) -> Result<()> {
+        executor::login(provider, cfg)
+    }
+    fn available(&self, runtime: Runtime, cfg: &Config) -> bool {
+        let command = match runtime {
+            Runtime::Claude => &cfg.inner.claude.command,
+            Runtime::Codex => &cfg.inner.codex.command,
+            Runtime::Ollama => return cfg.inner.ollama.is_some(),
+            Runtime::Gemini => &cfg.inner.gemini.command,
+        };
+        executor::launch(command).is_ok()
+    }
+    fn respond(
+        &mut self,
+        decision: &Decision,
+        prompt: &str,
+        cfg: &Config,
+        output: &mut dyn Write,
+    ) -> Result<String> {
+        if decision.runtime == "ollama" {
+            crate::ollama::conversation(&decision.model, prompt, cfg, output)
+        } else if executor::native::enabled(cfg)? {
+            executor::native::conversation(decision, prompt, cfg)
+        } else {
+            executor::conversation(decision, prompt, cfg, output)
+        }
+    }
+}
+pub struct ChatOptions {
+    pub mode: Mode,
+    pub provider: Option<ProviderArg>,
+    pub model: Option<String>,
+    pub explain: bool,
+    pub dry_run: bool,
+}
+pub fn run(cli: &Cli, cfg: &Config, registry: &Registry) -> Result<i32> {
+    if cli.stdin {
+        bail!(
+            "chat reads one message at a time; omit --stdin and use /paste for multiline messages"
+        );
+    }
+    let cwd = std::env::current_dir()?;
+    let mut session = match &cli.command {
+        Some(Commands::Chat {
+            resume: Some(path), ..
+        }) => Session::resume(path, &cwd)?,
+        Some(Commands::Chat {
+            session: Some(path),
+            ..
+        }) => Session::create(path, &cwd)?,
+        _ => Session::create_default(&cwd)?,
+    };
+    let options = ChatOptions {
+        mode: cli.mode.unwrap_or(cfg.inner.routing.default_mode),
+        provider: cli.provider,
+        model: cli.model.clone(),
+        explain: cli.explain,
+        dry_run: cli.dry_run,
+    };
+    run_loop(
+        cfg,
+        registry,
+        options,
+        &mut session,
+        &mut io::stdin().lock(),
+        &mut crate::terminal::stdout(),
+        &mut NativeBackend,
+    )?;
+    Ok(0)
+}
+
+pub fn run_loop(
+    cfg: &Config,
+    registry: &Registry,
+    mut options: ChatOptions,
+    session: &mut Session,
+    input: &mut dyn BufRead,
+    output: &mut dyn Write,
+    backend: &mut dyn Backend,
+) -> Result<()> {
+    writeln!(
+        output,
+        "{BANNER}  v{}  |  One conversation. The right model.\n",
+        env!("CARGO_PKG_VERSION")
+    )?;
+    writeln!(
+        output,
+        "Session: {}\nType /help for commands. Replies share this conversation's context.",
+        session.path.display()
+    )?;
+    if options.dry_run {
+        writeln!(
+            output,
+            "Preview mode: decisions only; no model calls or new conversation turns."
+        )?;
+    }
+    if cfg.skip_permissions {
+        writeln!(output, "Permission bypass ON for this launch: Claude/Gemini auto-approve tools; Codex also disables its sandbox. Ollama remains chat-only.")?;
+    }
+    if session.recovered_tail {
+        writeln!(output, "Recovered the log up to its last complete record.")?;
+    }
+    if let Some(message) = &session.interrupted {
+        writeln!(
+            output,
+            "An interrupted message was saved but was not rerun: {message}"
+        )?;
+    }
+    if !session.exchanges.is_empty() {
+        writeln!(
+            output,
+            "Resumed {} completed turns. Use /history to view them.",
+            session.exchanges.len()
+        )?;
+    }
+    let mut cooldowns = crate::limits::Cooldowns::default();
+    let mut needs_login: Vec<String> = vec![];
+    let mut denied_models = std::collections::HashSet::<String>::new();
+    let mut successful_models = std::collections::HashSet::<String>::new();
+    let mut queued = std::collections::VecDeque::new();
+    'messages: loop {
+        queued.extend(backend.take_queued_messages());
+        write!(output, "\nyou> ")?;
+        output.flush()?;
+        let mut text = String::new();
+        if let Some(message) = queued.pop_front() {
+            text = message;
+            writeln!(output, "{text} [queued]")?;
+        } else if input.read_line(&mut text)? == 0 {
+            writeln!(output)?;
+            break;
+        }
+        let text = text.trim_end_matches(['\r', '\n']);
+        if text.trim().is_empty() {
+            continue;
+        }
+        let mut message = text.to_string();
+        if text.starts_with('/') {
+            let (command, value) = text.split_once(char::is_whitespace).unwrap_or((text, ""));
+            let value = value.trim();
+            match command {
+                "/theme" => {
+                    if value.is_empty() {
+                        writeln!(
+                            output,
+                            "Theme: {}. Available: default, hacker, ice-blue.",
+                            crate::terminal::theme().name()
+                        )?;
+                    } else {
+                        match crate::terminal::Theme::from_str(value, true) {
+                            Ok(theme) => {
+                                let path = crate::terminal::theme_path(
+                                    (!cfg.embedded).then_some(cfg.path.as_path()),
+                                )?;
+                                match crate::terminal::save_theme(&path, theme) {
+                                    Ok(()) => {
+                                        crate::terminal::set_theme(theme);
+                                        writeln!(output, "Theme: {} (saved).", theme.name())?;
+                                    }
+                                    Err(e) => writeln!(output, "Theme was not changed: {e:#}")?,
+                                }
+                            }
+                            Err(_) => writeln!(
+                                output,
+                                "Unknown theme. Use /theme default, hacker, or ice-blue."
+                            )?,
+                        }
+                    }
+                    continue;
+                }
+                "/login" => {
+                    let provider = match value {
+                        "claude" => "anthropic",
+                        "codex" => "openai",
+                        "gemini" => "google",
+                        p => p,
+                    };
+                    output.flush()?;
+                    match backend.login(provider, cfg) {
+                        Ok(()) => {
+                            denied_models.retain(|id| {
+                                !registry
+                                    .models
+                                    .iter()
+                                    .any(|m| &m.id == id && m.provider.as_str() == provider)
+                            });
+                            successful_models.retain(|id| {
+                                !registry
+                                    .models
+                                    .iter()
+                                    .any(|m| &m.id == id && m.provider.as_str() == provider)
+                            });
+                            needs_login.retain(|p| p != provider);
+                            writeln!(output,"Login workflow closed. Send a new message to verify provider access.")?;
+                        }
+                        Err(e) => writeln!(output, "Login failed: {e:#}")?,
+                    }
+                    continue;
+                }
+                "/quit" | "/exit" => break,
+                "/help" => {
+                    write!(output, "{HELP}")?;
+                    continue;
+                }
+                "/session" => {
+                    writeln!(output, "{}", session.path.display())?;
+                    continue;
+                }
+                "/history" => {
+                    for exchange in &session.exchanges {
+                        writeln!(
+                            output,
+                            "\nyou> {}\n{}> {}",
+                            exchange.user, exchange.model, exchange.assistant
+                        )?;
+                    }
+                    continue;
+                }
+                "/clear" => {
+                    session.clear()?;
+                    writeln!(
+                        output,
+                        "Context cleared. Earlier turns remain in the saved log."
+                    )?;
+                    continue;
+                }
+                "/models" => {
+                    for model in &registry.models {
+                        if needs_login.iter().any(|p| p == model.provider.as_str()) {
+                            writeln!(
+                                output,
+                                "{} ({}) — login required; /login {}",
+                                model.id,
+                                model.provider.as_str(),
+                                model.provider.as_str()
+                            )?;
+                            continue;
+                        }
+                        if let Some(wait) = cooldowns.remaining(&model.id, model.provider.as_str())
+                        {
+                            writeln!(
+                                output,
+                                "{} ({}) — cooling down for {}s",
+                                model.id,
+                                model.provider.as_str(),
+                                wait.as_secs() + 1
+                            )?;
+                            continue;
+                        }
+                        let state = if denied_models.contains(&model.id) {
+                            "model rejected; /model retry clears access observations"
+                        } else if !model.enabled {
+                            "disabled"
+                        } else if successful_models.contains(&model.id) {
+                            "last request succeeded (session observation)"
+                        } else if backend.available(model.runtime, cfg) {
+                            "CLI installed; model access unverified until used"
+                        } else {
+                            "runtime unavailable"
+                        };
+                        writeln!(
+                            output,
+                            "{} ({}) — {state}",
+                            model.id,
+                            model.provider.as_str()
+                        )?;
+                    }
+                    writeln!(output, "CLI availability checks installation. Ollama configuration is checked here; server/model readiness is verified on use or by nectra doctor. Ollama is chat-only.")?;
+                    continue;
+                }
+                "/model" => {
+                    if value == "retry" {
+                        denied_models.clear();
+                        successful_models.clear();
+                        writeln!(output, "Model access observations cleared. Send a message to retry; nothing was replayed.")?;
+                    } else if value == "auto" {
+                        options.model = None;
+                        options.provider = None;
+                        writeln!(output, "Automatic routing across available models.")?;
+                    } else if registry
+                        .models
+                        .iter()
+                        .any(|m| m.enabled && m.id == value && backend.available(m.runtime, cfg))
+                    {
+                        options.model = Some(value.into());
+                        options.provider = None;
+                        writeln!(output, "Model pinned to {value}.")?;
+                    } else {
+                        writeln!(
+                            output,
+                            "Unknown, disabled or unavailable model. Use /models or /model auto."
+                        )?;
+                    }
+                    continue;
+                }
+                "/provider" => {
+                    if value == "auto" {
+                        options.provider = None;
+                        options.model = None;
+                        writeln!(
+                            output,
+                            "All selected providers allowed under your routing policy."
+                        )?;
+                    } else {
+                        match ProviderArg::from_str(value, true) {
+                            Ok(provider) => {
+                                options.provider = Some(provider);
+                                options.model = None;
+                                writeln!(output, "Provider: {value}.")?;
+                            }
+                            Err(_) => writeln!(
+                                output,
+                                "Use /provider anthropic, openai, google, ollama or auto."
+                            )?,
+                        }
+                    }
+                    continue;
+                }
+                "/mode" => {
+                    match Mode::from_str(value, true) {
+                        Ok(mode) => {
+                            options.mode = mode;
+                            writeln!(output, "Mode: {value}.")?;
+                        }
+                        Err(_) => writeln!(output, "Use /mode fast, balanced or best.")?,
+                    }
+                    continue;
+                }
+                "/paste" => {
+                    writeln!(
+                        output,
+                        "Paste your message. Finish with /send or discard with /cancel."
+                    )?;
+                    message.clear();
+                    loop {
+                        let mut line = String::new();
+                        if input.read_line(&mut line)? == 0 || line.trim() == "/cancel" {
+                            message.clear();
+                            break;
+                        }
+                        if line.trim() == "/send" {
+                            break;
+                        }
+                        message.push_str(&line);
+                    }
+                    if message.trim().is_empty() {
+                        continue;
+                    }
+                }
+                _ => {
+                    writeln!(output, "Unknown command. Use /help; /paste accepts literal slash-prefixed messages.")?;
+                    continue;
+                }
+            }
+        }
+        // Read directives from this message only, never from shared history or quoted text.
+        let requested_model = requested_model(&message, registry);
+        let mut turn_model = requested_model.clone().or_else(|| options.model.clone());
+        let mut turn_provider = if requested_model.is_some() {
+            None
+        } else {
+            options.provider
+        };
+        let mut attempted = Vec::new();
+        if let Some(id) = &turn_model {
+            if registry.models.iter().any(|m| {
+                &m.id == id
+                    && (!backend.available(m.runtime, cfg)
+                        || denied_models.contains(id)
+                        || needs_login.iter().any(|p| p == m.provider.as_str())
+                        || cooldowns.remaining(id, m.provider.as_str()).is_some())
+            }) {
+                writeln!(
+                    output,
+                    "Requested model {id} is unavailable; selecting another model for this task."
+                )?;
+                turn_model = None;
+                turn_provider = None;
+            }
+        }
+        let mut limited_provider: Option<String> = None;
+        loop {
+            let mut available = Registry {
+                models: registry
+                    .models
+                    .iter()
+                    .filter(|m| m.enabled && backend.available(m.runtime, cfg))
+                    .filter(|m| !denied_models.contains(&m.id))
+                    .filter(|m| !needs_login.iter().any(|p| p == m.provider.as_str()))
+                    .filter(|m| {
+                        !attempted.contains(&m.id)
+                            && cooldowns.remaining(&m.id, m.provider.as_str()).is_none()
+                    })
+                    .cloned()
+                    .collect(),
+            };
+            if available.models.is_empty() {
+                writeln!(
+                output,
+                "No eligible model is available right now. The session remains open; use /models to see cooldowns and try again when capacity returns."
+            )?;
+                continue 'messages;
+            }
+            if turn_provider.is_none() && turn_model.is_none() {
+                if let Some(provider) = &limited_provider {
+                    if available
+                        .models
+                        .iter()
+                        .any(|m| m.provider.as_str() != provider)
+                    {
+                        available.models.retain(|m| m.provider.as_str() != provider);
+                    }
+                }
+            }
+            // Short follow-ups like 'do that' need the previous user's task to be classified sensibly.
+            let routing_text = if matches!(
+                classifier::classify(&message).0,
+                classifier::TaskType::General
+            ) {
+                session
+                    .exchanges
+                    .last()
+                    .map(|e| format!("{}\n{message}", e.user))
+                    .unwrap_or_else(|| message.clone())
+            } else {
+                message.clone()
+            };
+            let decision = match router::route(
+                &routing_text,
+                cfg,
+                &available,
+                options.mode,
+                turn_provider,
+                turn_model.clone(),
+            ) {
+                Ok(decision) => decision,
+                Err(error) => {
+                    writeln!(
+                        output,
+                        "Routing failed: {error:#}. Use /model auto or /models."
+                    )?;
+                    continue 'messages;
+                }
+            };
+            if options.dry_run {
+                writeln!(output, "{}", serde_json::to_string_pretty(&decision)?)?;
+                continue 'messages;
+            }
+            let budget = if decision.runtime == "ollama" {
+                cfg.inner
+                    .ollama
+                    .as_ref()
+                    .and_then(|o| {
+                        o.models
+                            .iter()
+                            .find(|m| decision.model == format!("ollama/{}", m.name))
+                    })
+                    .map(|m| m.context_tokens.saturating_sub(1536))
+                    .unwrap_or(CONTEXT_BYTES)
+            } else {
+                CONTEXT_BYTES
+            };
+            let (prompt, omitted) = match session.prompt(&message, budget) {
+                Ok(context) => context,
+                Err(error) => {
+                    writeln!(output, "{error:#}")?;
+                    continue 'messages;
+                }
+            };
+            if omitted > 0 {
+                writeln!(output, "Context window: {omitted} earlier turns omitted from this request; the saved log retains them.")?;
+            }
+            writeln!(output, "\n{} ({})> ", decision.model, decision.provider)?;
+            if options.explain {
+                writeln!(output, "{}", decision.reason)?;
+            }
+            output.flush()?;
+            // Persist the input before launching a child; failures never become assistant context.
+            session.begin(&message, &decision.model)?;
+            attempted.push(decision.model.clone());
+            let response = if decision.runtime != "ollama" && executor::native::enabled(cfg)? {
+                backend.respond(&decision, &prompt, cfg, output)
+            } else {
+                let activity = crate::activity::Activity::start(&decision.model);
+                let mut progress = activity.writer(output);
+                let _plain = crate::terminal::plain();
+                backend.respond(&decision, &prompt, cfg, &mut progress)
+            };
+            match response {
+                Ok(reply) if !reply.trim().is_empty() => {
+                    successful_models.insert(decision.model.clone());
+                    session.complete(&reply)?;
+                }
+                Ok(_) => {
+                    session.fail("agent returned no answer")?;
+                    writeln!(
+                        output,
+                        "Agent returned no answer. The session remains open."
+                    )?;
+                }
+                Err(error) => {
+                    session.fail(&format!("{error:#}"))?;
+                    if let Some(unavailable) =
+                        error.downcast_ref::<crate::access::ModelUnavailable>()
+                    {
+                        denied_models.insert(decision.model.clone());
+                        successful_models.remove(&decision.model);
+                        writeln!(output, "{}: {unavailable}. Excluded for this session; /model retry clears access observations.", decision.model)?;
+                        if unavailable.safe_to_retry {
+                            turn_model = None;
+                            turn_provider = None;
+                            writeln!(
+                                output,
+                                "Trying another eligible model; no work had started."
+                            )?;
+                            continue;
+                        }
+                        writeln!(output, "The native session cannot confirm that no work ran; this turn was not replayed. Future messages will use another eligible model.")?;
+                        continue 'messages;
+                    }
+                    if let Some(auth) = error.downcast_ref::<executor::AuthenticationRequired>() {
+                        needs_login.push(decision.provider.clone());
+                        writeln!(output,"{} needs authentication. Run /login {} here, or nectra provider login {} in another terminal.",decision.provider,decision.provider,decision.provider)?;
+                        if auth.safe_to_retry {
+                            turn_model = None;
+                            turn_provider = None;
+                            continue;
+                        }
+                        continue 'messages;
+                    }
+                    if let Some(unavailable) = error.downcast_ref::<crate::ollama::Unavailable>() {
+                        cooldowns.record(
+                            &decision.model,
+                            &decision.provider,
+                            &crate::limits::RateLimited {
+                                message: unavailable.message.clone(),
+                                provider_wide: unavailable.provider_wide,
+                                retry_after: std::time::Duration::from_secs(30),
+                                safe_to_retry: unavailable.safe_to_retry,
+                            },
+                        );
+                        writeln!(
+                            output,
+                            "\n{} unavailable: {}. Cooling down for 30s.",
+                            decision.model, unavailable.message
+                        )?;
+                        if unavailable.safe_to_retry {
+                            turn_model = None;
+                            turn_provider = None;
+                            writeln!(
+                                output,
+                                "Trying another eligible model under your routing policy."
+                            )?;
+                            continue;
+                        }
+                        writeln!(output, "Partial output was not replayed or saved as an answer. The session remains open.")?;
+                        continue 'messages;
+                    }
+                    if let Some(limit) = error.downcast_ref::<crate::limits::RateLimited>() {
+                        cooldowns.record(&decision.model, &decision.provider, limit);
+                        limited_provider = Some(decision.provider.clone());
+                        writeln!(
+                            output,
+                            "\n{} rate limited; {} cooldown for {}s.",
+                            decision.model,
+                            if limit.provider_wide {
+                                "provider"
+                            } else {
+                                "model"
+                            },
+                            limit.retry_after.as_secs()
+                        )?;
+                        if limit.safe_to_retry {
+                            turn_model = None;
+                            turn_provider = None;
+                            writeln!(output, "Trying an available alternative with the same conversation context; unavailable model/provider selections are relaxed for this turn.")?;
+                            continue;
+                        }
+                        writeln!(output, "Work already started, so this message was not replayed. Future messages will avoid the limited models.")?;
+                        continue 'messages;
+                    }
+                    writeln!(output, "\nTurn failed: {error:#}\nThe session remains open. You can choose another model and send a new message.")?;
+                }
+            }
+            break;
+        }
+    }
+    writeln!(output, "Session saved: {}", session.path.display())?;
+    Ok(())
+}
+
+/// Deliberately narrow leading directives: mentioning a model in a task is not a pin.
+fn requested_model(message: &str, registry: &Registry) -> Option<String> {
+    let lower = message.trim_start().to_ascii_lowercase();
+    let lower = lower.strip_prefix("please ").unwrap_or(&lower);
+    let rest = ["use ", "switch to ", "ask "]
+        .iter()
+        .find_map(|prefix| lower.strip_prefix(prefix))?;
+    registry.models.iter().find_map(|model| {
+        let id = model.id.to_ascii_lowercase();
+        let tail = rest.strip_prefix(&id)?;
+        (tail.is_empty()
+            || tail.starts_with(char::is_whitespace)
+            || tail.starts_with(':')
+            || tail.starts_with(','))
+        .then(|| model.id.clone())
+    })
+}
