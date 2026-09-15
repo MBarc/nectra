@@ -286,6 +286,7 @@ fn full_chat_fallback_respects_local_only_and_preserves_the_thread() {
             &cfg,
             &reg,
             ChatOptions {
+                cooldown_state: None,
                 mode: Mode::Best,
                 provider: None,
                 model: None,

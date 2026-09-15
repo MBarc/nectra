@@ -40,7 +40,6 @@ pub fn route(
     if prompt.trim().is_empty() {
         bail!("prompt cannot be empty");
     }
-    registry.validate()?;
     let (task, req, why) = classifier::classify(prompt);
     let wanted = provider.map(|p| match p {
         ProviderArg::Anthropic => Provider::Anthropic,

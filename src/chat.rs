@@ -71,6 +71,10 @@ impl Backend for NativeBackend {
     }
 }
 pub struct ChatOptions {
+    /// Where cooldowns are remembered, or None to keep them in memory only.
+    /// Injected rather than resolved inside the loop so a test run neither
+    /// reads nor writes the real user state.
+    pub cooldown_state: Option<std::path::PathBuf>,
     pub mode: Mode,
     pub provider: Option<ProviderArg>,
     pub model: Option<String>,
@@ -95,6 +99,7 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry) -> Result<i32> {
         _ => Session::create_default(&cwd)?,
     };
     let options = ChatOptions {
+        cooldown_state: crate::limits::Cooldowns::state_path(),
         mode: cli.mode.unwrap_or(cfg.inner.routing.default_mode),
         provider: cli.provider,
         model: cli.model.clone(),
@@ -157,7 +162,19 @@ pub fn run_loop(
             session.exchanges.len()
         )?;
     }
-    let mut cooldowns = crate::limits::Cooldowns::default();
+    // Remembered across runs: a limit learned in one session should not be
+    // rediscovered by walking into it again in the next.
+    let cooldown_state = options.cooldown_state.clone();
+    let mut cooldowns = match &cooldown_state {
+        Some(path) => crate::limits::Cooldowns::load(path),
+        None => crate::limits::Cooldowns::default(),
+    };
+    let remember = |cooldowns: &crate::limits::Cooldowns| {
+        if let Some(path) = &cooldown_state {
+            // Never let bookkeeping break a conversation.
+            let _ = cooldowns.persist(path);
+        }
+    };
     let mut needs_login: Vec<String> = vec![];
     let mut denied_models = std::collections::HashSet::<String>::new();
     let mut successful_models = std::collections::HashSet::<String>::new();
@@ -583,6 +600,7 @@ pub fn run_loop(
                                 safe_to_retry: unavailable.safe_to_retry,
                             },
                         );
+                        remember(&cooldowns);
                         writeln!(
                             output,
                             "\n{} unavailable: {}. Cooling down for 30s.",
@@ -602,6 +620,7 @@ pub fn run_loop(
                     }
                     if let Some(limit) = error.downcast_ref::<crate::limits::RateLimited>() {
                         cooldowns.record(&decision.model, &decision.provider, limit);
+                        remember(&cooldowns);
                         limited_provider = Some(decision.provider.clone());
                         writeln!(
                             output,

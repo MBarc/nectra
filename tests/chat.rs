@@ -101,6 +101,8 @@ impl Backend for Mock {
 }
 fn options() -> ChatOptions {
     ChatOptions {
+        // Tests must not touch the real cooldown state on this machine.
+        cooldown_state: None,
         mode: Mode::Best,
         provider: None,
         model: None,

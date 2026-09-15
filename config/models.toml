@@ -96,3 +96,36 @@ writing=0.98
 tool_use=1.0
 speed=0.45
 cost_efficiency=0.40
+
+# Gemini is only routed to when `google` is among the selected providers.
+[[model]]
+id = "gemini-2.5-pro"
+provider = "google"
+runtime = "gemini"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.9
+reasoning=0.9
+long_context=0.95
+writing=0.9
+tool_use=0.9
+speed=0.65
+cost_efficiency=0.65
+
+[[model]]
+id = "gemini-2.5-flash"
+provider = "google"
+runtime = "gemini"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.8
+reasoning=0.8
+long_context=0.95
+writing=0.8
+tool_use=0.8
+speed=0.9
+cost_efficiency=0.9

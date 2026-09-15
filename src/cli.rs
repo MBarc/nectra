@@ -39,16 +39,22 @@ pub struct Cli {
     pub dangerously_skip_permissions: bool,
     #[command(subcommand)]
     pub command: Option<Commands>,
+    /// Bias routing toward speed, balance, or maximum capability.
     #[arg(global = true, long, value_enum)]
     pub mode: Option<Mode>,
+    /// Restrict routing to one provider.
     #[arg(global = true, long, value_enum)]
     pub provider: Option<ProviderArg>,
+    /// Force one model id; see `nectra models` for the roster.
     #[arg(global = true, long)]
     pub model: Option<String>,
+    /// Use this configuration file instead of the installed one.
     #[arg(global = true, long)]
     pub config: Option<PathBuf>,
+    /// Print the routing decision and its basis to stderr before running.
     #[arg(global = true, long)]
     pub explain: bool,
+    /// Show the routing decision as JSON without launching a provider.
     #[arg(global = true, long)]
     pub dry_run: bool,
     /// Read the prompt from stdin (cannot be combined with positional text).

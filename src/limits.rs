@@ -1,7 +1,9 @@
 use serde_json::Value;
 use std::{
+    collections::BTreeMap,
     fmt,
-    time::{Duration, Instant},
+    path::{Path, PathBuf},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 #[derive(Debug)]
@@ -157,6 +159,56 @@ mod tests {
     }
 
     #[test]
+    fn cooldowns_survive_a_restart() {
+        // Held only in memory, a rate limit is forgotten on exit and the next
+        // run walks straight back into the same limit.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cooldowns.json");
+        let limit = RateLimited::from_error(
+            &serde_json::json!({"message": "rate limit exceeded", "retry_after": 120}),
+            true,
+        )
+        .unwrap();
+
+        let mut before = Cooldowns::default();
+        before.record("opus", "anthropic", &limit);
+        before.persist(&path).unwrap();
+
+        let after = Cooldowns::load(&path);
+        assert!(after.remaining("opus", "anthropic").is_some());
+        assert!(after.remaining("sonnet", "anthropic").is_none());
+    }
+
+    #[test]
+    fn an_expired_cooldown_is_not_reloaded() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cooldowns.json");
+        let mut limit = RateLimited::from_error(
+            &serde_json::json!({"message": "rate limit exceeded", "retry_after": 1}),
+            true,
+        )
+        .unwrap();
+        limit.retry_after = Duration::from_secs(0);
+        let mut before = Cooldowns::default();
+        before.record("opus", "anthropic", &limit);
+        before.persist(&path).unwrap();
+        assert!(Cooldowns::load(&path)
+            .remaining("opus", "anthropic")
+            .is_none());
+    }
+
+    #[test]
+    fn a_missing_or_corrupt_state_file_is_not_fatal() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(Cooldowns::load(&dir.path().join("absent.json"))
+            .0
+            .is_empty());
+        let bad = dir.path().join("bad.json");
+        std::fs::write(&bad, b"{not json").unwrap();
+        assert!(Cooldowns::load(&bad).0.is_empty());
+    }
+
+    #[test]
     fn scope_and_expiry() {
         let mut cooldowns = Cooldowns::default();
         let mut limit = RateLimited::from_error(
@@ -180,7 +232,63 @@ mod tests {
 
 #[derive(Default)]
 pub struct Cooldowns(Vec<(String, Instant)>);
+
 impl Cooldowns {
+    /// Where cooldowns are remembered between runs.
+    pub fn state_path() -> Option<PathBuf> {
+        dirs::data_local_dir().map(|p| p.join("nectra/cooldowns.json"))
+    }
+
+    /// Read remembered cooldowns, dropping any that already expired.
+    ///
+    /// Best effort by design: a missing, unreadable or corrupt state file means
+    /// "nothing is cooling down", never a failed launch.
+    pub fn load(path: &Path) -> Self {
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return Self::default();
+        };
+        let Ok(saved) = serde_json::from_str::<BTreeMap<String, u64>>(&text) else {
+            return Self::default();
+        };
+        let now = Self::unix_now();
+        let mut cooldowns = Self::default();
+        for (key, expires_at) in saved {
+            if let Some(remaining) = expires_at.checked_sub(now).filter(|s| *s > 0) {
+                cooldowns
+                    .0
+                    .push((key, Instant::now() + Duration::from_secs(remaining)));
+            }
+        }
+        cooldowns
+    }
+
+    /// Write live cooldowns as absolute wall-clock expiries.
+    ///
+    /// `Instant` is monotonic and meaningless across processes, so the on-disk
+    /// form is seconds since the epoch.
+    pub fn persist(&self, path: &Path) -> std::io::Result<()> {
+        let now = Instant::now();
+        let unix_now = Self::unix_now();
+        let live: BTreeMap<&str, u64> = self
+            .0
+            .iter()
+            .filter_map(|(key, until)| {
+                let remaining = until.checked_duration_since(now)?.as_secs();
+                (remaining > 0).then(|| (key.as_str(), unix_now + remaining))
+            })
+            .collect();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_vec(&live)?)
+    }
+
+    fn unix_now() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs())
+    }
+
     pub fn remaining(&self, model: &str, provider: &str) -> Option<Duration> {
         let now = Instant::now();
         self.0

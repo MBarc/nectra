@@ -49,7 +49,9 @@ pub fn preferred_role(task: crate::classifier::TaskType, prompt: &str, mode: Mod
     ]
     .iter()
     .any(|w| has(w));
-    let simple = ["quick", "simple", "brief", "short", "summarize", "extract"]
+    // Words about the size of the work, not the kind of it. "summarize" and
+    // "extract" name a task; summarising a large document is not cheap work.
+    let simple = ["quick", "simple", "brief", "short", "trivial", "minor"]
         .iter()
         .any(|w| has(w));
     let coding = matches!(
@@ -172,6 +174,34 @@ mod tests {
                 false
             ),
             0.30
+        );
+    }
+}
+
+#[cfg(test)]
+mod role_tests {
+    use super::*;
+    use crate::classifier::TaskType;
+
+    #[test]
+    fn summarising_is_not_by_itself_a_simplicity_signal() {
+        // "summarize" describes the task, not its size. Summarising a large
+        // document should not be routed as cheap work.
+        assert_eq!(
+            preferred_role(
+                TaskType::Research,
+                "summarize this 400 page report",
+                Mode::Balanced
+            ),
+            "general"
+        );
+    }
+
+    #[test]
+    fn an_explicit_simplicity_word_still_routes_cheap() {
+        assert_eq!(
+            preferred_role(TaskType::General, "quick question", Mode::Balanced),
+            "simple"
         );
     }
 }

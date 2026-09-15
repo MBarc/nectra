@@ -71,6 +71,27 @@ pub struct ModelProfile {
     pub prefers: Vec<String>,
 }
 
+/// One `nectra models` row.
+///
+/// Access is deliberately absent: it is learned from real provider responses,
+/// so printing a constant "unverified" on every row told the user nothing.
+/// The declared routing role is state they can actually act on.
+pub fn roster_line(m: &ModelProfile) -> String {
+    format!(
+        "{:<10} {:<18} {:<8} {:<8} {:<7} {}",
+        m.provider.as_str(),
+        m.id,
+        m.runtime.as_str(),
+        if m.enabled { "enabled" } else { "disabled" },
+        if m.effort.is_empty() { "-" } else { &m.effort },
+        if m.prefers.is_empty() {
+            "-".to_string()
+        } else {
+            m.prefers.join(",")
+        }
+    )
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct RegistryFile {
@@ -96,52 +117,6 @@ impl Registry {
             ));
         };
         let mut file: RegistryFile = toml::from_str(&text).context("parsing model registry")?;
-        // Upgrade the original bundled roster in memory, preserving customized entries.
-        if ["opus", "sonnet", "gpt-5.6-sol", "gpt-5.6-luna"]
-            .iter()
-            .all(|id| file.model.iter().any(|m| m.id == *id))
-        {
-            let defaults: RegistryFile = toml::from_str(DEFAULT_REGISTRY)?;
-            for model in defaults
-                .model
-                .into_iter()
-                .filter(|m| matches!(m.id.as_str(), "haiku" | "gpt-6-astra"))
-            {
-                if !file.model.iter().any(|m| m.id == model.id) {
-                    file.model.push(model);
-                }
-            }
-        }
-        if cfg
-            .inner
-            .providers
-            .as_ref()
-            .is_some_and(|p| p.iter().any(|p| p == "google"))
-            && !file.model.iter().any(|m| m.provider == Provider::Google)
-        {
-            for (id, quality, speed) in [
-                ("gemini-2.5-pro", 0.9, 0.65),
-                ("gemini-2.5-flash", 0.8, 0.9),
-            ] {
-                file.model.push(ModelProfile {
-                    id: id.into(),
-                    provider: Provider::Google,
-                    runtime: Runtime::Gemini,
-                    enabled: true,
-                    effort: String::new(),
-                    prefers: vec![],
-                    capabilities: Capabilities {
-                        coding: quality,
-                        reasoning: quality,
-                        long_context: 0.95,
-                        writing: quality,
-                        tool_use: quality,
-                        speed,
-                        cost_efficiency: speed,
-                    },
-                });
-            }
-        }
         if let Some(ollama) = &cfg.inner.ollama {
             for model in &ollama.models {
                 file.model.push(ModelProfile {
@@ -168,7 +143,23 @@ impl Registry {
                 model.enabled &= providers.iter().any(|p| p == model.provider.as_str());
             }
         }
-        Ok(Self { models: file.model })
+        // Gemini is declared in the registry like every other model, but stays
+        // opt-in: a configuration that never selected google must not route to it.
+        let google_selected = cfg
+            .inner
+            .providers
+            .as_ref()
+            .is_some_and(|p| p.iter().any(|id| id == "google"));
+        if !google_selected {
+            for model in &mut file.model {
+                if model.provider == Provider::Google {
+                    model.enabled = false;
+                }
+            }
+        }
+        let registry = Self { models: file.model };
+        registry.validate()?;
+        Ok(registry)
     }
     /// True once any model declares `prefers`, which switches routing
     /// preferences from the legacy id table to registry declarations.
@@ -199,10 +190,10 @@ impl Registry {
                 bail!("invalid effort for {}", m.id);
             }
             match (m.provider, m.runtime) {
-                (Provider::Google, Runtime::Gemini) => {}
                 (Provider::Anthropic, Runtime::Claude)
                 | (Provider::Openai, Runtime::Codex)
-                | (Provider::Ollama, Runtime::Ollama) => {}
+                | (Provider::Ollama, Runtime::Ollama)
+                | (Provider::Google, Runtime::Gemini) => {}
                 _ => bail!("fail-closed provider/runtime violation for model {}", m.id),
             }
             let c = &m.capabilities;
@@ -227,6 +218,23 @@ impl Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_roster_line_shows_the_declared_routing_role() {
+        // "access=unverified (checked on use)" was printed on every row as a
+        // constant. The role a model claims is real, inspectable routing state.
+        let file: RegistryFile = toml::from_str(DEFAULT_REGISTRY).unwrap();
+        let opus = file.model.iter().find(|m| m.id == "opus").unwrap();
+        let line = roster_line(opus);
+        assert!(
+            line.contains("planning"),
+            "expected the declared role in: {line}"
+        );
+        assert!(
+            !line.contains("unverified"),
+            "constant noise on every row: {line}"
+        );
+    }
+
     #[test]
     fn embedded_registry_only_has_allowed_providers() {
         let file: RegistryFile = toml::from_str(DEFAULT_REGISTRY).unwrap();

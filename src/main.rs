@@ -102,7 +102,6 @@ fn app() -> Result<i32> {
         _ => {}
     }
     let registry = models::Registry::load(&cfg)?;
-    registry.validate()?;
     if matches!(cli.command, Some(Commands::Chat { .. }))
         || (cli.command.is_none() && cli.prompt.is_empty() && !cli.stdin)
     {
@@ -110,16 +109,19 @@ fn app() -> Result<i32> {
     }
     if matches!(cli.command, Some(Commands::Models)) {
         let mut output = nectra::terminal::stdout();
+        writeln!(
+            output,
+            "{:<10} {:<18} {:<8} {:<8} {:<7} PREFERS",
+            "PROVIDER", "MODEL", "RUNTIME", "STATUS", "EFFORT"
+        )?;
         for m in &registry.models {
-            writeln!(
-                output,
-                "{:<10} {:<22} runtime={:<6} enabled={} access=unverified (checked on use)",
-                m.provider.as_str(),
-                m.id,
-                m.runtime.as_str(),
-                m.enabled
-            )?;
+            writeln!(output, "{}", nectra::models::roster_line(m))?;
         }
+        writeln!(
+            output,
+            "
+Model access is verified on first use. Run `nectra doctor` to check provider CLIs."
+        )?;
         return Ok(0);
     }
     let (words, route_only) = match &cli.command {

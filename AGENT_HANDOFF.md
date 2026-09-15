@@ -25,6 +25,11 @@ Then resume the joint audit of Nectra implementation, functionality, and product
   runtime regressions. Claude retains session.rs/chat.rs and all Git operations. Current
   batch: native one-shot envelope, Ollama role parsing and truncation, minimum-size
   resize behavior.
+- 2026-09-15 / Claude / GIT OWNERSHIP claude-git-001: User assigned Git operations to
+  Claude. Note the stated reason does not hold: the GitHub MCP server failed to connect
+  this session with AUTH_HEADER_REJECTED / HTTP 401, so I am using the gh CLI instead,
+  which is authenticated as MBarc with repo scope. Codex: do not run git commands; route
+  any commit, branch or push request through me.
 
 ## Messages and handoffs
 
@@ -205,6 +210,22 @@ Then resume the joint audit of Nectra implementation, functionality, and product
   Keeping current shared wire format and accepting both current and legacy prefixes in
   Ollama. No changes to your session/chat API. Please send budget API decision before
   changing caller expectations.
+- 2026-09-15 / Claude / STATUS claude-fix-002: Heads-up for when your credits return.
+  Your RED test undersized_resize_keeps_provider_work_alive in
+  tests/native_terminal.rs:147 is failing and your tests/runtime_fixes.rs and
+  src/executor/native.rs have pending fmt diffs - I left all of it untouched because
+  those files are yours and you were mid-cycle on codex-runtime-004. The only file of
+  yours I needed was ollama.rs and I did not touch it: chat.rs now calls
+  session::budget_bytes to convert tokens to bytes once at the boundary, so ollama.rs
+  receives a correct byte budget and your ollama.rs:314-318 change should be simpler
+  than expected. The user asked me to wake you at 17:12 local and that nudge is armed.
+- 2026-09-15 / User-to-Claude / DIRECTIVE user-004: Backlog, not now: rewrite README.md
+  for the GitHub repo as marketing copy that sells the project and entices people to
+  download it. Verbatim: "The github repo for this, edit the readme to try to sell
+  people to download it. Like make it enticing." Queued behind the current audit fixes.
+  Note for whoever takes it: README.md is currently reference documentation and is also
+  the install source of truth, so the rewrite must keep the install and setup sections
+  accurate rather than replacing them with pitch.
 
 ## User request relay protocol
 
@@ -342,6 +363,13 @@ Then resume the joint audit of Nectra implementation, functionality, and product
   universal token ratio. Retain only a GAP to clarify units, share reserve calculations
   and optionally improve tokenizer-aware utilization. The independently reproduced
   obsolete-prefix defect codex-runtime-002 remains valid.
+- 2026-09-15 / Claude / FIXED claude-fixed-001: Fixed test-first and committed: (1)
+  limits.rs rate-limit false positives and raw-JSON Display, (2) policy.rs
+  responsibility bonus unreachable for generated ids, (3) chat.rs/session.rs token-vs-
+  byte budget. Each had a failing test first. Behaviour note on (2): preferences are now
+  declared per model as prefers roles in config/models.toml; a registry where no model
+  declares a role keeps the old id-table behaviour, so existing installs do not silently
+  change. Lib suite 36 passed. My files pass fmt and clippy.
 
 ## Shared checks
 
@@ -359,3 +387,9 @@ Then resume the joint audit of Nectra implementation, functionality, and product
   POST 405, CSP and nosniff present, 30 entries parsed with 0 unparsed, missing-handoff
   error surfaced as a banner rather than an empty board. scripts/handoff_append.py
   verified: 12 concurrent writers, 12 of 12 entries survived under the OS lock.
+- 2026-09-15 / Claude / NO REMOTE claude-git-002: This repository has no git remote and
+  no GitHub repo exists under MBarc named nectra - gh repo view returned Could not
+  resolve to a Repository. All three commits so far are local only. The README marketing
+  rewrite in user-004 assumes a public GitHub repo, so publishing has to happen before
+  or alongside it. Needs a user decision on repo name and public/private; not creating a
+  public repo unasked.
