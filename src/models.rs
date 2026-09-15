@@ -65,6 +65,10 @@ pub struct ModelProfile {
     pub capabilities: Capabilities,
     #[serde(default)]
     pub effort: String,
+    /// Routing roles this model claims, e.g. "demanding" or "simple-coding".
+    /// Any model may declare these, including generated ollama/* ids.
+    #[serde(default)]
+    pub prefers: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -125,6 +129,7 @@ impl Registry {
                     runtime: Runtime::Gemini,
                     enabled: true,
                     effort: String::new(),
+                    prefers: vec![],
                     capabilities: Capabilities {
                         coding: quality,
                         reasoning: quality,
@@ -145,6 +150,7 @@ impl Registry {
                     runtime: Runtime::Ollama,
                     enabled: true,
                     effort: String::new(),
+                    prefers: vec![],
                     capabilities: Capabilities {
                         coding: 0.65,
                         reasoning: 0.65,
@@ -163,6 +169,11 @@ impl Registry {
             }
         }
         Ok(Self { models: file.model })
+    }
+    /// True once any model declares `prefers`, which switches routing
+    /// preferences from the legacy id table to registry declarations.
+    pub fn uses_declared_preferences(&self) -> bool {
+        self.models.iter().any(|m| !m.prefers.is_empty())
     }
     pub fn validate(&self) -> Result<()> {
         if self.models.is_empty() {

@@ -10,7 +10,7 @@ use std::{
 
 /// Run the complete Nectra pane inside another real PTY, as in a terminal app.
 /// A local fixture supplies animation, an approval question and a structured answer.
-fn exercise(resize: bool, cancel: bool) {
+fn exercise(resize: bool, cancel: bool, undersize: bool) {
     let pair = native_pty_system()
         .openpty(PtySize {
             rows: 28,
@@ -85,6 +85,21 @@ fn exercise(resize: bool, cancel: bool) {
                     input.write_all(b"\x1d\x1d").unwrap();
                     returned = true;
                 } else {
+                    if undersize {
+                        pair.master
+                            .resize(PtySize {
+                                rows: 5,
+                                cols: 15,
+                                pixel_width: 0,
+                                pixel_height: 0,
+                            })
+                            .unwrap();
+                        thread::sleep(Duration::from_millis(400));
+                        if let Some(s) = child.try_wait().unwrap() {
+                            status = Some(s);
+                            break;
+                        }
+                    }
                     if resize {
                         pair.master
                             .resize(PtySize {
@@ -159,17 +174,22 @@ fn exercise(resize: bool, cancel: bool) {
 
 #[test]
 fn native_terminal_animation_approval_resize_and_context_handoff() {
-    exercise(true, false);
+    exercise(true, false, false);
 }
 
 #[test]
 fn completed_reply_returns_without_any_exit_keystroke() {
-    exercise(false, false);
+    exercise(false, false, false);
 }
 
 #[test]
 fn cancelling_native_work_does_not_save_a_fake_answer() {
-    exercise(false, true);
+    exercise(false, true, false);
+}
+
+#[test]
+fn undersized_resize_keeps_provider_work_alive() {
+    exercise(true, false, true);
 }
 
 #[test]

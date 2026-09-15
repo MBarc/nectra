@@ -224,7 +224,7 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
 }
 pub fn execute(d: &Decision, prompt: &str, cfg: &Config) -> Result<i32> {
     if d.runtime != "ollama" && native::enabled(cfg)? {
-        native::conversation(d, prompt, cfg)?;
+        native::conversation(d, &native::one_shot_context(prompt), cfg)?;
         return Ok(0);
     }
     let activity = crate::activity::Activity::start(&d.model);

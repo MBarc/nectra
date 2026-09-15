@@ -20,13 +20,12 @@ pub fn score(r: &Requirements, m: &ModelProfile, mode: Mode) -> f32 {
     }
 }
 
-/// Product routing preferences, not model benchmark measurements.
-pub fn responsibility_bonus(
-    task: crate::classifier::TaskType,
-    prompt: &str,
-    id: &str,
-    mode: Mode,
-) -> f32 {
+/// The routing role a prompt calls for, which models claim via `prefers`.
+///
+/// Returning a role rather than a model id is what lets any model win a
+/// preference. An id table can only ever name models whose ids are known at
+/// compile time, which silently excludes generated ids such as `ollama/<name>`.
+pub fn preferred_role(task: crate::classifier::TaskType, prompt: &str, mode: Mode) -> &'static str {
     use crate::classifier::TaskType::*;
     let words = format!(
         " {} ",
@@ -57,24 +56,122 @@ pub fn responsibility_bonus(
         task,
         CodeGeneration | Debugging | Refactoring | CodeReview | DataAnalysis
     );
-    let preferred = if demanding {
-        "gpt-6-astra"
+    if demanding {
+        "demanding"
     } else if matches!(mode, Mode::Fast) || simple {
         if coding {
-            "gpt-5.6-luna"
+            "simple-coding"
         } else {
-            "haiku"
+            "simple"
         }
     } else {
         match task {
-            CodeGeneration | Debugging | Refactoring | CodeReview | DataAnalysis => "gpt-5.6-sol",
-            Architecture | Planning => "opus",
-            Research | Writing | General => "sonnet",
+            CodeGeneration | Debugging | Refactoring | CodeReview | DataAnalysis => "coding",
+            Architecture | Planning => "planning",
+            Research | Writing | General => "general",
         }
+    }
+}
+
+/// Legacy id table, used only when no model in the registry declares `prefers`.
+///
+/// Without this an existing on-disk registry would silently lose its routing
+/// preferences on upgrade. Declaring `prefers` on any model opts the whole
+/// registry into the declarative path.
+fn legacy_preferred_id(role: &str) -> &'static str {
+    match role {
+        "demanding" => "gpt-6-astra",
+        "simple-coding" => "gpt-5.6-luna",
+        "simple" => "haiku",
+        "coding" => "gpt-5.6-sol",
+        "planning" => "opus",
+        _ => "sonnet",
+    }
+}
+
+/// Product routing preferences, not model benchmark measurements.
+pub fn responsibility_bonus(
+    task: crate::classifier::TaskType,
+    prompt: &str,
+    model: &crate::models::ModelProfile,
+    mode: Mode,
+    declarative: bool,
+) -> f32 {
+    let role = preferred_role(task, prompt, mode);
+    let matched = if declarative {
+        model.prefers.iter().any(|r| r == role)
+    } else {
+        model.id == legacy_preferred_id(role)
     };
-    if id == preferred {
+    if matched {
         0.30
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        classifier::TaskType,
+        models::{Capabilities, ModelProfile, Provider, Runtime},
+    };
+
+    fn local(id: &str, prefers: &[&str]) -> ModelProfile {
+        ModelProfile {
+            id: id.into(),
+            provider: Provider::Ollama,
+            runtime: Runtime::Ollama,
+            enabled: true,
+            effort: String::new(),
+            prefers: prefers.iter().map(|s| s.to_string()).collect(),
+            capabilities: Capabilities {
+                coding: 0.65,
+                reasoning: 0.65,
+                long_context: 0.5,
+                writing: 0.7,
+                tool_use: 0.0,
+                speed: 0.5,
+                cost_efficiency: 1.0,
+            },
+        }
+    }
+
+    #[test]
+    fn a_local_model_can_win_a_task_preference() {
+        // ollama/* and gemini-* ids are generated, so an id-literal preference
+        // table can never reach them and the +0.30 always lands on a cloud model.
+        let model = local("ollama/llama3", &["simple"]);
+        assert_eq!(
+            responsibility_bonus(TaskType::General, "quick summary", &model, Mode::Fast, true),
+            0.30
+        );
+    }
+
+    #[test]
+    fn a_model_that_claims_no_role_gets_no_bonus() {
+        let model = local("ollama/llama3", &[]);
+        assert_eq!(
+            responsibility_bonus(TaskType::General, "quick summary", &model, Mode::Fast, true),
+            0.0
+        );
+    }
+
+    #[test]
+    fn a_registry_without_declarations_keeps_the_legacy_preferences() {
+        let mut haiku = local("haiku", &[]);
+        haiku.provider = Provider::Anthropic;
+        haiku.runtime = Runtime::Claude;
+        assert_eq!(
+            responsibility_bonus(
+                TaskType::General,
+                "quick summary",
+                &haiku,
+                Mode::Fast,
+                false
+            ),
+            0.30
+        );
     }
 }

@@ -10,6 +10,23 @@ use std::{
 const MAX_LOG: u64 = 64 * 1024 * 1024;
 pub const CONTEXT_BYTES: usize = 128 * 1024;
 
+/// Rough UTF-8 bytes per token for prose and code.
+const BYTES_PER_TOKEN: usize = 4;
+/// Tokens held back so the model can still answer.
+const REPLY_TOKENS: usize = 1024;
+
+/// Byte budget for a model that advertises `context_tokens`.
+///
+/// [`Session::prompt`] measures UTF-8 bytes while providers advertise tokens.
+/// Passing a token count straight through gives a model about a quarter of the
+/// context it can hold, so the conversion has to happen exactly once, here.
+pub fn budget_bytes(context_tokens: usize) -> usize {
+    context_tokens
+        .saturating_sub(REPLY_TOKENS)
+        .saturating_mul(BYTES_PER_TOKEN)
+        .clamp(2 * 1024, CONTEXT_BYTES)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Exchange {
     pub user: String,
@@ -211,6 +228,7 @@ impl Session {
     }
     /// Keep the opening exchange when possible and a contiguous suffix of recent exchanges.
     /// Budget is UTF-8 serialized bytes, not a claim about model token limits.
+    /// Convert a model's token capacity with [`budget_bytes`] before calling this.
     pub fn prompt(&self, current: &str, budget: usize) -> Result<(String, usize)> {
         let encode = |history: &[&Exchange]| -> Result<String> {
             Ok(format!("Continue the conversation below and answer current_user_message directly. Use the transcript silently as context; do not acknowledge receiving context, announce a handoff, or introduce the routing system. Discuss the system or model identity only when relevant to the user's request. Do not repeat completed work. Previous replies may describe tool actions; inspect current files when needed.\n{}", serde_json::to_string(&serde_json::json!({"conversation": history, "current_user_message": current}))?))
@@ -239,5 +257,27 @@ impl Session {
         }
         let omitted = self.exchanges.len() - selected.len();
         Ok((encode(&selected)?, omitted))
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+
+    #[test]
+    fn a_token_capacity_converts_into_a_larger_byte_budget() {
+        // `prompt` takes bytes. Passing a token count straight through hands an
+        // 8192-token model roughly 8 KiB, about a quarter of what it can hold.
+        let bytes = budget_bytes(8192);
+        assert!(
+            bytes > 8192 * 2,
+            "expected a token-to-byte conversion, got {bytes} for 8192 tokens"
+        );
+    }
+
+    #[test]
+    fn a_tiny_context_still_leaves_room_for_the_reply() {
+        assert!(budget_bytes(256) < budget_bytes(8192));
+        assert!(budget_bytes(0) > 0);
     }
 }

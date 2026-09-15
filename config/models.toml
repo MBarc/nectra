@@ -7,6 +7,7 @@ provider = "anthropic"
 runtime = "claude"
 enabled = true
 effort = ""
+prefers = ["planning"]
 [model.capabilities]
 coding=0.97
 reasoning=0.99
@@ -22,6 +23,7 @@ provider = "anthropic"
 runtime = "claude"
 enabled = true
 effort = ""
+prefers = ["general"]
 [model.capabilities]
 coding=0.94
 reasoning=0.93
@@ -37,6 +39,7 @@ provider = "openai"
 runtime = "codex"
 enabled = true
 effort = "high"
+prefers = ["coding"]
 [model.capabilities]
 coding=0.99
 reasoning=0.99
@@ -52,6 +55,7 @@ provider = "openai"
 runtime = "codex"
 enabled = true
 effort = "medium"
+prefers = ["simple-coding"]
 [model.capabilities]
 coding=0.87
 reasoning=0.84
@@ -67,6 +71,7 @@ provider = "anthropic"
 runtime = "claude"
 enabled = true
 effort = ""
+prefers = ["simple"]
 [model.capabilities]
 coding=0.82
 reasoning=0.80
@@ -82,6 +87,7 @@ provider = "openai"
 runtime = "codex"
 enabled = true
 effort = "high"
+prefers = ["demanding"]
 [model.capabilities]
 coding=1.0
 reasoning=1.0

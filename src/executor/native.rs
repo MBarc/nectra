@@ -18,6 +18,13 @@ const LIMIT: u64 = 8 * 1024 * 1024;
 pub fn take_queued_messages() -> Vec<String> {
     pane::take_queued()
 }
+
+pub(super) fn one_shot_context(prompt: &str) -> String {
+    format!(
+        "Answer current_user_message directly.\n{}",
+        json!({"conversation": [], "current_user_message": prompt})
+    )
+}
 fn visible_prompt(root: &Path) -> Result<String> {
     let context = fs::read_to_string(root.join("context.txt"))?;
     let (_, payload) = context
@@ -655,6 +662,43 @@ pub fn fixture() -> Result<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn one_shot_prompts_build_native_commands_without_a_chat_session() {
+        let mut cfg = Config::from_defaults().unwrap();
+        let executable = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        cfg.inner.claude.command = executable.clone();
+        cfg.inner.gemini.command = executable;
+        for runtime in ["claude", "gemini"] {
+            let d = Decision {
+                task: "general".into(),
+                provider: runtime.into(),
+                runtime: runtime.into(),
+                model: "test-model".into(),
+                effort: String::new(),
+                mode: crate::cli::Mode::Balanced,
+                score: 0.0,
+                score_margin: None,
+                ambiguous: false,
+                overridden: true,
+                reason: String::new(),
+                candidates: vec![],
+            };
+            let root = tempfile::tempdir().unwrap();
+            let context = one_shot_context("hello\nsecond line");
+            fs::write(root.path().join("context.txt"), &context).unwrap();
+            assert_eq!(visible_prompt(root.path()).unwrap(), "hello\nsecond line");
+            let payload: Value = serde_json::from_str(context.split_once('\n').unwrap().1).unwrap();
+            assert_eq!(payload["conversation"], json!([]));
+            assert_eq!(payload["current_user_message"], "hello\nsecond line");
+            assert!(
+                command(&d, &cfg, root.path()).is_ok(),
+                "{runtime} one-shot command must build"
+            );
+        }
+    }
     #[test]
     fn explicit_settings_and_profile_notifications_are_preserved() {
         let mut args = vec![

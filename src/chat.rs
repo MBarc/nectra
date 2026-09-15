@@ -499,7 +499,7 @@ pub fn run_loop(
                             .iter()
                             .find(|m| decision.model == format!("ollama/{}", m.name))
                     })
-                    .map(|m| m.context_tokens.saturating_sub(1536))
+                    .map(|m| crate::session::budget_bytes(m.context_tokens))
                     .unwrap_or(CONTEXT_BYTES)
             } else {
                 CONTEXT_BYTES

@@ -340,10 +340,12 @@ pub fn messages(prompt: &str) -> Result<Vec<Value>> {
     let mut messages = vec![
         json!({"role":"system","content":"Continue the shared Nectra conversation. Earlier assistants may be different models. Answer the latest user. You are a chat-only model: you cannot inspect files, edit files, or run commands. Do not claim to have performed those actions."}),
     ];
-    if let Some((prefix, data)) = prompt
-        .split_once('\n')
-        .filter(|(prefix, _)| prefix.starts_with("Continue this shared Nectra conversation."))
-    {
+    if let Some((prefix, data)) = prompt.split_once('\n').filter(|(prefix, _)| {
+        prefix.starts_with("Continue this shared Nectra conversation.")
+            || prefix.starts_with(
+                "Continue the conversation below and answer current_user_message directly.",
+            )
+    }) {
         let _ = prefix;
         let context: Value = serde_json::from_str(data)?;
         for exchange in context["conversation"]
@@ -423,6 +425,9 @@ pub fn stream(mut reader: impl BufRead, output: &mut dyn Write) -> Result<String
             output.flush()?;
         }
         if event["done"] == true {
+            if event["done_reason"] == "length" {
+                bail!("Ollama reached its output limit; the partial answer was not saved as a completed turn. Ask for a shorter answer or an explicit continuation.");
+            }
             if reply.trim().is_empty() {
                 bail!("Ollama returned an empty answer");
             }

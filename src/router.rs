@@ -48,6 +48,7 @@ pub fn route(
         ProviderArg::Ollama => Provider::Ollama,
         ProviderArg::Google => Provider::Google,
     });
+    let declarative = registry.uses_declared_preferences();
     let mut candidates: Vec<_> = registry
         .models
         .iter()
@@ -67,7 +68,7 @@ pub fn route(
             (
                 m,
                 policy::score(&req, m, mode)
-                    + policy::responsibility_bonus(task, prompt, &m.id, mode),
+                    + policy::responsibility_bonus(task, prompt, m, mode, declarative),
             )
         })
         .collect();
