@@ -207,6 +207,16 @@ max-height:240px;overflow:auto}
 .sep{text-align:center;color:var(--dim);font-size:11px;margin:16px 0 14px;
 text-transform:uppercase;letter-spacing:.09em}
 .empty{color:var(--dim);font-style:italic;font-size:12.5px}
+.chip{font:inherit;font-size:11px;color:var(--dim);background:var(--panel);
+border:1px solid var(--line);border-radius:11px;padding:2px 10px;cursor:pointer}
+.chip:hover{color:var(--fg);border-color:#3d444d}
+.chip[data-who=claude]{color:var(--claude)}
+.chip[data-who=codex]{color:var(--codex)}
+.chip[data-who=user]{color:var(--user)}
+.chip.off{color:var(--dim);opacity:.45;text-decoration:line-through}
+.chip.on{color:var(--warn);border-color:var(--warn)}
+.banner{background:#4a1d1d;border:1px solid #8b3232;color:#ffb3b3;border-radius:8px;
+padding:11px 14px;margin-bottom:18px;font-size:12.5px}
 .f-list li{margin-bottom:7px}
 @media(max-width:620px){.msg{max-width:100%}.row,.row.codex{flex-direction:column}}
 </style></head><body>
@@ -214,8 +224,15 @@ text-transform:uppercase;letter-spacing:.09em}
   <h1>nectra &middot; agent monitor</h1>
   <span class="live"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
   <span class="live" id="counts"></span>
+  <span class="live" id="filters">
+    <button class="chip" data-who="claude" onclick="toggleAuthor('claude')">claude</button>
+    <button class="chip" data-who="codex" onclick="toggleAuthor('codex')">codex</button>
+    <button class="chip" data-who="user" onclick="toggleAuthor('user')">user</button>
+    <button class="chip" id="pause" onclick="togglePause()">pause</button>
+  </span>
 </header>
 <main>
+  <div id="banner" class="banner" style="display:none"></div>
   <div class="panels">
     <div class="panel"><h2>Current goal</h2><div class="goal" id="goal"></div></div>
     <div class="panel"><h2>Task ownership</h2><ul id="ownership"></ul></div>
@@ -244,12 +261,48 @@ function label(entry){
   return name.replace(/-to-/g, " → ");
 }
 
+// Match on message id only. Tag plus date collides whenever a tag repeats,
+// which would attach the wrong verbatim payload to an entry.
 function rawFor(state, entry){
-  if (!entry.tag) return null;
-  return (state.raw || []).find(r => r.tag === entry.tag && r.date === entry.date) || null;
+  if (!entry.id) return null;
+  return (state.raw || []).find(r => r.id && r.id === entry.id) || null;
+}
+
+let paused = false;
+let latest = null;
+const hidden = new Set();
+
+function togglePause(){
+  paused = !paused;
+  const button = el("pause");
+  button.textContent = paused ? "resume" : "pause";
+  button.classList.toggle("on", paused);
+  if (!paused && latest) render(latest);
+}
+
+function toggleAuthor(who){
+  if (hidden.has(who)) hidden.delete(who); else hidden.add(who);
+  document.querySelectorAll("#filters .chip").forEach(chip => {
+    chip.classList.toggle("off", hidden.has(chip.dataset.who));
+  });
+  if (latest) render(latest);
 }
 
 function render(state){
+  latest = state;
+  if (paused) return;
+
+  // A read failure must not render as a healthy empty board.
+  const banner = el("banner");
+  if (state.error){
+    banner.style.display = "";
+    banner.textContent = "cannot read handoff file: " + state.error;
+    el("dot").classList.add("off");
+    el("status").textContent = "stale";
+  } else {
+    banner.style.display = "none";
+  }
+
   el("goal").textContent = state.goal || "not set";
 
   const fill = (node, items) => {
@@ -267,7 +320,8 @@ function render(state){
     fmt(f.body) + "</li>").join("");
 
   // Newest first: the file stays append-only chronological, the view inverts it.
-  el("timeline").innerHTML = state.messages.slice().reverse().map(m => {
+  const shown = state.messages.filter(m => !hidden.has(agentOf(m)));
+  el("timeline").innerHTML = shown.slice().reverse().map(m => {
     const who = agentOf(m);
     const raw = rawFor(state, m);
     return '<div class="row ' + who + '"><div class="msg">' +
@@ -279,7 +333,8 @@ function render(state){
       (raw ? '<details><summary>verbatim queue payload</summary><pre class="raw">' +
         esc(raw.text) + "</pre></details>" : "") +
       "</div></div>";
-  }).join("") || '<div class="empty">no messages yet</div>';
+  }).join("") || '<div class="empty">' +
+    (hidden.size ? "all authors hidden" : "no messages yet") + "</div>";
 
   const count = who => state.messages.filter(m => agentOf(m) === who).length;
   el("counts").textContent = count("claude") + " claude · " +

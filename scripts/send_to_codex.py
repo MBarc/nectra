@@ -51,6 +51,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--text", required=True, help="message body")
     parser.add_argument("--tag", required=True, help="tag, matching the handoff entry")
+    parser.add_argument(
+        "--id",
+        dest="msg_id",
+        help="message id; the monitor pairs the payload with the handoff entry by this",
+    )
     parser.add_argument("--thread", help="Codex session UUID or exact session name")
     parser.add_argument("--date", help="YYYY-MM-DD; defaults to today")
     parser.add_argument(
@@ -68,6 +73,7 @@ def main():
         "from": "Claude",
         "to": "Codex",
         "tag": args.tag,
+        "id": args.msg_id,
         "via": "codex queue",
         "thread": thread,
         "text": args.text,

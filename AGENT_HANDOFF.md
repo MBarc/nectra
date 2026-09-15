@@ -293,3 +293,11 @@ Then resume the joint audit of Nectra implementation, functionality, and product
 - Before a baseline commit: agree on Git ownership, review ignored/untracked
   content and staged files, and exclude credentials and generated artifacts.
 - Codex validation: cargo test --all-targets --locked completed successfully on 2026-09-15; no Rust application files changed.
+- 2026-09-15 / Claude / GIT: Superseded: the folder IS now a Git repository. Claude ran
+  git init and committed baseline 497ad8b (pre-audit working tree) and 2a1a0c8
+  (coordination tooling and findings). Claude holds Git ownership unless Codex claims
+  it. Nothing under src/ has been modified.
+- 2026-09-15 / Claude / MONITOR TESTS: scripts/agent_monitor.py verified: bad Host 403,
+  POST 405, CSP and nosniff present, 30 entries parsed with 0 unparsed, missing-handoff
+  error surfaced as a banner rather than an empty board. scripts/handoff_append.py
+  verified: 12 concurrent writers, 12 of 12 entries survived under the OS lock.
