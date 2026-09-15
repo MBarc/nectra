@@ -7,6 +7,13 @@ use std::{
     time::Duration,
 };
 
+pub const OUTPUT_TOKEN_LIMIT: usize = 1024;
+// Input uses a deliberately conservative byte ceiling rather than a tokenizer estimate.
+// Reserve the output allowance before applying that ceiling.
+pub const INPUT_RESERVE_BYTES: usize = OUTPUT_TOKEN_LIMIT;
+// Extra headroom for converting the shared transcript into provider messages.
+pub const TRANSCRIPT_FRAMING_RESERVE_BYTES: usize = 512;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum LocalPolicy {
@@ -314,12 +321,12 @@ pub fn conversation(
     }
     let messages = messages(prompt)?;
     let size = serde_json::to_vec(&messages)?.len();
-    if size > model.context_tokens.saturating_sub(1024) {
+    if size > model.context_tokens.saturating_sub(INPUT_RESERVE_BYTES) {
         bail!("message exceeds conservative Ollama context budget; shorten the message");
     }
     let client = ollama.client(ollama.timeout_seconds)?;
     crate::activity::set_phase(crate::activity::Phase::Waiting);
-    let response = ollama.request(&client, "chat")?.json(&json!({"model":name,"messages":messages,"stream":true,"options":{"num_ctx":model.context_tokens,"num_predict":1024}})).send()
+    let response = ollama.request(&client, "chat")?.json(&json!({"model":name,"messages":messages,"stream":true,"options":{"num_ctx":model.context_tokens,"num_predict":OUTPUT_TOKEN_LIMIT}})).send()
         .map_err(|e| Unavailable { message: format!("Ollama request failed: {e}"), safe_to_retry: true, provider_wide: true })?;
     if !response.status().is_success() {
         let status = response.status().as_u16();

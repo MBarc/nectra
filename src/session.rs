@@ -12,9 +12,12 @@ pub const CONTEXT_BYTES: usize = 128 * 1024;
 
 /// Bytes held back so the provider's own guard is never the thing that fails.
 ///
-/// `ollama.rs` rejects outright when the serialized request exceeds
-/// `context_tokens - 1024`, so trimming has to stop below that, not at it.
-const OLLAMA_RESERVE_BYTES: usize = 1536;
+/// Derived from the provider's own constants rather than restated, so the two
+/// sides cannot drift: `ollama.rs` rejects above
+/// `context_tokens - INPUT_RESERVE_BYTES`, and trimming has to stop below that
+/// by at least the framing the transcript adds.
+const OLLAMA_RESERVE_BYTES: usize =
+    crate::ollama::INPUT_RESERVE_BYTES + crate::ollama::TRANSCRIPT_FRAMING_RESERVE_BYTES;
 
 /// Conservative byte budget for a model advertising `context_tokens`.
 ///
@@ -266,7 +269,7 @@ mod budget_tests {
 
     /// The provider's hard guard in `ollama.rs`: it bails above this size.
     fn provider_limit(context_tokens: usize) -> usize {
-        context_tokens.saturating_sub(1024)
+        context_tokens.saturating_sub(crate::ollama::INPUT_RESERVE_BYTES)
     }
 
     #[test]

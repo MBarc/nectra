@@ -41,6 +41,8 @@ nectra route "debug this intermittent race condition in the scheduler"
 }
 ```
 
+*Candidate list abbreviated; the real output ranks every eligible model.*
+
 `score_margin` tells you how close the call was, and `ambiguous` turns true when
 it was close enough that you should probably choose yourself. `candidates` shows
 everything it weighed. Disagree? `--model` overrides it and the conversation
@@ -50,7 +52,8 @@ continues uninterrupted.
 
 **Stop paying the context tax.** Switching models normally means re-explaining
 everything. Here the conversation is Nectra's, not the provider's, so `/model
-gpt-5.6-sol` mid-thread keeps every prior turn.
+gpt-5.6-sol` mid-thread carries your completed history across, trimmed to a
+budget with an omission notice when it outgrows the target model's context.
 
 **Routing you can argue with.** Scores come from an editable capability table in
 `config/models.toml`, not a black box. `nectra route` shows the decision,
@@ -61,17 +64,22 @@ work they want with `prefers = ["coding"]`. Bring your own corpus and tune it.
 PTY (ConPTY on Windows). You get their actual interface, animations and approval
 prompts, not a lossy wrapper around them.
 
-**It keeps going when a provider does not.** Recognised rate-limit and
-authentication rejections that arrive *before* any work has streamed fail over
-to another eligible model, carrying the conversation with them. Cooldowns are
-remembered between runs, so a limit you hit today is not rediscovered tomorrow.
+**It keeps going when a provider does not.** In the structured stream view
+(`--provider-view stream`), recognised rate-limit and authentication rejections
+arriving *before* any work has streamed fail over to another eligible model and
+carry the conversation with them. The embedded terminal view cannot prove no
+tools ran, so it deliberately does **not** auto-replay; it reports and lets you
+choose. Cooldowns are remembered across runs until they expire, so a live limit
+is not rediscovered by walking into it again.
 
 **Local models are first class.** Point it at Ollama and local models compete on
-the same table as hosted ones - or set `local-only` and nothing leaves the
-machine at all.
+the same table as hosted ones. `local-only` keeps routing to your configured
+Ollama server rather than any hosted provider - that server is wherever
+`base_url` points, so it is only on-machine if you configured it that way.
 
-**One binary, no runtime.** Rust, no Node or Python to install, no daemon, no
-account with us, because there is no us. Your provider CLIs, your keys.
+**One binary, no daemon.** Nectra itself is a single Rust executable with no
+runtime of its own and no account, because there is no us - your provider CLIs,
+your keys. Those CLIs keep their own requirements; Gemini CLI needs Node.
 
 ## Install
 

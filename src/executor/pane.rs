@@ -170,6 +170,7 @@ pub(super) fn run(
     let mut typed = String::new();
     let mut draft = String::new();
     let mut provider_input = false;
+    let mut too_small = false;
     let mut queued_count = 0usize;
     let result = (|| -> Result<Outcome> {
         loop {
@@ -218,7 +219,10 @@ pub(super) fn run(
                 }
                 last_capture = Instant::now();
             }
-            if (dirty || !provider_input) && last_render.elapsed() >= Duration::from_millis(100) {
+            if !too_small
+                && (dirty || !provider_input)
+                && last_render.elapsed() >= Duration::from_millis(100)
+            {
                 let queue_footer = format!(
                     "Queued: {queued_count} | F2: approvals | you> {}",
                     draft.replace(['\n', '\r'], " ")
@@ -290,6 +294,13 @@ pub(super) fn run(
             if event::poll(Duration::from_millis(15))? {
                 match event::read()? {
                     Event::Key(key) if key.kind != KeyEventKind::Release => {
+                        // Keep cancellation available, but do not forward unseen input.
+                        if too_small
+                            && !(key.code == KeyCode::Char(']')
+                                && key.modifiers.contains(KeyModifiers::CONTROL))
+                        {
+                            continue;
+                        }
                         if key.code == KeyCode::F(2) {
                             clear_region(origin, display_rows)?;
                             provider_input = !provider_input;
@@ -392,6 +403,9 @@ pub(super) fn run(
                         }
                     }
                     Event::Paste(text) => {
+                        if too_small {
+                            continue;
+                        }
                         // Sanitize escape/control bytes so paste cannot break out into terminal commands.
                         let text: String = text
                             .chars()
@@ -416,7 +430,24 @@ pub(super) fn run(
                         }
                         writer.flush()?;
                     }
-                    Event::Resize(_, _) => {
+                    Event::Resize(width, height) => {
+                        if width < 20 || height < 8 {
+                            // Preserve the last usable PTY size and the running child.
+                            // A transient window resize is not a cancellation request.
+                            too_small = true;
+                            guard.bottom = height.saturating_sub(1);
+                            execute!(io::stdout(), MoveTo(0, 0), Clear(ClearType::CurrentLine))?;
+                            write!(
+                                io::stdout(),
+                                "{}",
+                                "Enlarge terminal to continue"
+                                    .chars()
+                                    .take(width.saturating_sub(1) as usize)
+                                    .collect::<String>()
+                            )?;
+                            io::stdout().flush()?;
+                            continue;
+                        }
                         let new_size = size()?;
                         (cols, rows) = new_size;
                         // Reallocate below the old pane; never clear the earlier chat on resize.
@@ -424,7 +455,10 @@ pub(super) fn run(
                             io::stdout(),
                             MoveTo(0, guard.bottom.min(terminal::size()?.1.saturating_sub(1)))
                         )?;
-                        clear_region(origin, display_rows)?;
+                        if !too_small {
+                            clear_region(origin, display_rows)?;
+                        }
+                        too_small = false;
                         display_rows = if provider_input { rows } else { 2 };
                         origin = allocate(display_rows)?;
                         guard.bottom = origin + display_rows + 1;
@@ -451,8 +485,10 @@ pub(super) fn run(
     drop(writer);
     drop(pair.master);
     let _ = reader_thread.join();
-    let _ = clear_region(origin, display_rows);
-    guard.bottom = origin.saturating_sub(1);
+    if !too_small {
+        let _ = clear_region(origin, display_rows);
+        guard.bottom = origin.saturating_sub(1);
+    }
     drop(guard);
     result
 }

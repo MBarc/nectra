@@ -51,9 +51,11 @@ pub fn preferred_role(task: crate::classifier::TaskType, prompt: &str, mode: Mod
     .any(|w| has(w));
     // Words about the size of the work, not the kind of it. "summarize" and
     // "extract" name a task; summarising a large document is not cheap work.
-    let simple = ["quick", "simple", "brief", "short", "trivial", "minor"]
-        .iter()
-        .any(|w| has(w));
+    let simple = [
+        "quick", "simple", "brief", "briefly", "short", "trivial", "minor",
+    ]
+    .iter()
+    .any(|w| has(w));
     let coding = matches!(
         task,
         CodeGeneration | Debugging | Refactoring | CodeReview | DataAnalysis

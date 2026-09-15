@@ -136,7 +136,11 @@ fn ties_are_independent_of_registry_order() {
     let cap = reg.models[0].capabilities.clone();
     for m in &mut reg.models {
         m.capabilities = cap.clone();
-        m.id = format!("custom-{}", m.id); // Equal scores without bundled responsibility preferences.
+        m.id = format!("custom-{}", m.id);
+        // Equal scores without bundled responsibility preferences. Roles are
+        // declared per model now, so clearing them is what neutralises the
+        // bonus; renaming the id alone no longer does.
+        m.prefers.clear();
     }
     let a = router::route("task", &cfg, &reg, Mode::Fast, None, None).unwrap();
     reg.models.reverse();
