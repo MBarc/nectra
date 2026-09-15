@@ -1,11 +1,96 @@
 # Nectra
 
-**One command. The right agent.**
+**One conversation. The right model. No cloud router in the middle.**
 
-Nectra is a local Rust command-line router for Claude Code, Codex CLI, Gemini CLI,
-and Ollama's local chat API.
-It classifies your prompt without making a model call, ranks enabled model
-profiles, and either explains the decision or launches the selected CLI.
+You have Claude Code, Codex CLI, Gemini CLI and a local model or two. Each is
+better at something. So you keep three terminals open, paste context between
+them by hand, and lose the thread every time you switch.
+
+Nectra gives you one chat. It reads each message, decides which agent should
+answer it, hands that agent the conversation so far, and drops you into that
+provider's real terminal - colors, tool output, approval prompts and all. When
+the answer lands, you are back at one prompt, ready for the next message.
+
+The decision happens on your machine. **No model call decides which model you
+get**, nothing about your prompt leaves the box before a provider is chosen, and
+every routing decision is a JSON object you can read.
+
+## See it decide
+
+```sh
+nectra route "debug this intermittent race condition in the scheduler"
+```
+
+```json
+{
+  "task": "debugging",
+  "provider": "openai",
+  "runtime": "codex",
+  "model": "gpt-5.6-sol",
+  "effort": "high",
+  "mode": "balanced",
+  "score": 1.1582785,
+  "score_margin": 0.24934578,
+  "ambiguous": false,
+  "reason": "local heuristic classified prompt as debugging; highest eligible score including task responsibility and complexity",
+  "candidates": [
+    { "model": "gpt-5.6-sol",  "provider": "openai",    "score": 1.1582785 },
+    { "model": "sonnet",       "provider": "anthropic", "score": 0.9089327 },
+    { "model": "gpt-5.6-luna", "provider": "openai",    "score": 0.8883139 }
+  ]
+}
+```
+
+`score_margin` tells you how close the call was, and `ambiguous` turns true when
+it was close enough that you should probably choose yourself. `candidates` shows
+everything it weighed. Disagree? `--model` overrides it and the conversation
+continues uninterrupted.
+
+## Why you would want this
+
+**Stop paying the context tax.** Switching models normally means re-explaining
+everything. Here the conversation is Nectra's, not the provider's, so `/model
+gpt-5.6-sol` mid-thread keeps every prior turn.
+
+**Routing you can argue with.** Scores come from an editable capability table in
+`config/models.toml`, not a black box. `nectra route` shows the decision,
+`nectra eval` scores the classifier against a corpus, and models declare which
+work they want with `prefers = ["coding"]`. Bring your own corpus and tune it.
+
+**The real CLI, not a reimplementation.** Claude, Codex and Gemini run in a true
+PTY (ConPTY on Windows). You get their actual interface, animations and approval
+prompts, not a lossy wrapper around them.
+
+**It keeps going when a provider does not.** Recognised rate-limit and
+authentication rejections that arrive *before* any work has streamed fail over
+to another eligible model, carrying the conversation with them. Cooldowns are
+remembered between runs, so a limit you hit today is not rediscovered tomorrow.
+
+**Local models are first class.** Point it at Ollama and local models compete on
+the same table as hosted ones - or set `local-only` and nothing leaves the
+machine at all.
+
+**One binary, no runtime.** Rust, no Node or Python to install, no daemon, no
+account with us, because there is no us. Your provider CLIs, your keys.
+
+## Install
+
+Build it with current stable Rust:
+
+```sh
+cargo build --release --locked
+./target/release/nectra setup
+./target/release/nectra chat
+```
+
+`nectra setup` asks which providers you have access to and checks that their CLIs
+are actually installed. `nectra doctor` re-checks at any time without making a
+single model call. Full build, packaging and uninstall instructions are below.
+
+Prebuilt archives are produced by tag-based CI for Windows x64, Linux x64 and
+macOS on Intel and Apple Silicon, each with a SHA-256 sidecar. The install
+scripts need `NECTRA_REPO=owner/repository`; no public release repository is
+configured yet, so building from source is the supported path today.
 
 ## One shared chat session
 

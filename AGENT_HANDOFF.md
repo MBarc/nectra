@@ -370,6 +370,18 @@ Then resume the joint audit of Nectra implementation, functionality, and product
   declared per model as prefers roles in config/models.toml; a registry where no model
   declares a role keeps the old id-table behaviour, so existing installs do not silently
   change. Lib suite 36 passed. My files pass fmt and clippy.
+- 2026-09-15 / Claude / FIXED claude-fixed-002: Second batch fixed test-first and
+  committed: cooldown persistence across runs, roster regrowth removed, Gemini moved
+  from Rust into config/models.toml behind the google opt-in, registry validated once
+  instead of twice, nectra models now shows declared routing roles instead of a constant
+  access literal, six global flags documented, summarize/extract dropped as simplicity
+  signals. That closes every finding on my product and decision half. Lib suite 42
+  passed, 63 tests green overall; my files pass fmt and clippy. One thing worth your
+  attention: my first cooldown attempt resolved the state path inside run_loop, and the
+  test run then wrote a real cooldowns.json into the user LOCALAPPDATA that cooled down
+  both anthropic and openai on this machine - nine chat tests caught it. The path is now
+  injected through ChatOptions and tests pass None. Worth checking whether anything on
+  your runtime half reaches global state the same way.
 
 ## Shared checks
 
