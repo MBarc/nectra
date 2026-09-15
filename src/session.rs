@@ -10,21 +10,21 @@ use std::{
 const MAX_LOG: u64 = 64 * 1024 * 1024;
 pub const CONTEXT_BYTES: usize = 128 * 1024;
 
-/// Rough UTF-8 bytes per token for prose and code.
-const BYTES_PER_TOKEN: usize = 4;
-/// Tokens held back so the model can still answer.
-const REPLY_TOKENS: usize = 1024;
-
-/// Byte budget for a model that advertises `context_tokens`.
+/// Bytes held back so the provider's own guard is never the thing that fails.
 ///
-/// [`Session::prompt`] measures UTF-8 bytes while providers advertise tokens.
-/// Passing a token count straight through gives a model about a quarter of the
-/// context it can hold, so the conversion has to happen exactly once, here.
+/// `ollama.rs` rejects outright when the serialized request exceeds
+/// `context_tokens - 1024`, so trimming has to stop below that, not at it.
+const OLLAMA_RESERVE_BYTES: usize = 1536;
+
+/// Conservative byte budget for a model advertising `context_tokens`.
+///
+/// A token is at least one byte, so spending the token count as a *byte*
+/// ceiling is a deliberate safe under-estimate, documented in
+/// `docs/local-providers.md`. It is not a unit confusion: exact tokenizer
+/// counts are not available locally, and over-estimating would hand the
+/// provider a request it refuses.
 pub fn budget_bytes(context_tokens: usize) -> usize {
-    context_tokens
-        .saturating_sub(REPLY_TOKENS)
-        .saturating_mul(BYTES_PER_TOKEN)
-        .clamp(2 * 1024, CONTEXT_BYTES)
+    context_tokens.saturating_sub(OLLAMA_RESERVE_BYTES)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -264,20 +264,32 @@ impl Session {
 mod budget_tests {
     use super::*;
 
-    #[test]
-    fn a_token_capacity_converts_into_a_larger_byte_budget() {
-        // `prompt` takes bytes. Passing a token count straight through hands an
-        // 8192-token model roughly 8 KiB, about a quarter of what it can hold.
-        let bytes = budget_bytes(8192);
-        assert!(
-            bytes > 8192 * 2,
-            "expected a token-to-byte conversion, got {bytes} for 8192 tokens"
-        );
+    /// The provider's hard guard in `ollama.rs`: it bails above this size.
+    fn provider_limit(context_tokens: usize) -> usize {
+        context_tokens.saturating_sub(1024)
     }
 
     #[test]
-    fn a_tiny_context_still_leaves_room_for_the_reply() {
-        assert!(budget_bytes(256) < budget_bytes(8192));
-        assert!(budget_bytes(0) > 0);
+    fn the_trim_budget_stays_under_the_provider_hard_limit() {
+        // Trimming must stop before the provider refuses, otherwise chat
+        // assembles a history that ollama.rs rejects outright.
+        for tokens in [2048, 8192, 32768, 131_072] {
+            assert!(
+                budget_bytes(tokens) < provider_limit(tokens),
+                "budget {} must stay under the provider limit {} for {tokens} tokens",
+                budget_bytes(tokens),
+                provider_limit(tokens)
+            );
+        }
+    }
+
+    #[test]
+    fn a_larger_context_earns_a_larger_budget() {
+        assert!(budget_bytes(8192) > budget_bytes(2048));
+    }
+
+    #[test]
+    fn a_context_smaller_than_the_reserve_does_not_underflow() {
+        assert_eq!(budget_bytes(256), 0);
     }
 }
