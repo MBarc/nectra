@@ -63,7 +63,8 @@ def main():
         text = handle.read()
 
     heading = SECTIONS[args.section]
-    if heading not in text:
+    heading_match = re.search(r"^" + re.escape(heading) + r"$", text, re.MULTILINE)
+    if heading_match is None:
         # New section: place it before Shared checks when that exists, else append.
         block = "{0}\n\n{1}\n\n".format(heading, entry)
         anchor = SECTIONS["checks"]
@@ -72,7 +73,7 @@ def main():
         else:
             text = text.rstrip("\n") + "\n\n" + block
     else:
-        head, rest = text.split(heading, 1)
+        head, rest = text[:heading_match.start()], text[heading_match.end():]
         match = re.search(r"\n## ", rest)
         if match:
             body, tail = rest[: match.start()], rest[match.start():]
