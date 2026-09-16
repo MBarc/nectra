@@ -40,16 +40,42 @@ Python's `TemporaryDirectory` initially caused a misleading read failure because
 its private Windows ACL excluded sandbox access. The final fixture uses ordinary
 inherited workspace permissions, without modifying any project ACLs.
 
-## Claude and remaining coverage
+## Claude: restricted tool-profile smoke test passes
 
-Claude's restricted Read/Glob/Grep profile is still a proposed tool restriction,
-not an experimentally verified whole-process write boundary. No Claude model
-call was made here. Hook, MCP, managed-settings and command-tool exclusion remain
-to be tested separately; a model merely declining a write is not proof of denial.
-The Codex fixture also does not verify those integration paths or network effects.
+An actual call through Claude Code 2.1.273 completed successfully with:
 
-Next engineering step: Claude independently reproduces this failing capability
-check. Choose an externally enforced read-only mount/container or another verified
-backend before accepting a no-mutations capability contract. Debate production
-implementation remains on hold; this prerequisite investigation does not change
-that decision.
+```text
+--restricted --safe-mode --tools Read,Glob,Grep --strict-mcp-config
+--permission-prompts none --permission-mode manual --no-session-persistence
+--output-format stream-json --verbose
+```
+
+Run the opt-in live fixture (uses provider quota):
+
+```powershell
+python scripts/test_claude_readonly.py --claude C:\path\to\claude.exe --live
+```
+
+Observed initialization listed exactly `Glob`, `Grep`, `Read`, and no MCP servers.
+The model called Read and Glob, reported a random file value that was not included
+in its prompt, and left the complete fixture tree unchanged after being asked to
+create, overwrite, delete, rename and create a directory. Exit status was zero and
+the structured result indicated success. Syntax compilation also passed.
+
+This is **observed tool restriction, not OS-level write denial**. Mutation tools
+were unavailable; the test did not submit forbidden tool calls directly to the
+dispatcher. A refusal alone would not pass: the fixture also checks inventory,
+actual read tool use, secret fixture value, completion and the filesystem snapshot.
+No raw conversation or credentials are persisted by the fixture.
+
+Hook and managed-settings variations, deliberately configured malicious MCP
+servers, alternate CLI versions and platforms remain untested. The Codex probe
+also does not verify integration paths or network effects. Do not turn this one
+smoke test into a runtime-wide `read_only_capable = true` assertion.
+
+Claude independently reproduced the failing Codex capability check. The next
+decision is whether the product contract permits a controlled read-tool-only
+adapter or requires external OS isolation for every CLI. A disposable clone alone
+is insufficient: the process must also be denied access to the original checkout.
+Debate production implementation remains on hold; these prerequisite experiments
+do not implement or approve that feature.
