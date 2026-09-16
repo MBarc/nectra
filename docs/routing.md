@@ -1,18 +1,29 @@
 ﻿# Task responsibilities and model access
 
-Nectra's bundled roster now includes haiku and gpt-6-astra. Existing registries
-containing all four original bundled IDs receive these two missing profiles in
-memory; existing entries, including disabled ones, are preserved. Custom registries
-without that original roster remain unchanged. Provider selections still apply.
+Models declare which work they want. A registry entry carries a `prefers` list of
+routing roles, and a prompt resolves to one role; a model claiming that role gets
+the preference. Any model can claim a role, including generated `ollama/<name>`
+and `gemini-*` ids.
 
-| Task | Preferred model |
-| --- | --- |
-| Quick summaries, extraction, short answers, simple edits | haiku |
-| Simple coding or technical tasks | gpt-5.6-luna |
-| Everyday conversation, writing, research synthesis | sonnet |
-| Planning and architecture | opus |
-| Implementation, debugging, refactoring, review, data analysis | gpt-5.6-sol |
-| Explicitly demanding or complex tasks | gpt-6-astra |
+A registry where **no** model declares `prefers` keeps the older behaviour, in
+which the preference is matched against a fixed table of bundled model ids. That
+keeps an installed registry routing as it always did until it opts in. `nectra
+models` prints each model's declared roles and warns when a registry predates the
+field.
+
+Your registry is never rewritten. A model you delete stays deleted; earlier
+versions silently re-added two bundled profiles, and that no longer happens.
+
+The bundled registry declares these roles:
+
+| Role | Task | Declared by |
+| --- | --- | --- |
+| `simple` | Short answers, small edits | haiku |
+| `simple-coding` | Small technical tasks | gpt-5.6-luna |
+| `general` | Conversation, writing, research synthesis | sonnet |
+| `planning` | Planning and architecture | opus |
+| `coding` | Implementation, debugging, refactoring, review, data analysis | gpt-5.6-sol |
+| `demanding` | Explicitly demanding or complex tasks | gpt-6-astra |
 
 These are product routing preferences, not measured capability claims. Preferences
 add 0.30 to the existing quality/speed/cost score; other eligible models remain
@@ -20,8 +31,10 @@ fallbacks. Fast mode prefers Haiku for nontechnical tasks and Luna for technical
 ones. Explicit demanding-task signals take precedence over that speed preference.
 
 Demanding signals: complex, difficult, hardest, multi-step, multistep, end-to-end,
-escalate, deep reasoning. Light-task signals: quick, simple, brief, short,
-summarize, extract. Classification remains local keyword matching, not a semantic
+escalate, deep reasoning. Light-task signals: quick, simple, brief, briefly,
+short, trivial, minor. These describe the size of the work, not its kind:
+"summarize" and "extract" name a task and no longer count, because summarising a
+large document is not cheap work. Classification remains local keyword matching, not a semantic
 AI judge. Physical building prompts such as "plan how to build a shed" classify
 as planning rather than coding. Responsibilities are defined in src/policy.rs;
 capability estimates remain editable in the registry.
@@ -53,7 +66,9 @@ Unknown errors are not guessed to be entitlement failures. No hidden probe calls
 are made, no credentials are read by the router, and no login state is changed.
 
 `/model retry` clears model-access observations without replaying anything. Logging
-in via `/login PROVIDER` also clears that provider's model observations. Restarting
-chat resets observations and cooldowns. If every eligible model is unavailable,
+in via `/login PROVIDER` also clears that provider's model observations. Restarting chat resets
+model-access observations, but **cooldowns persist between runs** so a rate limit
+you hit is not rediscovered by walking into it again; they are stored under the
+local data directory and expire on their own. If every eligible model is unavailable,
 the chat remains open rather than looping indefinitely. These retries apply to
 chat; one-shot route/run commands retain their explicit constraints.
