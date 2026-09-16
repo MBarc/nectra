@@ -4,6 +4,7 @@ pub mod chat;
 pub mod classifier;
 pub mod cli;
 pub mod config;
+pub mod debate;
 pub mod executor;
 pub mod limits;
 pub mod models;

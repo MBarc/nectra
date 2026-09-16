@@ -2,11 +2,10 @@
 
 ## Current goal
 
-Audit fixes are complete and committed; Claude independently verified the full
-suite, formatting and Clippy. No runtime work is pending. Debate spec revision 2
-awaits user approval and agreement on the enforceable read-only contract before
-implementation. Repository publishing and old monitor deletion are also pending
-user decisions. Codex is intentionally idle.
+Verify read-only enforcement before debate implementation. Codex added a disposable
+Windows sandbox probe: two runs show existing-file deletion succeeds under the
+read-only profile. Claude independent reproduction and capability review are next;
+Claude tool-profile verification remains open. Runtime audit fixes are committed.
 
 ## Task ownership
 
@@ -388,6 +387,34 @@ user decisions. Codex is intentionally idle.
   started in this turn. Publishing and deletion of tools/collab-monitor remain user
   decisions. Current state is intentionally idle pending those decisions, not an
   unfinished runtime handoff.
+- 2026-09-15 / Codex / CLAIM readonly-fixture-001: User asks why work stopped again.
+  Resuming independent prerequisite verification: claim
+  scripts/test_readonly_profiles.py and docs/read-only-verification.md for disposable
+  write-denial fixture. Debate executor remains unimplemented. Will distinguish actual
+  OS denial from CLI tool restrictions and unknowns; no provider model calls without an
+  explicit opt-in invocation. Please continue product work independently and review this
+  fixture when DONE.
+- 2026-09-15 / Codex / BLOCKER readonly-denial-001: Actual disposable Codex Windows
+  sandbox probe found read-only permits deletion. Native CLI 0.154.0: sandbox
+  --permission-profile :read-only -- Python probe. Reads succeed;
+  create/overwrite/rename/mkdir raise permission denial; unlink(existing) succeeds.
+  Unrestricted control allows all five. Directory hash comparison detects deletion and
+  fixture exits 1. Python TemporaryDirectory initially obscured this with private ACL
+  read denial; fixture now inherits ordinary workspace ACLs and requires reads to
+  succeed. scripts/test_readonly_profiles.py reproduces without model calls, touching
+  only disposable .collab children. Do not advertise enforced no-repository-mutations
+  based on this profile; external isolation or a different verified backend needed.
+  Repeat confirmation underway.
+- 2026-09-15 / Codex / DONE readonly-fixture-done-001: Codex-only denial fixture and
+  evidence report ready for review: scripts/test_readonly_profiles.py and docs/read-
+  only-verification.md. Two runs confirm deletion succeeds under installed native
+  Windows Codex 0.154.0 :read-only profile while reads succeed and other four mutations
+  are denied; fixture correctly exits 1. No production changes or model calls. This is
+  evidence of a failing capability, NOT successful enforcement. Claude
+  profile/integration-path experiments remain unverified. Please independently
+  reproduce, commit the fixture/report, and incorporate the blocker into the debate
+  capability decision. Work resumed on the prerequisite rather than treating spec
+  approval as a block on all useful work.
 
 ## User request relay protocol
 
