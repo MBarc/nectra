@@ -29,14 +29,24 @@ fn main() {
         return;
     }
     if args.get(1).is_some_and(|s| s == "--driver") {
+        #[cfg(windows)]
+        if args.get(3).is_some_and(|s| s == "--ignore-ctrl-c") {
+            // Reproduce the process attribute inherited from some launchers.
+            assert_ne!(
+                unsafe { windows_sys::Win32::System::Console::SetConsoleCtrlHandler(None, 1) },
+                0
+            );
+        }
         signal_driver(Path::new(&args[2]));
         return;
     }
     for mode in ["ok", "cancel", "bad"] {
         exercise(mode);
     }
-    exercise_terminal_interrupt();
-    println!("4 stream process scenarios passed (completion, cancellation, malformed output, terminal Ctrl+C)");
+    exercise_terminal_interrupt(false);
+    #[cfg(windows)]
+    exercise_terminal_interrupt(true);
+    println!("stream process scenarios passed (completion, cancellation, malformed output, terminal Ctrl+C; Windows also covers ignored Ctrl+C)");
 }
 
 fn signal_driver(root: &Path) {
@@ -66,7 +76,7 @@ fn signal_driver(root: &Path) {
     fs::write(root.join("returned"), "chat stayed alive").unwrap();
 }
 
-fn exercise_terminal_interrupt() {
+fn exercise_terminal_interrupt(ignore_ctrl_c: bool) {
     use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     let root = tempfile::tempdir().unwrap();
     let pair = native_pty_system()
@@ -80,6 +90,9 @@ fn exercise_terminal_interrupt() {
     let mut cmd = CommandBuilder::new(std::env::current_exe().unwrap());
     cmd.arg("--driver");
     cmd.arg(root.path());
+    if ignore_ctrl_c {
+        cmd.arg("--ignore-ctrl-c");
+    }
     let mut child = pair.slave.spawn_command(cmd).unwrap();
     drop(pair.slave);
     let mut input = pair.master.take_writer().unwrap();
@@ -112,7 +125,7 @@ fn exercise_terminal_interrupt() {
     let bytes = drain.join().unwrap();
     assert!(
         status.is_some_and(|s| s.success()) && root.path().join("returned").exists(),
-        "terminal interrupt did not return safely: {}",
+        "terminal interrupt did not return safely (ignored={ignore_ctrl_c}): {}",
         String::from_utf8_lossy(&bytes)
     );
 }

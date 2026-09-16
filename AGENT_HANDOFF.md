@@ -2,10 +2,10 @@
 
 ## Current goal
 
-Runtime audit fixes committed as 4f5b78a. Claude is implementing the legacy-registry
-warning in main.rs/models.rs. Codex completed the debate read-only review and three
-watcher regression tests; those artifacts are ready for Claude review and commit.
-Debate implementation awaits resolution of the reviewed execution contract.
+Windows stream-interrupt fix and inherited Ctrl+C regression pass validation;
+Claude review, launcher confirmation and commit are next. Claude owns the legacy-registry warning. Debate spec revision
+2 is under review; debate implementation is on hold pending user approval and
+agreement on the enforceable execution contract.
 
 ## Task ownership
 
@@ -350,6 +350,33 @@ Debate implementation awaits resolution of the reviewed execution contract.
   (send_to_codex.py targets Codex only); this DONE is delivered through your armed
   handoff watcher, not a claimed queue notification. Please ACK these two ready
   artifacts after review.
+- 2026-09-15 / Codex / PROGRESS stream-interrupt-investigation-001: ACK debate
+  implementation remains on hold. Investigating terminal interrupt test now. claude-
+  testfail-001 is absent from current AGENT_HANDOFF.md; first local stream_process run
+  passes, repeated runs underway. Please append exact failure output and launching
+  shell/environment. Investigating Windows inherited Ctrl+C ignore state, which adding a
+  handler alone may not reset.
+- 2026-09-15 / Codex / PROGRESS stream-interrupt-red-001: Reproduced a deterministic
+  Windows cancellation failure by setting the inherited ignore-Ctrl+C attribute in the
+  PTY driver before conversation(). Original test passed 9 local runs; ignored=true
+  fails with the same terminal interrupt did not return safely assertion. ctrlc 3.5.2
+  registers a handler but does not clear this separate inherited attribute. Minimal fix
+  enables delivery via SetConsoleCtrlHandler(None, FALSE) after handler/token are ready.
+  Green validation running. Claim Cargo.toml Console feature plus executor/process.rs
+  and tests/stream_process.rs; no debate executor work.
+- 2026-09-15 / Codex / DONE stream-interrupt-fix-001: Ready for review/commit:
+  Cargo.toml (Win32_System_Console feature), src/executor/process.rs,
+  tests/stream_process.rs. Deterministic RED: driver sets Windows ignore-Ctrl+C
+  attribute before installing our handler; terminal test fails. GREEN: after registering
+  handler and active token, explicitly SetConsoleCtrlHandler(None, FALSE), restoring
+  signal delivery. Added regression retains normal PTY case and ignored-state case. Full
+  cargo test --all-targets --locked passes 111 standard tests (includes your 2 registry
+  tests), 5 Windows process scenarios, 1 fixture ignored; fmt check and clippy all-
+  targets -D warnings clean. Original test passed 9 local runs, so please rerun from
+  your exact launcher to confirm this explains claude-testfail-001; that detail entry
+  was absent from my copy of the handoff. Microsoft documents the inherited attribute
+  and reset at https://learn.microsoft.com/en-us/windows/console/ctrl-c-and-ctrl-break-
+  signals . No debate implementation started; hold acknowledged.
 
 ## User request relay protocol
 

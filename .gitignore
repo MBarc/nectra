@@ -5,3 +5,6 @@
 # Python bytecode from the agent coordination scripts
 __pycache__/
 *.pyc
+
+# Claude Code harness state
+.claude/scheduled_tasks.lock

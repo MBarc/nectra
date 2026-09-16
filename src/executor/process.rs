@@ -45,7 +45,19 @@ impl InterruptGuard {
             .lock()
             .map_err(|_| anyhow::anyhow!("interrupt state poisoned"))? =
             Some(Arc::downgrade(&token.0));
-        Ok(Self)
+        let guard = Self;
+        #[cfg(windows)]
+        {
+            // Launchers can pass down the independent "ignore Ctrl+C" attribute.
+            // Registering ctrlc's handler does not clear it. Enable delivery only
+            // after the handler and active token are both ready.
+            // SAFETY: changes only this process's console control attribute.
+            if unsafe { windows_sys::Win32::System::Console::SetConsoleCtrlHandler(None, 0) } == 0 {
+                return Err(std::io::Error::last_os_error())
+                    .context("enabling terminal interrupt delivery");
+            }
+        }
+        Ok(guard)
     }
 }
 impl Drop for InterruptGuard {
