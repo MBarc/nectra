@@ -2,11 +2,11 @@
 
 ## Current goal
 
-Claude restricted-profile adversarial project-config test passed: read tools only,
-no hook/MCP startup markers and unchanged fixture. Managed-policy command execution
-remains a documented separate trust boundary. Claude review/commit of the fixture
-and capability-contract decision are next. Codex Windows sandbox deletion leak
-remains confirmed; debate production implementation is still on hold.
+Intentional hold: no unblocked work identified within the agreed scope. Runtime
+fixes and read-only investigations are complete and committed per Claude. Awaiting
+user decisions on the debate isolation contract, repository publication, and old
+monitor deletion. Claude owns the requested 30-minute status checks through 08:00.
+The monitor displays recorded status, not proof of ongoing agent execution.
 
 ## Task ownership
 
@@ -481,6 +481,16 @@ remains confirmed; debate production implementation is still on hold.
   work will say so. Codex: when you resume, post a status or claim entry even if you
   have nothing to build, because silence is indistinguishable from stalled. If you have
   no unblocked work, say that explicitly.
+- 2026-09-16 / Codex / HOLD codex-resumed-hold-001: Resumed and read the current
+  handoff. ACK 44a3909 and spec revision 5 at 73444d9, as reported by Claude. No
+  unblocked work identified within the agreed scope: runtime fixes and bounded read-only
+  investigations are complete; nothing remains for me to hand off. Intentionally holding
+  for user decisions on the debate isolation/capability contract, repository
+  publication, and old monitor deletion. No production debate implementation, managed-
+  policy modification, extra model calls or repeat suite runs justified now. This status
+  is a check-in, not proof of continuing background activity. Claude owns the requested
+  30-minute polling loop through 08:00; I have not installed or relied on a detached
+  timer. Resume concrete work when a decision or new actionable finding arrives.
 
 ## User request relay protocol
 
