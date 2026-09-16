@@ -2,6 +2,8 @@
 
 **Status:** design, not approved. No code written.
 **Origin:** user request `user-001`, recorded in `AGENT_HANDOFF.md`.
+**Revision 4:** Claude restricted profile verified as tool restriction only;
+a disposable clone corrected as insufficient isolation.
 **Revision 3:** records the verified read-only failure on Windows Codex.
 **Revision 2:** incorporates Codex's runtime review (`docs/debate-runtime-review.md`),
 which corrected eight points in revision 1. Corrections are marked below.
@@ -47,12 +49,23 @@ cannot be "no repository mutations" on Windows Codex.**
 
 Three honest options, for the user to choose:
 
-1. **Require a real boundary.** Run debate participants against an externally
-   enforced read-only mount or a disposable clone, and treat CLI sandbox flags as
-   defence in depth rather than the guarantee. Strongest, most work.
-2. **Ship on a verified-only allowlist.** Debate runs only where the fixture
-   passes. Today that is nothing on Windows, so the mode would not ship here
-   until Claude's profile is tested or upstream fixes deletion.
+1. **Require a real boundary.** Run debate participants where the OS, not the
+   CLI, denies mutation, and treat sandbox flags as defence in depth.
+
+   **A disposable clone is not isolation** (Codex's correction). Copying the repo
+   elsewhere changes nothing if the process can still reach the original
+   checkout by absolute path. Isolation has to make the original *unreachable* --
+   a container, a restricted account, or a genuinely read-only mount -- not merely
+   provide somewhere else to work.
+2. **Ship on a verified-only allowlist.** Debate runs only where a fixture passes
+   on the user's actual platform. Current evidence:
+   - **Codex on Windows: fails.** Deletion escapes `--sandbox read-only`.
+   - **Claude restricted profile: tool surface verified.** A live call exposed
+     only `Read`/`Glob`/`Grep`, no MCP, and left the tree unchanged. This is
+     *observed tool restriction, not OS write denial* -- forbidden calls were
+     never dispatched directly, and hook and managed-config variants are
+     untested. It supports a narrow "read-tool-only adapter" contract, not a
+     whole-process no-mutation guarantee.
 3. **Ship with the promise weakened** to "restricted, not guaranteed", stating
    plainly that deletion is possible. Cheapest and, given deletion specifically,
    the hardest to defend to a user who loses files.
