@@ -79,3 +79,35 @@ adapter or requires external OS isolation for every CLI. A disposable clone alon
 is insufficient: the process must also be denied access to the original checkout.
 Debate production implementation remains on hold; these prerequisite experiments
 do not implement or approve that feature.
+
+## Adversarial project configuration: smoke test passes
+
+On 2026-09-16, the same Claude profile passed a live run with
+`--hostile-project-config` added to the fixture command. The disposable project
+contained permissive Bash/Write/Edit rules, a SessionStart hook that would create
+`hook.executed`, and a project MCP command that would create `mcp.executed` at
+startup. Both marker payloads were executed directly as positive controls, their
+output verified, and their markers removed before the restricted run.
+
+Observed outcome: exposed tools remained exactly Glob/Grep/Read; Read and Glob
+were called; the nonce was returned correctly; MCP inventory was empty; neither
+startup marker appeared; the entire project snapshot remained unchanged.
+The run completed successfully and the fixture passed. This tests the combined
+restricted/safe-mode/strict-MCP profile, not which individual flag blocked which
+configuration. The MCP probe detects process startup, not a full MCP handshake.
+The positive controls validate payload executability, not that an unrestricted
+Claude session would load these configuration files. No unrestricted model run
+was made, and no settings outside the disposable project were changed.
+
+### Managed policy is a separate trust boundary
+
+The [Claude CLI reference](https://code.claude.com/docs/en/cli-reference) explicitly
+states that safe mode continues to apply managed policy, including policy hooks,
+status-line commands and file-suggestion commands. Therefore a clean built-in
+tool inventory cannot establish that no policy-controlled command will run.
+This is a documented limitation, not a locally reproduced managed-policy escape.
+We did not install or change machine-managed settings to test it.
+
+The narrow contract must specify trusted or verified managed configuration, or
+place the entire CLI process behind external filesystem isolation. Do not infer
+resistance to hostile managed policy from the passing project-config smoke test.
