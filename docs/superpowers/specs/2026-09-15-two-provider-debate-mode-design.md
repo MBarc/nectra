@@ -2,6 +2,8 @@
 
 **Status:** design, not approved. No code written.
 **Origin:** user request `user-001`, recorded in `AGENT_HANDOFF.md`.
+**Revision 5:** Claude profile additionally survives a hostile project config;
+managed policy remains the untested residual.
 **Revision 4:** Claude restricted profile verified as tool restriction only;
 a disposable clone corrected as insufficient isolation.
 **Revision 3:** records the verified read-only failure on Windows Codex.
@@ -60,12 +62,19 @@ Three honest options, for the user to choose:
 2. **Ship on a verified-only allowlist.** Debate runs only where a fixture passes
    on the user's actual platform. Current evidence:
    - **Codex on Windows: fails.** Deletion escapes `--sandbox read-only`.
-   - **Claude restricted profile: tool surface verified.** A live call exposed
-     only `Read`/`Glob`/`Grep`, no MCP, and left the tree unchanged. This is
-     *observed tool restriction, not OS write denial* -- forbidden calls were
-     never dispatched directly, and hook and managed-config variants are
-     untested. It supports a narrow "read-tool-only adapter" contract, not a
-     whole-process no-mutation guarantee.
+   - **Claude restricted profile: tool surface verified, and it survives a
+     hostile *project* config.** A live call exposed only `Read`/`Glob`/`Grep`
+     with no MCP, left the tree unchanged, and a second run defeated planted
+     permissive `Bash`/`Write`/`Edit` permissions, a `SessionStart` hook and a
+     project MCP marker -- none executed, with the markers validated locally
+     first so silence could not be a false pass.
+
+     **Still not a whole-process guarantee.** Claude's own reference states
+     safe-mode continues to apply *managed* policy, including policy hooks, and
+     machine-managed settings were deliberately not altered or tested. A tool
+     inventory cannot prove the absence of policy-driven side effects. The
+     contract must therefore either verify managed configuration as part of the
+     preflight, or isolate the whole process externally.
 3. **Ship with the promise weakened** to "restricted, not guaranteed", stating
    plainly that deletion is possible. Cheapest and, given deletion specifically,
    the hardest to defend to a user who loses files.
