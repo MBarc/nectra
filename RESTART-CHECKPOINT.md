@@ -1,4 +1,31 @@
-﻿# Nectra checkpoint - September 12, 2026
+﻿# Nectra checkpoint - September 15, 2026
+
+The repository is now under Git. Baseline `497ad8b` captures the pre-audit tree;
+everything since is committed. There is **no remote and no GitHub repository** -
+`gh repo view MBarc/nectra` does not resolve - so nothing is published.
+
+A joint Claude/Codex audit raised and closed 20 findings across a product/decision
+half and a runtime half. Full suite is green: 111 tests across all targets, one
+ignored fixture, `fmt` and `clippy -D warnings` clean. See VALIDATION.md for what
+changed and for two claims that were withdrawn rather than shipped.
+
+Routing preferences are now declared per model as `prefers` in `config/models.toml`.
+An installed registry that predates the field keeps the legacy id table, and `nectra
+models` says so. Note that an installed `%APPDATA%\nectra\models.toml` shadows the
+repository copy.
+
+Rate-limit cooldowns persist at `%LOCALAPPDATA%\nectra\cooldowns.json`. Delete that
+file if routing inexplicably avoids a provider.
+
+Two-provider debate mode is specified but **not built**: see
+`docs/superpowers/specs/2026-09-15-two-provider-debate-mode-design.md` and the
+runtime review at `docs/debate-runtime-review.md`. It is blocked on a user decision
+and on an enforceable read-only capability contract; read-only is not enforced today.
+
+Agent coordination lives in `AGENT_HANDOFF.md` with helper scripts under `scripts/`
+and a local monitor at `scripts/agent_monitor.py`.
+
+---
 
 Embedded provider terminal implementation is complete and packaged.
 

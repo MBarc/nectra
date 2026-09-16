@@ -1,3 +1,45 @@
+# Two-agent audit and fixes — September 15, 2026
+
+111 tests passed across all targets with one ignored subprocess fixture; `cargo fmt
+--check` and `cargo clippy --all-targets --locked -- -D warnings` both clean. The
+suite grew from 84 to 111 during this work.
+
+Claude Code and Codex CLI audited the codebase jointly from one shared workspace,
+splitting it into a product/decision half and a runtime half, and recorded findings
+and coordination in `AGENT_HANDOFF.md`. Twenty findings were raised and closed.
+
+Product and decision half: rate-limit detection now matches structured provider
+fields rather than the serialized event, so an incidental `429` in a token count no
+longer reads as a limit and an unrelated `account_id` no longer widens a
+model-scoped limit to the whole provider. `RateLimited` displays the provider
+message instead of raw JSON. Routing preferences became per-model `prefers`
+declarations so generated `ollama/*` and `gemini-*` ids can win one, with the legacy
+id table retained for registries that declare no roles. Cooldowns persist between
+runs. A registry no longer silently regrows models the user removed, Gemini profiles
+moved from Rust into `config/models.toml` behind the `google` opt-in, and `nectra
+models` reports declared roles plus a notice when an installed registry predates the
+`prefers` field.
+
+Runtime half: one-shot native launches wrap the conversation payload, Ollama
+receives real per-role messages, output-limit truncation is surfaced rather than
+returned as a complete answer, an undersized pane no longer terminates provider
+work, stream shutdown is bounded with owned-process cleanup, and the queued draft
+editor is grapheme-aware. On Windows, an inherited "ignore Ctrl+C" console
+attribute is now cleared explicitly; because registering a handler does not clear
+it, interrupt delivery had depended on how the process was launched, which made
+`tests/stream_process.rs` pass or fail on an unchanged tree.
+
+Two claims were raised and then withdrawn after review rather than shipped. A
+reported token-versus-byte "unit bug" in the Ollama context budget was wrong:
+`docs/local-providers.md` documents conservative byte budgeting as deliberate, and
+the attempted fix raised the trim budget above the provider guard in `ollama.rs`,
+which would have turned a working trim into a hard rejection. It was reverted; only
+a named reserve constant and a test pinning the budget below the provider limit were
+kept. A claim that Ollama chat never trims history was also withdrawn.
+
+No live Claude, Codex, Gemini or Ollama model request or authentication change was
+performed during the audit.
+
 # Native terminal validation — September 12, 2026
 
 75 tests passed with one ignored subprocess fixture; formatting and Clippy passed.

@@ -2,10 +2,11 @@
 
 ## Current goal
 
-Windows stream-interrupt fix and inherited Ctrl+C regression pass validation;
-Claude review, launcher confirmation and commit are next. Claude owns the legacy-registry warning. Debate spec revision
-2 is under review; debate implementation is on hold pending user approval and
-agreement on the enforceable execution contract.
+Audit fixes are complete and committed; Claude independently verified the full
+suite, formatting and Clippy. No runtime work is pending. Debate spec revision 2
+awaits user approval and agreement on the enforceable read-only contract before
+implementation. Repository publishing and old monitor deletion are also pending
+user decisions. Codex is intentionally idle.
 
 ## Task ownership
 
@@ -377,6 +378,16 @@ agreement on the enforceable execution contract.
   was absent from my copy of the handoff. Microsoft documents the inherited attribute
   and reset at https://learn.microsoft.com/en-us/windows/console/ctrl-c-and-ctrl-break-
   signals . No debate implementation started; hold acknowledged.
+- 2026-09-15 / Codex / ACK runtime-closeout-001: ACK independent verification and commit
+  of Ctrl+C fix. You may commit verified work without waiting for DONE unless I have
+  explicitly marked it in progress or not ready; preserve claimed in-progress edits.
+  DONE stream-interrupt-fix-001 was posted in my workspace, so there appears to have
+  been a timing gap, but no need to delay green work for that label. All assigned
+  runtime findings are closed. Debate executor remains on hold until user approval and
+  agreement on the enforceable capability contract; no denial fixture or provider calls
+  started in this turn. Publishing and deletion of tools/collab-monitor remain user
+  decisions. Current state is intentionally idle pending those decisions, not an
+  unfinished runtime handoff.
 
 ## User request relay protocol
 
