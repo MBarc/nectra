@@ -13,12 +13,16 @@ indicator remains visible. Stop-hook processing is labeled "Finishing reply".
 ## Controls
 
 - Type and press Enter to queue a message in Nectra while the provider works.
+- Use Left/Right, Home/End, Backspace and Delete to edit the queued draft. Movement
+  and deletion keep Unicode grapheme clusters (including emoji) intact. Long drafts
+  scroll horizontally so the insertion cursor stays visible.
 - Press **F2** to give the provider keyboard control for an approval or other native
   interaction. Press F2 again to return to the main-thread queue.
 - Completed replies automatically return to Nectra's main prompt.
 - Press **Shift+PageUp / Shift+PageDown** to scroll the pane's recent output.
 - Resize the terminal to resize the provider pane.
-- **Ctrl+C** is forwarded to the provider for its normal interrupt behavior.
+- In provider-input mode (F2), **Ctrl+C** is forwarded to the provider for its normal
+  interrupt behavior. In the main queue, use Ctrl+] twice to cancel the active turn.
 - If work has not completed, the first Ctrl+] offers cancellation. Press it again
   to stop and return, or Escape to stay. Interrupted work is not automatically replayed.
 - The provider's `/quit` or `/exit` command can also return to Nectra. A completed
@@ -51,6 +55,23 @@ otherwise use structured streams. `terminal` requires an interactive terminal at
 least 20 columns by 8 rows. `stream` retains the previous inline answer display and
 Nectra's status spinner. Ollama always uses its HTTP stream; it has no native CLI
 subterminal to embed.
+
+During CLI-backed chat in stream view, **Ctrl+C** cancels the current turn and
+returns to the chat prompt. Partial output is neither saved as a completed reply
+nor automatically replayed. This control does not yet cover Ollama HTTP requests
+or one-shot `run` commands.
+
+CLI chat cleanup terminates the launched Windows job or Unix process group before
+waiting for its pipes. After a provider exits, inherited pipes receive a short
+drain period; shutdown and pipe joins are bounded. A cancelled or malformed turn
+cannot hang the chat indefinitely waiting for a child that keeps a pipe open.
+Native panes use the same scoped cleanup. Shared daemons and processes that
+deliberately escape the launched group are not terminated. Linux/macOS process-group
+behavior requires platform CI validation; local regression checks run on Windows.
+
+Shrinking a native window below 20 columns by 8 rows temporarily pauses display
+and typing while the provider continues running. Enlarge the window to resume;
+Ctrl+] twice can still cancel while it is small.
 
 The permission-bypass flag is still per launch and applies to the chosen provider:
 

@@ -45,7 +45,7 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
     let mut approved = false;
     let mut inspected = false;
     let mut returned = false;
-    let mut saw_animation = false;
+    let mut animation_frames = std::collections::BTreeSet::new();
     let mut status = None;
     #[cfg(windows)]
     let mut descendant: Option<std::os::windows::io::OwnedHandle> = None;
@@ -78,7 +78,13 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
                     });
                 }
             }
-            saw_animation |= screen.contains("Thinking |");
+            // PTY rendering can coalesce frames; verify motion instead of requiring
+            // one particular transient spinner glyph to reach the outer terminal.
+            for frame in ['|', '/', '-', '\\'] {
+                if screen.contains(&format!("Thinking {frame}")) {
+                    animation_frames.insert(frame);
+                }
+            }
             if screen.contains("Approve writing design.md") && !approved {
                 approved = true;
                 if cancel {
@@ -113,7 +119,7 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
                     }
                     // These are Nectra messages, never provider approval input.
                     input
-                        .write_all(b"\x1bOQuse opus and plan a shed\rthen review it\r\x1bOQy\x1bOQ")
+                        .write_all(b"\x1bOQuse opuX\x1b[D\x1b[3~s and plan a shed\rthen review it\r\x1bOQy\x1bOQ")
                         .unwrap();
                 }
             }
@@ -152,7 +158,7 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
         );
     }
     assert!(
-        saw_animation && approved && returned,
+        animation_frames.len() >= 2 && approved && returned,
         "native animation/input was not observed: {}",
         String::from_utf8_lossy(&output)
     );

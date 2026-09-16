@@ -59,16 +59,26 @@ impl Drop for TerminalGuard {
 
 struct ChildGuard(
     Box<dyn portable_pty::Child + Send + Sync>,
-    #[cfg(windows)] Option<super::windows_job::Job>,
+    Option<super::process::Scope>,
+    bool,
 );
 impl ChildGuard {
     fn terminate(&mut self) {
-        #[cfg(windows)]
-        if let Some(job) = &self.1 {
-            job.terminate();
+        if self.2 {
+            return;
+        }
+        self.2 = true;
+        if let Some(scope) = self.1.take() {
+            scope.terminate();
         }
         let _ = self.0.kill();
-        let _ = self.0.wait();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            if !matches!(self.0.try_wait(), Ok(None)) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
     }
 }
 impl Drop for ChildGuard {
@@ -117,12 +127,11 @@ pub(super) fn run(
         pair.slave
             .spawn_command(cmd)
             .context("starting native provider terminal")?,
-        #[cfg(windows)]
         None,
+        false,
     );
-    #[cfg(windows)]
     {
-        child.1 = Some(super::windows_job::Job::attach(
+        child.1 = Some(super::process::Scope::attach(
             child.0.process_id().context("missing provider PID")?,
         )?);
     }
@@ -168,7 +177,7 @@ pub(super) fn run(
     let mut dirty = true;
     let mut confirm_cancel = false;
     let mut typed = String::new();
-    let mut draft = String::new();
+    let mut draft = super::draft::Draft::default();
     let mut provider_input = false;
     let mut too_small = false;
     let mut queued_count = 0usize;
@@ -213,7 +222,7 @@ pub(super) fn run(
                         typed.clear();
                         // Each completed turn belongs back at the routing prompt. Leaving the
                         // provider's prompt active silently bypasses Nectra on the next message.
-                        leave = draft.is_empty();
+                        leave = draft.text.is_empty();
                     }
                     dirty = true;
                 }
@@ -223,10 +232,14 @@ pub(super) fn run(
                 && (dirty || !provider_input)
                 && last_render.elapsed() >= Duration::from_millis(100)
             {
-                let queue_footer = format!(
-                    "Queued: {queued_count} | F2: approvals | you> {}",
-                    draft.replace(['\n', '\r'], " ")
-                );
+                let prefix = if cols >= 50 {
+                    format!("Queued: {queued_count} | F2: approvals | you> ")
+                } else {
+                    "> ".into()
+                };
+                let (visible, cursor) = draft.view((cols as usize).saturating_sub(prefix.len()));
+                let cursor = (prefix.len() + cursor) as u16;
+                let queue_footer = format!("{prefix}{visible}");
                 if provider_input {
                     render(
                         parser.screen(),
@@ -252,10 +265,8 @@ pub(super) fn run(
                         } else {
                             &queue_footer
                         },
+                        cursor,
                     )?;
-                }
-                if !provider_input {
-                    execute!(io::stdout(), Hide)?;
                 }
                 previous = Some(
                     (0..rows)
@@ -349,28 +360,16 @@ pub(super) fn run(
                         }
                         if !provider_input {
                             match key.code {
-                                KeyCode::Enter if !draft.trim().is_empty() => {
-                                    QUEUED.with(|queue| {
-                                        queue.borrow_mut().push(std::mem::take(&mut draft))
-                                    });
+                                KeyCode::Enter if !draft.text.trim().is_empty() => {
+                                    QUEUED.with(|queue| queue.borrow_mut().push(draft.take()));
                                     queued_count += 1;
                                     if ready {
                                         leave = true;
                                     }
                                 }
-                                KeyCode::Backspace => {
-                                    draft.pop();
-                                }
-                                KeyCode::Char(c)
-                                    if !key
-                                        .modifiers
-                                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
-                                {
-                                    draft.push(c)
-                                }
-                                _ => {}
+                                _ => draft.key(key),
                             }
-                            if ready && draft.is_empty() {
+                            if ready && draft.text.is_empty() {
                                 leave = true;
                             }
                             dirty = true;
@@ -412,7 +411,7 @@ pub(super) fn run(
                             .filter(|c| !c.is_control() || matches!(c, '\n' | '\r' | '\t'))
                             .collect();
                         if !provider_input {
-                            draft.push_str(&text);
+                            draft.insert(&text);
                             dirty = true;
                             continue;
                         }
@@ -484,7 +483,8 @@ pub(super) fn run(
     drop(rx);
     drop(writer);
     drop(pair.master);
-    let _ = reader_thread.join();
+    // Escaped daemons may retain a PTY handle; never wait forever for that reader.
+    let _ = super::process::join_until(reader_thread, Instant::now() + Duration::from_secs(2));
     if !too_small {
         let _ = clear_region(origin, display_rows);
         guard.bottom = origin.saturating_sub(1);
@@ -560,6 +560,7 @@ fn render_activity(
     cols: u16,
     elapsed: Duration,
     footer: &str,
+    cursor: u16,
 ) -> Result<()> {
     clear_region(origin, 2)?;
     let mut out = io::stdout();
@@ -581,6 +582,11 @@ fn render_activity(
         )?;
         queue!(out, SetAttribute(Attribute::Reset))?;
     }
+    queue!(
+        out,
+        MoveTo(cursor.min(cols.saturating_sub(1)), origin + 2),
+        Show
+    )?;
     out.flush()?;
     Ok(())
 }

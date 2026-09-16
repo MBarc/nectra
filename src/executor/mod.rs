@@ -1,12 +1,16 @@
 use crate::{config::Config, router::Decision};
 mod conversation;
+mod draft;
 pub mod native;
 mod pane;
+mod process;
 #[cfg(windows)]
 mod windows_job;
 use anyhow::{bail, Context, Result};
 pub use conversation::conversation;
+pub use conversation::conversation_with_cancellation;
 pub use conversation::AuthenticationRequired;
+pub use process::CancellationToken;
 use std::{
     env,
     ffi::OsString,

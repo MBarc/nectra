@@ -6,7 +6,9 @@ use std::{
     ffi::OsString,
     io::{BufRead, BufReader, Read, Write},
     process::Stdio,
+    sync::mpsc,
     thread,
+    time::{Duration, Instant},
 };
 
 const MAX_EVENT_BYTES: usize = 8 * 1024 * 1024;
@@ -28,6 +30,21 @@ pub fn conversation(
     cfg: &Config,
     output: &mut dyn Write,
 ) -> Result<String> {
+    let cancel = super::CancellationToken::default();
+    let _interrupt = super::process::InterruptGuard::install(&cancel)?;
+    conversation_with_cancellation(d, prompt, cfg, output, &cancel)
+}
+
+pub fn conversation_with_cancellation(
+    d: &Decision,
+    prompt: &str,
+    cfg: &Config,
+    output: &mut dyn Write,
+    cancel: &super::CancellationToken,
+) -> Result<String> {
+    if cancel.is_cancelled() {
+        bail!("Turn cancelled; partial output was not saved or replayed.");
+    }
     let command = match d.runtime.as_str() {
         "claude" => &cfg.inner.claude.command,
         "codex" => &cfg.inner.codex.command,
@@ -64,46 +81,88 @@ pub fn conversation(
         }
         _ => unreachable!(),
     }
-    let mut child = launch(command)?
+    let mut command = launch(command)?;
+    command
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .context("launching chat agent")?;
+        .stderr(Stdio::piped());
+    let mut owned = super::process::OwnedChild::spawn(&mut command)?;
     crate::activity::set_phase(crate::activity::Phase::Waiting);
-    let mut stderr = child.stderr.take().context("opening agent diagnostics")?;
+    let mut stderr = owned
+        .child
+        .stderr
+        .take()
+        .context("opening agent diagnostics")?;
     let activity = crate::activity::current();
     let diagnostics = thread::spawn(move || -> std::io::Result<()> {
         let mut buffer = [0; 8192];
         loop {
             let count = stderr.read(&mut buffer)?;
             if count == 0 {
-                break;
+                return Ok(());
             }
             crate::activity::diagnostic(&activity, &buffer[..count])?;
         }
-        Ok(())
     });
-    let mut stdin = child.stdin.take().context("opening agent stdin")?;
+    let mut stdin = owned.child.stdin.take().context("opening agent stdin")?;
     let prompt = prompt.as_bytes().to_vec();
-    // Read stdout while writing stdin so a large prompt cannot deadlock with startup output.
     let writer = thread::spawn(move || stdin.write_all(&prompt));
-    let stdout = child.stdout.take().context("opening agent stdout")?;
-    let mut reader = BufReader::new(stdout);
-    let mut state = StreamState::default();
-    let streamed = (|| -> Result<()> {
+    let stdout = owned.child.stdout.take().context("opening agent stdout")?;
+    let (tx, rx) = mpsc::sync_channel(8);
+    let reader = thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
         loop {
             let mut line = vec![];
-            let length = (&mut reader)
+            let result = (&mut reader)
                 .take((MAX_EVENT_BYTES + 1) as u64)
-                .read_until(b'\n', &mut line)?;
-            if length == 0 {
+                .read_until(b'\n', &mut line);
+            let result = match result {
+                Ok(0) => break,
+                Ok(length) if length > MAX_EVENT_BYTES => {
+                    Err(std::io::Error::other("agent event exceeded 8 MiB"))
+                }
+                Ok(_) => Ok(line),
+                Err(error) => Err(error),
+            };
+            let failed = result.is_err();
+            if tx.send(result).is_err() || failed {
                 break;
             }
-            if length > MAX_EVENT_BYTES {
-                bail!("agent event exceeded 8 MiB");
+        }
+    });
+    let mut state = StreamState::default();
+    let mut exited = None;
+    let mut exit_time = None;
+    let mut completion_time = None;
+    let mut shutdown_time = None;
+    let streamed = (|| -> Result<()> {
+        loop {
+            if cancel.is_cancelled() {
+                bail!("Turn cancelled; partial output was not saved or replayed.");
             }
+            if exited.is_none() {
+                exited = owned.child.try_wait()?;
+                if exited.is_some() {
+                    exit_time = Some(Instant::now());
+                }
+            }
+            if exit_time.is_some_and(|t| t.elapsed() >= Duration::from_millis(500)) {
+                owned.stop();
+                exit_time = None;
+                shutdown_time = Some(Instant::now());
+            }
+            if shutdown_time.is_some_and(|t| t.elapsed() >= Duration::from_secs(2)) {
+                bail!("provider descendants retained output after shutdown; turn was not saved");
+            }
+            if completion_time.is_some_and(|t: Instant| t.elapsed() >= Duration::from_secs(2)) {
+                bail!("provider did not exit after completing its turn; stopped without saving a completed answer");
+            }
+            let line = match rx.recv_timeout(Duration::from_millis(50)) {
+                Ok(line) => line?,
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            };
             if line.iter().all(u8::is_ascii_whitespace) {
                 continue;
             }
@@ -116,24 +175,37 @@ pub fn conversation(
                 write!(output, "{text}")?;
                 output.flush()?;
             }
+            if state.completed && completion_time.is_none() {
+                completion_time = Some(Instant::now());
+            }
+        }
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while exited.is_none() {
+            if cancel.is_cancelled() {
+                bail!("Turn cancelled; partial output was not saved or replayed.");
+            }
+            exited = owned.child.try_wait()?;
+            if Instant::now() >= deadline {
+                bail!("provider closed output but did not exit; turn was not saved");
+            }
+            thread::sleep(Duration::from_millis(10));
         }
         Ok(())
     })();
-    if streamed.is_err() {
-        let _ = child.kill();
-    }
-    let status = child.wait().context("waiting for chat agent")?;
-    diagnostics
-        .join()
-        .map_err(|_| anyhow::anyhow!("diagnostics reader panicked"))??;
-    let written = writer
-        .join()
-        .map_err(|_| anyhow::anyhow!("prompt writer panicked"))?;
+    // Kill the owned job/group before joining: descendants may still hold pipes open.
+    owned.stop();
+    drop(rx);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let read = super::process::join_until(reader, deadline);
+    let diagnosed = super::process::join_until(diagnostics, deadline);
+    let written = super::process::join_until(writer, deadline);
     streamed?;
-    if !status.success() {
-        bail!("{} exited with {status}", d.runtime);
+    read?;
+    diagnosed??;
+    if !exited.context("missing provider exit status")?.success() {
+        bail!("{} exited unsuccessfully", d.runtime);
     }
-    written.context("sending conversation context")?;
+    written??;
     let reply = state.finish()?;
     writeln!(output)?;
     Ok(reply)

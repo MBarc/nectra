@@ -17,6 +17,9 @@ anstream = "1"
 crossterm = "0.28"
 portable-pty = "0.9"
 vt100 = "0.15"
+unicode-segmentation = "1.12"
+unicode-width = "0.2"
+ctrlc = "3.4"
 tempfile = "3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 
@@ -25,3 +28,11 @@ portable-pty = { path = "vendor/portable-pty" }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[[test]]
+name = "stream_process"
+path = "tests/stream_process.rs"
+harness = false
