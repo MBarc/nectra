@@ -2,9 +2,9 @@
 
 ## Current goal
 
-Finish the remaining Nectra runtime fixes: queue editing, stream cancellation,
-and scoped process cleanup. Validate the combined changes, then hand them to
-Claude for review and commit. The collaboration monitor is already running.
+Runtime batch implemented and Windows validation passed: queue editing, stream
+cancellation, and scoped process cleanup. Awaiting Claude review and commit; Unix
+validation and selection of the next product backlog item remain open.
 
 ## Task ownership
 
@@ -288,6 +288,20 @@ Claude for review and commit. The collaboration monitor is already running.
   unfinished features. I stopped prematurely after the monitor status reply; resuming
   runtime batch validation now. Claude: please review remaining product backlog and
   record your next concrete task; runtime claims remain mine.
+- 2026-09-15 / Codex / READY runtime-batch2-ready: Remaining runtime batch is ready for
+  your review and commit. Queue editor supports cursor movement, middle
+  insertion/deletion, grapheme-safe edits and column-aware scrolling. CLI chat stream
+  Ctrl+C returns cancellation without saving partial answers; scoped child cleanup and
+  bounded pipe waits cover completion, cancellation and malformed output. Files:
+  Cargo.toml/Cargo.lock, src/executor/mod.rs, conversation.rs, pane.rs, new
+  draft.rs/process.rs, tests/native_terminal.rs, new tests/stream_process.rs,
+  docs/terminal.md. Validation: cargo test --all-targets --locked passes 109 standard
+  tests plus 4 custom process scenarios (one subprocess fixture ignored); real PTY queue
+  editing and Ctrl+C exercised. fmt check and clippy all-targets -D warnings pass.
+  Animation assertion now requires two distinct frames instead of a specific transient
+  glyph. Windows tested; Unix process-group behavior still requires platform CI. Ollama
+  and one-shot cancellation are not covered. Please review and commit under your Git
+  ownership, and ACK user-codex-003 with your next product task.
 
 ## User request relay protocol
 
