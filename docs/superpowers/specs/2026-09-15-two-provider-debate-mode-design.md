@@ -2,6 +2,7 @@
 
 **Status:** design, not approved. No code written.
 **Origin:** user request `user-001`, recorded in `AGENT_HANDOFF.md`.
+**Revision 3:** records the verified read-only failure on Windows Codex.
 **Revision 2:** incorporates Codex's runtime review (`docs/debate-runtime-review.md`),
 which corrected eight points in revision 1. Corrections are marked below.
 
@@ -32,10 +33,34 @@ write legitimately. Claiming the stronger version would be false.
 
 | Runtime | Available restriction | Verdict |
 |---|---|---|
-| Codex | `--sandbox read-only` with `--ask-for-approval never` | Documented sandbox enforcement for model command execution. Needs controlled config and platform verification. |
-| Claude | `--restricted` plus `--tools Read,Glob,Grep`, no MCP, customizations disabled | A restricted tool surface, **not** an OS write boundary. `--tools` governs built-ins, not MCP; `--allowedTools` governs approval, not availability. |
-| Gemini | `--approval-mode=plan` | Policy-restricted planning only. Plan files can be written to a configurable location. **Excluded from enforced v1.** |
+| Codex (Windows) | `--sandbox read-only` | **VERIFIED FAILING.** Denies create, overwrite, rename and mkdir -- but **allows deletion**. Reproduced independently by both agents on 2026-09-15 with Codex 0.154.0. See `docs/read-only-verification.md`. |
+| Claude | `--restricted` plus `--tools Read,Glob,Grep`, no MCP | Untested. A restricted tool surface, **not** an OS write boundary. `--tools` governs built-ins, not MCP; `--allowedTools` governs approval, not availability. |
+| Gemini | `--approval-mode=plan` | Policy-restricted planning only; plan files are writable to a configurable location. **Excluded from v1.** |
 | Ollama | Adapter sends chat messages; no tool execution | No model-driven filesystem access. Cannot inspect the repo, so it must be handed the same bounded evidence as its opponent. |
+
+### The verified result changes the design
+
+`--sandbox read-only` permitting deletion is not a partial pass. Deletion is the
+most destructive mutation available, so on this platform a debating model could
+remove repository files while Nectra advertised read-only. **The v1 promise
+cannot be "no repository mutations" on Windows Codex.**
+
+Three honest options, for the user to choose:
+
+1. **Require a real boundary.** Run debate participants against an externally
+   enforced read-only mount or a disposable clone, and treat CLI sandbox flags as
+   defence in depth rather than the guarantee. Strongest, most work.
+2. **Ship on a verified-only allowlist.** Debate runs only where the fixture
+   passes. Today that is nothing on Windows, so the mode would not ship here
+   until Claude's profile is tested or upstream fixes deletion.
+3. **Ship with the promise weakened** to "restricted, not guaranteed", stating
+   plainly that deletion is possible. Cheapest and, given deletion specifically,
+   the hardest to defend to a user who loses files.
+
+Recommendation: **(1) for the real fix, (2) as the interim**, and not (3) while
+the escaping operation is deletion. Whichever is chosen, the wording must match
+what the fixture actually proves on the user's platform, checked at runtime and
+failing closed.
 
 **Design rule:** debate uses an explicit execution policy independent of the
 normal permission flags. It rejects bypass options and uncontrolled extra
@@ -153,5 +178,7 @@ user-facing claim of read-only execution.
    the exchange phase optional for a cheaper two-call-plus-convergence debate?
 2. **Gemini.** Excluded from v1 because plan mode is not a write boundary.
    Acceptable, or worth including with an explicit "not enforced" label?
-3. **If read-only cannot be proven** for a provider: exclude it, or include it
-   with a clearly stated caveat?
+3. **Read-only is now proven absent** for Windows Codex: the sandbox allows
+   deletion. Which of the three options above do you want -- an externally
+   enforced boundary, a verified-only allowlist that currently ships nothing on
+   Windows, or a weakened promise that admits files can be deleted?

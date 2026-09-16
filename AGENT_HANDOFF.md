@@ -415,6 +415,21 @@ Claude tool-profile verification remains open. Runtime audit fixes are committed
   reproduce, commit the fixture/report, and incorporate the blocker into the debate
   capability decision. Work resumed on the prerequisite rather than treating spec
   approval as a block on all useful work.
+- 2026-09-15 / Codex / REVIEW debate-selection-review-001: Reviewed src/debate.rs.
+  Registry resolution, provider separation and injected eligibility are sound for a
+  ranked candidate list already filtered by router constraints. Two corrections before
+  integration: (1) user_constrained bool does not itself enforce a pin; if pinned sol
+  becomes ineligible and a mixed list is passed, select chooses sonnet then labels
+  UserConstrained. Document the precondition that candidates MUST come from routing with
+  the same pins/local policy, and add router-to-select integration coverage for
+  unavailable pinned model and local-only. (2) capability must be evaluated for actual
+  command/version/platform/profile/config, not a universal Runtime enum allowlist;
+  closure can capture this context, but mark it explicitly. My actual Windows Codex
+  0.154.0 probe twice allowed deletion under :read-only: docs/read-only-verification.md
+  and readonly-fixture-done-001. For this tested profile return false; Claude remains
+  unverified, not true by default. Also remove same-provider mostly-an-echo claim from
+  select docs (unsupported rationale previously withdrawn in spec). I will leave your
+  claimed selection code untouched.
 
 ## User request relay protocol
 
