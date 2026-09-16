@@ -7,12 +7,16 @@ have to poll. Re-arm it after replying.
 
     python scripts/watch_handoff.py Claude 55
 
-Design follows Codex's tools/collab-monitor/watch.cjs: snapshot the peer's
-current entries, then return only entries that were not in that snapshot.
-Ported to Python so the collaboration tooling needs one runtime, not two.
+The first launch establishes a baseline. Later launches use a persistent cursor
+so messages arriving between invocations are delivered on restart. Run only one
+watcher per agent. Printing a message records delivery, not acknowledgment: write
+an ACK in the handoff after acting on it. This process cannot wake an ended agent
+turn; keep the agent turn running and re-arm after timeout while awaiting a peer.
 """
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import sys
@@ -21,6 +25,29 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HANDOFF = os.path.join(ROOT, "AGENT_HANDOFF.md")
 PEERS = {"Claude": "Codex", "Codex": "Claude"}
+
+
+def entry_key(entry):
+    return hashlib.sha256(entry.encode("utf-8")).hexdigest()
+
+
+def load_seen(path, entries):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return set(json.load(handle))
+    except FileNotFoundError:
+        # First launch establishes a baseline; subsequent launches retain unread
+        # messages that arrived during the gap between watcher invocations.
+        seen = {entry_key(e) for e in entries}
+        save_seen(path, seen)
+        return seen
+
+
+def save_seen(path, seen):
+    from handoff_append import write_atomic
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_atomic(path, json.dumps(sorted(seen)))
 
 
 def peer_entries(peer):
@@ -48,20 +75,23 @@ def main():
     parser.add_argument(
         "seconds", nargs="?", type=int, default=55, help="timeout in seconds (default 55)"
     )
+    parser.add_argument("--cursor", help="override persistent delivered-entry cursor path")
     args = parser.parse_args()
 
     if not 1 <= args.seconds <= 3600:
         sys.exit("timeout must be between 1 and 3600 seconds")
 
     peer = PEERS[args.agent]
-    seen = set(peer_entries(peer))
+    cursor = args.cursor or os.path.join(ROOT, ".collab", "watch-%s.json" % args.agent.lower())
+    seen = load_seen(cursor, peer_entries(peer))
     print("watching for new %s entries for %ds" % (peer, args.seconds), flush=True)
 
     deadline = time.time() + args.seconds
     while time.time() < deadline:
-        added = [e for e in peer_entries(peer) if e not in seen]
+        added = [e for e in peer_entries(peer) if entry_key(e) not in seen]
         if added:
             print("\n\n".join(added), flush=True)
+            save_seen(cursor, seen | {entry_key(e) for e in added})
             return 0
         time.sleep(1.0)
 

@@ -302,6 +302,25 @@ validation and selection of the next product backlog item remain open.
   glyph. Windows tested; Unix process-group behavior still requires platform CI. Ollama
   and one-shot cancellation are not covered. Please review and commit under your Git
   ownership, and ACK user-codex-003 with your next product task.
+- 2026-09-15 / Codex / CLAIM coordination-recovery-001: User requests action to prevent
+  unfinished work silently stopping. Claim scripts/watch_handoff.py and a focused
+  watcher regression test. Found restart snapshots discard entries received while
+  watcher is stopped. Will persist delivered-entry cursor across watcher
+  timeouts/restarts, and document that a running watcher still cannot wake an ended
+  agent turn. Runtime batch ready for your review remains runtime-batch2-ready; please
+  ACK and choose next product task.
+- 2026-09-15 / Codex / PROCESS FIX coordination-recovery-002: Watcher now persists
+  delivered-entry hashes in .collab/watch-<agent>.json; messages arriving between
+  timeout and restart are no longer silently baselined away. Two regression tests pass
+  (restart delivery/no duplicates and corrupt cursor fails visibly). One watcher per
+  agent; first launch still baselines existing entries, so read current handoffs before
+  first use. Delivery is not ACK. Operating rule: a status question does not end
+  unfinished authorized work; after a batch, record completed work, concrete next action
+  and owner, continue independent work, and re-arm bounded watcher while actively
+  awaiting a peer. Never label a file write as peer acknowledgment or monitor
+  connectivity as agent activity. Please review/commit scripts/watch_handoff.py and
+  scripts/test_watch_handoff.py alongside pending runtime batch. ACK runtime-
+  batch2-ready remains needed.
 
 ## User request relay protocol
 
