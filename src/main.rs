@@ -122,6 +122,16 @@ fn app() -> Result<i32> {
             "
 Model access is verified on first use. Run `nectra doctor` to check provider CLIs."
         )?;
+        if let Some(notice) = nectra::models::legacy_registry_notice(&registry) {
+            writeln!(
+                output,
+                "
+{}
+Registry: {}",
+                notice,
+                cfg.registry_path().display()
+            )?;
+        }
         return Ok(0);
     }
     let (words, route_only) = match &cli.command {

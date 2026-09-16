@@ -71,6 +71,29 @@ pub struct ModelProfile {
     pub prefers: Vec<String>,
 }
 
+/// Warn when a registry predates declared routing roles.
+///
+/// An installed `models.toml` shadows the bundled one, so an older copy keeps
+/// routing on the legacy id table indefinitely. Nothing in the CLI revealed
+/// that, which made routing look inexplicable rather than merely out of date.
+pub fn legacy_registry_notice(registry: &Registry) -> Option<String> {
+    if registry.uses_declared_preferences() {
+        return None;
+    }
+    let bundled: RegistryFile = toml::from_str(DEFAULT_REGISTRY).ok()?;
+    if !bundled.model.iter().any(|m| !m.prefers.is_empty()) {
+        return None;
+    }
+    Some(
+        concat!(
+            "This registry predates the `prefers` field, so routing preferences ",
+            "use the legacy built-in table. Add `prefers` entries, or refresh the ",
+            "registry from this release, to declare roles per model."
+        )
+        .to_string(),
+    )
+}
+
 /// One `nectra models` row.
 ///
 /// Access is deliberately absent: it is learned from real provider responses,

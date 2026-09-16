@@ -71,3 +71,22 @@ fn selecting_google_enables_the_declared_gemini_models() {
         "selecting google should enable the Gemini entries"
     );
 }
+
+#[test]
+fn a_registry_predating_declared_roles_is_reported() {
+    // An installed registry shadows the bundled one. Without a notice, routing
+    // silently stays on the legacy id table with no way to tell from the CLI.
+    let (_dir, registry) = load(&registry_without_haiku(), None);
+    let notice = nectra::models::legacy_registry_notice(&registry)
+        .expect("a roleless registry should be reported");
+    assert!(
+        notice.contains("prefers"),
+        "notice should name the missing field: {notice}"
+    );
+}
+
+#[test]
+fn a_current_registry_reports_nothing() {
+    let (_dir, registry) = load(include_str!("../config/models.toml"), None);
+    assert!(nectra::models::legacy_registry_notice(&registry).is_none());
+}
