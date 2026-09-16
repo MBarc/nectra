@@ -35,19 +35,55 @@ pub struct Requirements {
 }
 
 pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
-    let p = format!(
-        " {} ",
-        prompt
-            .to_lowercase()
-            .split(|c: char| !c.is_alphanumeric())
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
+    // Normalise inflection so a keyword list can hold one base form instead of
+    // every variant: "fails" and "failing" both reduce to "fail". Matching raw
+    // tokens is why "the tests fail" missed a list containing only "failing".
+    fn stem(word: &str) -> String {
+        // Only the two sides agreeing matters, not linguistic correctness. A
+        // bare "es" rule would turn "milestones" into "mileston" while
+        // "milestone" stayed whole, so plurals strip a single "s" instead.
+        if let Some(base) = word.strip_suffix("ies") {
+            if base.len() >= 3 {
+                return format!("{base}y");
+            }
+        }
+        for suffix in ["ing", "ed"] {
+            if let Some(base) = word.strip_suffix(suffix) {
+                if base.len() >= 4 {
+                    return base.to_string();
+                }
+            }
+        }
+        if !word.ends_with("ss") {
+            if let Some(base) = word.strip_suffix('s') {
+                if base.len() >= 4 {
+                    return base.to_string();
+                }
+            }
+        }
+        word.to_string()
+    }
+    let tokens: Vec<&str> = prompt
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let lowered: Vec<String> = tokens.iter().map(|t| t.to_lowercase()).collect();
+    let stemmed: Vec<String> = lowered.iter().map(|t| stem(t)).collect();
+    let p = format!(" {} ", stemmed.join(" "));
+    // Both sides are stemmed, so a list entry of "failing" matches a prompt
+    // saying "fails". Substring matching is deliberately NOT used: "contest"
+    // must not match "test", nor "memoir" match "memo".
     let has = |words: &[&str]| {
         words
             .iter()
-            .filter(|w| p.contains(&format!(" {} ", w.trim())))
+            .filter(|phrase| {
+                let needle = phrase
+                    .split_whitespace()
+                    .map(stem)
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                p.contains(&format!(" {needle} "))
+            })
             .count() as f32
     };
     let mut code = has(&[
@@ -57,7 +93,6 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
         "class ",
         "api",
         "test",
-        "tests",
         "build",
         "feature",
     ]);
@@ -70,10 +105,18 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
         "trace",
         "race condition",
         "fix",
+        "null",
+        "crash",
+        "broken",
+        "panic",
+        "stack trace",
+        "regression",
     ]);
     let refac = has(&[
         "refactor",
         "cleanup",
+        "clean up",
+        "tidy",
         "restructure",
         "simplify",
         "technical debt",
@@ -85,6 +128,10 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
         "security",
         "pr ",
         "pull request",
+        "injection",
+        "exploit",
+        "xss",
+        "unsafe",
     ]);
     let arch = has(&[
         "architecture",
@@ -93,6 +140,11 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
         "tradeoff",
         "scalability",
         "distributed",
+        "split",
+        "decompose",
+        "modular",
+        "boundaries",
+        "microservice",
     ]);
     let research = has(&[
         "research",
@@ -117,13 +169,27 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
         "dataset",
         "csv",
         "statistics",
-        "regression",
         "forecast",
+        "plot",
+        "chart",
+        "histogram",
+        "correlation",
     ]);
     // "Build a shed" is physical planning, not software generation.
-    let physical = has(&["shed", "deck", "fence", "garage", "greenhouse", "house"]);
+    let physical = has(&[
+        "shed",
+        "deck",
+        "fence",
+        "garage",
+        "greenhouse",
+        "house",
+        "treehouse",
+        "patio",
+        "cabinet",
+        "shelf",
+    ]);
     let software = has(&[
-        "code", "api", "function", "software", "app", "tests", "module",
+        "code", "api", "function", "software", "app", "test", "module",
     ]);
     if physical > 0.0 && software == 0.0 {
         code = 0.0;

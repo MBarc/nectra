@@ -1,27 +1,154 @@
 [
-  {"prompt":"write tests for this module", "task":"code_generation"},
-  {"prompt":"implement a function for the API", "task":"code_generation"},
-  {"prompt":"build a new feature", "task":"code_generation"},
-  {"prompt":"debug this failing race condition", "task":"debugging"},
-  {"prompt":"fix the exception", "task":"debugging"},
-  {"prompt":"refactor and simplify this module", "task":"refactoring"},
-  {"prompt":"cleanup technical debt", "task":"refactoring"},
-  {"prompt":"review this pull request", "task":"code_review"},
-  {"prompt":"audit the security vulnerability", "task":"code_review"},
-  {"prompt":"design a distributed architecture", "task":"architecture"},
-  {"prompt":"system design and scalability", "task":"architecture"},
-  {"prompt":"research and compare sources", "task":"research"},
-  {"prompt":"investigate the evidence", "task":"research"},
-  {"prompt":"draft a memo", "task":"writing"},
-  {"prompt":"rewrite the documentation", "task":"writing"},
-  {"prompt":"plan a roadmap with milestones", "task":"planning"},
-  {"prompt":"break down the strategy", "task":"planning"},
-  {"prompt":"analyze data from a csv dataset", "task":"data_analysis"},
-  {"prompt":"statistics and regression forecast", "task":"data_analysis"},
-  {"prompt":"hello there", "task":"general"},
-  {"prompt":"rapid contest", "task":"general"},
-  {"prompt":"planet memoir", "task":"general"},
-  {"prompt":"prefix butterfly", "task":"general"},
-  {"prompt":"DEBUG the race-condition!", "task":"debugging"},
-  {"prompt":"review this pull\nrequest", "task":"code_review"}
+  {
+    "prompt": "write tests for this module",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "implement a function for the API",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "build a new feature",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "debug this failing race condition",
+    "task": "debugging"
+  },
+  {
+    "prompt": "fix the exception",
+    "task": "debugging"
+  },
+  {
+    "prompt": "refactor and simplify this module",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "cleanup technical debt",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "review this pull request",
+    "task": "code_review"
+  },
+  {
+    "prompt": "audit the security vulnerability",
+    "task": "code_review"
+  },
+  {
+    "prompt": "design a distributed architecture",
+    "task": "architecture"
+  },
+  {
+    "prompt": "system design and scalability",
+    "task": "architecture"
+  },
+  {
+    "prompt": "research and compare sources",
+    "task": "research"
+  },
+  {
+    "prompt": "investigate the evidence",
+    "task": "research"
+  },
+  {
+    "prompt": "draft a memo",
+    "task": "writing"
+  },
+  {
+    "prompt": "rewrite the documentation",
+    "task": "writing"
+  },
+  {
+    "prompt": "plan a roadmap with milestones",
+    "task": "planning"
+  },
+  {
+    "prompt": "break down the strategy",
+    "task": "planning"
+  },
+  {
+    "prompt": "analyze data from a csv dataset",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "statistics and regression forecast",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "hello there",
+    "task": "general"
+  },
+  {
+    "prompt": "rapid contest",
+    "task": "general"
+  },
+  {
+    "prompt": "planet memoir",
+    "task": "general"
+  },
+  {
+    "prompt": "prefix butterfly",
+    "task": "general"
+  },
+  {
+    "prompt": "DEBUG the race-condition!",
+    "task": "debugging"
+  },
+  {
+    "prompt": "review this pull\nrequest",
+    "task": "code_review"
+  },
+  {
+    "prompt": "build a treehouse for my kids",
+    "task": "planning"
+  },
+  {
+    "prompt": "build the login form component",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "why is this returning null",
+    "task": "debugging"
+  },
+  {
+    "prompt": "the tests fail intermittently on CI",
+    "task": "debugging"
+  },
+  {
+    "prompt": "clean up this module and add tests",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "plot the churn numbers by month",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "how should we split the service into modules",
+    "task": "architecture"
+  },
+  {
+    "prompt": "is this SQL injection safe",
+    "task": "code_review"
+  },
+  {
+    "prompt": "compare postgres and mysql for our workload",
+    "task": "research"
+  },
+  {
+    "prompt": "draft the release announcement",
+    "task": "writing"
+  },
+  {
+    "prompt": "write a function that parses ISO dates",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "what is a monad",
+    "task": "general"
+  },
+  {
+    "prompt": "hi",
+    "task": "general"
+  }
 ]
