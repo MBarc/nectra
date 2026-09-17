@@ -137,8 +137,29 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
         let _ = child.wait();
     }
     // Drain final output after process exit; ConPTY may still have bytes in transit.
+    //
+    // These bytes must go through the parser too. The loop above stops the moment
+    // the child exits, so under load the last frames, the approval prompt or the
+    // capture line can still be in flight -- previously they landed in `output`
+    // for the failure message but were never observed, which made the assertions
+    // below depend on scheduling rather than on behaviour.
     while let Ok(bytes) = rx.recv_timeout(Duration::from_millis(200)) {
+        parser.process(&bytes);
         output.extend_from_slice(&bytes);
+        let screen = parser.screen().contents();
+        for frame in ['|', '/', '-', '\\'] {
+            if screen.contains(&format!("Thinking {frame}")) {
+                animation_frames.insert(frame);
+            }
+        }
+        approved |= screen.contains("Approve writing design.md");
+        // `returned` is only inferred here for the non-cancel path. A cancel run
+        // proves itself by the keystrokes the live loop sends on approval; if the
+        // approval only arrived after exit, cancellation was never exercised and
+        // the test should fail rather than be talked into passing.
+        if !cancel {
+            returned |= screen.contains("Captured clean answer:");
+        }
     }
     drop(rx);
     drop(input);
