@@ -101,8 +101,11 @@ pub fn turn(
         "Checking container write denial before contacting providers..."
     )?;
     output.flush()?;
-    executor.preflight()?;
     let cancellation = TurnCancellation::install()?;
+    executor.preflight()?;
+    if cancellation.token().is_cancelled() {
+        bail!("Debate cancelled during preflight; no provider was contacted.");
+    }
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
     let audit = session.path.with_extension(format!("debate-{stamp}.jsonl"));
     let mut journal = Journal(
@@ -121,7 +124,7 @@ pub fn turn(
         participants,
     })?;
     writeln!(output, "Audit: {}", audit.display())?;
-    session.begin(prompt, &format!("debate:{}", selected.primary.id))?;
+    session.begin(prompt, "debate")?;
     let result = runner::run(
         &selected,
         &base,
@@ -200,7 +203,11 @@ pub fn one_shot(
         if !prompt.trim().is_empty() || cli.stdin || cli.dry_run {
             bail!("--check-isolation takes no prompt, --stdin or --dry-run");
         }
+        let cancellation = TurnCancellation::install()?;
         IsolatedExecutor::from_env(&std::env::current_dir()?)?.preflight()?;
+        if cancellation.token().is_cancelled() {
+            bail!("Isolation check cancelled.");
+        }
         println!("Container read/write-denial probe passed. No model calls made.");
         return Ok(0);
     }

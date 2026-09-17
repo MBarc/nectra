@@ -451,9 +451,12 @@ mod tests {
             if prompt.starts_with("Review") {
                 if self.variant == "limited" && d.model == "a" {
                     return Err(crate::limits::RateLimited {
-                        message: "quota reached".into(), provider_wide: true,
-                        retry_after: std::time::Duration::from_secs(120), safe_to_retry: true,
-                    }.into());
+                        message: "quota reached".into(),
+                        provider_wide: true,
+                        retry_after: std::time::Duration::from_secs(120),
+                        safe_to_retry: true,
+                    }
+                    .into());
                 }
                 if self.variant == "malformed" && d.model == "b" {
                     return Ok(r#"{"answer":"revision"}"#.into());

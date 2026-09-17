@@ -67,8 +67,25 @@ fn main() {
         .is_err());
     let token = CancellationToken::default();
     let trigger = token.clone();
+    let cancellation_log = log.clone();
     let worker = thread::spawn(move || {
-        thread::sleep(Duration::from_millis(500));
+        let deadline = std::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            let started = fs::read_to_string(&cancellation_log)
+                .unwrap_or_default()
+                .lines()
+                .filter(|s| s.starts_with("run "))
+                .count()
+                >= 5;
+            if started {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "cancel fixture never started"
+            );
+            thread::sleep(Duration::from_millis(20));
+        }
         trigger.cancel();
     });
     assert!(executor

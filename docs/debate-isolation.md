@@ -75,9 +75,13 @@ expose unauthenticated host control services to containers. Symlinked host paths
 outside the mounted repository are not separately mounted. Nested mounts are
 omitted rather than risk leaving them writable.
 
-Each call has its own container and output buffer. A single turn-level interrupt
+Each call has its own container and stream parser. A single turn-level interrupt
 token can cancel both parallel calls. Calls have a five-minute execution deadline;
-container control operations and cleanup are bounded separately. Nectra explicitly
+container control operations and cleanup are bounded separately. Total stream data
+is capped at 8 MiB per call and accepted replies at 16 KiB. Failed exchanges do not
+trigger another call to the failed participant; rate limits update shared cooldowns.
+The verified local Docker endpoint is pinned for image inspection, runs, and cleanup.
+Nectra explicitly
 removes the named container on success, stream errors and cancellation, because
 killing the local Docker client alone would not stop the container. Cleanup
 failure is reported. If the Docker daemon becomes unreachable, inspect/remove
