@@ -4,6 +4,8 @@
 and offline verification are underway; real container validation remains pending.
 See [implementation setup and limits](../../debate-isolation.md).
 **Origin:** user request `user-001`, recorded in `AGENT_HANDOFF.md`.
+**Revision 6:** user ruled out Docker; participants run with no tools and
+Nectra supplies the evidence. Codex CLI is excluded as a participant.
 **Revision 5:** Claude profile additionally survives a hostile project config;
 managed policy remains the untested residual.
 **Revision 4:** Claude restricted profile verified as tool restriction only;
@@ -24,6 +26,49 @@ Two decisions are settled:
    **surfaces where they disagreed** instead of smoothing it away.
 2. **Read-only, then hand off.** Providers inspect the repository but do not
    change it. You execute the result afterwards in normal single-provider mode.
+
+## Decision: no Docker, and no tools
+
+**The user has ruled out Docker**, as a hard dependency or at all. That decision
+also removes the problem it was solving.
+
+Isolation was only ever needed because participants were going to be handed tools
+to explore the repository. **A model with no write tool does not need a sandbox** --
+there is nothing to deny. So debate participants run with no tools at all, and
+Nectra, a trusted local program rather than a model, selects and supplies the
+evidence in the prompt.
+
+This is strictly better for debate quality, not merely cheaper. Two participants
+that each explored the repository on their own are not disagreeing about the
+answer; they are disagreeing about different inputs. Identical evidence is a
+precondition for a meaningful debate, and the earlier runtime review already
+required it for Ollama, which cannot inspect the repository at all. Making every
+participant symmetric applies that rule consistently.
+
+The read-only promise becomes trivially checkable: assert the launch arguments
+expose no mutating tool. No container, no WSL, no Docker engine.
+
+### The cost: Codex CLI cannot participate
+
+| Runtime | Zero-tool mode | As a debate participant |
+|---|---|---|
+| Claude | Yes -- `--tools` names the exact available set, verified | Eligible |
+| Ollama | Yes, by construction; the adapter executes no tools | Eligible |
+| Gemini | Unverified; plan mode is policy, not absence of tools | Pending verification |
+| Codex CLI | **No.** Its modes are read-only / workspace-write / danger-full-access, all of which describe *executing model-generated shell commands*. Shell is intrinsic, and its read-only sandbox permits deletion. | **Excluded** |
+
+Debate needs two *different* providers, so Claude + Ollama works today, and
+Claude + Gemini once verified. Codex CLI returns as a participant only if it gains
+a genuine no-tool mode, or if the user later chooses external isolation after all.
+
+### What this costs in the code
+
+The coordinator is generic over a one-method `DebateBackend` trait, so the
+draft/exchange/converge logic, selection, dissent handling, audit journal and
+their tests all survive unchanged. Only the backend implementation changes.
+`src/executor/isolated.rs`, `tools/debate-container/` and
+`tests/isolated_runtime.rs` become unused; they are left in place pending Codex's
+review rather than deleted while it is unavailable.
 
 ## The blocker: read-only is not enforced today
 
