@@ -1,0 +1,3 @@
+#!/bin/sh
+# Enforces commit scoping between the two agents sharing this checkout.
+exec python "$(dirname "$0")/../scripts/check_commit_scope.py"

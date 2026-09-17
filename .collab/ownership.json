@@ -1,0 +1,39 @@
+{
+  "Codex": [
+    "src/executor/*",
+    "src/executor/**/*",
+    "src/debate/*",
+    "src/ollama.rs",
+    "src/terminal.rs",
+    "tests/native_terminal.rs",
+    "tests/stream_process.rs",
+    "tests/isolated_runtime.rs",
+    "tools/*",
+    "tools/**/*",
+    "scripts/test_readonly_profiles.py",
+    "scripts/test_claude_readonly.py",
+    "scripts/watch_handoff.py",
+    "scripts/test_watch_handoff.py",
+    "docs/debate-runtime-review.md",
+    "docs/debate-isolation.md",
+    "docs/read-only-verification.md"
+  ],
+  "Claude": [
+    "src/classifier.rs",
+    "src/policy.rs",
+    "src/models.rs",
+    "src/router.rs",
+    "src/cli.rs",
+    "src/main.rs",
+    "src/session.rs",
+    "src/chat.rs",
+    "src/limits.rs",
+    "src/access.rs",
+    "src/debate.rs",
+    "eval/*",
+    "docs/routing.md",
+    "scripts/agent_monitor.py",
+    "scripts/handoff_append.py",
+    "scripts/send_to_codex.py"
+  ]
+}
