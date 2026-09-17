@@ -34,6 +34,7 @@
     "docs/routing.md",
     "scripts/agent_monitor.py",
     "scripts/handoff_append.py",
-    "scripts/send_to_codex.py"
+    "scripts/send_to_codex.py",
+    "src/debate/plain.rs"
   ]
 }

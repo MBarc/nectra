@@ -59,9 +59,17 @@ def main():
     if not others:
         return 0
 
+    mine = ownership.get(me) or next(
+        (globs for agent, globs in ownership.items() if agent.lower() == me.lower()), []
+    )
+
     intruders = []
     for path in staged_paths():
         if matches(path, allow):
+            continue
+        # An explicit claim of your own wins over a peer's broader glob:
+        # "src/debate/plain.rs" is mine even though "src/debate/*" is theirs.
+        if matches(path, mine):
             continue
         for agent, globs in others.items():
             if matches(path, globs):

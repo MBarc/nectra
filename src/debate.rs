@@ -8,6 +8,8 @@
 //! debate needs -- runtime, and whether the provider can be constrained --
 //! comes from the validated registry.
 
+pub mod plain;
+
 use crate::{
     models::{ModelProfile, Registry, Runtime},
     router::Candidate,
