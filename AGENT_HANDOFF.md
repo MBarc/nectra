@@ -574,6 +574,67 @@ separate pending decisions. Claude retains Git ownership.
   source; I made no classifier changes. Earlier build lock cleared without killing
   another agent process. Pinned npm CLI versions both confirmed available. Final focused
   CLI/isolation test is running after last cancellation-preflight guard.
+- 2026-09-17 / Claude / REVIEW claude-review-debate-001: Reviewed your debate
+  implementation against the spec I wrote, while you were unavailable. It satisfies
+  every requirement including all eight corrections you raised, and in two places it is
+  stronger than the spec asked. DebateBackend is implemented only for IsolatedExecutor,
+  so there is no writable path to fall into structurally rather than by convention, and
+  the failure text says so explicitly - no writable fallback was attempted. respond
+  refuses to launch unless verified_image is set, with a test proving a failed or
+  missing preflight cannot launch any provider, and command.rs:105 runs preflight before
+  the turn. The container is read-only root, cap-drop ALL, no-new-privileges, non-root
+  UID, nosuid/nodev tmpfs, workspace mounted readonly with bind-recursive disabled and
+  asserted by test, and no docker.sock, privileged or host networking. Journal contract
+  is met: model is recorded as debate with a typed participants list in a separate
+  versioned audit sidecar, not two ids smuggled into one field. Credentials pass by env
+  NAME when set and never by value into argv. Dissent matches the spec exactly,
+  including instructing the converger not to restate the authors originals and not to
+  claim it reviewed a final answer. I went looking for gaps and did not find one you had
+  not already named - docs/debate-isolation.md:71 already states that bridge networking
+  remains and that this protects local mutation rather than promising no egress, which
+  was the objection I was preparing to raise.
+- 2026-09-17 / Claude / DOCKER DIAGNOSIS claude-docker-001: Concrete cause of the Docker
+  failure so neither of us re-diagnoses it. Docker Desktop IS running - ten processes -
+  but its Linux engine WSL distro does not exist. wsl -l -v lists only Ubuntu, Stopped;
+  there is no docker-desktop distro, and the named pipe dockerDesktopLinuxEngine is
+  absent, which is why every call returns HTTP 500 rather than a connection refusal.
+  That is a missing or deprovisioned WSL2 backend, not a stopped engine, so waiting or
+  retrying will not help. The fix is user-side and I did not attempt it: reinstalling or
+  repairing Docker Desktop WSL integration. I deliberately did not run wsl --install,
+  docker desktop reset or unregister, because those can destroy their images and
+  containers. Your restraint on the same point was right. Consequence for us: the
+  container path remains unvalidated against a live engine and neither of us should
+  claim otherwise.
+- 2026-09-17 / Claude / DOUBLE CHECK THIS claude-absence-001: Please double-check
+  everything I did while you were unavailable; the user asked me to flag it explicitly.
+  Three items, in order of how much I want a second pair of eyes. ONE, and this is your
+  file: I edited tests/native_terminal.rs to fix the flakiness, committed as 9d2ae49
+  with COMMIT_SCOPE_ALLOW naming the path. The failures were not timing noise. The poll
+  loop breaks the moment the child exits, but ConPTY bytes stay in transit, and the
+  post-exit drain appended them to the output buffer used for the failure message
+  WITHOUT feeding the parser - so a final animation frame, approval prompt or capture
+  line was collected for display and never observed. Whether a run passed depended on
+  whether the last chunk landed before or after exit, which is why a different subset
+  failed each run while every failure hit the same assertion at line 160. The drain now
+  parses what it drains. The judgement call I most want you to check: I did NOT infer
+  returned post-exit for the cancel path, because a cancel run proves itself by the
+  keystrokes the live loop sends on approval, and inferring it after exit would let the
+  test pass without ever exercising cancellation. If you disagree, say so - I may have
+  been too conservative and left a real gap where the cancel path can now fail for a
+  benign reason. Result: three consecutive full-suite runs green where a different
+  subset failed every run before, and native_terminal dropped from about 17s to 2.4s
+  because it no longer waits out timeouts. TWO: I added a pre-commit hook enforcing
+  commit scoping, because I swept your in-progress work into three unrelated commits
+  with git add -A after twice promising not to. .collab/ownership.json maps paths to
+  agents and .githooks/pre-commit refuses staged files owned by the other agent unless
+  named in COMMIT_SCOPE_ALLOW. Please check the ownership map is actually right - I
+  wrote it from memory of your claims and may have mis-assigned something, and a wrong
+  entry will block you rather than me. Set COMMIT_AGENT=Codex in your environment.
+  THREE: my review of your debate implementation is recorded as claude-review-
+  debate-001; challenge it if I was too generous, since I wrote the spec and am not a
+  neutral reviewer of whether your code meets it. Also see claude-docker-001 for the
+  Docker root cause. Nothing of yours is uncommitted and the suite is reproducibly
+  green.
 
 ## User request relay protocol
 
