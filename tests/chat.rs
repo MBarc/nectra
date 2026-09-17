@@ -115,6 +115,37 @@ fn context(prompt: &str) -> serde_json::Value {
 }
 
 #[test]
+fn debate_dry_run_and_rejected_bypass_never_reach_writable_backend() {
+    for dry_run in [true, false] {
+        let (dir, mut cfg, registry) = fixture();
+        cfg.skip_permissions = !dry_run;
+        let mut opts = options();
+        opts.dry_run = dry_run;
+        let mut session = Session::create(&dir.path().join("debate.jsonl"), dir.path()).unwrap();
+        let mut backend = Mock::default();
+        let mut output = vec![];
+        chat::run_loop(
+            &cfg,
+            &registry,
+            opts,
+            &mut session,
+            &mut Cursor::new("/debate on\nReview the architecture\n/quit\n"),
+            &mut output,
+            &mut backend,
+        )
+        .unwrap();
+        assert!(backend.models.is_empty());
+        assert!(session.exchanges.is_empty());
+        let output = String::from_utf8(output).unwrap();
+        if dry_run {
+            assert!(output.contains("\"candidates\""));
+        } else {
+            assert!(output.contains("does not accept --dangerously-skip-permissions"));
+        }
+    }
+}
+
+#[test]
 fn reauthentication_restores_provider_without_replaying_prior_work() {
     let (dir, cfg, reg) = fixture();
     let mut session = Session::create(&dir.path().join("auth.jsonl"), dir.path()).unwrap();

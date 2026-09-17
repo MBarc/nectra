@@ -1,6 +1,8 @@
 # Two-provider debate mode
 
-**Status:** design, not approved. No code written.
+**Status:** user approved starting external isolation on 2026-09-16. Implementation
+and offline verification are underway; real container validation remains pending.
+See [implementation setup and limits](../../debate-isolation.md).
 **Origin:** user request `user-001`, recorded in `AGENT_HANDOFF.md`.
 **Revision 5:** Claude profile additionally survives a hostile project config;
 managed policy remains the untested residual.

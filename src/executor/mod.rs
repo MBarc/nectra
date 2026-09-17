@@ -1,6 +1,7 @@
 use crate::{config::Config, router::Decision};
 mod conversation;
 mod draft;
+pub mod isolated;
 pub mod native;
 mod pane;
 mod process;
@@ -11,6 +12,7 @@ pub use conversation::conversation;
 pub use conversation::conversation_with_cancellation;
 pub use conversation::AuthenticationRequired;
 pub use process::CancellationToken;
+pub use process::TurnCancellation;
 use std::{
     env,
     ffi::OsString,

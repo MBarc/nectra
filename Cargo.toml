@@ -36,3 +36,8 @@ libc = "0.2"
 name = "stream_process"
 path = "tests/stream_process.rs"
 harness = false
+
+[[test]]
+name = "isolated_runtime"
+path = "tests/isolated_runtime.rs"
+harness = false

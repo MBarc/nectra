@@ -13,6 +13,9 @@ use crate::{
     router::Candidate,
 };
 
+pub mod command;
+pub mod runner;
+
 /// Why a debate could not be held with two participants.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Degraded {
@@ -65,8 +68,8 @@ fn eligible<'a>(
 
 /// Pick the debaters from the router's ranked candidates.
 ///
-/// Prefers two different providers, because a same-provider debate is mostly an
-/// echo. It never discards a user pin to manufacture that diversity: an
+/// Selects two different providers for the requested cross-provider comparison.
+/// It never discards a user pin to manufacture that diversity: an
 /// explicit constraint outranks the shape of the mode.
 pub fn select<'a>(
     candidates: &[Candidate],

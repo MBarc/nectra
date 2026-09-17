@@ -137,6 +137,7 @@ Registry: {}",
     let (words, route_only) = match &cli.command {
         Some(Commands::Route { prompt }) => (prompt, true),
         Some(Commands::Run { prompt }) => (prompt, false),
+        Some(Commands::Debate { prompt, .. }) => (prompt, false),
         _ => (&cli.prompt, false),
     };
     let prompt = if cli.stdin {
@@ -151,6 +152,15 @@ Registry: {}",
     } else {
         words.join(" ")
     };
+    if let Some(Commands::Debate { session, .. }) = &cli.command {
+        return nectra::debate::command::one_shot(
+            &cli,
+            &cfg,
+            &registry,
+            &prompt,
+            session.as_deref(),
+        );
+    }
     let decision = router::route(
         &prompt,
         &cfg,

@@ -11,7 +11,7 @@ use anyhow::{bail, Result};
 use clap::ValueEnum;
 use std::io::{self, BufRead, Write};
 
-const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
+const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/debate on|off        Toggle isolated two-provider comparison\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
 
 pub const BANNER: &str = r"
  _   _ _____ ____ _____ ____      _
@@ -179,6 +179,7 @@ pub fn run_loop(
     let mut denied_models = std::collections::HashSet::<String>::new();
     let mut successful_models = std::collections::HashSet::<String>::new();
     let mut queued = std::collections::VecDeque::new();
+    let mut debate_mode = false;
     'messages: loop {
         queued.extend(backend.take_queued_messages());
         write!(output, "\nyou> ")?;
@@ -200,6 +201,19 @@ pub fn run_loop(
             let (command, value) = text.split_once(char::is_whitespace).unwrap_or((text, ""));
             let value = value.trim();
             match command {
+                "/debate" => {
+                    match value {
+                        "on" => debate_mode = true,
+                        "off" => debate_mode = false,
+                        "" => debate_mode = !debate_mode,
+                        _ => {
+                            writeln!(output, "Use /debate on or /debate off.")?;
+                            continue;
+                        }
+                    }
+                    writeln!(output, "Debate {}. Uses isolated streams and up to five logical provider calls per turn. Requires the debate Docker image; no writable fallback.", if debate_mode {"on"} else {"off"})?;
+                    continue;
+                }
                 "/theme" => {
                     if value.is_empty() {
                         writeln!(
@@ -422,6 +436,42 @@ pub fn run_loop(
         } else {
             options.provider
         };
+        if debate_mode {
+            if options.dry_run {
+                match router::route(
+                    &message,
+                    cfg,
+                    registry,
+                    options.mode,
+                    turn_provider,
+                    turn_model,
+                ) {
+                    Ok(decision) => {
+                        writeln!(output, "{}", serde_json::to_string_pretty(&decision)?)?
+                    }
+                    Err(error) => writeln!(output, "Debate routing failed: {error:#}")?,
+                }
+                continue;
+            }
+            let result = crate::debate::command::turn(
+                session,
+                cfg,
+                registry,
+                &message,
+                crate::debate::command::Options {
+                    mode: options.mode,
+                    provider: turn_provider,
+                    model: turn_model,
+                    cooldown_state: cooldown_state.clone(),
+                },
+                &mut cooldowns,
+                output,
+            );
+            if let Err(error) = result {
+                writeln!(output, "Debate stopped: {error:#}")?;
+            }
+            continue;
+        }
         let mut attempted = Vec::new();
         if let Some(id) = &turn_model {
             if registry.models.iter().any(|m| {

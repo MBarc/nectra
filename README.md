@@ -201,6 +201,18 @@ selected CLI. Profile IDs still come from the editable registry.
 The adapters follow [Codex JSONL events](https://learn.chatgpt.com/docs/non-interactive-mode)
 and [Claude streaming output](https://code.claude.com/docs/en/headless).
 
+## Experimental two-provider debate
+
+`nectra debate "Compare these approaches"` runs independent drafts, exchanges
+critiques, and synthesizes one answer while preserving each author's dissent.
+In chat, use `/debate on` and `/debate off`. This optional mode requires a local
+Linux Docker engine and a dedicated image; it stops if isolation cannot be verified.
+It normally uses five logical provider calls, with variable API and tool costs.
+
+The implementation has offline tests; real container/provider validation is still
+pending. See [setup, verification, and limitations](docs/debate-isolation.md) before
+using it. Normal routing does not require Docker.
+
 ## Build and try it
 
 Install current stable Rust and a platform linker, then:

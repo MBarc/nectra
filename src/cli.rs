@@ -65,6 +65,17 @@ pub struct Cli {
 }
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
+    /// Compare two providers inside read-only Linux containers (requires Docker).
+    Debate {
+        /// Verify the container filesystem boundary without making model calls.
+        #[arg(long, conflicts_with = "session")]
+        check_isolation: bool,
+        /// Save the completed answer as a resumable session.
+        #[arg(long)]
+        session: Option<PathBuf>,
+        #[arg(trailing_var_arg = true)]
+        prompt: Vec<String>,
+    },
     /// Show available themes, or save a default theme.
     Theme {
         #[arg(value_enum)]

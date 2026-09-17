@@ -283,6 +283,37 @@ fn config_inspection_survives_missing_registry() {
         .success());
 }
 #[test]
+fn generalization_corpus_holds_its_floor() {
+    // eval/tasks.json is tuned against: every fix is validated on it, so it
+    // reports 100% and cannot measure generalization. This corpus is the
+    // control. DO NOT tune the classifier against these prompts -- raising the
+    // floor legitimately means adding new unseen prompts and re-measuring.
+    // The floor is deliberately well below 100%: purely lexical matching cannot
+    // classify a prompt containing none of its keywords, and most failures here
+    // are exactly that.
+    const FLOOR: f64 = 0.50;
+
+    let (_dir, cfg, _) = fixture();
+    let out = binary()
+        .arg("--config")
+        .arg(&cfg.path)
+        .arg("eval")
+        .arg(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/eval/generalization.json"
+        ))
+        .output()
+        .unwrap();
+    let report: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("eval emits a JSON report");
+    let accuracy = report["accuracy"].as_f64().unwrap();
+    assert!(
+        accuracy >= FLOOR,
+        "generalization fell to {accuracy:.3}, below the {FLOOR:.2} floor;          a change that helps eval/tasks.json but hurts unseen prompts is overfitting"
+    );
+}
+
+#[test]
 fn evaluation_corpus_passes() {
     let (_dir, cfg, _) = fixture();
     let out = binary()

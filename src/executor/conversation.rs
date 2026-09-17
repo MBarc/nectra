@@ -82,12 +82,27 @@ pub fn conversation_with_cancellation(
         _ => unreachable!(),
     }
     let mut command = launch(command)?;
+    command.args(args);
+    run_command(d, prompt, &mut command, output, cancel, None)
+}
+
+pub(super) fn run_command(
+    d: &Decision,
+    prompt: &str,
+    command: &mut std::process::Command,
+    output: &mut dyn Write,
+    cancel: &super::CancellationToken,
+    timeout: Option<Duration>,
+) -> Result<String> {
+    if cancel.is_cancelled() {
+        bail!("Turn cancelled; partial output was not saved or replayed.");
+    }
     command
-        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let mut owned = super::process::OwnedChild::spawn(&mut command)?;
+    let mut owned = super::process::OwnedChild::spawn(command)?;
+    let started = Instant::now();
     crate::activity::set_phase(crate::activity::Phase::Waiting);
     let mut stderr = owned
         .child
@@ -136,8 +151,12 @@ pub fn conversation_with_cancellation(
     let mut exit_time = None;
     let mut completion_time = None;
     let mut shutdown_time = None;
+    let mut stream_bytes = 0usize;
     let streamed = (|| -> Result<()> {
         loop {
+            if timeout.is_some_and(|limit| started.elapsed() >= limit) {
+                bail!("isolated provider exceeded the turn deadline");
+            }
             if cancel.is_cancelled() {
                 bail!("Turn cancelled; partial output was not saved or replayed.");
             }
@@ -163,6 +182,10 @@ pub fn conversation_with_cancellation(
                 Err(mpsc::RecvTimeoutError::Timeout) => continue,
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             };
+            stream_bytes = stream_bytes.saturating_add(line.len());
+            if timeout.is_some() && stream_bytes > MAX_EVENT_BYTES {
+                bail!("isolated provider exceeded the total 8 MiB stream budget");
+            }
             if line.iter().all(u8::is_ascii_whitespace) {
                 continue;
             }
@@ -199,6 +222,9 @@ pub fn conversation_with_cancellation(
     let read = super::process::join_until(reader, deadline);
     let diagnosed = super::process::join_until(diagnostics, deadline);
     let written = super::process::join_until(writer, deadline);
+    if cancel.is_cancelled() {
+        bail!("Turn cancelled; partial output was not saved or replayed.");
+    }
     streamed?;
     read?;
     diagnosed??;

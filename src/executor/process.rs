@@ -19,6 +19,25 @@ impl CancellationToken {
         self.0.load(Ordering::SeqCst)
     }
 }
+
+/// Install one interrupt owner for an entire (possibly parallel) turn.
+pub struct TurnCancellation {
+    token: CancellationToken,
+    _guard: InterruptGuard,
+}
+impl TurnCancellation {
+    pub fn install() -> Result<Self> {
+        let token = CancellationToken::default();
+        let guard = InterruptGuard::install(&token)?;
+        Ok(Self {
+            token,
+            _guard: guard,
+        })
+    }
+    pub fn token(&self) -> &CancellationToken {
+        &self.token
+    }
+}
 static ACTIVE: Mutex<Option<Weak<AtomicBool>>> = Mutex::new(None);
 static HANDLER: OnceLock<std::result::Result<(), String>> = OnceLock::new();
 pub(super) struct InterruptGuard;
@@ -41,10 +60,15 @@ impl InterruptGuard {
             })
             .as_ref()
             .map_err(|e| anyhow::anyhow!("installing interrupt handler: {e}"))?;
-        *ACTIVE
-            .lock()
-            .map_err(|_| anyhow::anyhow!("interrupt state poisoned"))? =
-            Some(Arc::downgrade(&token.0));
+        {
+            let mut active = ACTIVE
+                .lock()
+                .map_err(|_| anyhow::anyhow!("interrupt state poisoned"))?;
+            if active.as_ref().and_then(Weak::upgrade).is_some() {
+                anyhow::bail!("another turn already owns terminal cancellation");
+            }
+            *active = Some(Arc::downgrade(&token.0));
+        }
         let guard = Self;
         #[cfg(windows)]
         {

@@ -1,0 +1,82 @@
+[
+  {
+    "prompt": "the deploy crashed after the last merge",
+    "task": "debugging"
+  },
+  {
+    "prompt": "tidy this file without changing behaviour",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "should we use a queue or direct calls between services",
+    "task": "architecture"
+  },
+  {
+    "prompt": "check this endpoint for auth holes",
+    "task": "code_review"
+  },
+  {
+    "prompt": "implement pagination on the users endpoint",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "chart the signup conversion over the quarter",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "look into what caused the outage",
+    "task": "research"
+  },
+  {
+    "prompt": "rewrite this paragraph to be less formal",
+    "task": "writing"
+  },
+  {
+    "prompt": "lay out the milestones for Q3",
+    "task": "planning"
+  },
+  {
+    "prompt": "what time zone is UTC+9",
+    "task": "general"
+  },
+  {
+    "prompt": "build a bookshelf for the hallway",
+    "task": "planning"
+  },
+  {
+    "prompt": "my unit test fails after upgrading serde",
+    "task": "debugging"
+  },
+  {
+    "prompt": "walk me through how oauth refresh works",
+    "task": "general"
+  },
+  {
+    "prompt": "the numbers in the report do not add up",
+    "task": "debugging"
+  },
+  {
+    "prompt": "pull the top ten accounts by revenue",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "put together a proposal for the board",
+    "task": "writing"
+  },
+  {
+    "prompt": "find out whether anyone has solved this already",
+    "task": "research"
+  },
+  {
+    "prompt": "make this loop faster without breaking it",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "add a retry with backoff to the http client",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "sanity check my threat model for the upload flow",
+    "task": "code_review"
+  }
+]

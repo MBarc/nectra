@@ -43,6 +43,31 @@ Use `/models` to see configured IDs and session observations. `use gpt-6-astra a
 solve this complex problem` selects Astra for one turn. `/model haiku` pins a
 preference; `/model auto` restores automatic routing.
 
+## Measuring the classifier
+
+Two corpora, with different jobs.
+
+`eval/tasks.json` is the regression corpus. Every classifier fix is validated
+against it, so it reports 100% and **cannot** tell you whether the classifier
+generalises -- it only tells you nothing already fixed has broken.
+
+`eval/generalization.json` is the control. Its prompts are deliberately never
+tuned against. Raising its score legitimately means adding new unseen prompts and
+re-measuring, not adjusting keywords until these particular sentences pass. A test
+holds it to a floor, so a change that helps the regression corpus while hurting
+unseen phrasing fails the build.
+
+The gap between them is the honest picture: near 100% on the tuned corpus, around
+half on unseen prompts. Almost every miss is a prompt containing none of the
+keyword vocabulary, which no amount of additional keywords fixes in general --
+classification is local lexical matching, not a semantic judge. Treat the floor as
+a guard against regression, not as a target to optimise.
+
+```sh
+nectra eval eval/tasks.json
+nectra eval eval/generalization.json
+```
+
 ## Access and fallback
 
 Installing a provider CLI does not prove account entitlement to a model. Models

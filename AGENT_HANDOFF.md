@@ -2,11 +2,12 @@
 
 ## Current goal
 
-Intentional hold: no unblocked work identified within the agreed scope. Runtime
-fixes and read-only investigations are complete and committed per Claude. Awaiting
-user decisions on the debate isolation contract, repository publication, and old
-monitor deletion. Claude owns the requested 30-minute status checks through 08:00.
-The monitor displays recorded status, not proof of ongoing agent execution.
+
+Implement the user-approved two-provider debate mode with external container isolation.
+Codex is implementing and validating the executor, coordinator, CLI/chat integration
+and typed audit sidecar. Docker Linux engine currently returns HTTP 500, so real
+container validation remains outstanding. Publishing and old-monitor deletion are
+separate pending decisions. Claude retains Git ownership.
 
 ## Task ownership
 
@@ -491,6 +492,82 @@ The monitor displays recorded status, not proof of ongoing agent execution.
   is a check-in, not proof of continuing background activity. Claude owns the requested
   30-minute polling loop through 08:00; I have not installed or relied on a detached
   timer. Resume concrete work when a decision or new actionable finding arrives.
+- 2026-09-16 / Codex / USER REQUEST user-debate-approved-001: User asked whether work
+  remains; I described remaining debate implementation and recommended external
+  isolation preventing writes to the original repository. User replied: okay start it.
+  Treat as approval to implement debate with external isolation. I take restricted
+  executor/isolation and shared cancellation boundary as agreed. Claude: please ACK and
+  start selection integration, orchestration, typed journal and CLI, retaining
+  pins/local-only rules and safe degraded behavior. I am inspecting available isolation
+  backends and will publish the concrete executor contract shortly. Publication and
+  monitor deletion remain separate/unapproved.
+- 2026-09-16 / Codex / CONTRACT debate-executor-contract-001: Executor contract proposed
+  for Claude integration: executor::isolated::IsolatedExecutor::from_env(workspace:
+  &Path) -> Result<Self>; preflight(&self) -> Result<()> verifies local Linux Docker
+  engine/image and disposable mutation-denial probe; supports(Runtime) -> bool for
+  Claude/Codex only initially; respond(&self, decision:&Decision,prompt:&str,output:&mut
+  dyn Write,cancel:&CancellationToken)->Result<String>. Clone/Sync immutable executor
+  enables independent parallel calls. Export TurnCancellation::install() plus token()
+  once per debate turn; all calls share token. Docker isolated process mounts workspace
+  at /workspace readonly with nested mounts excluded, root read-only/cap-drop/no-new-
+  privileges/nonroot, private tmpfs HOME, no host docker socket/home mounts. Dedicated
+  provider args ignore host executable/extra_args/skip_permissions. Env
+  NECTRA_DEBATE_IMAGE defaults nectra-debate:local (built from supplied Dockerfile),
+  NECTRA_DEBATE_DOCKER optional native CLI path. Preflight failure must abort before
+  model calls. Ollama integration is not yet included: no repo tools and equal
+  evidence/cancellation need explicit treatment; initial strict v1 supports isolated
+  Claude/Codex, preserves local-only by returning no eligible models. Docker CLI present
+  here but engine unavailable; checking setup while implementing tests.
+- 2026-09-16 / Codex / PROGRESS debate-isolation-progress-001: Executor compiles. Added
+  isolated.rs, provider container image sources, disposable preflight denial probe,
+  TurnCancellation and shared stream runner with deadline/cancel check after cleanup.
+  Tests cover mount invariants, supported restricted args and no-launch without
+  successful preflight. Docker Desktop started; Linux engine responds 500, investigating
+  while proceeding. Have not received your ACK to user-debate-approved-001 or contract.
+  Please begin CLI/orchestration/session integration when awake; constructor/response
+  signatures are now implemented as posted. No host extra_args are forwarded,
+  credentials only copied into tmpfs HOME, original workspace mounted read-only with
+  nested mounts excluded. Need actual container validation before advertising boundary
+  verified.
+- 2026-09-16 / Codex / CLAIM debate-coordinator-claim-001: No peer ACK to approved
+  scope/contract has arrived yet. To avoid stalling, I additionally claim NEW
+  src/debate/runner.rs plus its offline tests for the orchestration state machine,
+  keeping existing selection implementation intact except module declaration. This is
+  independent of CLI/session edits you can still take. Coordinator will run parallel
+  drafts/exchanges under shared cancellation, preserve both dissent fields, keep partial
+  phase records through callback, reject oversized/malformed output and label
+  survivor/single-provider degradation. Please signal any active overlap immediately.
+- 2026-09-16 / Codex / CLAIM debate-integration-claim-001: No new Claude ACK observed.
+  Continuing approved implementation: claiming CLI/main debate integration and new
+  debate journal module; will keep ordinary session format unchanged using a typed
+  sidecar journal. Please do not edit these integration paths until handback.
+- 2026-09-16 / Codex / STATUS debate-integration-status-001: Approved debate
+  implementation now includes isolated Docker executor, parallel draft/exchange
+  coordinator, verbatim dissent, one-shot CLI and /debate toggle, typed sidecar audit
+  preserving ordinary session compatibility. Ten selection/coordinator tests and full
+  existing all-targets suite pass; clippy clean. Adding CLI audit integration coverage
+  and check-isolation command. Real Docker validation is blocked by Docker Desktop Linux
+  engine stopped/HTTP500; no live success claimed. Main/chat/cli integration taken
+  because no Claude ACK arrived; session.rs unchanged. Git remains yours.
+- 2026-09-16 / Codex / BUG combined-debate-suite-001: Latest all-targets run now fails
+  classifier::tests::writing_tests_is_coding at classifier.rs:317 for write tests for
+  this module. Earlier full run passed; classifier.rs has since changed (I did not edit
+  it). Please coordinate/review your product edits and repair this regression. Debate
+  tests remain green. Observed other cargo processes holding build lock; no new Claude
+  handoff ACK found.
+- 2026-09-16 / Codex / STATUS debate-final-review-001: Continuing after user request.
+  Fixed debate chat dry-run bypass (regression test passes), bounded isolated output to
+  8 MiB total, pinned image and local Docker endpoint through cleanup, and prevent
+  convergence retry after an exchange fails. Added typed rate-limit observations feeding
+  shared cooldowns. Docker restart through supported CLI timed out; awaiting user
+  startup error, no reset/unregister attempted. Full suite rerun in progress; classifier
+  failure previously reported may be concurrent source edits, retesting without editing
+  classifier.
+- 2026-09-16 / Codex / CHECK shared-cargo-lock-001: A separate cargo test --all-targets
+  process (cargo PID26972, parent33412) currently owns build lock and has
+  isolated_runtime PID24088 alive without a child. My debate and classifier checks are
+  waiting. If this is your validation, please inspect its output and report; I will not
+  kill your test process. This may indicate an integration hang requiring diagnosis.
 
 ## User request relay protocol
 
