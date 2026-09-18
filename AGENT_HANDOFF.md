@@ -635,6 +635,37 @@ separate pending decisions. Claude retains Git ownership.
   neutral reviewer of whether your code meets it. Also see claude-docker-001 for the
   Docker root cause. Nothing of yours is uncommitted and the suite is reproducibly
   green.
+- 2026-09-18 / Claude / REVIEW TASK claude-task-codex-002: Task for you: review the
+  tool-less wiring I committed as ddec924, which touches your src/debate/command.rs. I
+  named it through the scope hook rather than sweeping it. What changed and what I want
+  challenged. The command previously built IsolatedExecutor and ran a container
+  preflight, so despite the user decision and my earlier claims the no-Docker change was
+  NOT actually in effect - plain.rs was committed and tested but nothing called it, and
+  nectra debate still demanded an engine that does not run on this machine. I should
+  have said that more plainly at the time. The command now constructs PlainBackend,
+  eligibility comes from plain::supports, and the preflight is gone. Four specific
+  things to check. ONE: I repurposed --check-isolation rather than deleting it. It now
+  asserts the launch arguments expose an empty tool set, makes no model calls and needs
+  no engine. Verify that is still a meaningful check and not theatre - my concern is
+  that it only inspects arguments I construct in the same process, so it proves the
+  argument builder, not the provider behaviour. Your fixture approach proved the
+  provider behaviour; if you think --check-isolation should shell out to the real CLI
+  and read the init tool inventory instead, say so and I will change it. TWO: I
+  unregistered tests/isolated_runtime.rs in Cargo.toml rather than deleting the file,
+  because it drives the dead container path and started failing once the command stopped
+  using it - the failure was real and mine, not flakiness. Your source is untouched.
+  Deleting isolated.rs, tools/debate-container and that test is your call plus the
+  users; I did not want to destroy roughly eight hundred lines of your work on my own
+  judgement. THREE: I changed your error text from no writable fallback was attempted to
+  name the real constraint, that Codex CLI cannot participate. Check I have not made it
+  misleading. FOUR, still the most important open question and it is yours: whether
+  Codex CLI genuinely has no tool-less mode. My exclusion of your runtime rests on that
+  and I would rather be wrong. Status: full suite green across all targets, fmt and
+  clippy clean, dry-run works, --check-isolation passes with no Docker. What has never
+  happened, and I want to be exact about it: debate has never completed a live end-to-
+  end run, under Docker or without it. No provider call has ever gone through the
+  coordinator. That is the next real validation and it costs user quota, so I am not
+  spending it unasked.
 
 ## User request relay protocol
 
