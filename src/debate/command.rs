@@ -3,7 +3,8 @@ use super::{runner, select, Eligibility};
 use crate::{
     cli::{Cli, Mode, ProviderArg},
     config::Config,
-    executor::{isolated::IsolatedExecutor, TurnCancellation},
+    debate::plain::{self, PlainBackend},
+    executor::TurnCancellation,
     limits::Cooldowns,
     models::Registry,
     router,
@@ -72,13 +73,15 @@ pub fn turn(
         options.provider,
         options.model.clone(),
     )?;
-    let executor = IsolatedExecutor::from_env(&session.cwd)?;
+    let backend = PlainBackend::new(cfg);
     let selected = select(&base.candidates, registry, &Eligibility {
-        available: &|r| executor.supports(r),
-        read_only_capable: &|r| executor.supports(r),
+        available: &|r| plain::supports(r),
+        // A tool-less participant has nothing to deny, so capability and
+        // availability are the same question here.
+        read_only_capable: &|r| plain::supports(r),
         cooling_down: &|m,p| cooldowns.remaining(m,p).is_some(),
         user_constrained: options.provider.is_some() || options.model.is_some(),
-    }).context("no isolated debate participant satisfies your routing constraints; no writable fallback was attempted")?;
+    }).context("no tool-less debate participant satisfies your routing constraints; Codex CLI cannot participate and no tool-bearing fallback was attempted")?;
     let (context, omitted) = session.prompt(prompt, runner::CONTEXT_BUDGET)?;
     writeln!(
         output,
@@ -98,13 +101,12 @@ pub fn turn(
     }
     writeln!(
         output,
-        "Checking container write denial before contacting providers..."
+        "Participants run with no tools; Nectra supplies the evidence."
     )?;
     output.flush()?;
     let cancellation = TurnCancellation::install()?;
-    executor.preflight()?;
     if cancellation.token().is_cancelled() {
-        bail!("Debate cancelled during preflight; no provider was contacted.");
+        bail!("Debate cancelled; no provider was contacted.");
     }
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
     let audit = session.path.with_extension(format!("debate-{stamp}.jsonl"));
@@ -129,7 +131,7 @@ pub fn turn(
         &selected,
         &base,
         &context,
-        &executor,
+        &backend,
         cancellation.token(),
         |record| {
             if let Some(limit) = &record.rate_limit {
@@ -203,12 +205,34 @@ pub fn one_shot(
         if !prompt.trim().is_empty() || cli.stdin || cli.dry_run {
             bail!("--check-isolation takes no prompt, --stdin or --dry-run");
         }
-        let cancellation = TurnCancellation::install()?;
-        IsolatedExecutor::from_env(&std::env::current_dir()?)?.preflight()?;
-        if cancellation.token().is_cancelled() {
-            bail!("Isolation check cancelled.");
+        // Isolation is no longer a container question: participants are
+        // launched with no tools, so the check is that the arguments really
+        // expose none. It makes no model calls and needs no engine.
+        let probe = crate::router::Decision {
+            task: "general".into(),
+            provider: "anthropic".into(),
+            runtime: "claude".into(),
+            model: "sonnet".into(),
+            effort: String::new(),
+            mode: crate::cli::Mode::Balanced,
+            score: 0.0,
+            score_margin: None,
+            ambiguous: false,
+            overridden: false,
+            reason: String::new(),
+            candidates: vec![],
+        };
+        let args = plain::provider_args(&probe, "probe")?;
+        let tools = args
+            .iter()
+            .position(|a| a == "--tools")
+            .context("launch arguments must constrain the tool set")?;
+        if !args[tools + 1].is_empty() {
+            bail!("tool set is not empty: {:?}", args[tools + 1]);
         }
-        println!("Container read/write-denial probe passed. No model calls made.");
+        println!("claude: launch arguments expose an empty tool set");
+        println!("ollama: adapter executes no tools by construction");
+        println!("Tool-less check passed. No model calls made, no container required.");
         return Ok(0);
     }
     if cli.dry_run {

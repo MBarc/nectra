@@ -37,7 +37,9 @@ name = "stream_process"
 path = "tests/stream_process.rs"
 harness = false
 
-[[test]]
-name = "isolated_runtime"
-path = "tests/isolated_runtime.rs"
-harness = false
+# Unregistered: the container path it exercises is dead after the decision to
+# drop Docker. Source kept pending Codex's review before deletion.
+# [[test]]
+# name = "isolated_runtime"
+# path = "tests/isolated_runtime.rs"
+# harness = false
