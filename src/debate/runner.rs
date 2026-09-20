@@ -224,7 +224,7 @@ pub fn run(
     check_cancel(cancel)?;
     let a = decision(base, selected.primary);
     let mut participants = vec![Participant::from(selected.primary)];
-    let draft_prompt = format!("Answer the user's request independently. Inspect repository evidence when needed. This is an analysis-only debate; no execution of a proposed plan. Keep your draft under 16 KiB.\n{context}");
+    let draft_prompt = format!("Answer the user's request independently using only the evidence supplied below; you have no tools and cannot inspect the repository, so do not claim to have read anything. If the evidence is insufficient, say what is missing. This is an analysis-only debate; no execution of a proposed plan. Keep your draft under 16 KiB.\n{context}");
     let Some(opponent) = selected.opponent else {
         let result = call(backend, &a, &draft_prompt, cancel);
         record(Phase::Single, &a, &result, &mut journal)?;

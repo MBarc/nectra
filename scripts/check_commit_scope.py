@@ -31,7 +31,9 @@ OWNERSHIP = os.path.join(ROOT, ".collab", "ownership.json")
 
 def staged_paths():
     result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+        # Deletions count: removing a peer's file is exactly the kind of
+        # cross-boundary change this is meant to surface.
+        ["git", "diff", "--cached", "--name-only"],
         capture_output=True,
         text=True,
         cwd=ROOT,
@@ -41,6 +43,18 @@ def staged_paths():
 
 def matches(path, globs):
     return any(fnmatch.fnmatch(path, pattern) for pattern in globs)
+
+
+def specificity(path, globs):
+    """Length of the longest matching pattern, as a crude specificity score.
+
+    An explicit claim must beat a peer's broader wildcard, so comparing the
+    most specific match on each side is what decides ownership.
+    """
+    return max(
+        (len(pattern) for pattern in globs if fnmatch.fnmatch(path, pattern)),
+        default=-1,
+    )
 
 
 def main():
@@ -67,12 +81,12 @@ def main():
     for path in staged_paths():
         if matches(path, allow):
             continue
-        # An explicit claim of your own wins over a peer's broader glob:
-        # "src/debate/plain.rs" is mine even though "src/debate/*" is theirs.
-        if matches(path, mine):
-            continue
+        # Resolve by specificity, so an explicit claim of your own beats a
+        # peer's broader wildcard but not their equally explicit one.
+        own = specificity(path, mine)
         for agent, globs in others.items():
-            if matches(path, globs):
+            theirs = specificity(path, globs)
+            if theirs >= 0 and theirs > own:
                 intruders.append((path, agent))
                 break
 
