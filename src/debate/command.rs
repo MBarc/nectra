@@ -81,7 +81,7 @@ pub fn turn(
         read_only_capable: &|r| plain::supports(r),
         cooling_down: &|m,p| cooldowns.remaining(m,p).is_some(),
         user_constrained: options.provider.is_some() || options.model.is_some(),
-    }).context("no tool-less debate participant satisfies your routing constraints; Codex CLI cannot participate and no tool-bearing fallback was attempted")?;
+    }).context("no tool-less debate participant satisfies your routing constraints; Codex is not yet verified for the tool-less adapter; no tool-bearing fallback was attempted")?;
     let (context, omitted) = session.prompt(prompt, runner::CONTEXT_BUDGET)?;
     writeln!(
         output,
@@ -192,12 +192,23 @@ pub fn turn(
 ///
 /// Costs one small model call, which is why it sits behind `--live`.
 fn live_tool_inventory(cfg: &Config, probe: &crate::router::Decision) -> Result<Vec<String>> {
-    let args = plain::provider_args(probe, "Reply with exactly: OK")?;
-    let out = std::process::Command::new(&cfg.inner.claude.command)
+    let args = plain::provider_args(probe)?;
+    let mut child = std::process::Command::new(&cfg.inner.claude.command)
         .args(&args)
-        .stdin(std::process::Stdio::null())
-        .output()
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .context("launching the provider for a live tool-inventory check")?;
+    {
+        use std::io::Write;
+        let mut stdin = child.stdin.take().context("provider stdin")?;
+        stdin.write_all(b"Reply with exactly: OK")?;
+    }
+    // wait_with_output drains both pipes while waiting, so this cannot deadlock.
+    let out = child
+        .wait_with_output()
+        .context("waiting for the live tool-inventory check")?;
     if !out.status.success() {
         bail!(
             "live check failed: {}",
@@ -257,7 +268,7 @@ pub fn one_shot(
             reason: String::new(),
             candidates: vec![],
         };
-        let args = plain::provider_args(&probe, "probe")?;
+        let args = plain::provider_args(&probe)?;
         let tools = args
             .iter()
             .position(|a| a == "--tools")
@@ -265,7 +276,9 @@ pub fn one_shot(
         if !args[tools + 1].is_empty() {
             bail!("tool set is not empty: {:?}", args[tools + 1]);
         }
-        println!("claude: launch arguments expose an empty tool set");
+        println!(
+            "claude: launch arguments expose an empty tool set (provider behaviour NOT verified)"
+        );
         if live {
             // Arguments only prove the argument builder. Ask the real CLI what
             // it actually exposed, which is the standard of evidence Codex's

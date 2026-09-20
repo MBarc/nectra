@@ -1,10 +1,7 @@
-//! Debate state machine. All provider access goes through an isolated backend.
+//! Debate state machine. Participants run with no tools, so all provider
+//! access goes through a backend that exposes none.
 use super::Selection;
-use crate::{
-    executor::{isolated::IsolatedExecutor, CancellationToken},
-    models::ModelProfile,
-    router::Decision,
-};
+use crate::{executor::CancellationToken, models::ModelProfile, router::Decision};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::thread;
@@ -20,11 +17,6 @@ pub trait DebateBackend: Sync {
         prompt: &str,
         cancel: &CancellationToken,
     ) -> Result<String>;
-}
-impl DebateBackend for IsolatedExecutor {
-    fn respond(&self, d: &Decision, prompt: &str, cancel: &CancellationToken) -> Result<String> {
-        self.respond(d, prompt, &mut std::io::sink(), cancel)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -243,7 +235,7 @@ pub fn run(
             answer: result?,
             concerns: vec![],
             notices: vec![format!(
-                "Single-provider isolated answer; no debate ({:?}).",
+                "Single-provider tool-less answer; no debate ({:?}).",
                 selected.degraded
             )],
             debated: false,
@@ -373,7 +365,7 @@ fn survivor(
         final_model: d.model.clone(),
         answer,
         concerns: vec![],
-        notices: vec![format!("Undebated isolated survivor answer. {reason}")],
+        notices: vec![format!("Undebated tool-less survivor answer. {reason}")],
         debated: false,
     }
 }
@@ -548,6 +540,6 @@ mod tests {
         assert!(result
             .unwrap()
             .rendered()
-            .contains("Undebated isolated survivor"));
+            .contains("Undebated tool-less survivor"));
     }
 }

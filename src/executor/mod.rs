@@ -1,7 +1,6 @@
 use crate::{config::Config, router::Decision};
 mod conversation;
 mod draft;
-pub mod isolated;
 pub mod native;
 mod pane;
 mod process;
