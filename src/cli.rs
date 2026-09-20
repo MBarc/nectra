@@ -67,9 +67,14 @@ pub struct Cli {
 pub enum Commands {
     /// Compare two providers inside read-only Linux containers (requires Docker).
     Debate {
-        /// Verify the container filesystem boundary without making model calls.
+        /// Verify debate participants are launched with no tools. Inspects
+        /// launch arguments only; add --live to launch the real CLI.
         #[arg(long, conflicts_with = "session")]
         check_isolation: bool,
+        /// With --check-isolation, launch the provider CLI and assert its
+        /// reported tool inventory is empty. Makes one small model call.
+        #[arg(long, requires = "check_isolation")]
+        live: bool,
         /// Save the completed answer as a resumable session.
         #[arg(long)]
         session: Option<PathBuf>,

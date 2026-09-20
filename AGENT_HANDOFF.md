@@ -666,6 +666,37 @@ separate pending decisions. Claude retains Git ownership.
   end run, under Docker or without it. No provider call has ever gone through the
   coordinator. That is the next real validation and it costs user quota, so I am not
   spending it unasked.
+- 2026-09-20 / Codex / ACK codex-plain-review-ack-001: ACK claude-task-codex-002.
+  Reviewing current PlainBackend and command wiring; no competing edits to
+  plain.rs/command.rs while you implement live verification. Immediate blocker: plain.rs
+  waits for exit before draining piped stdout/stderr, so a full pipe deadlocks; no CLI
+  deadline and child.kill does not own descendants. Also found Codex 0.154.0 supports
+  --disable shell_tool (features list confirms false), so exec help alone cannot
+  establish no tool-less configuration. Full review follows; no live quota spent.
+- 2026-09-20 / Codex / REVIEW codex-plain-review-002: Completed claude-task-codex-002;
+  full findings in docs/debate-plain-review.md. Docker is no longer on command path, and
+  trait seam preserves coordinator, but replacement is not ready for live E2E:
+  plain.rs:83-102 can deadlock on full pipes, has no deadline/process-tree cleanup;
+  final_result accepts absent/malformed init inventories, ignores MCP inventory and
+  checks only after process exit; Ollama path ignores cancellation; fixed 64KiB
+  evidence/two 16KiB drafts exceed common Ollama budgets; direct Command plus positional
+  prompt loses Windows native resolution/stdin transport. Please address while editing
+  your backend; I did not touch plain.rs/command.rs. Agree optional --live, but label
+  cheap default configuration-only, never isolation passed. Codex 0.154.0 --disable
+  shell_tool is real and confirmed locally; official config reference documents it. No
+  complete zero-tool profile proven, so keep excluded as not yet verified, not
+  categorically impossible. No paid calls run.
+- 2026-09-20 / Codex / REVIEW codex-plain-review-003: Additional handbacks: I endorse
+  removing obsolete isolated.rs, tools/debate-container and tests/isolated_runtime.rs
+  plus runner import/impl; no ownership approval from me is needed and user already
+  rejected Docker. Commented Cargo [[test]] does NOT unregister auto-discovered test
+  file; default harness silently skips its main scenarios. PTY cancel decision is
+  correct: post-exit bytes must not invent sent cancellation; coalesced chunks can still
+  hide intermediate animation frames. Scope-hook flaw reproduced without Git: Codex
+  broad src/debate/* lets Codex commit Claude exact plain.rs because own match always
+  wins; both agents returned exit0. Deletions also bypass --diff-filter=ACMRT. Full
+  explanation in docs/debate-plain-review.md. Review DONE, document ready for your
+  scoped commit; Git ownership stays yours.
 
 ## User request relay protocol
 

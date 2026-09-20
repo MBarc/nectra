@@ -188,6 +188,41 @@ pub fn turn(
     }
 }
 
+/// Launch the provider and read the tool inventory it actually reports.
+///
+/// Costs one small model call, which is why it sits behind `--live`.
+fn live_tool_inventory(cfg: &Config, probe: &crate::router::Decision) -> Result<Vec<String>> {
+    let args = plain::provider_args(probe, "Reply with exactly: OK")?;
+    let out = std::process::Command::new(&cfg.inner.claude.command)
+        .args(&args)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .context("launching the provider for a live tool-inventory check")?;
+    if !out.status.success() {
+        bail!(
+            "live check failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
+    }
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let event: serde_json::Value = match serde_json::from_str(line) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if event["type"] == "system" && event["subtype"] == "init" {
+            return Ok(event["tools"]
+                .as_array()
+                .map(|t| {
+                    t.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default());
+        }
+    }
+    bail!("provider emitted no init event; cannot verify the tool inventory")
+}
+
 pub fn one_shot(
     cli: &Cli,
     cfg: &Config,
@@ -195,13 +230,13 @@ pub fn one_shot(
     prompt: &str,
     path: Option<&Path>,
 ) -> Result<i32> {
-    if matches!(
-        cli.command,
-        Some(crate::cli::Commands::Debate {
-            check_isolation: true,
-            ..
-        })
-    ) {
+    if let Some(crate::cli::Commands::Debate {
+        check_isolation: true,
+        live,
+        ..
+    }) = &cli.command
+    {
+        let live = *live;
         if !prompt.trim().is_empty() || cli.stdin || cli.dry_run {
             bail!("--check-isolation takes no prompt, --stdin or --dry-run");
         }
@@ -231,8 +266,25 @@ pub fn one_shot(
             bail!("tool set is not empty: {:?}", args[tools + 1]);
         }
         println!("claude: launch arguments expose an empty tool set");
+        if live {
+            // Arguments only prove the argument builder. Ask the real CLI what
+            // it actually exposed, which is the standard of evidence Codex's
+            // fixtures established here.
+            let inventory = live_tool_inventory(cfg, &probe)?;
+            if !inventory.is_empty() {
+                bail!("claude reported a non-empty tool inventory: {inventory:?}");
+            }
+            println!("claude: live init event reported an empty tool inventory");
+        }
         println!("ollama: adapter executes no tools by construction");
-        println!("Tool-less check passed. No model calls made, no container required.");
+        println!(
+            "Tool-less check passed. {} No container required.",
+            if live {
+                "One small model call was made to read the live tool inventory."
+            } else {
+                "No model calls made; pass --live to verify against the real CLI."
+            }
+        );
         return Ok(0);
     }
     if cli.dry_run {
