@@ -1,5 +1,4 @@
 use crate::{
-    classifier,
     cli::{Mode, ProviderArg},
     config::Config,
     models::{Provider, Registry},
@@ -40,7 +39,12 @@ pub fn route(
     if prompt.trim().is_empty() {
         bail!("prompt cannot be empty");
     }
-    let (task, req, why) = classifier::classify(prompt);
+    let crate::jev::Classification {
+        task,
+        req,
+        tier,
+        why,
+    } = crate::jev::classify(prompt, cfg);
     let wanted = provider.map(|p| match p {
         ProviderArg::Anthropic => Provider::Anthropic,
         ProviderArg::Openai => Provider::Openai,
@@ -67,7 +71,7 @@ pub fn route(
             (
                 m,
                 policy::score(&req, m, mode)
-                    + policy::responsibility_bonus(task, prompt, m, mode, declarative),
+                    + policy::responsibility_bonus(task, prompt, m, mode, declarative, tier),
             )
         })
         .collect();

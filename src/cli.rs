@@ -137,7 +137,7 @@ pub enum Commands {
     },
     /// List configured models.
     Models,
-    /// Evaluate task classification against a local JSON corpus (no model calls).
+    /// Evaluate task classification against a local JSON corpus (uses Jev when TYPESAFE_API_KEY is set).
     Eval { corpus: PathBuf },
 }
 

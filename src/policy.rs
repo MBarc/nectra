@@ -25,8 +25,14 @@ pub fn score(r: &Requirements, m: &ModelProfile, mode: Mode) -> f32 {
 /// Returning a role rather than a model id is what lets any model win a
 /// preference. An id table can only ever name models whose ids are known at
 /// compile time, which silently excludes generated ids such as `ollama/<name>`.
-pub fn preferred_role(task: crate::classifier::TaskType, prompt: &str, mode: Mode) -> &'static str {
+pub fn preferred_role(
+    task: crate::classifier::TaskType,
+    prompt: &str,
+    mode: Mode,
+    tier: Option<crate::jev::Tier>,
+) -> &'static str {
     use crate::classifier::TaskType::*;
+    use crate::jev::Tier;
     let words = format!(
         " {} ",
         prompt
@@ -48,14 +54,16 @@ pub fn preferred_role(task: crate::classifier::TaskType, prompt: &str, mode: Mod
         "deep reasoning",
     ]
     .iter()
-    .any(|w| has(w));
+    .any(|w| has(w))
+        || tier == Some(Tier::Demanding);
     // Words about the size of the work, not the kind of it. "summarize" and
     // "extract" name a task; summarising a large document is not cheap work.
     let simple = [
         "quick", "simple", "brief", "briefly", "short", "trivial", "minor",
     ]
     .iter()
-    .any(|w| has(w));
+    .any(|w| has(w))
+        || tier == Some(Tier::Simple);
     let coding = matches!(
         task,
         CodeGeneration | Debugging | Refactoring | CodeReview | DataAnalysis
@@ -100,8 +108,9 @@ pub fn responsibility_bonus(
     model: &crate::models::ModelProfile,
     mode: Mode,
     declarative: bool,
+    tier: Option<crate::jev::Tier>,
 ) -> f32 {
-    let role = preferred_role(task, prompt, mode);
+    let role = preferred_role(task, prompt, mode, tier);
     let matched = if declarative {
         model.prefers.iter().any(|r| r == role)
     } else {
@@ -148,7 +157,14 @@ mod tests {
         // table can never reach them and the +0.30 always lands on a cloud model.
         let model = local("ollama/llama3", &["simple"]);
         assert_eq!(
-            responsibility_bonus(TaskType::General, "quick summary", &model, Mode::Fast, true),
+            responsibility_bonus(
+                TaskType::General,
+                "quick summary",
+                &model,
+                Mode::Fast,
+                true,
+                None
+            ),
             0.30
         );
     }
@@ -157,7 +173,14 @@ mod tests {
     fn a_model_that_claims_no_role_gets_no_bonus() {
         let model = local("ollama/llama3", &[]);
         assert_eq!(
-            responsibility_bonus(TaskType::General, "quick summary", &model, Mode::Fast, true),
+            responsibility_bonus(
+                TaskType::General,
+                "quick summary",
+                &model,
+                Mode::Fast,
+                true,
+                None
+            ),
             0.0
         );
     }
@@ -173,7 +196,8 @@ mod tests {
                 "quick summary",
                 &haiku,
                 Mode::Fast,
-                false
+                false,
+                None
             ),
             0.30
         );
@@ -193,7 +217,8 @@ mod role_tests {
             preferred_role(
                 TaskType::Research,
                 "summarize this 400 page report",
-                Mode::Balanced
+                Mode::Balanced,
+                None
             ),
             "general"
         );
@@ -202,8 +227,22 @@ mod role_tests {
     #[test]
     fn an_explicit_simplicity_word_still_routes_cheap() {
         assert_eq!(
-            preferred_role(TaskType::General, "quick question", Mode::Balanced),
+            preferred_role(TaskType::General, "quick question", Mode::Balanced, None),
             "simple"
         );
+    }
+
+    #[test]
+    fn jev_difficulty_picks_cheap_or_strong_roles() {
+        use crate::jev::Tier;
+        let role =
+            |t, tier| preferred_role(t, "port this resizer to rust", Mode::Balanced, Some(tier));
+        assert_eq!(
+            role(TaskType::CodeGeneration, Tier::Simple),
+            "simple-coding"
+        );
+        assert_eq!(role(TaskType::CodeGeneration, Tier::Normal), "coding");
+        assert_eq!(role(TaskType::CodeGeneration, Tier::Demanding), "demanding");
+        assert_eq!(role(TaskType::Writing, Tier::Simple), "simple");
     }
 }

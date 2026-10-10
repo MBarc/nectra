@@ -11,9 +11,13 @@ answer it, hands that agent the conversation so far, and drops you into that
 provider's real terminal - colors, tool output, approval prompts and all. When
 the answer lands, you are back at one prompt, ready for the next message.
 
-The decision happens on your machine. **No model call decides which model you
-get**, nothing about your prompt leaves the box before a provider is chosen, and
-every routing decision is a JSON object you can read.
+The routing policy runs on your machine and every routing decision is a JSON
+object you can read. With `TYPESAFE_API_KEY` set, the prompt is first sent to
+[Jev](https://docs.typesafe.ai) (TypeSafe's classifier, ~200 ms, a fraction of a
+cent) to judge its task type and how much model it needs; easy prompts go to
+cheap models and hard ones to strong models. Without a key, offline, on error, or
+under the Ollama `local-only` policy, a local keyword classifier decides and
+nothing leaves the box. The decision's `reason` names which classifier decided.
 
 ## See it decide
 
@@ -263,7 +267,7 @@ starting with a dash. Empty prompts and conflicting positional/stdin inputs fail
 
 ## Routing policy
 
-The pipeline is: normalized word/phrase matching, task requirements, weighted
+The pipeline is: classification (Jev, or normalized word/phrase matching), task requirements, weighted
 capability scores plus task-responsibility preferences, deterministic ranking, then native execution.
 See [the responsibility matrix and access handling](docs/routing.md).
 
@@ -283,8 +287,28 @@ See [the responsibility matrix and access handling](docs/routing.md).
 Model capability numbers are editable product policy, not measured benchmarks,
 prices, latency guarantees or proof that one provider is better. The sample corpus
 checks classification regressions; it does not evaluate model output quality.
-The classifier is English keyword-based and does not understand negation, inspect
-your repository or reliably resolve every mixed task.
+The local keyword classifier is English-only and does not understand negation,
+inspect your repository or reliably resolve every mixed task.
+
+### Jev classifier
+
+On the bundled corpora the keyword classifier scores 31/38 (tuned), 5/20 (unseen
+phrasing) and 11/40 (holdout); Jev scores 37/38, 17/20 and 39/40. Jev also returns
+a difficulty: below `simple_below` routes to the `simple`/`simple-coding` roles,
+above `demanding_above` to `demanding`. Explicit words such as "quick" or
+"complex" still apply. Configure it in `config.toml`:
+
+```toml
+[classifier]
+backend = "auto"        # "auto" uses Jev when TYPESAFE_API_KEY is set; "local" never calls it
+timeout_ms = 1500
+simple_below = 0.2      # Jev difficulty, 0..1
+demanding_above = 0.6
+```
+
+`nectra eval` uses the configured classifier, so the same corpus compares both.
+Difficulty saves tokens only when the registry has a cheap model claiming the
+`simple` role (for example `haiku`).
 Chat uses the prior completed user task as a routing hint for generic follow-ups
 such as "do that"; the chosen model receives the shared transcript separately.
 

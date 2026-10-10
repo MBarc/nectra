@@ -6,6 +6,7 @@ pub mod cli;
 pub mod config;
 pub mod debate;
 pub mod executor;
+pub mod jev;
 pub mod limits;
 pub mod models;
 pub mod ollama;

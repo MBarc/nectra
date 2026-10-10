@@ -21,9 +21,39 @@ pub struct RoutingConfig {
     pub confidence_margin: f32,
     pub default_mode: Mode,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClassifierBackend {
+    /// Jev when TYPESAFE_API_KEY is set, local keywords otherwise.
+    Auto,
+    Local,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassifierConfig {
+    pub backend: ClassifierBackend,
+    pub timeout_ms: u64,
+    /// Jev difficulty (0..1) below this routes to the simple roles.
+    pub simple_below: f64,
+    /// Jev difficulty (0..1) above this routes to the demanding role.
+    pub demanding_above: f64,
+}
+impl Default for ClassifierConfig {
+    fn default() -> Self {
+        // ponytail: thresholds eyeballed from a 40-prompt holdout; tune against real chat logs
+        Self {
+            backend: ClassifierBackend::Auto,
+            timeout_ms: 1500,
+            simple_below: 0.2,
+            demanding_above: 0.6,
+        }
+    }
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigFile {
+    #[serde(default)]
+    pub classifier: ClassifierConfig,
     #[serde(default = "default_gemini")]
     pub gemini: RuntimeConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -115,6 +145,13 @@ impl Config {
                     bail!("unknown provider in configuration: {provider}");
                 }
             }
+        }
+        let c = &self.inner.classifier;
+        if !(0.0..=1.0).contains(&c.simple_below)
+            || !(0.0..=1.0).contains(&c.demanding_above)
+            || c.simple_below > c.demanding_above
+        {
+            bail!("classifier thresholds must satisfy 0 <= simple_below <= demanding_above <= 1");
         }
         if self.inner.registry.trim().is_empty() {
             bail!("registry path cannot be empty");

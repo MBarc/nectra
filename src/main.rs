@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use nectra::{
-    chat, classifier,
+    chat,
     cli::{Cli, Commands},
     config, executor, models, router,
 };
@@ -98,7 +98,7 @@ fn app() -> Result<i32> {
             executor::doctor(&cfg)?;
             return Ok(0);
         }
-        Some(Commands::Eval { corpus }) => return evaluate(corpus),
+        Some(Commands::Eval { corpus }) => return evaluate(corpus, &cfg),
         _ => {}
     }
     let registry = models::Registry::load(&cfg)?;
@@ -201,7 +201,7 @@ struct EvalReport {
     accuracy: f64,
     failures: Vec<Failure>,
 }
-fn evaluate(path: &std::path::Path) -> Result<i32> {
+fn evaluate(path: &std::path::Path, cfg: &config::Config) -> Result<i32> {
     let cases: Vec<EvalCase> =
         serde_json::from_str(&std::fs::read_to_string(path).context("reading evaluation corpus")?)?;
     if cases.is_empty() {
@@ -211,7 +211,7 @@ fn evaluate(path: &std::path::Path) -> Result<i32> {
     let failures: Vec<_> = cases
         .into_iter()
         .filter_map(|c| {
-            let actual = classifier::classify(&c.prompt).0.to_string();
+            let actual = nectra::jev::classify(&c.prompt, cfg).task.to_string();
             (actual != c.task).then_some(Failure {
                 prompt: c.prompt,
                 expected: c.task,

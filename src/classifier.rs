@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskType {
     CodeGeneration,
@@ -230,7 +230,17 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
             _ => TaskType::DataAnalysis,
         }
     };
-    let r = match task {
+    let r = requirements(task);
+    (
+        task,
+        r,
+        format!("local heuristic classified prompt as {task}"),
+    )
+}
+
+/// Capability weights a task type asks of a model; shared by every classifier.
+pub fn requirements(task: TaskType) -> Requirements {
+    match task {
         TaskType::CodeGeneration => Requirements {
             coding: 0.95,
             reasoning: 0.72,
@@ -301,12 +311,7 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
             writing: 0.55,
             tool_use: 0.35,
         },
-    };
-    (
-        task,
-        r,
-        format!("local heuristic classified prompt as {task}"),
-    )
+    }
 }
 
 #[cfg(test)]
