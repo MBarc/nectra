@@ -627,7 +627,8 @@ fn same_model_follow_ups_resume_and_switches_replay_the_transcript() {
     let mut backend = Sessions::default();
     let mut output = vec![];
     chat::run_loop(&cfg, &reg, options(), &mut session, &mut Cursor::new(
-        "/model opus\nfirst\nsecond\n/model gpt-5.6-sol\nthird\nfourth\n/model opus\nfifth\n/quit\n"),
+        // Each /model switch comes with a new task, so no handoff note is asked for.
+        "/model opus\nfirst\nsecond\n/model gpt-5.6-sol\nwrite a short bio for my profile\nmake it shorter\n/model opus\nreview this diff for bugs\n/quit\n"),
         &mut output, &mut backend).unwrap();
     let t = &backend.turns;
     // opus starts a session, then continues it with only the new message.
@@ -670,4 +671,32 @@ fn backends_without_sessions_keep_replaying_the_transcript() {
         context(&backend.prompts[1])["conversation"][0]["user"],
         "first"
     );
+}
+
+#[test]
+fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("handoff.jsonl"), dir.path()).unwrap();
+    let mut backend = Sessions::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/model opus\nfirst\n/model gpt-5.6-sol\ncontinue with that\n/quit\n"),
+        &mut Vec::new(),
+        &mut backend,
+    )
+    .unwrap();
+    let t = &backend.turns;
+    // The outgoing opus session is resumed once, only to write the note.
+    assert_eq!(t[1].0, "opus");
+    assert!(t[1].1 && t[1].2 == t[0].2);
+    assert_eq!(t[1].3, Session::HANDOFF_REQUEST);
+    let incoming = context(&t[2].3);
+    assert_eq!(t[2].0, "gpt-5.6-sol");
+    assert_eq!(incoming["handoff_note"], "answer from opus");
+    assert_eq!(incoming["current_user_message"], "continue with that");
+    // The note is internal: only the two real exchanges are saved.
+    assert_eq!(session.exchanges.len(), 2);
 }

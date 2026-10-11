@@ -26,6 +26,10 @@ pub struct RoutingConfig {
     /// Keep a task on the model that started it instead of re-routing every message.
     #[serde(default = "enabled")]
     pub sticky: bool,
+    /// When another model takes over mid-task, ask the outgoing one for a
+    /// handoff note and send that with recent turns instead of the transcript.
+    #[serde(default = "enabled")]
+    pub handoff_summary: bool,
 }
 fn enabled() -> bool {
     true

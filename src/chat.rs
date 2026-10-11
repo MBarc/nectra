@@ -51,6 +51,16 @@ pub trait Backend {
         }
         self.respond(decision, prompt, cfg, output)
     }
+    /// One quiet resumed turn on the outgoing model; its reply is not shown or saved.
+    fn handoff(
+        &mut self,
+        decision: &Decision,
+        request: &str,
+        cfg: &Config,
+        session: &mut executor::ProviderSession,
+    ) -> Result<String> {
+        self.respond_session(decision, request, cfg, &mut Vec::new(), Some(session))
+    }
 }
 pub struct NativeBackend;
 impl Backend for NativeBackend {
@@ -102,6 +112,19 @@ impl Backend for NativeBackend {
         } else {
             executor::conversation_resumable(decision, prompt, cfg, output, session)
         }
+    }
+    fn handoff(
+        &mut self,
+        decision: &Decision,
+        request: &str,
+        cfg: &Config,
+        session: &mut executor::ProviderSession,
+    ) -> Result<String> {
+        // Always the quiet stream view: no provider terminal flashes up for a note.
+        let activity = crate::activity::Activity::start(&decision.model);
+        let mut sink = Vec::new();
+        let mut progress = activity.writer(&mut sink);
+        executor::conversation_resumable(decision, request, cfg, &mut progress, Some(session))
     }
 }
 pub struct ChatOptions {
@@ -637,8 +660,33 @@ pub fn run_loop(
                 }
                 _ => executor::ProviderSession::start(&decision.runtime),
             };
+            // Another model taking over mid-task gets the outgoing one's handoff
+            // note instead of a full transcript replay.
+            let note = match &provider_session {
+                Some((model, id))
+                    if cfg.inner.routing.handoff_summary
+                        && !turn_session.resume
+                        && model != &decision.model
+                        && classification.new_task != Some(true) =>
+                {
+                    handoff_note(
+                        model,
+                        id,
+                        &classification,
+                        &message,
+                        cfg,
+                        registry,
+                        options.mode,
+                        backend,
+                        output,
+                    )?
+                }
+                _ => None,
+            };
             let context = if turn_session.resume {
                 Session::followup(&message).map(|p| (p, 0))
+            } else if let Some(note) = &note {
+                session.handoff(&message, note)
             } else {
                 session.prompt(&message, budget)
             };
@@ -777,6 +825,42 @@ pub fn run_loop(
     }
     writeln!(output, "Session saved: {}", session.path.display())?;
     Ok(())
+}
+
+/// Resumes the outgoing model's session once to ask for a handoff note.
+/// None (and a notice) when it can't answer, so the caller replays the transcript.
+#[allow(clippy::too_many_arguments)]
+fn handoff_note(
+    model: &str,
+    id: &str,
+    classification: &crate::jev::Classification,
+    message: &str,
+    cfg: &Config,
+    registry: &Registry,
+    mode: Mode,
+    backend: &mut dyn Backend,
+    output: &mut dyn Write,
+) -> Result<Option<String>> {
+    let Ok(outgoing) = router::route_with(
+        classification.clone(),
+        message,
+        cfg,
+        registry,
+        mode,
+        None,
+        Some(model.to_string()),
+    ) else {
+        return Ok(None);
+    };
+    writeln!(output, "Asking {model} for a handoff note.")?;
+    let mut session = executor::ProviderSession::resume(id);
+    match backend.handoff(&outgoing, Session::HANDOFF_REQUEST, cfg, &mut session) {
+        Ok(note) if !note.trim().is_empty() => Ok(Some(note)),
+        _ => {
+            writeln!(output, "No handoff note; sending the conversation instead.")?;
+            Ok(None)
+        }
+    }
 }
 
 /// Deliberately narrow leading directives: mentioning a model in a task is not a pin.

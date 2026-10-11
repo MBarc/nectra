@@ -9,6 +9,8 @@ use std::{
 
 const MAX_LOG: u64 = 64 * 1024 * 1024;
 pub const CONTEXT_BYTES: usize = 128 * 1024;
+/// Transcript budget alongside a handoff note, which already summarises the work.
+pub const HANDOFF_BYTES: usize = 16 * 1024;
 
 /// Bytes held back so the provider's own guard is never the thing that fails.
 ///
@@ -229,6 +231,8 @@ impl Session {
         self.pending = None;
         Ok(())
     }
+    /// Asked of the outgoing model's resumed session when another model takes over mid-task.
+    pub const HANDOFF_REQUEST: &'static str = "Another engineer is taking over this task from you right now. Write them a handoff note of at most 200 words: the goal, files you read or changed, decisions made, the current state, and the next step. Plain text, no preamble. Do not change any files.";
     /// The next message for a resumed provider session, which already holds the history.
     pub fn followup(current: &str) -> Result<String> {
         Ok(format!(
@@ -240,8 +244,27 @@ impl Session {
     /// Budget is UTF-8 serialized bytes, not a claim about model token limits.
     /// Convert a model's token capacity with [`budget_bytes`] before calling this.
     pub fn prompt(&self, current: &str, budget: usize) -> Result<(String, usize)> {
+        self.prompt_with(current, budget, None)
+    }
+    /// `prompt` for a model taking over mid-task: the previous model's handoff
+    /// note carries what the transcript lacks (files touched, state), so fewer
+    /// recent exchanges are needed.
+    pub fn handoff(&self, current: &str, note: &str) -> Result<(String, usize)> {
+        self.prompt_with(current, HANDOFF_BYTES, Some(note))
+    }
+    fn prompt_with(
+        &self,
+        current: &str,
+        budget: usize,
+        note: Option<&str>,
+    ) -> Result<(String, usize)> {
         let encode = |history: &[&Exchange]| -> Result<String> {
-            Ok(format!("Continue the conversation below and answer current_user_message directly. Use the transcript silently as context; do not acknowledge receiving context, announce a handoff, or introduce the routing system. Discuss the system or model identity only when relevant to the user's request. Do not repeat completed work. Previous replies may describe tool actions; inspect current files when needed.\n{}", serde_json::to_string(&serde_json::json!({"conversation": history, "current_user_message": current}))?))
+            let mut body =
+                serde_json::json!({"conversation": history, "current_user_message": current});
+            if let Some(note) = note {
+                body["handoff_note"] = note.into();
+            }
+            Ok(format!("Continue the conversation below and answer current_user_message directly. Use the transcript silently as context; do not acknowledge receiving context, announce a handoff, or introduce the routing system. Discuss the system or model identity only when relevant to the user's request. Do not repeat completed work. Previous replies may describe tool actions; inspect current files when needed.{}\n{}", if note.is_some() { " handoff_note is the previous model's summary of the work so far; trust it for state the transcript omits." } else { "" }, serde_json::to_string(&body)?))
         };
         if encode(&[])?.len() > budget {
             bail!("message exceeds the context budget ({budget} bytes)");
