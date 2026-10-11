@@ -101,6 +101,33 @@ fn legacy_preferred_id(role: &str) -> &'static str {
     }
 }
 
+/// Whether a model takes the work a routing role describes.
+pub fn claims(model: &crate::models::ModelProfile, role: &str, declarative: bool) -> bool {
+    if declarative {
+        model.prefers.iter().any(|r| r == role)
+    } else {
+        model.id == legacy_preferred_id(role)
+    }
+}
+
+/// A difficulty tier only helps when some enabled model claims its role.
+/// Otherwise it would cancel the task's own role bonus and leave nobody preferred.
+pub fn usable_tier(
+    task: crate::classifier::TaskType,
+    prompt: &str,
+    mode: Mode,
+    tier: Option<crate::jev::Tier>,
+    models: &[crate::models::ModelProfile],
+    declarative: bool,
+) -> Option<crate::jev::Tier> {
+    let role = preferred_role(task, prompt, mode, tier);
+    tier.filter(|_| {
+        models
+            .iter()
+            .any(|m| m.enabled && claims(m, role, declarative))
+    })
+}
+
 /// Product routing preferences, not model benchmark measurements.
 pub fn responsibility_bonus(
     task: crate::classifier::TaskType,
@@ -111,12 +138,7 @@ pub fn responsibility_bonus(
     tier: Option<crate::jev::Tier>,
 ) -> f32 {
     let role = preferred_role(task, prompt, mode, tier);
-    let matched = if declarative {
-        model.prefers.iter().any(|r| r == role)
-    } else {
-        model.id == legacy_preferred_id(role)
-    };
-    if matched {
+    if claims(model, role, declarative) {
         0.30
     } else {
         0.0
@@ -131,7 +153,7 @@ mod tests {
         models::{Capabilities, ModelProfile, Provider, Runtime},
     };
 
-    fn local(id: &str, prefers: &[&str]) -> ModelProfile {
+    pub(super) fn local(id: &str, prefers: &[&str]) -> ModelProfile {
         ModelProfile {
             id: id.into(),
             provider: Provider::Ollama,
@@ -244,5 +266,37 @@ mod role_tests {
         assert_eq!(role(TaskType::CodeGeneration, Tier::Normal), "coding");
         assert_eq!(role(TaskType::CodeGeneration, Tier::Demanding), "demanding");
         assert_eq!(role(TaskType::Writing, Tier::Simple), "simple");
+    }
+
+    #[test]
+    fn an_unclaimed_tier_keeps_the_task_role() {
+        use crate::jev::Tier;
+        let sol = super::tests::local("gpt-5.6-sol", &["coding"]);
+        let models = [sol];
+        let p = "debug this race";
+        assert_eq!(
+            usable_tier(
+                TaskType::Debugging,
+                p,
+                Mode::Balanced,
+                Some(Tier::Demanding),
+                &models,
+                true
+            ),
+            None
+        );
+        let astra = super::tests::local("gpt-6-astra", &["demanding"]);
+        let models = [models[0].clone(), astra];
+        assert_eq!(
+            usable_tier(
+                TaskType::Debugging,
+                p,
+                Mode::Balanced,
+                Some(Tier::Demanding),
+                &models,
+                true
+            ),
+            Some(Tier::Demanding)
+        );
     }
 }

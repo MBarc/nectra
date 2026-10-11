@@ -52,6 +52,7 @@ pub fn route(
         ProviderArg::Google => Provider::Google,
     });
     let declarative = registry.uses_declared_preferences();
+    let tier = policy::usable_tier(task, prompt, mode, tier, &registry.models, declarative);
     let mut candidates: Vec<_> = registry
         .models
         .iter()
