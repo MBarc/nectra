@@ -20,6 +20,12 @@ pub struct RuntimeConfig {
 pub struct RoutingConfig {
     pub confidence_margin: f32,
     pub default_mode: Mode,
+    /// Continue the provider's own session when the same model answers again.
+    #[serde(default = "enabled")]
+    pub resume_sessions: bool,
+}
+fn enabled() -> bool {
+    true
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]

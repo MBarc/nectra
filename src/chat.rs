@@ -36,6 +36,22 @@ pub trait Backend {
         cfg: &Config,
         output: &mut dyn Write,
     ) -> Result<String>;
+    /// `respond`, keeping or continuing a provider session when one is given.
+    /// Backends without session support answer statelessly and clear the id,
+    /// so the next turn replays the transcript instead of resuming nothing.
+    fn respond_session(
+        &mut self,
+        decision: &Decision,
+        prompt: &str,
+        cfg: &Config,
+        output: &mut dyn Write,
+        session: Option<&mut executor::ProviderSession>,
+    ) -> Result<String> {
+        if let Some(s) = session {
+            s.id = None;
+        }
+        self.respond(decision, prompt, cfg, output)
+    }
 }
 pub struct NativeBackend;
 impl Backend for NativeBackend {
@@ -67,6 +83,25 @@ impl Backend for NativeBackend {
             executor::native::conversation(decision, prompt, cfg)
         } else {
             executor::conversation(decision, prompt, cfg, output)
+        }
+    }
+    fn respond_session(
+        &mut self,
+        decision: &Decision,
+        prompt: &str,
+        cfg: &Config,
+        output: &mut dyn Write,
+        session: Option<&mut executor::ProviderSession>,
+    ) -> Result<String> {
+        if session.is_none() || decision.runtime == "ollama" {
+            if let Some(s) = session {
+                s.id = None;
+            }
+            self.respond(decision, prompt, cfg, output)
+        } else if executor::native::enabled(cfg)? {
+            executor::native::conversation_with_session(decision, prompt, cfg, session)
+        } else {
+            executor::conversation_resumable(decision, prompt, cfg, output, session)
         }
     }
 }
@@ -178,6 +213,9 @@ pub fn run_loop(
     let mut needs_login: Vec<String> = vec![];
     let mut denied_models = std::collections::HashSet::<String>::new();
     let mut successful_models = std::collections::HashSet::<String>::new();
+    // The provider session behind the last completed turn. Only that model can
+    // resume it: any other answer since would be missing from its history.
+    let mut provider_session: Option<(String, String)> = None;
     let mut queued = std::collections::VecDeque::new();
     let mut debate_mode = false;
     'messages: loop {
@@ -192,7 +230,11 @@ pub fn run_loop(
             writeln!(output)?;
             break;
         }
-        let text = text.trim_end_matches(['\r', '\n']);
+        // Windows PowerShell prefixes piped input with a byte-order mark, which
+        // would otherwise hide a leading /command.
+        let text = text
+            .trim_start_matches('\u{feff}')
+            .trim_end_matches(['\r', '\n']);
         if text.trim().is_empty() {
             continue;
         }
@@ -293,6 +335,7 @@ pub fn run_loop(
                 }
                 "/clear" => {
                     session.clear()?;
+                    provider_session = None;
                     writeln!(
                         output,
                         "Context cleared. Earlier turns remain in the saved log."
@@ -453,6 +496,7 @@ pub fn run_loop(
                 }
                 continue;
             }
+            provider_session = None;
             let result = crate::debate::command::turn(
                 session,
                 cfg,
@@ -571,7 +615,20 @@ pub fn run_loop(
             } else {
                 CONTEXT_BYTES
             };
-            let (prompt, omitted) = match session.prompt(&message, budget) {
+            let resumable = cfg.inner.routing.resume_sessions
+                && executor::ProviderSession::supported(&decision.runtime);
+            let mut turn_session = match &provider_session {
+                Some((model, id)) if resumable && model == &decision.model => {
+                    executor::ProviderSession::resume(id)
+                }
+                _ => executor::ProviderSession::start(&decision.runtime),
+            };
+            let context = if turn_session.resume {
+                Session::followup(&message).map(|p| (p, 0))
+            } else {
+                session.prompt(&message, budget)
+            };
+            let (prompt, omitted) = match context {
                 Ok(context) => context,
                 Err(error) => {
                     writeln!(output, "{error:#}")?;
@@ -589,18 +646,24 @@ pub fn run_loop(
             // Persist the input before launching a child; failures never become assistant context.
             session.begin(&message, &decision.model)?;
             attempted.push(decision.model.clone());
+            let keep = resumable.then_some(&mut turn_session);
             let response = if decision.runtime != "ollama" && executor::native::enabled(cfg)? {
-                backend.respond(&decision, &prompt, cfg, output)
+                backend.respond_session(&decision, &prompt, cfg, output, keep)
             } else {
                 let activity = crate::activity::Activity::start(&decision.model);
                 let mut progress = activity.writer(output);
                 let _plain = crate::terminal::plain();
-                backend.respond(&decision, &prompt, cfg, &mut progress)
+                backend.respond_session(&decision, &prompt, cfg, &mut progress, keep)
             };
+            // A failed turn may have left the provider session half-written; start fresh.
+            provider_session = None;
             match response {
                 Ok(reply) if !reply.trim().is_empty() => {
                     successful_models.insert(decision.model.clone());
                     session.complete(&reply)?;
+                    if resumable {
+                        provider_session = turn_session.id.map(|id| (decision.model.clone(), id));
+                    }
                 }
                 Ok(_) => {
                     session.fail("agent returned no answer")?;

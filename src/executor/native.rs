@@ -72,6 +72,9 @@ struct Record {
     answer: String,
     #[serde(default)]
     error: String,
+    /// Codex thread id from its turn notification, for resuming next turn.
+    #[serde(default)]
+    session: String,
 }
 
 /// Invoked only by the per-launch provider hooks, before ordinary CLI/config loading.
@@ -166,6 +169,7 @@ fn record(runtime: &str, event: &Value) -> Option<Record> {
         ("codex", _) if event["type"] == "agent-turn-complete" => {
             r.kind = "answer".into();
             r.answer = event["last-assistant-message"].as_str()?.into();
+            r.session = event["thread-id"].as_str().unwrap_or("").into();
             r.prompt = event["input-messages"]
                 .as_array()
                 .and_then(|a| a.last())
@@ -204,6 +208,7 @@ pub(super) struct Capture {
     prompt: String,
     earlier: Vec<(String, String)>,
     error: String,
+    session: String,
     seen: std::collections::BTreeSet<PathBuf>,
 }
 impl Capture {
@@ -251,6 +256,9 @@ impl Capture {
                     }
                     if !r.prompt.is_empty() {
                         self.prompt = r.prompt;
+                    }
+                    if !r.session.is_empty() {
+                        self.session = r.session;
                     }
                     self.answer = r.answer;
                     self.ready = !self.answer.trim().is_empty();
@@ -363,7 +371,13 @@ fn gemini_defaults() -> PathBuf {
     }
 }
 
-fn command(d: &Decision, cfg: &Config, root: &Path) -> Result<CommandBuilder> {
+fn command(
+    d: &Decision,
+    cfg: &Config,
+    root: &Path,
+    session: Option<&super::ProviderSession>,
+) -> Result<CommandBuilder> {
+    let resume_id = session.filter(|s| s.resume).and_then(|s| s.id.clone());
     let runtime = match d.runtime.as_str() {
         "claude" => &cfg.inner.claude,
         "codex" => &cfg.inner.codex,
@@ -378,6 +392,9 @@ fn command(d: &Decision, cfg: &Config, root: &Path) -> Result<CommandBuilder> {
         let original_notify = serde_json::to_string(&existing_codex_notify()?.unwrap_or_default())?;
         args.remove(0); // exec -> interactive CLI
         args.truncate(args.len() - 2); // structured stdin marker
+        if resume_id.is_some() {
+            args.insert(0, "resume".into());
+        }
         let notify = [
             std::env::current_exe()?.into_os_string(),
             "__terminal-hook".into(),
@@ -398,6 +415,9 @@ fn command(d: &Decision, cfg: &Config, root: &Path) -> Result<CommandBuilder> {
             .into(),
             "--no-alt-screen".into(),
         ]);
+        if let Some(id) = &resume_id {
+            args.push(id.into());
+        }
         // A short file reference avoids Windows' command-line limit and exposing chat text in argv.
         args.push(format!("Read the UTF-8 conversation at {} and answer its current_user_message. Use the history silently; do not acknowledge loading context, model routing, or the handoff. Begin directly with the answer and do not repeat completed work.", root.join("context.txt").display()).into());
     } else {
@@ -425,6 +445,9 @@ fn command(d: &Decision, cfg: &Config, root: &Path) -> Result<CommandBuilder> {
         let settings_path = root.join("settings.config");
         fs::write(&settings_path, serde_json::to_vec(&settings)?)?;
         if d.runtime == "claude" {
+            if let Some(s) = session {
+                args = super::session_arguments(args, "claude", s)?;
+            }
             args.extend([
                 "--settings".into(),
                 settings_path.into_os_string(),
@@ -443,17 +466,32 @@ fn command(d: &Decision, cfg: &Config, root: &Path) -> Result<CommandBuilder> {
 }
 
 pub fn conversation(d: &Decision, prompt: &str, cfg: &Config) -> Result<String> {
+    conversation_with_session(d, prompt, cfg, None)
+}
+
+/// Terminal-view turn that keeps, or continues, a provider session.
+pub fn conversation_with_session(
+    d: &Decision,
+    prompt: &str,
+    cfg: &Config,
+    mut session: Option<&mut super::ProviderSession>,
+) -> Result<String> {
     let root = tempfile::Builder::new()
         .prefix("nectra-terminal-")
         .tempdir()?;
     fs::write(root.path().join("context.txt"), prompt)?;
-    let cmd = command(d, cfg, root.path())?;
+    let cmd = command(d, cfg, root.path(), session.as_deref())?;
     let mut capture = Capture::default();
     let outcome = pane::run(cmd, &d.model, || {
         capture.refresh(root.path())?;
         Ok((capture.revision, capture.ready || !capture.error.is_empty()))
     })?;
     capture.refresh(root.path())?;
+    if let Some(s) = session.as_deref_mut() {
+        if !capture.session.is_empty() {
+            s.id.get_or_insert(capture.session.clone());
+        }
+    }
     if !capture.error.is_empty() {
         return capture.finish();
     }
@@ -694,7 +732,7 @@ mod tests {
             assert_eq!(payload["conversation"], json!([]));
             assert_eq!(payload["current_user_message"], "hello\nsecond line");
             assert!(
-                command(&d, &cfg, root.path()).is_ok(),
+                command(&d, &cfg, root.path(), None).is_ok(),
                 "{runtime} one-shot command must build"
             );
         }

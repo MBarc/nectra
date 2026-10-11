@@ -8,7 +8,9 @@ mod process;
 mod windows_job;
 use anyhow::{bail, Context, Result};
 pub use conversation::conversation;
+pub use conversation::conversation_resumable;
 pub use conversation::conversation_with_cancellation;
+pub use conversation::conversation_with_session;
 pub use conversation::AuthenticationRequired;
 pub use process::CancellationToken;
 pub use process::TurnCancellation;
@@ -227,6 +229,90 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
     }
     Ok(args)
 }
+/// A provider-side conversation Nectra can continue on the next turn.
+///
+/// Resuming keeps the provider's own context (files read, tool output) and its
+/// prompt cache, so a follow-up costs only the new message instead of a replay.
+#[derive(Debug, Clone, Default)]
+pub struct ProviderSession {
+    /// Continue this existing session instead of starting a new one.
+    pub resume: bool,
+    /// Claude: assigned before launch. Codex: captured from the provider's events.
+    pub id: Option<String>,
+}
+impl ProviderSession {
+    /// Only Claude and Codex expose a session id Nectra can target safely.
+    pub fn supported(runtime: &str) -> bool {
+        matches!(runtime, "claude" | "codex")
+    }
+    pub fn start(runtime: &str) -> Self {
+        Self {
+            resume: false,
+            id: (runtime == "claude").then(new_session_id),
+        }
+    }
+    pub fn resume(id: &str) -> Self {
+        Self {
+            resume: true,
+            id: Some(id.to_string()),
+        }
+    }
+}
+
+/// A random version 4 UUID. Not security sensitive: it only names a session.
+pub fn new_session_id() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let mut b = [0u8; 16];
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    for (i, chunk) in b.chunks_mut(8).enumerate() {
+        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+        h.write_u128(nanos);
+        h.write_usize(i);
+        chunk.copy_from_slice(&h.finish().to_le_bytes());
+    }
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    let hex: String = b.iter().map(|x| format!("{x:02x}")).collect();
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    )
+}
+
+/// Adds session flags to `arguments` output for a print-mode launch.
+pub fn session_arguments(
+    mut args: Vec<OsString>,
+    runtime: &str,
+    session: &ProviderSession,
+) -> Result<Vec<OsString>> {
+    match (runtime, &session.id) {
+        ("claude", Some(id)) => {
+            let flag = if session.resume {
+                "--resume"
+            } else {
+                "--session-id"
+            };
+            args.extend([flag.into(), id.into()]);
+        }
+        ("codex", Some(id)) if session.resume => {
+            // exec <opts> -- - becomes exec resume <opts> -- <id> -
+            args.insert(1, "resume".into());
+            let stdin = args.pop().context("missing stdin marker")?;
+            args.extend([id.into(), stdin]);
+        }
+        ("codex", None) if session.resume => bail!("codex session id missing"),
+        _ => {}
+    }
+    Ok(args)
+}
+
 pub fn execute(d: &Decision, prompt: &str, cfg: &Config) -> Result<i32> {
     if d.runtime != "ollama" && native::enabled(cfg)? {
         native::conversation(d, &native::one_shot_context(prompt), cfg)?;
@@ -397,6 +483,47 @@ pub fn doctor(cfg: &Config) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn session_flags_start_and_resume_each_provider() {
+        use super::{session_arguments, ProviderSession};
+        let os = |v: &[&str]| {
+            v.iter()
+                .map(Into::into)
+                .collect::<Vec<std::ffi::OsString>>()
+        };
+        let claude = os(&["-p", "--model", "opus"]);
+        let start = ProviderSession::start("claude");
+        let id = start.id.clone().unwrap();
+        assert_eq!(id.len(), 36);
+        assert_eq!(&id[14..15], "4");
+        assert_eq!(
+            session_arguments(claude.clone(), "claude", &start).unwrap(),
+            os(&["-p", "--model", "opus", "--session-id", &id])
+        );
+        assert_eq!(
+            session_arguments(claude, "claude", &ProviderSession::resume("abc")).unwrap(),
+            os(&["-p", "--model", "opus", "--resume", "abc"])
+        );
+        let codex = os(&["exec", "--model", "gpt-5.6-sol", "--json", "--", "-"]);
+        assert_eq!(
+            session_arguments(codex.clone(), "codex", &ProviderSession::start("codex")).unwrap(),
+            codex
+        );
+        assert_eq!(
+            session_arguments(codex, "codex", &ProviderSession::resume("t1")).unwrap(),
+            os(&[
+                "exec",
+                "resume",
+                "--model",
+                "gpt-5.6-sol",
+                "--json",
+                "--",
+                "t1",
+                "-"
+            ])
+        );
+    }
+
     use super::*;
     use std::io::Read;
     #[test]

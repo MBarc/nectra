@@ -229,6 +229,13 @@ impl Session {
         self.pending = None;
         Ok(())
     }
+    /// The next message for a resumed provider session, which already holds the history.
+    pub fn followup(current: &str) -> Result<String> {
+        Ok(format!(
+            "Answer current_user_message, the next message in this conversation.\n{}",
+            serde_json::to_string(&serde_json::json!({ "current_user_message": current }))?
+        ))
+    }
     /// Keep the opening exchange when possible and a contiguous suffix of recent exchanges.
     /// Budget is UTF-8 serialized bytes, not a claim about model token limits.
     /// Convert a model's token capacity with [`budget_bytes`] before calling this.

@@ -563,3 +563,86 @@ fn rejected_explicit_model_falls_back_without_repeating_started_work() {
             .contains("model rejected"));
     }
 }
+
+/// Keeps provider sessions like the native backend: Claude ids arrive assigned,
+/// Codex ids are captured from the turn.
+#[derive(Default)]
+struct Sessions {
+    turns: Vec<(String, bool, Option<String>, String)>,
+}
+impl Backend for Sessions {
+    fn available(&self, _: Runtime, _: &Config) -> bool {
+        true
+    }
+    fn respond(&mut self, _: &Decision, _: &str, _: &Config, _: &mut dyn Write) -> Result<String> {
+        unreachable!("chat always offers a session to Claude and Codex")
+    }
+    fn respond_session(
+        &mut self,
+        d: &Decision,
+        prompt: &str,
+        _: &Config,
+        _: &mut dyn Write,
+        session: Option<&mut nectra::executor::ProviderSession>,
+    ) -> Result<String> {
+        let s = session.expect("session offered");
+        if d.runtime == "codex" && s.id.is_none() {
+            s.id = Some("thread-1".into());
+        }
+        self.turns
+            .push((d.model.clone(), s.resume, s.id.clone(), prompt.into()));
+        Ok(format!("answer from {}", d.model))
+    }
+}
+
+#[test]
+fn same_model_follow_ups_resume_and_switches_replay_the_transcript() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("thread.jsonl"), dir.path()).unwrap();
+    let mut backend = Sessions::default();
+    let mut output = vec![];
+    chat::run_loop(&cfg, &reg, options(), &mut session, &mut Cursor::new(
+        "/model opus\nfirst\nsecond\n/model gpt-5.6-sol\nthird\nfourth\n/model opus\nfifth\n/quit\n"),
+        &mut output, &mut backend).unwrap();
+    let t = &backend.turns;
+    // opus starts a session, then continues it with only the new message.
+    assert!(!t[0].1 && t[0].2.is_some());
+    assert!(t[1].1 && t[1].2 == t[0].2);
+    assert_eq!(context(&t[1].3)["current_user_message"], "second");
+    assert!(context(&t[1].3).get("conversation").is_none());
+    // Switching provider replays everything; Codex's captured thread resumes next.
+    assert!(!t[2].1);
+    assert_eq!(
+        context(&t[2].3)["conversation"].as_array().unwrap().len(),
+        2
+    );
+    assert!(t[3].1 && t[3].2.as_deref() == Some("thread-1"));
+    // Back to opus: its old session misses the Codex turns, so start fresh.
+    assert!(!t[4].1 && t[4].2 != t[0].2);
+    assert_eq!(
+        context(&t[4].3)["conversation"].as_array().unwrap().len(),
+        4
+    );
+}
+
+#[test]
+fn backends_without_sessions_keep_replaying_the_transcript() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("thread.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock::default();
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/model opus\nfirst\nsecond\n/quit\n"),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(
+        context(&backend.prompts[1])["conversation"][0]["user"],
+        "first"
+    );
+}

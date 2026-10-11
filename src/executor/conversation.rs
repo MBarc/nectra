@@ -35,6 +35,19 @@ pub fn conversation(
     conversation_with_cancellation(d, prompt, cfg, output, &cancel)
 }
 
+/// `conversation` that keeps, or continues, a provider session.
+pub fn conversation_resumable(
+    d: &Decision,
+    prompt: &str,
+    cfg: &Config,
+    output: &mut dyn Write,
+    session: Option<&mut super::ProviderSession>,
+) -> Result<String> {
+    let cancel = super::CancellationToken::default();
+    let _interrupt = super::process::InterruptGuard::install(&cancel)?;
+    conversation_with_session(d, prompt, cfg, output, &cancel, session)
+}
+
 pub fn conversation_with_cancellation(
     d: &Decision,
     prompt: &str,
@@ -42,9 +55,23 @@ pub fn conversation_with_cancellation(
     output: &mut dyn Write,
     cancel: &super::CancellationToken,
 ) -> Result<String> {
+    conversation_with_session(d, prompt, cfg, output, cancel, None)
+}
+
+/// Like `conversation_with_cancellation`, but keeps (or continues) a provider
+/// session so the next turn can resume it. `None` keeps the turn ephemeral.
+pub fn conversation_with_session(
+    d: &Decision,
+    prompt: &str,
+    cfg: &Config,
+    output: &mut dyn Write,
+    cancel: &super::CancellationToken,
+    mut session: Option<&mut super::ProviderSession>,
+) -> Result<String> {
     if cancel.is_cancelled() {
         bail!("Turn cancelled; partial output was not saved or replayed.");
     }
+    let persist = session.is_some();
     let command = match d.runtime.as_str() {
         "claude" => &cfg.inner.claude.command,
         "codex" => &cfg.inner.codex.command,
@@ -66,24 +93,31 @@ pub fn conversation_with_cancellation(
                 .position(|a| a == "--output-format")
                 .context("missing output format")?;
             args[index + 1] = "stream-json".into();
-            args.extend([
-                "--verbose".into(),
-                "--include-partial-messages".into(),
-                "--no-session-persistence".into(),
-            ]);
+            args.extend(["--verbose".into(), "--include-partial-messages".into()]);
+            if !persist {
+                args.push("--no-session-persistence".into());
+            }
         }
         "codex" => {
             let index = args.len() - 2;
-            args.splice(
-                index..index,
-                [OsString::from("--json"), OsString::from("--ephemeral")],
-            );
+            let mut flags = vec![OsString::from("--json")];
+            if !persist {
+                flags.push("--ephemeral".into());
+            }
+            args.splice(index..index, flags);
         }
         _ => unreachable!(),
     }
+    if let Some(session) = session.as_deref() {
+        args = super::session_arguments(args, &d.runtime, session)?;
+    }
     let mut command = launch(command)?;
     command.args(args);
-    run_command(d, prompt, &mut command, output, cancel, None)
+    let (reply, thread) = run_command(d, prompt, &mut command, output, cancel, None)?;
+    if let (Some(session), Some(thread)) = (session.as_deref_mut(), thread) {
+        session.id.get_or_insert(thread);
+    }
+    Ok(reply)
 }
 
 pub(super) fn run_command(
@@ -93,7 +127,7 @@ pub(super) fn run_command(
     output: &mut dyn Write,
     cancel: &super::CancellationToken,
     timeout: Option<Duration>,
-) -> Result<String> {
+) -> Result<(String, Option<String>)> {
     if cancel.is_cancelled() {
         bail!("Turn cancelled; partial output was not saved or replayed.");
     }
@@ -174,7 +208,8 @@ pub(super) fn run_command(
             if shutdown_time.is_some_and(|t| t.elapsed() >= Duration::from_secs(2)) {
                 bail!("provider descendants retained output after shutdown; turn was not saved");
             }
-            if completion_time.is_some_and(|t: Instant| t.elapsed() >= Duration::from_secs(2)) {
+            // Claude Code 2.1 takes 1.7-2.0 s to exit after its result event, so 2 s flaked.
+            if completion_time.is_some_and(|t: Instant| t.elapsed() >= Duration::from_secs(10)) {
                 bail!("provider did not exit after completing its turn; stopped without saving a completed answer");
             }
             let line = match rx.recv_timeout(Duration::from_millis(50)) {
@@ -232,9 +267,10 @@ pub(super) fn run_command(
         bail!("{} exited unsuccessfully", d.runtime);
     }
     written??;
+    let thread = state.thread.take();
     let reply = state.finish()?;
     writeln!(output)?;
-    Ok(reply)
+    Ok((reply, thread))
 }
 
 #[derive(Default)]
@@ -244,10 +280,15 @@ struct StreamState {
     completed: bool,
     claude_displayed: String,
     last_error: Option<String>,
+    /// Codex thread id, for resuming the session next turn.
+    thread: Option<String>,
 }
 impl StreamState {
     fn event(&mut self, runtime: &str, event: &Value) -> Result<Option<String>> {
         let kind = event["type"].as_str().unwrap_or("");
+        if kind == "thread.started" {
+            self.thread = event["thread_id"].as_str().map(String::from);
+        }
         let failure = kind == "error"
             || (runtime == "gemini" && kind == "result" && event["status"] != "success")
             || kind == "turn.failed"
