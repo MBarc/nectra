@@ -69,12 +69,14 @@ the conversation carries on.
 
 ## Easy prompts go to cheaper models
 
-This is where the savings are. A "thanks, that worked" or "rename this variable"
-doesn't need your strongest model, and an architecture question shouldn't get
-your weakest. Nectra asks [Jev](https://docs.typesafe.ai), TypeSafe's hosted
-classifier, to judge each message. It takes about 0.2 seconds and costs a
-fraction of a cent. Easy prompts then go to the models you've marked as cheap,
-and hard ones to the strongest.
+A quick question doesn't need your strongest model, and an architecture question
+shouldn't get your weakest. Nectra asks [Jev](https://docs.typesafe.ai),
+TypeSafe's hosted classifier, to judge each message in one call of about 0.2
+seconds: what kind of task it is, whether it continues the last one, and which
+kind of model should take it. Jev only chooses among the kinds your models
+actually cover (`prefers = ["simple"]`, `["coding"]`, `["planning"]` and so on in
+`models.toml`), so adding a cheap model to your registry is what lets easy
+messages reach it.
 
 The built-in keyword matcher is tuned to the examples it was built from. On
 phrasing it hasn't seen, Jev picks the right task type far more often:
@@ -89,12 +91,66 @@ Jev is optional. Without a key, offline, or if it doesn't answer in time, Nectra
 falls back to its keyword matcher and nothing leaves your machine. Every
 decision's `reason` says which one decided.
 
-## Switch models without losing the thread
+## One task stays on one model
 
-The conversation belongs to Nectra, not to any one provider. Move from Claude to
-Codex mid-task and Codex gets everything said so far. If the history outgrows the
-next model's budget, Nectra keeps the opening exchange and the latest turns,
-leaves out the middle and tells you it did.
+Switching models in the middle of a task is expensive: the new agent starts cold,
+re-reads the files the last one already read, and none of the provider's prompt
+cache carries over. So Nectra routes per task, not per message:
+
+- **Follow-ups stay put.** "Now add a test for it" or "commit it" goes to the model
+  already doing the work. Jev decides whether a message continues the task or
+  starts a new one (10 of 10 right on our hand-written pairs; without Jev, a
+  keyword check does it).
+- **The same model picks up where it left off.** Claude Code and Codex resume their
+  own session, so a follow-up sends only your new message, not the whole
+  conversation again. The agent still has every file it read and command it ran.
+- **A real switch gets a handoff note.** If you move a running task to another
+  model with `/model`, the outgoing model writes a short note (goal, files touched,
+  decisions, next step) and the new one gets that plus the latest turns, instead of
+  a full transcript replay.
+- **New tasks route fresh.** A new task can go to a different model, with the
+  conversation so far as context.
+
+Each of these can be switched off in `[routing]`: `sticky`, `resume_sessions`,
+`handoff_summary`.
+
+## Expected savings
+
+These are estimates from published prices, not measurements. Your own numbers
+come from `nectra usage` (below). Nectra saves the most when your day mixes
+heavy work with lots of quick, separate questions, because each quick one can go
+to a cheap model instead of opening a new session on your most expensive one.
+
+Example: one standalone quick question ("what's the flag to skip git hooks?") in
+Claude Code. Every new Claude Code session first caches its own instructions,
+about 36,000 tokens (we measured 35,868), at 1.25x the input price:
+
+| Where it goes | Startup cache write | 300-token answer | About |
+|---|---|---|---|
+| Opus 5.5 ($4 in / $20 out) | $0.18 | $0.006 | **$0.19** |
+| Sonnet 5.5 ($2 / $10) | $0.09 | $0.003 | **$0.09** |
+| Haiku 5.5 ($0.10 / $0.50) | $0.0045 | $0.0002 | **$0.005** |
+
+If Claude Code writes that cache for an hour rather than five minutes, the write
+costs 2x instead of 1.25x and every row above rises by the same factor, so the
+ratios hold. Jev adds about $0.00003 per message (around 630 input tokens at
+$0.042 per million). Prices are Anthropic's list prices as of October 2026.
+
+| Who you are | Where Nectra saves | Rough size |
+|---|---|---|
+| **One subscription, one strong model** (e.g. Claude Max, always Opus) | Quick standalone questions go to Sonnet or Haiku instead of opening Opus sessions. Long coding tasks stay on Opus. | Small to moderate. If a quarter of your messages are quick standalone ones, they cost roughly a twentieth to a half of what they did. Long tasks cost the same. Shows up as weekly-limit headroom, not dollars. |
+| **Several subscriptions** (Claude + ChatGPT/Codex, maybe Gemini) | Work spreads across all your plans by fit, and a rate-limited one hands over to another. | The biggest win here is not hitting a weekly limit mid-task. Token savings are on top of that. |
+| **Pay-as-you-go API keys** | Same routing, counted in dollars. | Per quick question, roughly $0.19 on Opus down to $0.005 on Haiku (table above). Multiply by how many you ask. |
+| **Local models** (Ollama) | Easy questions go to a model on your own machine. | Those messages cost $0 in tokens. |
+| **Light, mostly-chat users** | Little to route. | Close to nothing. Plain Claude Code or Codex is fine. |
+
+What doesn't get cheaper: a long task on one model costs what it would without
+Nectra, because it stays on that model with its cache intact. Moving a long task
+from Opus to Sonnet saves less than half price suggests, because both read cached
+tokens at $0.20 per million, and in long sessions those reads are most of the bill.
+
+To measure yours: use your usual tool for a week, then Nectra for a week, and
+compare `nectra usage --days 7` with your provider's usage page for the first week.
 
 ## The real CLIs, not imitations
 
@@ -120,7 +176,24 @@ included.
 
 ## Install
 
-Nectra is one Rust program. Build it with current stable Rust:
+Prebuilt for Windows (x64), Linux (x64) and macOS (Intel and Apple Silicon).
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/MBarc/nectra/master/scripts/install.ps1 | iex
+```
+
+On Linux or macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MBarc/nectra/master/scripts/install.sh | sh
+```
+
+The installer checks the download's SHA-256, puts `nectra` on your PATH and runs
+`nectra setup`. Or grab the archive yourself from
+[Releases](https://github.com/MBarc/nectra/releases).
+
+To build from source instead, with current stable Rust:
 
 ```sh
 git clone https://github.com/MBarc/nectra.git
@@ -137,7 +210,6 @@ one live call), or press Enter to keep the keyword matcher. You can run
 `nectra setup` again any time.
 
 On Windows, `./scripts/build.ps1` builds, tests and packages a ZIP under `dist/`.
-Prebuilt downloads for Windows, Linux and macOS will come with the first release.
 
 You'll need at least one of [Claude Code](https://code.claude.com/docs/en/overview),
 [Codex CLI](https://learn.chatgpt.com/docs/developer-commands?surface=cli),
@@ -160,6 +232,18 @@ Start a chat with `nectra` and keep typing. Inside the chat:
 | `/clear`, `/quit` | Clears the active context, or leaves |
 
 Chats save as they go and can be resumed with `nectra chat --resume FILE`.
+
+`nectra usage` shows what your chats used, per model, read from Claude Code's and
+Codex's own session logs:
+
+```text
+MODEL             TURNS  SESSIONS        INPUT   CACHE READ  CACHE WRITE     OUTPUT
+gpt-5.6-luna          2         1         4379        26112            0        246
+sonnet                2         1            4        38053        35868          8
+```
+
+Two turns in one session means the follow-up resumed instead of starting over.
+Add `--days 7` for a week, or `--json` for scripts.
 
 ## For AI agents
 
@@ -201,6 +285,7 @@ lines or start with a dash.
 | `run [PROMPT]` | Routes and runs once. The provider CLI's exit code is passed through. |
 | `models` | The model registry, with each model's provider, effort and declared roles. |
 | `eval CORPUS` | Classifier accuracy against a JSON list of `{ "prompt", "task" }`. Uses Jev when a key is set. |
+| `usage [--days N] [--json]` | Tokens per model across your Nectra chats, from Claude Code's and Codex's own logs. |
 | `setup` | Pick providers, check their CLIs, and optionally add a TypeSafe key. `--providers a,b` skips the questions. |
 | `provider add\|remove\|list\|login ID` | Change provider selections after setup. |
 | `doctor` | Checks every configured CLI with `--version`. Makes no model calls. |

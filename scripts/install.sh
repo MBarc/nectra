@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -eu
-REPO="${NECTRA_REPO:?Set NECTRA_REPO to the trusted GitHub owner/repository}"
+REPO="${NECTRA_REPO:-MBarc/nectra}"
 VERSION="${NECTRA_VERSION:-latest}"
 case "$REPO" in *[!a-zA-Z0-9_./-]*|*..*) echo "Invalid NECTRA_REPO" >&2; exit 1;; esac
 case "$REPO" in */*) ;; *) echo "Expected owner/repository" >&2; exit 1;; esac

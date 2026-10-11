@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
-$repo = $env:NECTRA_REPO
-if (-not $repo -or $repo -notmatch '^[\w.-]+/[\w.-]+$') { throw "Set NECTRA_REPO to the trusted GitHub owner/repository before installing." }
+$repo = if ($env:NECTRA_REPO) { $env:NECTRA_REPO } else { "MBarc/nectra" }
+if ($repo -notmatch '^[\w.-]+/[\w.-]+$') { throw "NECTRA_REPO must be a GitHub owner/repository." }
 $version = if ($env:NECTRA_VERSION) { $env:NECTRA_VERSION } else { "latest" }
 if ($version -notmatch '^[\w.-]+$') { throw "Invalid NECTRA_VERSION." }
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne "X64") { throw "Prebuilt Windows releases currently support x64 only. Build from source on other architectures." }

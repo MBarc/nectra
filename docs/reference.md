@@ -83,9 +83,9 @@ are actually installed. `nectra doctor` re-checks at any time without making a
 single model call. Full build, packaging and uninstall instructions are below.
 
 Prebuilt archives are produced by tag-based CI for Windows x64, Linux x64 and
-macOS on Intel and Apple Silicon, each with a SHA-256 sidecar. The install
-scripts need `NECTRA_REPO=owner/repository`; no public release repository is
-configured yet, so building from source is the supported path today.
+macOS on Intel and Apple Silicon, each with a SHA-256 sidecar, published as
+releases of [MBarc/nectra](https://github.com/MBarc/nectra/releases). The
+install scripts download from there by default.
 
 ## One shared chat session
 
@@ -369,10 +369,10 @@ Commit `Cargo.lock` for reproducible dependency resolution. CI covers Windows,
 Linux and macOS. Tag-based release automation builds Windows x64, Linux x64,
 and macOS Intel/Apple Silicon archives with SHA-256 sidecars after validation.
 
-Install scripts require `NECTRA_REPO=owner/repository` and optionally
-`NECTRA_VERSION=v0.3.0`. They reject unsupported prebuilt platforms and verify
-the archive hash before installing. Checksums detect corruption; they are not
-publisher signatures. No public release repository is configured by this ZIP.
+Install scripts download from `MBarc/nectra` unless `NECTRA_REPO=owner/repository`
+names a fork, and take an optional `NECTRA_VERSION=v0.3.0`. They reject
+unsupported prebuilt platforms and verify the archive hash before installing.
+Checksums detect corruption; they are not publisher signatures.
 
 See [DESIGN.md](../DESIGN.md) for the design review and remaining work.
 
