@@ -41,10 +41,23 @@ pub struct Exchange {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum Event {
-    Header { version: u32, cwd: PathBuf },
-    User { text: String, model: String },
-    Assistant { text: String },
-    Failed { error: String },
+    Header {
+        version: u32,
+        cwd: PathBuf,
+    },
+    User {
+        text: String,
+        model: String,
+    },
+    Assistant {
+        text: String,
+        /// The provider's own session id, so `nectra usage` can read its token log.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider_session: Option<String>,
+    },
+    Failed {
+        error: String,
+    },
     Clear,
 }
 pub struct Session {
@@ -147,7 +160,7 @@ impl Session {
                     }
                     session.pending = Some((text, model));
                 }
-                Event::Assistant { text } => {
+                Event::Assistant { text, .. } => {
                     let (user, model) = session
                         .pending
                         .take()
@@ -205,8 +218,15 @@ impl Session {
         Ok(())
     }
     pub fn complete(&mut self, text: &str) -> Result<()> {
+        self.complete_in(text, None)
+    }
+    /// `complete`, noting which provider session produced the answer.
+    pub fn complete_in(&mut self, text: &str, provider_session: Option<&str>) -> Result<()> {
         let (user, model) = self.pending.as_ref().context("no pending turn")?.clone();
-        self.append(&Event::Assistant { text: text.into() })?;
+        self.append(&Event::Assistant {
+            text: text.into(),
+            provider_session: provider_session.map(String::from),
+        })?;
         self.pending = None;
         self.exchanges.push(Exchange {
             user,

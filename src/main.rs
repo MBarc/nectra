@@ -82,6 +82,15 @@ fn app() -> Result<i32> {
         nectra::setup::manage(cli.config.as_deref(), command)?;
         return Ok(0);
     }
+    if let Some(Commands::Usage { days, json }) = &cli.command {
+        let usage = nectra::usage::collect(&nectra::usage::Logs::default_paths()?, *days)?;
+        if *json {
+            println!("{}", serde_json::to_string_pretty(&usage)?);
+        } else {
+            print!("{}", nectra::usage::render(&usage));
+        }
+        return Ok(0);
+    }
     let mut cfg = config::Config::load(cli.config.as_deref())?;
     cfg.skip_permissions = cli.dangerously_skip_permissions;
     cfg.provider_view = cli.provider_view;

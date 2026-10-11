@@ -722,10 +722,9 @@ pub fn run_loop(
             match response {
                 Ok(reply) if !reply.trim().is_empty() => {
                     successful_models.insert(decision.model.clone());
-                    session.complete(&reply)?;
-                    if resumable {
-                        provider_session = turn_session.id.map(|id| (decision.model.clone(), id));
-                    }
+                    let kept = turn_session.id.filter(|_| resumable);
+                    session.complete_in(&reply, kept.as_deref())?;
+                    provider_session = kept.map(|id| (decision.model.clone(), id));
                 }
                 Ok(_) => {
                     session.fail("agent returned no answer")?;

@@ -139,6 +139,15 @@ pub enum Commands {
     Models,
     /// Evaluate task classification against a local JSON corpus (uses Jev when TYPESAFE_API_KEY is set).
     Eval { corpus: PathBuf },
+    /// Tokens per model across your Nectra chats, from the providers' own logs.
+    Usage {
+        /// Only chats active in the last N days.
+        #[arg(long)]
+        days: Option<u64>,
+        /// Print JSON instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug, Clone)]
