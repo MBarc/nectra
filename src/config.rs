@@ -23,6 +23,9 @@ pub struct RoutingConfig {
     /// Continue the provider's own session when the same model answers again.
     #[serde(default = "enabled")]
     pub resume_sessions: bool,
+    /// Keep a task on the model that started it instead of re-routing every message.
+    #[serde(default = "enabled")]
+    pub sticky: bool,
 }
 fn enabled() -> bool {
     true

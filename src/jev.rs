@@ -27,22 +27,43 @@ pub enum Tier {
     Demanding,
 }
 
+#[derive(Clone)]
 pub struct Classification {
     pub task: TaskType,
     pub req: Requirements,
     pub tier: Option<Tier>,
     pub why: String,
+    /// Whether the message starts a new task rather than continuing the
+    /// previous one. None without a previous message.
+    pub new_task: Option<bool>,
 }
 
 /// Classify with Jev when configured and allowed, else with local keywords.
 pub fn classify(prompt: &str, cfg: &Config) -> Classification {
+    classify_turn(prompt, None, cfg)
+}
+
+/// `classify`, judging the message against the previous user message so
+/// short follow-ups ("now run the tests") stay with their task.
+pub fn classify_turn(prompt: &str, previous: Option<&str>, cfg: &Config) -> Classification {
     let local = || {
-        let (task, req, why) = classifier::classify(prompt);
+        let (task, _, _) = classifier::classify(prompt);
+        let (text, new_task) = match previous {
+            // A generic follow-up borrows the previous task for classification.
+            Some(prev) if task == TaskType::General => (format!("{prev}\n{prompt}"), Some(false)),
+            Some(prev) => (
+                prompt.to_string(),
+                Some(classifier::classify(prev).0 != task),
+            ),
+            None => (prompt.to_string(), None),
+        };
+        let (task, req, why) = classifier::classify(&text);
         Classification {
             task,
             req,
             tier: None,
             why,
+            new_task,
         }
     };
     let c = &cfg.inner.classifier;
@@ -50,8 +71,13 @@ pub fn classify(prompt: &str, cfg: &Config) -> Classification {
     let Some(key) = key.filter(|_| allowed(cfg)) else {
         return local();
     };
-    match ask(prompt, &key, c.timeout_ms) {
-        Ok((task, confidence, difficulty)) => {
+    match ask(prompt, previous, &key, c.timeout_ms) {
+        Ok(Answer {
+            task,
+            confidence,
+            difficulty,
+            new_task,
+        }) => {
             let tier = if difficulty < c.simple_below {
                 Tier::Simple
             } else if difficulty > c.demanding_above {
@@ -66,6 +92,7 @@ pub fn classify(prompt: &str, cfg: &Config) -> Classification {
                 why: format!(
                     "jev classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?})"
                 ),
+                new_task: new_task.map(|p| p >= 0.5),
             }
         }
         Err(e) => {
@@ -105,7 +132,7 @@ pub fn api_key(config_path: &Path) -> Option<String> {
 
 /// One tiny real call, so setup can reject a mistyped key.
 pub fn verify(key: &str) -> Result<()> {
-    ask("hello", key, 10_000).map(|_| ())
+    ask("hello", None, key, 10_000).map(|_| ())
 }
 
 /// Saves the key readable only by the current user (the per-user config
@@ -122,15 +149,30 @@ pub fn save_key(config_path: &Path, key: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Returns task, its confidence, and difficulty normalised to 0..1.
-fn ask(prompt: &str, key: &str, timeout_ms: u64) -> Result<(TaskType, f64, f64)> {
-    let body = json!({
-        "state": prompt,
+struct Answer {
+    task: TaskType,
+    confidence: f64,
+    /// Normalised to 0..1.
+    difficulty: f64,
+    /// Probability the message starts a new task; None without a previous message.
+    new_task: Option<f64>,
+}
+
+fn ask(prompt: &str, previous: Option<&str>, key: &str, timeout_ms: u64) -> Result<Answer> {
+    let (state, subject) = match previous {
+        Some(prev) => (
+            json!({ "previous_message": prev, "current_message": prompt }),
+            "current_message (previous_message is context for short follow-ups)",
+        ),
+        None => (json!(prompt), "the message"),
+    };
+    let mut body = json!({
+        "state": state,
         "model": "jev-latest",
         "questions": {
             "task": {
                 "type": "choice",
-                "instructions": "Which kind of task is the user asking an AI assistant to do?",
+                "instructions": format!("Which kind of task does {subject} ask an AI assistant to do?"),
                 "criteria": {
                     "code_generation": "Write new code, features, scripts, endpoints, tests or flags",
                     "debugging": "Find and fix why something is broken, failing, crashing or behaving wrongly",
@@ -146,7 +188,7 @@ fn ask(prompt: &str, key: &str, timeout_ms: u64) -> Result<(TaskType, f64, f64)>
             },
             "difficulty": {
                 "type": "score",
-                "instructions": "How capable does the AI model need to be to do this task well?",
+                "instructions": format!("How capable does the AI model need to be to do the task in {subject} well?"),
                 "criteria": [
                     "easy: a small fast model handles it",
                     "moderate: a mid-tier model handles it",
@@ -155,6 +197,16 @@ fn ask(prompt: &str, key: &str, timeout_ms: u64) -> Result<(TaskType, f64, f64)>
             }
         }
     });
+    if previous.is_some() {
+        body["questions"]["new_task"] = json!({
+            "type": "noul",
+            "instructions": "Does current_message start a new, separate task instead of continuing the work in previous_message?",
+            "criteria": {
+                "true": "A different piece of work: a new goal, topic or deliverable",
+                "false": "A follow-up on the same work: a fix, next step, tweak, question or confirmation about it"
+            }
+        });
+    }
     let resp: Value = reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(timeout_ms))
         .build()?
@@ -167,16 +219,20 @@ fn ask(prompt: &str, key: &str, timeout_ms: u64) -> Result<(TaskType, f64, f64)>
     parse(&resp)
 }
 
-fn parse(resp: &Value) -> Result<(TaskType, f64, f64)> {
+fn parse(resp: &Value) -> Result<Answer> {
     let a = &resp["answers"];
     let task: TaskType = serde_json::from_value(a["task"]["choice"].clone())
         .context("jev returned an unknown task type")?;
-    let confidence = a["task"]["confidence"].as_f64().unwrap_or(0.0);
     let Some(score) = a["difficulty"]["score"].as_f64() else {
         bail!("jev returned no difficulty score");
     };
-    // Three levels score 0..2.
-    Ok((task, confidence, (score / 2.0).clamp(0.0, 1.0)))
+    Ok(Answer {
+        task,
+        confidence: a["task"]["confidence"].as_f64().unwrap_or(0.0),
+        // Three levels score 0..2.
+        difficulty: (score / 2.0).clamp(0.0, 1.0),
+        new_task: a["new_task"]["noul"].as_f64(),
+    })
 }
 
 #[cfg(test)]
@@ -187,9 +243,24 @@ mod tests {
         let resp = json!({"model":"jev-1.13.0","answers":{
             "task":{"type":"choice","choice":"debugging","confidence":0.91,"probabilities":{}},
             "difficulty":{"type":"score","score":1.5,"confidence":0.4}}});
-        let (task, conf, diff) = parse(&resp).unwrap();
-        assert_eq!(task, TaskType::Debugging);
-        assert!((conf - 0.91).abs() < 1e-9 && (diff - 0.75).abs() < 1e-9);
+        let a = parse(&resp).unwrap();
+        assert_eq!(a.task, TaskType::Debugging);
+        assert!((a.confidence - 0.91).abs() < 1e-9 && (a.difficulty - 0.75).abs() < 1e-9);
+        assert!(a.new_task.is_none());
+        let resp = json!({"answers":{"task":{"choice":"general"},"difficulty":{"score":0.0},
+            "new_task":{"type":"noul","noul":0.12}}});
+        assert_eq!(parse(&resp).unwrap().new_task, Some(0.12));
+    }
+    #[test]
+    fn local_follow_ups_continue_and_new_task_types_switch() {
+        std::env::remove_var(KEY_ENV);
+        let cfg = Config::from_defaults().unwrap();
+        let prev = Some("debug this failing race condition");
+        let c = classify_turn("thanks, do that", prev, &cfg);
+        assert_eq!((c.task, c.new_task), (TaskType::Debugging, Some(false)));
+        let c = classify_turn("write a short bio for my profile", prev, &cfg);
+        assert_eq!(c.new_task, Some(true));
+        assert_eq!(classify_turn("hello", None, &cfg).new_task, None);
     }
     #[test]
     fn rejects_unknown_task() {

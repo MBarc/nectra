@@ -39,12 +39,35 @@ pub fn route(
     if prompt.trim().is_empty() {
         bail!("prompt cannot be empty");
     }
+    route_with(
+        crate::jev::classify(prompt, cfg),
+        prompt,
+        cfg,
+        registry,
+        mode,
+        provider,
+        model,
+    )
+}
+
+/// `route` with a classification made earlier, e.g. once per chat message
+/// and reused across rate-limit retries.
+pub fn route_with(
+    classification: crate::jev::Classification,
+    prompt: &str,
+    cfg: &Config,
+    registry: &Registry,
+    mode: Mode,
+    provider: Option<ProviderArg>,
+    model: Option<String>,
+) -> Result<Decision> {
     let crate::jev::Classification {
         task,
         req,
         tier,
         why,
-    } = crate::jev::classify(prompt, cfg);
+        ..
+    } = classification;
     let wanted = provider.map(|p| match p {
         ProviderArg::Anthropic => Provider::Anthropic,
         ProviderArg::Openai => Provider::Openai,

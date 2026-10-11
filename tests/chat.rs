@@ -147,7 +147,9 @@ fn debate_dry_run_and_rejected_bypass_never_reach_writable_backend() {
 
 #[test]
 fn reauthentication_restores_provider_without_replaying_prior_work() {
-    let (dir, cfg, reg) = fixture();
+    let (dir, mut cfg, reg) = fixture();
+    // "hello again" continues the task GPT answered; test re-login on its own.
+    cfg.inner.routing.sticky = false;
     let mut session = Session::create(&dir.path().join("auth.jsonl"), dir.path()).unwrap();
     let mut backend = Mock {
         auth_once: true,
@@ -473,6 +475,29 @@ fn natural_model_request_overrides_pin_for_one_turn_only() {
         ["opus", "sonnet", "sonnet", "sonnet", "opus"]
     );
     assert!(session.exchanges[0].user.contains("use opus and"));
+}
+
+#[test]
+fn follow_ups_stay_on_the_model_doing_the_task() {
+    for sticky in [true, false] {
+        let (dir, mut cfg, reg) = fixture();
+        cfg.inner.routing.sticky = sticky;
+        let mut session = Session::create(&dir.path().join("sticky.jsonl"), dir.path()).unwrap();
+        let mut backend = Mock::default();
+        chat::run_loop(
+            &cfg,
+            &reg,
+            options(),
+            &mut session,
+            &mut Cursor::new("use opus to write tests for this module\nthanks, do that\n/quit\n"),
+            &mut Vec::new(),
+            &mut backend,
+        )
+        .unwrap();
+        assert_eq!(backend.models[0], "opus");
+        // Without stickiness the follow-up is re-routed like a fresh message.
+        assert_eq!(backend.models[1] == "opus", sticky, "{:?}", backend.models);
+    }
 }
 
 #[test]

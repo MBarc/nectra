@@ -1,5 +1,4 @@
 use crate::{
-    classifier,
     cli::{Cli, Commands, Mode, ProviderArg},
     config::Config,
     executor,
@@ -534,6 +533,14 @@ pub fn run_loop(
             }
         }
         let mut limited_provider: Option<String> = None;
+        // One classification per message, reused by retries.
+        let previous = session.exchanges.last();
+        let classification =
+            crate::jev::classify_turn(&message, previous.map(|e| e.user.as_str()), cfg);
+        // Stay on the model already doing this task: switching mid-task throws
+        // away its session, its cache and what it has read.
+        let continuing = cfg.inner.routing.sticky && classification.new_task == Some(false);
+        let last_model = previous.map(|e| e.model.clone());
         loop {
             let mut available = Registry {
                 models: registry
@@ -567,28 +574,35 @@ pub fn run_loop(
                     }
                 }
             }
-            // Short follow-ups like 'do that' need the previous user's task to be classified sensibly.
-            let routing_text = if matches!(
-                classifier::classify(&message).0,
-                classifier::TaskType::General
-            ) {
-                session
-                    .exchanges
-                    .last()
-                    .map(|e| format!("{}\n{message}", e.user))
-                    .unwrap_or_else(|| message.clone())
-            } else {
-                message.clone()
-            };
-            let decision = match router::route(
-                &routing_text,
+            let sticky = last_model.clone().filter(|m| {
+                continuing
+                    && turn_model.is_none()
+                    && turn_provider.is_none()
+                    && available.models.iter().any(|a| &a.id == m)
+            });
+            let decision = match router::route_with(
+                classification.clone(),
+                &message,
                 cfg,
                 &available,
                 options.mode,
                 turn_provider,
-                turn_model.clone(),
+                turn_model.clone().or(sticky.clone()),
             ) {
-                Ok(decision) => decision,
+                Ok(mut decision) => {
+                    if let Some(model) = &sticky {
+                        decision.overridden = false;
+                        decision.reason = format!(
+                            "{}; same task as the previous message, staying on {model}",
+                            decision
+                                .reason
+                                .split("; explicit")
+                                .next()
+                                .unwrap_or_default()
+                        );
+                    }
+                    decision
+                }
                 Err(error) => {
                     writeln!(
                         output,
