@@ -214,8 +214,12 @@ pub fn run(path: Option<&Path>, providers: Option<&str>, if_needed: bool) -> Res
             "Existing setup preserved: {}. Checking selected CLI dependencies.",
             path.display()
         );
+        let cfg = Config::from_path(&path)?;
+        if crate::jev::allowed(&cfg) && crate::jev::api_key(&cfg.path).is_none() {
+            println!("Tip: run nectra setup to add a TypeSafe key for smarter, cheaper routing.");
+        }
         return validate_connections(
-            &Config::from_path(&path)?,
+            &cfg,
             &mut crate::terminal::stdout(),
             &mut executor::check_runtime,
         );
@@ -229,7 +233,105 @@ pub fn run(path: Option<&Path>, providers: Option<&str>, if_needed: bool) -> Res
         &mut io::stdin().lock(),
         &mut crate::terminal::stdout(),
         &mut executor::check_runtime,
-    )
+    )?;
+    // Unattended installs pass --providers and set TYPESAFE_API_KEY instead.
+    if providers.is_none() && path.try_exists()? {
+        jev_key_prompt(&Config::from_path(&path)?, &mut crate::terminal::stdout())?;
+    }
+    Ok(())
+}
+
+/// Jev runs only as TypeSafe's hosted API (no local weights), so smarter
+/// routing needs a key. Skipping keeps the offline keyword classifier.
+fn jev_key_prompt(cfg: &Config, output: &mut dyn Write) -> Result<()> {
+    use crate::jev;
+    if !jev::allowed(cfg) {
+        return Ok(());
+    }
+    if std::env::var(jev::KEY_ENV).is_ok_and(|k| !k.trim().is_empty()) {
+        writeln!(
+            output,
+            "Jev routing: using {} from the environment.",
+            jev::KEY_ENV
+        )?;
+        return Ok(());
+    }
+    let saved = jev::api_key(&cfg.path).is_some();
+    writeln!(
+        output,
+        "
+Smarter routing (optional): Nectra can classify each message with Jev, TypeSafe's          hosted classifier (~0.2 s and a fraction of a cent per message), so easy prompts go to          cheaper models. Message text is sent to api.typesafe.ai. Get a key at https://typesafe.ai."
+    )?;
+    loop {
+        write!(
+            output,
+            "{}",
+            if saved {
+                "TypeSafe API key (hidden; Enter keeps the saved key): "
+            } else {
+                "TypeSafe API key (hidden; Enter skips and keeps keyword routing): "
+            }
+        )?;
+        output.flush()?;
+        let key = read_hidden()?;
+        writeln!(output)?;
+        if key.is_empty() {
+            writeln!(
+                output,
+                "{}",
+                if saved {
+                    "Kept the saved Jev key."
+                } else {
+                    "Skipped. Run nectra setup again to add a key later."
+                }
+            )?;
+            return Ok(());
+        }
+        match jev::verify(&key) {
+            Ok(()) => {
+                let path = jev::save_key(&cfg.path, &key)?;
+                writeln!(output, "Key verified and saved to {}.", path.display())?;
+                return Ok(());
+            }
+            Err(e) => writeln!(
+                output,
+                "Key check failed: {e:#}. Try again, or press Enter to skip."
+            )?,
+        }
+    }
+}
+
+/// Reads a line without echoing it; Esc or Ctrl+C returns empty.
+fn read_hidden() -> Result<String> {
+    use crossterm::event::{read, Event, KeyCode, KeyEventKind, KeyModifiers};
+    crossterm::terminal::enable_raw_mode()?;
+    let mut key = String::new();
+    let result = loop {
+        match read() {
+            Ok(Event::Key(k)) if k.kind == KeyEventKind::Press => match k.code {
+                KeyCode::Enter => break Ok(()),
+                KeyCode::Esc => {
+                    key.clear();
+                    break Ok(());
+                }
+                KeyCode::Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => {
+                    key.clear();
+                    break Ok(());
+                }
+                KeyCode::Char(c) => key.push(c),
+                KeyCode::Backspace => {
+                    key.pop();
+                }
+                _ => {}
+            },
+            Ok(Event::Paste(text)) => key.push_str(&text),
+            Ok(_) => {}
+            Err(e) => break Err(e),
+        }
+    };
+    crossterm::terminal::disable_raw_mode()?;
+    result?;
+    Ok(key.trim().to_string())
 }
 
 pub fn configure(

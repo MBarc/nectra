@@ -10,7 +10,11 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
-use std::time::Duration;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 pub const KEY_ENV: &str = "TYPESAFE_API_KEY";
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
@@ -42,15 +46,8 @@ pub fn classify(prompt: &str, cfg: &Config) -> Classification {
         }
     };
     let c = &cfg.inner.classifier;
-    let key = std::env::var(KEY_ENV).ok().filter(|k| !k.trim().is_empty());
-    // A local-only Ollama setup chose privacy; never send its prompts out.
-    let local_only = cfg.ollama_enabled()
-        && cfg
-            .inner
-            .ollama
-            .as_ref()
-            .is_some_and(|o| o.policy == crate::ollama::LocalPolicy::LocalOnly);
-    let Some(key) = key.filter(|_| c.backend != ClassifierBackend::Local && !local_only) else {
+    let key = api_key(&cfg.path);
+    let Some(key) = key.filter(|_| allowed(cfg)) else {
         return local();
     };
     match ask(prompt, &key, c.timeout_ms) {
@@ -77,6 +74,52 @@ pub fn classify(prompt: &str, cfg: &Config) -> Classification {
             l
         }
     }
+}
+
+/// Whether this configuration may send prompts to Jev at all. A local-only
+/// Ollama setup chose privacy, so its prompts never leave the machine.
+pub fn allowed(cfg: &Config) -> bool {
+    cfg.inner.classifier.backend != ClassifierBackend::Local
+        && !(cfg.ollama_enabled()
+            && cfg
+                .inner
+                .ollama
+                .as_ref()
+                .is_some_and(|o| o.policy == crate::ollama::LocalPolicy::LocalOnly))
+}
+
+/// The key file lives beside config.toml, not in it, so `nectra config --print`
+/// never shows it.
+pub fn key_path(config_path: &Path) -> Option<PathBuf> {
+    config_path.parent().map(|d| d.join("typesafe.key"))
+}
+
+/// `TYPESAFE_API_KEY` wins over the key file saved by `nectra setup`.
+pub fn api_key(config_path: &Path) -> Option<String> {
+    std::env::var(KEY_ENV)
+        .ok()
+        .or_else(|| fs::read_to_string(key_path(config_path)?).ok())
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty())
+}
+
+/// One tiny real call, so setup can reject a mistyped key.
+pub fn verify(key: &str) -> Result<()> {
+    ask("hello", key, 10_000).map(|_| ())
+}
+
+/// Saves the key readable only by the current user (the per-user config
+/// directory already is on Windows).
+pub fn save_key(config_path: &Path, key: &str) -> Result<PathBuf> {
+    let path = key_path(config_path).context("configuration path has no directory")?;
+    fs::create_dir_all(path.parent().unwrap())?;
+    fs::write(&path, key)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(path)
 }
 
 /// Returns task, its confidence, and difficulty normalised to 0..1.
@@ -152,6 +195,19 @@ mod tests {
     fn rejects_unknown_task() {
         let resp = json!({"answers":{"task":{"choice":"poetry"},"difficulty":{"score":0.0}}});
         assert!(parse(&resp).is_err());
+    }
+    #[test]
+    fn saved_key_is_found_beside_the_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("config.toml");
+        save_key(
+            &cfg,
+            "  sk-test
+",
+        )
+        .unwrap();
+        std::env::remove_var(KEY_ENV);
+        assert_eq!(api_key(&cfg).as_deref(), Some("sk-test"));
     }
     #[test]
     fn falls_back_to_local_without_key() {
