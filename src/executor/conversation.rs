@@ -66,7 +66,7 @@ pub fn conversation_with_session(
     cfg: &Config,
     output: &mut dyn Write,
     cancel: &super::CancellationToken,
-    mut session: Option<&mut super::ProviderSession>,
+    session: Option<&mut super::ProviderSession>,
 ) -> Result<String> {
     if cancel.is_cancelled() {
         bail!("Turn cancelled; partial output was not saved or replayed.");
@@ -114,7 +114,7 @@ pub fn conversation_with_session(
     let mut command = launch(command)?;
     command.args(args);
     let (reply, thread) = run_command(d, prompt, &mut command, output, cancel, None)?;
-    if let (Some(session), Some(thread)) = (session.as_deref_mut(), thread) {
+    if let (Some(session), Some(thread)) = (session, thread) {
         session.id.get_or_insert(thread);
     }
     Ok(reply)

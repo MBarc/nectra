@@ -268,7 +268,7 @@ mod tests {
                 r#"{"type":"assistant","text":"b","provider_session":"c1"}"#,
                 r#"{"type":"user","text":"c","model":"opus"}"#,
                 r#"{"type":"assistant","text":"d","provider_session":"c1"}"#,
-                &format!(r#"{{"type":"user","text":"e","model":"gpt-5.6-sol"}}"#),
+                r#"{"type":"user","text":"e","model":"gpt-5.6-sol"}"#,
                 &format!(r#"{{"type":"assistant","text":"f","provider_session":"{thread}"}}"#),
                 r#"{"type":"user","text":"g","model":"gemini-2.5-pro"}"#,
                 r#"{"type":"assistant","text":"h"}"#,

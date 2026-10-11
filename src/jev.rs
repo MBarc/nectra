@@ -36,16 +36,27 @@ pub struct Classification {
     /// Whether the message starts a new task rather than continuing the
     /// previous one. None without a previous message.
     pub new_task: Option<bool>,
+    /// The routing role Jev chose among those your models claim.
+    pub role: Option<String>,
 }
+
+/// A routing role and the plain description Jev reads.
+pub type Role = (&'static str, &'static str);
 
 /// Classify with Jev when configured and allowed, else with local keywords.
 pub fn classify(prompt: &str, cfg: &Config) -> Classification {
-    classify_turn(prompt, None, cfg)
+    classify_turn(prompt, None, cfg, &[])
 }
 
 /// `classify`, judging the message against the previous user message so
-/// short follow-ups ("now run the tests") stay with their task.
-pub fn classify_turn(prompt: &str, previous: Option<&str>, cfg: &Config) -> Classification {
+/// short follow-ups ("now run the tests") stay with their task, and picking a
+/// role among `roles` (the ones some available model claims).
+pub fn classify_turn(
+    prompt: &str,
+    previous: Option<&str>,
+    cfg: &Config,
+    roles: &[Role],
+) -> Classification {
     let local = || {
         let (task, _, _) = classifier::classify(prompt);
         let (text, new_task) = match previous {
@@ -64,6 +75,7 @@ pub fn classify_turn(prompt: &str, previous: Option<&str>, cfg: &Config) -> Clas
             tier: None,
             why,
             new_task,
+            role: None,
         }
     };
     let c = &cfg.inner.classifier;
@@ -71,12 +83,13 @@ pub fn classify_turn(prompt: &str, previous: Option<&str>, cfg: &Config) -> Clas
     let Some(key) = key.filter(|_| allowed(cfg)) else {
         return local();
     };
-    match ask(prompt, previous, &key, c.timeout_ms) {
+    match ask(prompt, previous, roles, &key, c.timeout_ms) {
         Ok(Answer {
             task,
             confidence,
             difficulty,
             new_task,
+            role,
         }) => {
             let tier = if difficulty < c.simple_below {
                 Tier::Simple
@@ -90,9 +103,12 @@ pub fn classify_turn(prompt: &str, previous: Option<&str>, cfg: &Config) -> Clas
                 req: classifier::requirements(task),
                 tier: Some(tier),
                 why: format!(
-                    "jev classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?})"
+                    "jev classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{})",
+                    role.as_deref().map(|r| format!(", role {r}")).unwrap_or_default()
                 ),
                 new_task: new_task.map(|p| p >= 0.5),
+                // Only roles offered can come back; reject anything else.
+                role: role.filter(|r| roles.iter().any(|(name, _)| name == r)),
             }
         }
         Err(e) => {
@@ -132,7 +148,7 @@ pub fn api_key(config_path: &Path) -> Option<String> {
 
 /// One tiny real call, so setup can reject a mistyped key.
 pub fn verify(key: &str) -> Result<()> {
-    ask("hello", None, key, 10_000).map(|_| ())
+    ask("hello", None, &[], key, 10_000).map(|_| ())
 }
 
 /// Saves the key readable only by the current user (the per-user config
@@ -156,9 +172,16 @@ struct Answer {
     difficulty: f64,
     /// Probability the message starts a new task; None without a previous message.
     new_task: Option<f64>,
+    role: Option<String>,
 }
 
-fn ask(prompt: &str, previous: Option<&str>, key: &str, timeout_ms: u64) -> Result<Answer> {
+fn ask(
+    prompt: &str,
+    previous: Option<&str>,
+    roles: &[Role],
+    key: &str,
+    timeout_ms: u64,
+) -> Result<Answer> {
     let (state, subject) = match previous {
         Some(prev) => (
             json!({ "previous_message": prev, "current_message": prompt }),
@@ -207,6 +230,14 @@ fn ask(prompt: &str, previous: Option<&str>, key: &str, timeout_ms: u64) -> Resu
             }
         });
     }
+    // Only the roles your models claim, so Jev can't pick one nobody holds.
+    if roles.len() > 1 {
+        body["questions"]["role"] = json!({
+            "type": "choice",
+            "instructions": format!("Which kind of model should handle {subject}?"),
+            "criteria": roles.iter().map(|(name, about)| (name.to_string(), json!(about))).collect::<serde_json::Map<_, _>>(),
+        });
+    }
     let resp: Value = reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(timeout_ms))
         .build()?
@@ -232,6 +263,7 @@ fn parse(resp: &Value) -> Result<Answer> {
         // Three levels score 0..2.
         difficulty: (score / 2.0).clamp(0.0, 1.0),
         new_task: a["new_task"]["noul"].as_f64(),
+        role: a["role"]["choice"].as_str().map(String::from),
     })
 }
 
@@ -250,17 +282,20 @@ mod tests {
         let resp = json!({"answers":{"task":{"choice":"general"},"difficulty":{"score":0.0},
             "new_task":{"type":"noul","noul":0.12}}});
         assert_eq!(parse(&resp).unwrap().new_task, Some(0.12));
+        let resp = json!({"answers":{"task":{"choice":"general"},"difficulty":{"score":0.0},
+            "role":{"type":"choice","choice":"simple"}}});
+        assert_eq!(parse(&resp).unwrap().role.as_deref(), Some("simple"));
     }
     #[test]
     fn local_follow_ups_continue_and_new_task_types_switch() {
         std::env::remove_var(KEY_ENV);
         let cfg = Config::from_defaults().unwrap();
         let prev = Some("debug this failing race condition");
-        let c = classify_turn("thanks, do that", prev, &cfg);
+        let c = classify_turn("thanks, do that", prev, &cfg, &[]);
         assert_eq!((c.task, c.new_task), (TaskType::Debugging, Some(false)));
-        let c = classify_turn("write a short bio for my profile", prev, &cfg);
+        let c = classify_turn("write a short bio for my profile", prev, &cfg, &[]);
         assert_eq!(c.new_task, Some(true));
-        assert_eq!(classify_turn("hello", None, &cfg).new_task, None);
+        assert_eq!(classify_turn("hello", None, &cfg, &[]).new_task, None);
     }
     #[test]
     fn rejects_unknown_task() {

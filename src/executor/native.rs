@@ -474,7 +474,7 @@ pub fn conversation_with_session(
     d: &Decision,
     prompt: &str,
     cfg: &Config,
-    mut session: Option<&mut super::ProviderSession>,
+    session: Option<&mut super::ProviderSession>,
 ) -> Result<String> {
     let root = tempfile::Builder::new()
         .prefix("nectra-terminal-")
@@ -487,7 +487,7 @@ pub fn conversation_with_session(
         Ok((capture.revision, capture.ready || !capture.error.is_empty()))
     })?;
     capture.refresh(root.path())?;
-    if let Some(s) = session.as_deref_mut() {
+    if let Some(s) = session {
         if !capture.session.is_empty() {
             s.id.get_or_insert(capture.session.clone());
         }

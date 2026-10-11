@@ -101,6 +101,43 @@ fn legacy_preferred_id(role: &str) -> &'static str {
     }
 }
 
+/// Every routing role, with the plain description Jev chooses between.
+pub const ROLES: [(&str, &str); 6] = [
+    (
+        "simple",
+        "Trivial non-coding work: thanks, chit-chat, a quick fact, a short rewrite",
+    ),
+    (
+        "simple-coding",
+        "A small, contained code change: rename, add a flag, a short script",
+    ),
+    (
+        "coding",
+        "Regular software work: features, debugging, tests, code review, data analysis",
+    ),
+    ("planning", "Plans, architecture and design decisions"),
+    ("general", "Writing, research and explanations"),
+    (
+        "demanding",
+        "Hard, multi-step or high-stakes work that needs the strongest model",
+    ),
+];
+
+/// The roles at least one enabled model claims: the only answers worth offering Jev.
+pub fn claimed_roles(
+    models: &[crate::models::ModelProfile],
+    declarative: bool,
+) -> Vec<(&'static str, &'static str)> {
+    ROLES
+        .into_iter()
+        .filter(|(role, _)| {
+            models
+                .iter()
+                .any(|m| m.enabled && claims(m, role, declarative))
+        })
+        .collect()
+}
+
 /// Whether a model takes the work a routing role describes.
 pub fn claims(model: &crate::models::ModelProfile, role: &str, declarative: bool) -> bool {
     if declarative {
@@ -266,6 +303,23 @@ mod role_tests {
         assert_eq!(role(TaskType::CodeGeneration, Tier::Normal), "coding");
         assert_eq!(role(TaskType::CodeGeneration, Tier::Demanding), "demanding");
         assert_eq!(role(TaskType::Writing, Tier::Simple), "simple");
+    }
+
+    #[test]
+    fn jev_is_only_offered_roles_some_model_claims() {
+        let models = [
+            super::tests::local("gpt-5.6-sol", &["coding"]),
+            super::tests::local("gpt-6-astra", &["demanding"]),
+        ];
+        let names: Vec<_> = claimed_roles(&models, true).iter().map(|r| r.0).collect();
+        assert_eq!(names, ["coding", "demanding"]);
+        // A legacy registry claims through the built-in id table.
+        let legacy = [
+            super::tests::local("opus", &[]),
+            super::tests::local("sonnet", &[]),
+        ];
+        let names: Vec<_> = claimed_roles(&legacy, false).iter().map(|r| r.0).collect();
+        assert_eq!(names, ["planning", "general"]);
     }
 
     #[test]

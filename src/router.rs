@@ -39,8 +39,9 @@ pub fn route(
     if prompt.trim().is_empty() {
         bail!("prompt cannot be empty");
     }
+    let roles = policy::claimed_roles(&registry.models, registry.uses_declared_preferences());
     route_with(
-        crate::jev::classify(prompt, cfg),
+        crate::jev::classify_turn(prompt, None, cfg, &roles),
         prompt,
         cfg,
         registry,
@@ -66,6 +67,7 @@ pub fn route_with(
         req,
         tier,
         why,
+        role: jev_role,
         ..
     } = classification;
     let wanted = provider.map(|p| match p {
@@ -92,11 +94,14 @@ pub fn route_with(
                 && model.as_ref().is_none_or(|id| id == &m.id)
         })
         .map(|m| {
-            (
-                m,
-                policy::score(&req, m, mode)
-                    + policy::responsibility_bonus(task, prompt, m, mode, declarative, tier),
-            )
+            // Jev's role is chosen among roles your models claim; otherwise the
+            // local heuristic picks one from task type and wording.
+            let bonus = match &jev_role {
+                Some(role) if policy::claims(m, role, declarative) => 0.30,
+                Some(_) => 0.0,
+                None => policy::responsibility_bonus(task, prompt, m, mode, declarative, tier),
+            };
+            (m, policy::score(&req, m, mode) + bonus)
         })
         .collect();
     if wanted.is_none() && model.is_none() && cfg.ollama_enabled() {

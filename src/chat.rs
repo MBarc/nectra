@@ -558,8 +558,10 @@ pub fn run_loop(
         let mut limited_provider: Option<String> = None;
         // One classification per message, reused by retries.
         let previous = session.exchanges.last();
+        let roles =
+            crate::policy::claimed_roles(&registry.models, registry.uses_declared_preferences());
         let classification =
-            crate::jev::classify_turn(&message, previous.map(|e| e.user.as_str()), cfg);
+            crate::jev::classify_turn(&message, previous.map(|e| e.user.as_str()), cfg, &roles);
         // Stay on the model already doing this task: switching mid-task throws
         // away its session, its cache and what it has read.
         let continuing = cfg.inner.routing.sticky && classification.new_task == Some(false);
