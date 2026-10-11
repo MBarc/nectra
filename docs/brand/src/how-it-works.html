@@ -1,0 +1,71 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="brand.css">
+<style>
+  body { width: 1600px; height: 640px; }
+  .row { display: grid; grid-template-columns: 270px 300px 350px 370px; gap: 46px; padding: 64px 0 0 0; justify-content: center; position: relative; }
+  .step h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; display: flex; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+  .step h2 b { color: var(--honey); font-size: 30px; }
+  .step p { color: var(--muted); font-size: 18px; line-height: 1.35; margin-bottom: 22px; min-height: 50px; }
+  .panel { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 22px; height: 330px; }
+  .bubble { font-size: 23px; line-height: 1.35; border-radius: 16px 16px 16px 4px; }
+  .kv { font-size: 19px; display: grid; grid-template-columns: auto 1fr; gap: 14px 18px; align-items: center; }
+  .kv span { color: var(--muted); }
+  .tag { font-weight: 600; padding: 4px 12px; border-radius: 8px; background: color-mix(in srgb, var(--honey) 18%, transparent); justify-self: start; }
+  .meter { height: 10px; border-radius: 6px; background: var(--line); position: relative; overflow: hidden; }
+  .meter::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 93%; background: var(--honey); }
+  .bars { display: grid; gap: 18px; }
+  .bar { display: grid; grid-template-columns: 118px 1fr 48px; gap: 12px; align-items: center; font-size: 18px; }
+  .bar .track { height: 26px; border-radius: 6px; background: color-mix(in srgb, var(--c) 22%, transparent); position: relative; }
+  .bar .track i { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--c); }
+  .bar.win { font-weight: 600; }
+  .bar.dim { opacity: .55; }
+  .term { background: var(--term); color: var(--term-ink); border-color: transparent; font-size: 15px; line-height: 1.6; padding: 0; overflow: hidden; }
+  .term .bar0 { display: flex; gap: 8px; padding: 12px 14px; background: color-mix(in srgb, var(--term-ink) 8%, transparent); }
+  .term .bar0 i { width: 11px; height: 11px; border-radius: 50%; background: #3A4256; }
+  .term pre { padding: 14px 18px; white-space: pre-wrap; font-family: "IBM Plex Mono", monospace; }
+  .g { color: #3DD6A3; } .y { color: #F2C14E; } .d { color: #8A93A8; }
+  .arrow { position: absolute; top: 290px; width: 40px; height: 24px; }
+  .note { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; color: var(--muted); font-size: 18px; }
+</style></head>
+<body><script>if (location.hash === "#dark") document.body.classList.add("dark")</script>
+<div class="row">
+  <div class="step">
+    <h2><b>1</b>You type</h2>
+    <p>One chat, whatever model ends up answering.</p>
+    <div class="panel bubble">debug this intermittent race condition in the scheduler</div>
+  </div>
+  <div class="step">
+    <h2><b>2</b>Nectra reads it</h2>
+    <p>Jev judges task and difficulty in about 0.2&nbsp;s.</p>
+    <div class="panel kv">
+      <span>Task</span><div class="tag">debugging</div>
+      <span>Difficulty</span><div class="meter"></div>
+      <span>Confidence</span><div>1.00</div>
+      <span>Needs</span><div>coding and tools</div>
+    </div>
+  </div>
+  <div class="step">
+    <h2><b>3</b>Scores your models</h2>
+    <p>Only the providers you selected, using a capability table you can edit.</p>
+    <div class="panel bars">
+      <div class="bar win" style="--c:var(--openai)"><div>gpt-5.6-sol</div><div class="track"><i style="width:100%"></i></div><div>1.16</div></div>
+      <div class="bar dim" style="--c:var(--claude)"><div>sonnet</div><div class="track"><i style="width:78%"></i></div><div>0.91</div></div>
+      <div class="bar dim" style="--c:var(--openai)"><div>gpt-5.6-luna</div><div class="track"><i style="width:77%"></i></div><div>0.89</div></div>
+      <div class="bar dim" style="--c:var(--claude)"><div>opus</div><div class="track"><i style="width:73%"></i></div><div>0.85</div></div>
+    </div>
+  </div>
+  <div class="step">
+    <h2><b>4</b>Hands it the conversation</h2>
+    <p>The winner's real CLI opens with everything said so far.</p>
+    <div class="panel term"><div class="bar0"><i></i><i></i><i></i></div><pre><span class="d">nectra</span> <span class="g">gpt-5.6-sol</span> <span class="d">via codex</span>
+
+<span class="y">&gt;</span> earlier turns in this chat
+<span class="y">&gt;</span> debug this intermittent race
+  condition in the scheduler
+
+<span class="d">Codex's own terminal: tools,
+approvals and output as usual.</span></pre></div>
+  </div>
+</div>
+<div class="note">Easy prompts go to cheaper models, hard ones to the strongest. These scores come from a real run of <span class="mono">nectra route</span>, which prints every decision as JSON.</div>
+</body></html>

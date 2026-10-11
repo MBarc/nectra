@@ -1,25 +1,44 @@
-# Nectra
+<p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/banner-dark.png">
+  <img src="docs/brand/banner.png" alt="Nectra: one chat for every AI model you have. A message forks to Claude Code, Codex, Gemini CLI and Ollama, and the Codex route is lit." width="100%">
+</picture>
+</p>
 
-**One conversation. The right model. No cloud router in the middle.**
+<div align="center">
 
-You have Claude Code, Codex CLI, Gemini CLI and a local model or two. Each is
-better at something. So you keep three terminals open, paste context between
-them by hand, and lose the thread every time you switch.
+[![CI](https://github.com/MBarc/nectra/actions/workflows/ci.yml/badge.svg)](https://github.com/MBarc/nectra/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+[![Rust](https://img.shields.io/badge/built%20with-Rust-B7410E)](Cargo.toml)
+[![Windows | Linux | macOS](https://img.shields.io/badge/runs%20on-Windows%20%7C%20Linux%20%7C%20macOS-1E2433)](#which-platforms)
 
-Nectra gives you one chat. It reads each message, decides which agent should
-answer it, hands that agent the conversation so far, and drops you into that
-provider's real terminal - colors, tool output, approval prompts and all. When
-the answer lands, you are back at one prompt, ready for the next message.
+**[Install](#install)** &nbsp;&nbsp; **[For AI agents](#for-ai-agents)** &nbsp;&nbsp; **[FAQ](#faq)** &nbsp;&nbsp; **[Full reference](docs/reference.md)**
 
-The routing policy runs on your machine and every routing decision is a JSON
-object you can read. With `TYPESAFE_API_KEY` set, the prompt is first sent to
-[Jev](https://docs.typesafe.ai) (TypeSafe's classifier, ~200 ms, a fraction of a
-cent) to judge its task type and how much model it needs; easy prompts go to
-cheap models and hard ones to strong models. Without a key, offline, on error, or
-under the Ollama `local-only` policy, a local keyword classifier decides and
-nothing leaves the box. The decision's `reason` names which classifier decided.
+</div>
 
-## See it decide
+You've got Claude Code, Codex, Gemini CLI and maybe a model or two running in
+Ollama. Each is better at something, and each costs something different. So you
+keep three terminals open, paste context between them by hand, and send a
+"thanks!" to your most expensive model because it happened to be the window in
+front of you.
+
+Nectra gives you one chat. It reads each message, picks the model that should
+answer it, hands that model the conversation so far, and opens that provider's
+real terminal. When the answer lands, you're back at one prompt for the next
+message.
+
+## Each message goes to the right model
+
+<p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/how-it-works-dark.png">
+  <img src="docs/brand/how-it-works.png" alt="How Nectra routes a message: you type a debugging request; Jev reads it as debugging with high difficulty; your models are scored, gpt-5.6-sol 1.16, sonnet 0.91, gpt-5.6-luna 0.89, opus 0.85; Codex opens with the conversation so far." width="100%">
+</picture>
+</p>
+
+Nectra works out what kind of task a message is (debugging, writing, planning,
+code review and six more) and how much model it needs. Then it scores every
+model you've enabled and opens the winner. You can always see why:
 
 ```sh
 nectra route "debug this intermittent race condition in the scheduler"
@@ -28,484 +47,248 @@ nectra route "debug this intermittent race condition in the scheduler"
 ```json
 {
   "task": "debugging",
-  "provider": "openai",
-  "runtime": "codex",
   "model": "gpt-5.6-sol",
-  "effort": "high",
-  "mode": "balanced",
+  "runtime": "codex",
   "score": 1.1582785,
   "score_margin": 0.24934578,
   "ambiguous": false,
-  "reason": "local heuristic classified prompt as debugging; highest eligible score including task responsibility and complexity",
+  "reason": "jev classified prompt as debugging (confidence 1.00, difficulty 0.93 -> Demanding); highest eligible score including task responsibility and complexity",
   "candidates": [
-    { "model": "gpt-5.6-sol",  "provider": "openai",    "score": 1.1582785 },
-    { "model": "sonnet",       "provider": "anthropic", "score": 0.9089327 },
-    { "model": "gpt-5.6-luna", "provider": "openai",    "score": 0.8883139 }
+    { "model": "gpt-5.6-sol",  "score": 1.1582785 },
+    { "model": "sonnet",       "score": 0.9089327 },
+    { "model": "gpt-5.6-luna", "score": 0.8883139 },
+    { "model": "opus",         "score": 0.85114044 }
   ]
 }
 ```
 
-*Candidate list abbreviated; the real output ranks every eligible model.*
+<sub>Abbreviated. The full output also carries the provider, effort, mode and override flags.</sub>
 
-`score_margin` tells you how close the call was, and `ambiguous` turns true when
-it was close enough that you should probably choose yourself. `candidates` shows
-everything it weighed. Disagree? `--model` overrides it and the conversation
-continues uninterrupted.
+Don't agree? `/model sonnet` in the chat, or `--model` on the command line, and
+the conversation carries on.
 
-## Why you would want this
+## Easy prompts go to cheaper models
 
-**Stop paying the context tax.** Switching models normally means re-explaining
-everything. Here the conversation is Nectra's, not the provider's, so `/model
-gpt-5.6-sol` mid-thread carries your completed history across, trimmed to a
-budget with an omission notice when it outgrows the target model's context.
+This is where the savings are. A "thanks, that worked" or "rename this variable"
+doesn't need your strongest model, and an architecture question shouldn't get
+your weakest. Nectra asks [Jev](https://docs.typesafe.ai), TypeSafe's hosted
+classifier, to judge each message. It takes about 0.2 seconds and costs a
+fraction of a cent. Easy prompts then go to the models you've marked as cheap,
+and hard ones to the strongest.
 
-**Routing you can argue with.** Scores come from an editable capability table in
-`config/models.toml`, not a black box. `nectra route` shows the decision,
-`nectra eval` scores the classifier against a corpus, and models declare which
-work they want with `prefers = ["coding"]`. Bring your own corpus and tune it.
+The built-in keyword matcher is tuned to the examples it was built from. On
+phrasing it hasn't seen, Jev picks the right task type far more often:
 
-**The real CLI, not a reimplementation.** Claude, Codex and Gemini run in a true
-PTY (ConPTY on Windows). You get their actual interface, animations and approval
-prompts, not a lossy wrapper around them.
+| Prompt set | Keywords | Jev |
+|---|---|---|
+| Tuned examples ([`eval/tasks.json`](eval/tasks.json)) | 38 of 38 | 37 of 38 |
+| Unseen phrasing ([`eval/generalization.json`](eval/generalization.json)) | 10 of 20 | 17 of 20 |
+| Fresh holdout ([`eval/holdout.json`](eval/holdout.json)) | 13 of 40 | 39 of 40 |
 
-**It keeps going when a provider does not.** In the structured stream view
-(`--provider-view stream`), recognised rate-limit and authentication rejections
-arriving *before* any work has streamed fail over to another eligible model and
-carry the conversation with them. The embedded terminal view cannot prove no
-tools ran, so it deliberately does **not** auto-replay; it reports and lets you
-choose. Cooldowns are remembered across runs until they expire, so a live limit
-is not rediscovered by walking into it again.
+Jev is optional. Without a key, offline, or if it doesn't answer in time, Nectra
+falls back to its keyword matcher and nothing leaves your machine. Every
+decision's `reason` says which one decided.
 
-**Local models are first class.** Point it at Ollama and local models compete on
-the same table as hosted ones. `local-only` keeps routing to your configured
-Ollama server rather than any hosted provider - that server is wherever
-`base_url` points, so it is only on-machine if you configured it that way.
+## Switch models without losing the thread
 
-**One binary, no daemon.** Nectra itself is a single Rust executable with no
-runtime of its own and no account, because there is no us - your provider CLIs,
-your keys. Those CLIs keep their own requirements; Gemini CLI needs Node.
+The conversation belongs to Nectra, not to any one provider. Move from Claude to
+Codex mid-task and Codex gets everything said so far. If the history outgrows the
+next model's budget, Nectra keeps the opening exchange and the latest turns,
+leaves out the middle and tells you it did.
+
+## The real CLIs, not imitations
+
+Claude Code, Codex and Gemini CLI run in a real terminal (ConPTY on Windows), so
+you get their actual interface: colors, tool output and approval prompts. Nectra
+shows a compact activity view while they work. Press F2 to see the full terminal
+and answer an approval.
+
+## It keeps going when a provider hits a limit
+
+If a provider rejects a message with a rate limit before any work has started,
+Nectra notes the cooldown and skips that model until it's over, so the next
+message doesn't walk into the same wall. In the stream view
+(`--provider-view stream`) it also retries the message on another model you've
+enabled. The terminal view can't prove no tools ran yet, so there it tells you
+and lets you choose.
+
+## Local models count too
+
+Point Nectra at an Ollama server and its models compete on the same table as the
+hosted ones. Choose `local-only` and nothing goes to a hosted provider, Jev
+included.
 
 ## Install
 
-Build it with current stable Rust:
+Nectra is one Rust program. Build it with current stable Rust:
 
 ```sh
+git clone https://github.com/MBarc/nectra.git
+cd nectra
 cargo build --release --locked
 ./target/release/nectra setup
-./target/release/nectra chat
+./target/release/nectra
 ```
 
-`nectra setup` asks which providers you have access to and checks that their CLIs
-are actually installed. `nectra doctor` re-checks at any time without making a
-single model call. Full build, packaging and uninstall instructions are below.
+`nectra setup` asks which providers you have and checks that their CLIs are
+installed. Then it offers smarter routing: paste a
+[TypeSafe API key](https://typesafe.ai) (it's hidden as you type and checked with
+one live call), or press Enter to keep the keyword matcher. You can run
+`nectra setup` again any time.
 
-Prebuilt archives are produced by tag-based CI for Windows x64, Linux x64 and
-macOS on Intel and Apple Silicon, each with a SHA-256 sidecar. The install
-scripts need `NECTRA_REPO=owner/repository`; no public release repository is
-configured yet, so building from source is the supported path today.
+On Windows, `./scripts/build.ps1` builds, tests and packages a ZIP under `dist/`.
+Prebuilt downloads for Windows, Linux and macOS will come with the first release.
 
-## One shared chat session
+You'll need at least one of [Claude Code](https://code.claude.com/docs/en/overview),
+[Codex CLI](https://learn.chatgpt.com/docs/developer-commands?surface=cli),
+[Gemini CLI](https://geminicli.com) or [Ollama](https://ollama.com), signed in
+with your own account. Nectra never sees or stores those credentials.
 
-Start `nectra chat`, or just `nectra` in an interactive terminal. Keep typing in
-one conversation; Nectra routes each new message among enabled profiles whose
-CLI is installed or whose Ollama connection is configured. The chosen model is displayed above its reply.
-Each chat opens with a Nectra ASCII-art banner and the installed version.
-In an interactive terminal, Claude, Codex and Gemini run behind a compact activity
-view that clears before displaying the final answer once. F2 reveals the full native
-terminal, including tool output, errors and approval prompts. Typing queues messages in the main thread;
-press F2 to interact with provider approvals and F2 again to return to queuing.
-**When the reply is captured, Nectra automatically
-returns to its main prompt to route your next message.** Shift+PageUp/PageDown scrolls the
-pane; `/quit` or `/exit` can also close the provider UI. Returning during unfinished
-work requires a second Ctrl+] and does not save a partial answer as completed.
+## Using it
 
-Use `nectra --provider-view stream` for the previous structured streaming view,
-which retains Nectra's elapsed-time activity indicator and automatic pre-work
-failover. Redirected input/output selects this view automatically. Explicit
-`--provider-view terminal` requires an interactive terminal. Ollama uses its HTTP
-stream and Nectra activity indicator because it has no child terminal UI.
-See [the terminal guide](docs/terminal.md) for controls and compatibility details.
-Automatic routing may choose the same model for several turns when its policy
-score remains highest. You can switch models without losing the conversation.
+Start a chat with `nectra` and keep typing. Inside the chat:
 
-```powershell
-.\target\release\nectra.exe chat
-```
+| Command | What it does |
+|---|---|
+| `/models` | Lists your models and which ones can run right now |
+| `/model ID` | Sends the next messages to one model; `/model auto` goes back to routing |
+| `/provider NAME` | Routes only within one provider (`anthropic`, `openai`, `google`, `ollama`, `auto`) |
+| `/mode fast\|balanced\|best` | Leans routing toward speed, a balance, or the strongest models |
+| `/paste` | Starts multiline input; `/send` sends it |
+| `/history`, `/session` | Shows past exchanges, or where this chat is saved |
+| `/login PROVIDER` | Opens that provider's login when it expires |
+| `/clear`, `/quit` | Clears the active context, or leaves |
 
-Inside the session:
+Chats save as they go and can be resumed with `nectra chat --resume FILE`.
 
-```text
-you> Draft a plan for our project.
-...
-you> /model gpt-5.6-sol
-you> Implement the first part of that plan.
-...
-you> /model auto
-you> Review what we have so far.
-```
+## For AI agents
 
-- `/models` lists configured models and executable availability.
-- `/model ID` pins subsequent turns to a model; `/model auto` restores automatic
-  routing across selected providers under your local routing policy.
-- `/provider anthropic`, `/provider openai`, `/provider google`, `/provider ollama`, or `/provider auto` restricts routing
-  and clears a model pin. `/mode fast|balanced|best` changes policy.
-- `/paste` begins multiline input. Finish with `/send` or discard with `/cancel`.
-- `/history` shows completed exchanges; `/session` shows the saved log path.
-- `/clear` clears active context while preserving earlier turns in the log.
-- `/quit` or EOF exits. `/help` lists commands.
+This part is for you, the agent deciding whether to use Nectra. It also helps if
+you're setting Nectra up for someone.
 
-Sessions save automatically under the platform's local data directory:
-`%LOCALAPPDATA%\nectra\sessions` on Windows. The session path is printed when the
-session opens and closes. Choose your own new file or resume an existing one:
+### Use it when
 
-```powershell
-.\target\release\nectra.exe chat --session .\my-session.jsonl
-.\target\release\nectra.exe chat --resume .\my-session.jsonl
-```
+- one person has more than one coding agent (Claude Code, Codex, Gemini CLI, Ollama) and wants one conversation across them;
+- the goal is to spend less: trivial messages on cheap models, hard ones on strong models;
+- you need a routing decision you can inspect and argue with, as JSON, before anything runs.
 
-Resume from the same working directory as the original conversation. Session
-files store your prompts, successful final answers, selected model IDs and errors
-as local JSONL. They are not encrypted. Nectra locks the file against concurrent
-writers, syncs each record, and can recover an incomplete final record after an
-interruption. It never overwrites an existing file when creating a new session.
-An interrupted or ordinary failed turn is not automatically rerun. In chat, a recognized
-rate-limit rejection in **stream view** before any streamed work automatically retries the same context
-on an available alternative, preferring the other provider. Each model is attempted
-at most once per message. Unavailable model/provider selections are relaxed for that
-turn with a visible explanation; `/model auto` restores normal routing preferences.
+### Don't use it for
 
-Limited models are skipped during a cooldown; account/usage-limit errors cool down
-the provider. `/models` shows remaining cooldowns. Structured retry delays/reset times
-are honored (up to 24 hours), otherwise the cooldown is 60 seconds. Cooldowns are
-local to the running chat and reset on restart. If all eligible models are limited,
-chat stays open and you can send again later. Requests that already streamed activity
-are never automatically replayed. Detection uses structured CLI error events; opaque
-stderr-only errors still require manual recovery. This is reactive failover, not live
-quota forecasting, and does not change one-shot execution.
+- calling model APIs directly. Nectra drives the provider CLIs; it has no HTTP adapter for OpenAI, Anthropic or Google APIs.
+- providers without a CLI adapter. The setup menu lists xAI, Mistral, OpenRouter and others, but they're saved as preferences only and can't answer yet.
+- measuring answer quality. `nectra eval` checks task classification, not whether the chosen model answered well.
 
-Nectra owns the shared transcript and sends it with the current message on every
-turn. This works across providers without depending on their private session
-formats. Only successful final answers enter shared context; raw tool output and
-hidden provider state do not. In terminal view, per-launch provider hooks or
-notifications capture completed replies separately from screen redraws. Follow-ups
-typed within a provider UI stay with that provider until you return to Nectra;
-captured completed exchanges are carried into the shared context. Failures leave the chat open so you can
-choose another model and send a new message.
-
-Context requests are bounded to 128 KiB of serialized UTF-8 text, preserving the
-opening exchange when it fits and recent complete exchanges. The UI reports any
-omitted turns; the log retains them. This is a byte budget, not a token guarantee.
-Very large current messages are rejected. The session log limit is 64 MiB.
-
-`nectra --dry-run chat` previews routes without model calls or adding new turns.
-Availability means an enabled profile with an installed executable, not a
-verified account entitlement. Authentication and model access remain with the
-selected CLI. Profile IDs still come from the editable registry.
-
-The adapters follow [Codex JSONL events](https://learn.chatgpt.com/docs/non-interactive-mode)
-and [Claude streaming output](https://code.claude.com/docs/en/headless).
-
-## Experimental two-provider debate
-
-`nectra debate "Compare these approaches"` runs independent drafts, exchanges
-critiques, and synthesizes one answer while preserving each author's dissent.
-In chat, use `/debate on` and `/debate off`. This optional mode requires a local
-Linux Docker engine and a dedicated image; it stops if isolation cannot be verified.
-It normally uses five logical provider calls, with variable API and tool costs.
-
-The implementation has offline tests; real container/provider validation is still
-pending. See [setup, verification, and limitations](docs/debate-isolation.md) before
-using it. Normal routing does not require Docker.
-
-## Build and try it
-
-Install current stable Rust and a platform linker, then:
+### The loop
 
 ```sh
-cargo test --all-targets --locked
-cargo build --release --locked
-./target/release/nectra route "debug this race condition"
-./target/release/nectra doctor
+nectra route "write tests for the parser"       # decide only: prints the JSON decision, launches nothing
+nectra --dry-run --mode fast "rename userId"    # same, with a routing mode
+nectra run "write tests for the parser"         # decide and run once, then exit
+nectra --model sonnet run "review this diff"    # skip the decision
+cat task.txt | nectra route --stdin             # long or multiline prompts
+nectra eval eval/tasks.json                     # score the classifier against a corpus
 ```
 
-On Windows PowerShell:
+Put Nectra's flags before the prompt text. Use `--stdin` for prompts that span
+lines or start with a dash.
 
-Run `./scripts/build.ps1` to validate, build and package a Windows x64 ZIP under
-`dist/`. It also finds Rust in `%USERPROFILE%\.cargo\bin` when Cargo is not on PATH.
+### Commands
 
-```powershell
-.\target\release\nectra.exe route "debug this race condition"
-.\target\release\nectra.exe doctor
-.\target\release\nectra.exe --dry-run --mode best "review this architecture"
-```
+| Command | What it does |
+|---|---|
+| `nectra` or `nectra chat` | One conversation, routed message by message. `--session FILE` or `--resume FILE`. |
+| `route [PROMPT]` | Prints the routing decision as JSON. Never launches a model. |
+| `run [PROMPT]` | Routes and runs once. The provider CLI's exit code is passed through. |
+| `models` | The model registry, with each model's provider, effort and declared roles. |
+| `eval CORPUS` | Classifier accuracy against a JSON list of `{ "prompt", "task" }`. Uses Jev when a key is set. |
+| `setup` | Pick providers, check their CLIs, and optionally add a TypeSafe key. `--providers a,b` skips the questions. |
+| `provider add\|remove\|list\|login ID` | Change provider selections after setup. |
+| `doctor` | Checks every configured CLI with `--version`. Makes no model calls. |
+| `config [--print]` | Where the config lives, or the effective config. |
+| `debate PROMPT` | Experimental: two providers draft, critique and synthesize inside read-only Linux containers. Needs Docker. |
 
-Run commands from the repository you want the agent to work on. Nectra preserves
-that working directory. Codex may require a Git repository; it retains its own
-repository checks, permissions and sandbox settings.
+Useful flags: `--mode fast|balanced|best`, `--provider ID`, `--model ID`,
+`--explain` (prints the decision to stderr and still runs), `--dry-run`,
+`--config PATH`.
 
-## Usage
+### Reading a decision
 
-```sh
-nectra route "design a distributed system"
-nectra --dry-run --mode fast "write tests for this module"
-nectra --explain "refactor the auth service"
-nectra --provider anthropic "review this architecture"
-nectra --model gpt-5.6-sol "debug this error"
-nectra run "implement the API"
-cat task.txt | nectra route --stdin
-cat task.txt | nectra run --stdin
-nectra config --print
-nectra models
-nectra eval eval/tasks.json
-```
+| Field | Meaning |
+|---|---|
+| `task` | One of `code_generation`, `debugging`, `refactoring`, `code_review`, `architecture`, `research`, `writing`, `planning`, `data_analysis`, `general` |
+| `model`, `provider`, `runtime`, `effort` | What will run, and through which CLI |
+| `score`, `score_margin` | The winner's score and its lead over second place (`null` with one candidate) |
+| `ambiguous` | `true` when the lead is under `confidence_margin`. Consider choosing the model yourself. |
+| `reason` | Which classifier decided (`jev` or `local heuristic`), with Jev's confidence and difficulty |
+| `candidates` | Every eligible model, ranked |
 
-In PowerShell use `Get-Content -Raw task.txt | nectra route --stdin`.
-Place Nectra flags before prompt text. Use `--stdin` for multiline text or text
-starting with a dash. Empty prompts and conflicting positional/stdin inputs fail.
-`route` and `--dry-run` print JSON and never launch a model.
-`--explain` writes a brief explanation to stderr and **still executes**.
+### Exit codes
 
-## Routing policy
+`route` and `--dry-run` exit 0 when they print a decision. `run` passes the
+provider CLI's own exit code through. Nectra's own errors (no matching model, bad
+config, empty prompt) exit 1, and `eval` exits 1 when any case is misclassified.
 
-The pipeline is: classification (Jev, or normalized word/phrase matching), task requirements, weighted
-capability scores plus task-responsibility preferences, deterministic ranking, then native execution.
-See [the responsibility matrix and access handling](docs/routing.md).
+### Configuration
 
-- `fast` emphasizes the speed heuristic.
-- `balanced` mixes quality, speed and cost-efficiency heuristics.
-- `best` emphasizes quality heuristics.
-- An explicit model/provider restricts initial selection. Chat reports unavailable
-  selections and falls back when no work has started. Unknown/disabled IDs and
-  conflicting one-shot selections still fail. Local-only policy remains enforced.
-- Score ties resolve by model ID, independently of registry order.
-- JSON includes all eligible candidates, the score gap, the effective mode,
-  explicit-override status and an ambiguity flag. A single candidate has a null gap.
-- The existing `confidence_margin` config key sets the ambiguity threshold.
-  **There is no calibrated confidence probability.** Ambiguous routes still run;
-  inspect with `route` or choose a model explicitly when needed.
+The config lives in `%APPDATA%\nectra\config.toml` on Windows,
+`~/.config/nectra/config.toml` on Linux and
+`~/Library/Application Support/nectra/config.toml` on macOS. Model scores and
+roles live beside it in `models.toml`; a model claims work with
+`prefers = ["simple"]`, `["coding"]`, `["demanding"]` and so on. Jev routing is
+set under `[classifier]`. Everything is in the [reference](docs/reference.md).
 
-Model capability numbers are editable product policy, not measured benchmarks,
-prices, latency guarantees or proof that one provider is better. The sample corpus
-checks classification regressions; it does not evaluate model output quality.
-The local keyword classifier is English-only and does not understand negation,
-inspect your repository or reliably resolve every mixed task.
+## FAQ
 
-### Jev classifier
+### Is it free?
 
-On the bundled corpora the keyword classifier scores 31/38 (tuned), 5/20 (unseen
-phrasing) and 11/40 (holdout); Jev scores 37/38, 17/20 and 39/40. Jev also returns
-a difficulty: below `simple_below` routes to the `simple`/`simple-coding` roles,
-above `demanding_above` to `demanding`. Explicit words such as "quick" or
-"complex" still apply. Configure it in `config.toml`:
+Nectra is free and open source under the MIT licence. You pay your providers as
+usual. Jev is billed by TypeSafe per message, at a fraction of a cent each, and
+only if you add a key.
 
-```toml
-[classifier]
-backend = "auto"        # "auto" uses Jev when TYPESAFE_API_KEY is set; "local" never calls it
-timeout_ms = 1500
-simple_below = 0.2      # Jev difficulty, 0..1
-demanding_above = 0.6
-```
+### Does my prompt leave my machine?
 
-`nectra eval` uses the configured classifier, so the same corpus compares both.
-Difficulty saves tokens only when the registry has a cheap model claiming the
-`simple` role (for example `haiku`).
-Chat uses the prior completed user task as a routing hint for generic follow-ups
-such as "do that"; the chosen model receives the shared transcript separately.
+With a TypeSafe key, each message's text goes to `api.typesafe.ai` so Jev can
+judge it, and then to whichever provider wins, as it would without Nectra.
+Without a key, or with Ollama set to `local-only`, routing happens entirely on
+your machine.
 
-Claude profiles use its documented `opus` and `sonnet` aliases. Codex retains the
-starter's `gpt-5.6-sol` and `gpt-5.6-luna` profiles. Availability, aliases and
-supported effort levels depend on your installed CLI/account; edit the registry
-for your deployment. Nectra does not probe access by making paid model calls.
+### Do I need a TypeSafe key?
 
-## Configuration
+No. It makes routing much more accurate and lets easy prompts reach cheaper
+models, but the keyword matcher works without it. Jev only runs as TypeSafe's
+hosted service, so there's no local download for it.
 
-Precedence is `--config PATH`, then the user's platform config directory, then
-embedded defaults. A config is a complete replacement, not a partial merge.
-Nectra never auto-loads configuration from the working repository.
+### Where does the key go?
 
-- Windows: `%APPDATA%\nectra\config.toml`
-- Linux: `$XDG_CONFIG_HOME/nectra/config.toml`, normally `~/.config/nectra/config.toml`
-- macOS: `~/Library/Application Support/nectra/config.toml`
+`nectra setup` saves it as `typesafe.key` next to your `config.toml`, readable
+only by you. It's never written into `config.toml`, so `nectra config --print`
+can't show it. A `TYPESAFE_API_KEY` environment variable takes priority.
 
-Copy both `config/nectra.toml` (rename to `config.toml`) and `config/models.toml`
-to that directory, or use `--config config/nectra.toml` explicitly.
-Relative registry paths resolve beside the config file. Embedded mode always uses
-the embedded registry, even if an unrelated `models.toml` exists in the current directory.
+### Does Nectra store my provider logins?
 
-The CLI mode overrides `routing.default_mode`. Invalid modes, unknown fields,
-duplicate model IDs, unsupported provider/runtime pairs, nonfinite scores and
-malformed effort values fail early. Config inspection and doctor do not require
-a readable model registry.
+No. Claude Code, Codex and Gemini CLI keep their own logins. `/login` just opens
+their login screen.
 
-Runtime commands accept an executable name on PATH or a path to an executable.
-Use absolute paths for custom installations. Windows resolves native `.exe`
-files, including the npm Codex package's native payload, without invoking its
-PowerShell/batch shim. Relative PATH entries are ignored.
-Trusted `extra_args` can set runtime options, but cannot replace Nectra's model,
-effort, provider-selection flags or prompt transport.
+### Will it change my code without asking?
 
-## Execution and trust
+Only as much as the provider CLI would on its own. Their approval prompts still
+appear. `--dangerously-skip-permissions` turns them off for one launch, and it's
+never saved.
 
-Nectra passes arguments directly to the child process and sends prompt text over
-stdin, preventing prompt text from becoming shell commands or CLI flags. Child
-stdout/stderr stream to the terminal for one-shot execution. Chat parses response
-events and displays assistant text while retaining final answers. Normal one-shot child exit codes are preserved;
-Nectra's own errors and termination without a numeric status return 1.
+### Which platforms?
 
-The model registry permits Anthropic/Claude, OpenAI/Codex, Google/Gemini, and Ollama pairs. This is
-a routing constraint, **not a network enforcement boundary**: downstream CLI
-settings, environment variables, hooks, tools, executable paths and extra
-arguments remain trusted user configuration. Authentication, endpoint selection,
-permissions, tool execution and billing belong to those CLIs. Permission bypass is opt-in for each launch, as described below.
+Windows, Linux and macOS. CI builds and tests all three.
 
-`doctor` checks configured executable discovery and `--version` with a 10-second
-timeout per native runtime (60 seconds for Node-based CLIs). It does not check login status, model access or make a
-model request. One-shot execution reports a missing selected runtime without retrying.
-Chat filters missing runtimes and supports the rate-limit fallback described above.
+## More reading
 
-Commands follow the [Codex CLI reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
-and [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference).
-Claude aliases are described in [model configuration](https://code.claude.com/docs/en/model-config).
+- [Reference](docs/reference.md): every command, flag and setting.
+- [Routing](docs/routing.md): how task types map to model roles.
+- [Terminal guide](docs/terminal.md): the embedded terminals and their controls.
+- [Local models](docs/local-providers.md): setting up Ollama.
+- [Debate mode](docs/debate-isolation.md): the experimental two-provider debate and its isolation.
+- [Design review](DESIGN.md): decisions and what's left to do.
 
-## Validation and releases
+## Licence
 
-```sh
-cargo fmt --all --check
-cargo test --all-targets --locked
-cargo clippy --all-targets --locked -- -D warnings
-cargo run --locked -- eval eval/tasks.json
-cargo build --release --locked
-```
-
-Commit `Cargo.lock` for reproducible dependency resolution. CI covers Windows,
-Linux and macOS. Tag-based release automation builds Windows x64, Linux x64,
-and macOS Intel/Apple Silicon archives with SHA-256 sidecars after validation.
-
-Install scripts require `NECTRA_REPO=owner/repository` and optionally
-`NECTRA_VERSION=v0.3.0`. They reject unsupported prebuilt platforms and verify
-the archive hash before installing. Checksums detect corruption; they are not
-publisher signatures. No public release repository is configured by this ZIP.
-
-See [DESIGN.md](DESIGN.md) for the design review and remaining work.
-
-## Uninstall
-
-Copies installed using the bundled installers include an uninstaller on PATH:
-
-```text
-uninstall-nectra
-```
-
-Use PowerShell on Windows, or a shell on Linux/macOS. Close running Nectra
-sessions first. The Windows uninstaller removes `nectra.exe`, its helper script,
-and the exact Nectra user-PATH entry. The Unix uninstaller removes the program
-and helper from `~/.local/bin`; that shared PATH directory remains intact.
-Both keep saved sessions, configuration, and unrelated programs.
-
-From this source checkout, uninstall an installed Windows copy with:
-
-```powershell
-.\scripts\uninstall-nectra.ps1
-```
-
-Preview removal with `uninstall-nectra -WhatIf` on Windows or
-`uninstall-nectra --dry-run` on Linux/macOS. Windows portable ZIP users can run
-`./uninstall-nectra.ps1` from the extracted folder. An uninstaller beside the
-Nectra executable automatically targets that folder, including portable copies.
-Custom installation directories can be selected with `-InstallDirectory PATH`
-on Windows or `--install-dir PATH` on Unix.
-
-The uninstaller does not remove your source checkout, Rust toolchain, Claude
-Code, or Codex. This project's `target/release/nectra.exe` is a local build,
-separate from a copy installed into your user bin directory. Older installed
-releases without a helper can use the scripts from this checkout.
-# Provider setup
-
-Both installers run `nectra setup` to ask which providers you have access to.
-Selected Claude Code and Codex CLIs must resolve to native executables and pass
-`--version` within 10 seconds (60 for Node-based CLIs) before setup saves. Missing/broken dependencies leave
-setup incomplete, with instructions to install/repair the CLI and rerun setup.
-These checks make no model calls and do not verify login or model entitlement.
-
-The menu includes Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Cohere, Groq,
-Together AI, Fireworks AI, Perplexity, OpenRouter, Azure, Bedrock, Hugging Face,
-Ollama, LM Studio, and a custom endpoint option. **Claude Code, Codex, Gemini CLI, and Ollama are executable connections.** Other selections are saved as preferences and are
-explicitly labeled unimplemented; selecting them does not enable an adapter.
-
-Run `nectra setup` again to change your choices, or use
-`nectra setup --providers anthropic,openai`. `--providers none` disables all providers.
-For incremental changes use `nectra provider add anthropic`,
-`nectra provider remove anthropic`, and `nectra provider list`. Adding preserves
-existing selections; a first explicit add starts with only that provider. Changes
-apply on the next launch, so restart/resume an already-open chat to reload them.
-Removing a provider does not uninstall its CLI or delete its account credentials.
-Unselected providers cannot be used by routing or rate-limit fallback. Existing
-configurations without a `providers` setting retain their previous behavior.
-
-For unattended installation set `NECTRA_PROVIDERS` to comma-separated IDs (or `none`).
-An existing configuration is preserved and its selected CLI dependencies are checked.
-A fresh unattended install without a selection reports setup incomplete; run setup
-in a terminal. Setup does not install provider software, collect credentials, or
-change provider accounts. Custom runtime paths, registry settings, and model files
-are preserved; the config is rewritten as TOML, so its comments are not retained.
-
-See [Ollama configuration](docs/local-providers.md) for the implemented local connection.
-
-## Gemini, colors, permissions, and login
-
-Three themes are available: `default` (the original provider palette), `hacker`
-(green/lime accents), and `ice-blue` (blue/cyan accents). Change and save a theme:
-
-```sh
-nectra theme hacker
-nectra theme ice-blue
-nectra theme default
-nectra theme
-```
-
-Inside chat use `/theme hacker`, `/theme ice-blue`, or `/theme default`; `/theme`
-shows the current choice. `nectra --theme ice-blue chat` overrides the saved theme
-for one launch. Preferences live in `ui.toml` in Nectra's config directory (beside
-an explicitly supplied config). Provider configuration and sessions are untouched.
-Color controls and `NO_COLOR` apply to every theme; model reply text keeps its
-normal terminal style. The activity indicator follows the selected theme.
-
-`nectra provider add google` validates Gemini CLI and enables bootstrap profiles
-for `gemini-2.5-pro` and `gemini-2.5-flash`. Define Google/Gemini entries in models.toml
-to replace these defaults. Their scores are editable heuristics, not benchmark claims.
-On Windows, npm installs are launched through Node.js and the Gemini JS entry point,
-without passing prompts through cmd.exe. Configure `[gemini].command` for other installs.
-Gemini uses stdin and stream-json for shared chat; its CLI may retain its own logs.
-
-Human UI uses cyan navigation, purple Claude, green OpenAI, blue Gemini, teal Ollama,
-green success, amber warnings/cooldowns, and red errors. Model reply text keeps the
-terminal's normal style. `--color auto|always|never` controls Nectra output; automatic
-color respects `NO_COLOR`, redirected output, and `TERM=dumb`. JSON and session files
-are never decorated. Provider-owned login screens retain their own theme.
-
-```sh
-nectra chat --dangerously-skip-permissions
-nectra provider login anthropic
-nectra provider login openai
-nectra provider login google
-```
-
-The permission flag applies to every CLI call and fallback for that launch, mapping
-to Claude `--dangerously-skip-permissions`, Codex
-`--dangerously-bypass-approvals-and-sandbox` (also disables its sandbox), and Gemini
-`--approval-mode=yolo`. It overrides conflicting approval/sandbox extra_args, is not
-saved in configuration or sessions, and must be supplied again when resuming.
-Provider-enforced organizational policies still apply. Ollama remains chat-only.
-
-Use `/login PROVIDER` inside a chat when authentication expires. Claude opens
-`auth login`; Codex opens `login`; Gemini opens its interactive CLI, where `/auth`
-changes authentication and `/quit` returns to Nectra. Nectra does not store credentials,
-automatically log out, or replay interrupted work. Recognized structured authentication
-errors exclude the provider until its login workflow closes successfully; the next
-message verifies actual access. Opaque stderr-only errors may require manual login.
-
-These integrations follow the [Gemini headless reference](https://geminicli.com/docs/cli/headless/),
-[Gemini authentication guide](https://geminicli.com/docs/get-started/authentication/),
-[Gemini CLI flags](https://geminicli.com/docs/cli/cli-reference/),
-[Claude CLI reference](https://code.claude.com/docs/en/cli-reference), and
-[Codex CLI reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli).
+MIT, see [LICENSE](LICENSE). Nectra is an independent project, not affiliated
+with Anthropic, OpenAI, Google, Ollama or TypeSafe.

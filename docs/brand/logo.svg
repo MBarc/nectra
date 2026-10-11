@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Nectra logo: a honeycomb cell with one path forking to four models, one route lit">
+  <path d="M64 10 110.8 37v54L64 118 17.2 91V37Z" fill="none" stroke="#E3A21A" stroke-width="9" stroke-linejoin="round"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M34 64h22" stroke="#E3A21A" stroke-width="7"/>
+    <path d="M56 64C70 64 74 41 88 41" stroke="#8B5CF6" stroke-width="4" opacity=".55"/>
+    <path d="M56 64C70 64 76 56 94 56" stroke="#10A37F" stroke-width="7"/>
+    <path d="M56 64C70 64 76 72 90 72" stroke="#4285F4" stroke-width="4" opacity=".55"/>
+    <path d="M56 64C70 64 74 87 86 87" stroke="#14B8A6" stroke-width="4" opacity=".55"/>
+  </g>
+  <circle cx="56" cy="64" r="6.5" fill="#E3A21A"/>
+  <circle cx="96" cy="56" r="6" fill="#10A37F"/>
+</svg>

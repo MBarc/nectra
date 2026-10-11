@@ -1,0 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&display=block");
+
+:root {
+  --honey: #E3A21A;
+  --ink: #1E2433;
+  --muted: #5B6478;
+  --paper: #F4F6F9;
+  --card: #FFFFFF;
+  --line: #D9DEE7;
+  --claude: #8B5CF6;
+  --openai: #10A37F;
+  --gemini: #4285F4;
+  --ollama: #14B8A6;
+  --term: #1A2030;
+  --term-ink: #E6E9F0;
+}
+.dark {
+  --ink: #EEF1F7;
+  --muted: #9AA3B8;
+  --paper: #121722;
+  --card: #1A2131;
+  --line: #2A3347;
+  --term: #0D1119;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: "Bricolage Grotesque", sans-serif; overflow: hidden; }
+.mono { font-family: "IBM Plex Mono", monospace; }
+.wordmark { font-weight: 800; letter-spacing: -0.035em; line-height: .9; font-variation-settings: "opsz" 96; }
+.tagline { color: var(--muted); font-weight: 400; letter-spacing: -0.01em; }
+.chip { display: inline-flex; align-items: center; gap: 10px; border: 2px solid var(--line); background: var(--card); border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.chip i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); display: block; }
+.chip.lit { border-color: var(--c); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent); }
