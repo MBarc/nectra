@@ -57,6 +57,9 @@ enum Event {
     },
     Failed {
         error: String,
+        /// A failed attempt still spent tokens; this lets `nectra usage` find them.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider_session: Option<String>,
     },
     Clear,
 }
@@ -267,11 +270,16 @@ impl Session {
         Ok(())
     }
     pub fn fail(&mut self, error: &str) -> Result<()> {
+        self.fail_in(error, None)
+    }
+    /// `fail`, noting the provider session the failed attempt ran in.
+    pub fn fail_in(&mut self, error: &str, provider_session: Option<&str>) -> Result<()> {
         if self.pending.is_none() {
             bail!("no pending turn");
         }
         self.append(&Event::Failed {
             error: error.into(),
+            provider_session: provider_session.map(String::from),
         })?;
         self.pending = None;
         Ok(())

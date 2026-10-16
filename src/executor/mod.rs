@@ -259,6 +259,20 @@ impl ProviderSession {
     }
 }
 
+/// `codex exec resume` has no equivalent for these `codex exec` flags.
+const CODEX_NOT_RESUMABLE: [&str; 4] = ["--add-dir", "--approve-for-me", "--cd", "-C"];
+
+/// Whether this runtime's configured flags survive a resumed launch.
+pub fn can_resume(runtime: &str, cfg: &Config) -> bool {
+    runtime != "codex"
+        || !cfg
+            .inner
+            .codex
+            .extra_args
+            .iter()
+            .any(|a| CODEX_NOT_RESUMABLE.contains(&a.split('=').next().unwrap_or(a)))
+}
+
 /// A random version 4 UUID. Not security sensitive: it only names a session.
 pub fn new_session_id() -> String {
     use std::hash::{BuildHasher, Hasher};
@@ -302,6 +316,35 @@ pub fn session_arguments(
             args.extend([flag.into(), id.into()]);
         }
         ("codex", Some(id)) if session.resume => {
+            // `exec resume` rejects --sandbox; the config key means the same.
+            // --color is cosmetic and also rejected.
+            let mut kept = Vec::with_capacity(args.len());
+            let mut it = args.into_iter();
+            while let Some(arg) = it.next() {
+                let text = arg.to_string_lossy().into_owned();
+                let (flag, inline) = match text.split_once('=') {
+                    Some((f, v)) => (f.to_string(), Some(v.to_string())),
+                    None => (text.clone(), None),
+                };
+                if matches!(flag.as_str(), "--sandbox" | "-s" | "--color") {
+                    let value = match inline {
+                        Some(v) => v,
+                        None => it
+                            .next()
+                            .map(|v| v.to_string_lossy().into_owned())
+                            .unwrap_or_default(),
+                    };
+                    if flag != "--color" {
+                        kept.extend([
+                            "--config".into(),
+                            format!("sandbox_mode=\"{value}\"").into(),
+                        ]);
+                    }
+                    continue;
+                }
+                kept.push(arg);
+            }
+            args = kept;
             // exec <opts> -- - becomes exec resume <opts> -- <id> -
             args.insert(1, "resume".into());
             let stdin = args.pop().context("missing stdin marker")?;
@@ -517,6 +560,34 @@ mod tests {
                 "--model",
                 "gpt-5.6-sol",
                 "--json",
+                "--",
+                "t1",
+                "-"
+            ])
+        );
+        // `exec resume` rejects --sandbox and --color; sandbox becomes config.
+        let sandboxed = os(&[
+            "exec",
+            "--model",
+            "m",
+            "--sandbox",
+            "workspace-write",
+            "--color=never",
+            "-s=read-only",
+            "--",
+            "-",
+        ]);
+        assert_eq!(
+            session_arguments(sandboxed, "codex", &ProviderSession::resume("t1")).unwrap(),
+            os(&[
+                "exec",
+                "resume",
+                "--model",
+                "m",
+                "--config",
+                "sandbox_mode=\"workspace-write\"",
+                "--config",
+                "sandbox_mode=\"read-only\"",
                 "--",
                 "t1",
                 "-"

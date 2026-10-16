@@ -39,6 +39,8 @@ pub struct ModelUsage {
     pub sessions: u64,
     /// Turns whose provider session could not be found (or Gemini/Ollama).
     pub turns_without_data: u64,
+    /// Attempts that failed; their tokens are included when their session is known.
+    pub failed: u64,
     pub tokens: Tokens,
 }
 
@@ -95,6 +97,16 @@ pub fn collect(logs: &Logs, days: Option<u64>) -> Result<BTreeMap<String, ModelU
                 Some("assistant") => {
                     let entry = by_model.entry(model.clone()).or_default();
                     entry.turns += 1;
+                    match event["provider_session"].as_str() {
+                        Some(id) => {
+                            sessions.insert((model.clone(), id.into()));
+                        }
+                        None => entry.turns_without_data += 1,
+                    }
+                }
+                Some("failed") => {
+                    let entry = by_model.entry(model.clone()).or_default();
+                    entry.failed += 1;
                     match event["provider_session"].as_str() {
                         Some(id) => {
                             sessions.insert((model.clone(), id.into()));
@@ -274,6 +286,8 @@ mod tests {
                 r#"{"type":"assistant","text":"b","provider_session":"c1"}"#,
                 r#"{"type":"user","text":"c","model":"opus"}"#,
                 r#"{"type":"assistant","text":"d","provider_session":"c1"}"#,
+                r#"{"type":"user","text":"c2","model":"opus"}"#,
+                r#"{"type":"failed","error":"x","provider_session":"c1"}"#,
                 r#"{"type":"user","text":"e","model":"gpt-5.6-sol"}"#,
                 &format!(r#"{{"type":"assistant","text":"f","provider_session":"{thread}"}}"#),
                 r#"{"type":"user","text":"g","model":"gemini-2.5-pro"}"#,
@@ -293,7 +307,10 @@ mod tests {
             r#"{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":300,"cached_input_tokens":200,"output_tokens":9}}}}"#,
         ].join("\n")).unwrap();
         let u = collect(&logs, None).unwrap();
-        assert_eq!((u["opus"].turns, u["opus"].sessions), (2, 1));
+        assert_eq!(
+            (u["opus"].turns, u["opus"].sessions, u["opus"].failed),
+            (2, 1, 1)
+        );
         assert_eq!(
             u["opus"].tokens,
             Tokens {

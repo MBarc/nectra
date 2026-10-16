@@ -686,7 +686,8 @@ pub fn run_loop(
                 CONTEXT_BYTES
             };
             let resumable = cfg.inner.routing.resume_sessions
-                && executor::ProviderSession::supported(&decision.runtime);
+                && executor::ProviderSession::supported(&decision.runtime)
+                && executor::can_resume(&decision.runtime, cfg);
             let mut turn_session = match &provider_session {
                 Some((model, id)) if resumable && model == &decision.model => {
                     executor::ProviderSession::resume(id)
@@ -760,14 +761,14 @@ pub fn run_loop(
                     provider_session = kept.map(|id| (decision.model.clone(), id));
                 }
                 Ok(_) => {
-                    session.fail("agent returned no answer")?;
+                    session.fail_in("agent returned no answer", turn_session.id.as_deref())?;
                     writeln!(
                         output,
                         "Agent returned no answer. The session remains open."
                     )?;
                 }
                 Err(error) => {
-                    session.fail(&format!("{error:#}"))?;
+                    session.fail_in(&format!("{error:#}"), turn_session.id.as_deref())?;
                     if let Some(unavailable) =
                         error.downcast_ref::<crate::access::ModelUnavailable>()
                     {
