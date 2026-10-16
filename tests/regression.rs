@@ -339,7 +339,8 @@ fn responsibility_matrix_and_physical_planning() {
         ("simple function implementation", "gpt-5.6-luna"),
         ("write a memo", "sonnet"),
         ("plan how to build a shed", "opus"),
-        ("debug this failing function", "gpt-5.6-sol"),
+        // Balanced tries the cheap coder first; best mode keeps the strong one.
+        ("debug this failing function", "gpt-5.6-luna"),
         ("complex end to end architecture", "gpt-6-astra"),
     ] {
         let d = router::route(prompt, &cfg, &reg, Mode::Balanced, None, None).unwrap();
@@ -348,6 +349,15 @@ fn responsibility_matrix_and_physical_planning() {
             assert_eq!(d.task, "planning");
         }
     }
+    let best = router::route(
+        "debug this failing function",
+        &cfg,
+        &reg,
+        Mode::Best,
+        None,
+        None,
+    );
+    assert_eq!(best.unwrap().model, "gpt-5.6-sol");
 }
 
 #[test]

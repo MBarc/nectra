@@ -169,20 +169,26 @@ pub fn usable_tier(
     })
 }
 
-/// Product routing preferences, not model benchmark measurements.
-pub fn responsibility_bonus(
-    task: crate::classifier::TaskType,
-    prompt: &str,
-    model: &crate::models::ModelProfile,
+/// Balanced mode tries the cheap coder first. In eval/chat-savings the
+/// `simple-coding` model passed every check on all three workloads (including
+/// an optimal-assignment algorithm) at about 4% of the strong coders' cost.
+/// Demanding work still escalates and best mode keeps the strong coder; a
+/// registry where nobody claims `simple-coding` keeps `coding`.
+pub fn cheap_first<'a>(
+    role: &'a str,
     mode: Mode,
+    models: &[crate::models::ModelProfile],
     declarative: bool,
-    tier: Option<crate::jev::Tier>,
-) -> f32 {
-    let role = preferred_role(task, prompt, mode, tier);
-    if claims(model, role, declarative) {
-        0.30
+) -> &'a str {
+    if mode == Mode::Balanced
+        && role == "coding"
+        && models
+            .iter()
+            .any(|m| m.enabled && claims(m, "simple-coding", declarative))
+    {
+        "simple-coding"
     } else {
-        0.0
+        role
     }
 }
 
@@ -219,33 +225,15 @@ mod tests {
         // ollama/* and gemini-* ids are generated, so an id-literal preference
         // table can never reach them and the +0.30 always lands on a cloud model.
         let model = local("ollama/llama3", &["simple"]);
-        assert_eq!(
-            responsibility_bonus(
-                TaskType::General,
-                "quick summary",
-                &model,
-                Mode::Fast,
-                true,
-                None
-            ),
-            0.30
-        );
+        let role = preferred_role(TaskType::General, "quick summary", Mode::Fast, None);
+        assert!(claims(&model, role, true));
     }
 
     #[test]
     fn a_model_that_claims_no_role_gets_no_bonus() {
         let model = local("ollama/llama3", &[]);
-        assert_eq!(
-            responsibility_bonus(
-                TaskType::General,
-                "quick summary",
-                &model,
-                Mode::Fast,
-                true,
-                None
-            ),
-            0.0
-        );
+        let role = preferred_role(TaskType::General, "quick summary", Mode::Fast, None);
+        assert!(!claims(&model, role, true));
     }
 
     #[test]
@@ -253,16 +241,30 @@ mod tests {
         let mut haiku = local("haiku", &[]);
         haiku.provider = Provider::Anthropic;
         haiku.runtime = Runtime::Claude;
+        let role = preferred_role(TaskType::General, "quick summary", Mode::Fast, None);
+        assert!(claims(&haiku, role, false));
+    }
+
+    #[test]
+    fn balanced_coding_tries_the_cheap_coder_first() {
+        let models = [local("luna", &["simple-coding"]), local("sol", &["coding"])];
         assert_eq!(
-            responsibility_bonus(
-                TaskType::General,
-                "quick summary",
-                &haiku,
-                Mode::Fast,
-                false,
-                None
-            ),
-            0.30
+            cheap_first("coding", Mode::Balanced, &models, true),
+            "simple-coding"
+        );
+        assert_eq!(cheap_first("coding", Mode::Best, &models, true), "coding");
+        assert_eq!(
+            cheap_first("demanding", Mode::Balanced, &models, true),
+            "demanding"
+        );
+        assert_eq!(
+            cheap_first("planning", Mode::Balanced, &models, true),
+            "planning"
+        );
+        // Nobody claims the cheap role: keep the strong coder's preference.
+        assert_eq!(
+            cheap_first("coding", Mode::Balanced, &models[1..], true),
+            "coding"
         );
     }
 }

@@ -77,6 +77,17 @@ pub fn route_with(
     });
     let declarative = registry.uses_declared_preferences();
     let tier = policy::usable_tier(task, prompt, mode, tier, &registry.models, declarative);
+    // Jev's role is chosen among roles your models claim; otherwise the local
+    // heuristic picks one from task type and wording. Both then go cheap-first.
+    // Product routing preferences, not model benchmark measurements.
+    let role = policy::cheap_first(
+        jev_role
+            .as_deref()
+            .unwrap_or_else(|| policy::preferred_role(task, prompt, mode, tier)),
+        mode,
+        &registry.models,
+        declarative,
+    );
     let mut candidates: Vec<_> = registry
         .models
         .iter()
@@ -93,12 +104,10 @@ pub fn route_with(
                 && model.as_ref().is_none_or(|id| id == &m.id)
         })
         .map(|m| {
-            // Jev's role is chosen among roles your models claim; otherwise the
-            // local heuristic picks one from task type and wording.
-            let bonus = match &jev_role {
-                Some(role) if policy::claims(m, role, declarative) => 0.30,
-                Some(_) => 0.0,
-                None => policy::responsibility_bonus(task, prompt, m, mode, declarative, tier),
+            let bonus = if policy::claims(m, role, declarative) {
+                0.30
+            } else {
+                0.0
             };
             (m, policy::score(&req, m, mode) + bonus)
         })
