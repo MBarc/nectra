@@ -34,7 +34,7 @@ Demanding signals: complex, difficult, hardest, multi-step, multistep, end-to-en
 escalate, deep reasoning. Light-task signals: quick, simple, brief, briefly,
 short, trivial, minor. These describe the size of the work, not its kind:
 "summarize" and "extract" name a task and no longer count, because summarising a
-large document is not cheap work. Classification remains local keyword matching, not a semantic
+large document is not cheap work. Without Jev, a non-coding message of four words or fewer ("thanks, that worked") also counts as light. Classification remains local keyword matching, not a semantic
 AI judge. Physical building prompts such as "plan how to build a shed" classify
 as planning rather than coding. Responsibilities are defined in src/policy.rs;
 capability estimates remain editable in the registry.
@@ -74,6 +74,8 @@ Installing a provider CLI does not prove account entitlement to a model. Models
 start with unverified access. Actual requests validate provider acceptance; a
 completed reply records that the last request succeeded. This does not promise
 future access or attest which underlying model a provider alias resolves to.
+
+Ollama is chat-only. Code generation, debugging, refactoring and review go to a model that can edit files whenever one is eligible, even under `prefer-local`; under `local-only` the decision's `reason` says the answer can only describe the change.
 
 Recognized model-access/unsupported-model rejections exclude that model for the
 session. Other models from the same provider remain eligible. Missing CLIs,

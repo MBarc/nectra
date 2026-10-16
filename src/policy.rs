@@ -63,7 +63,11 @@ pub fn preferred_role(
     ]
     .iter()
     .any(|w| has(w))
-        || tier == Some(Tier::Simple);
+        || tier == Some(Tier::Simple)
+        // Without Jev, a few words of chat ("thanks, that worked") are the
+        // clearest cheap work there is. Coding tasks are excluded: "fix the
+        // race condition" is short and hard.
+        || (tier.is_none() && task == General && words.split_whitespace().count() <= 4);
     let coding = matches!(
         task,
         CodeGeneration | Debugging | Refactoring | CodeReview | DataAnalysis

@@ -114,6 +114,7 @@ pub fn classify(prompt: &str) -> (TaskType, Requirements, String) {
     ]);
     let refac = has(&[
         "refactor",
+        "rename",
         "cleanup",
         "clean up",
         "tidy",

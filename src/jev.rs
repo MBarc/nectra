@@ -48,6 +48,30 @@ pub fn classify(prompt: &str, cfg: &Config) -> Classification {
     classify_turn(prompt, None, cfg, &[])
 }
 
+/// The keyword classifier alone: used without a Jev key, when Jev fails, or
+/// when the model is already chosen and a Jev call would be wasted.
+pub fn classify_local(prompt: &str, previous: Option<&str>) -> Classification {
+    let (task, _, _) = classifier::classify(prompt);
+    let (text, new_task) = match previous {
+        // A generic follow-up borrows the previous task for classification.
+        Some(prev) if task == TaskType::General => (format!("{prev}\n{prompt}"), Some(false)),
+        Some(prev) => (
+            prompt.to_string(),
+            Some(classifier::classify(prev).0 != task),
+        ),
+        None => (prompt.to_string(), None),
+    };
+    let (task, req, why) = classifier::classify(&text);
+    Classification {
+        task,
+        req,
+        tier: None,
+        why,
+        new_task,
+        role: None,
+    }
+}
+
 /// `classify`, judging the message against the previous user message so
 /// short follow-ups ("now run the tests") stay with their task, and picking a
 /// role among `roles` (the ones some available model claims).
@@ -57,27 +81,7 @@ pub fn classify_turn(
     cfg: &Config,
     roles: &[Role],
 ) -> Classification {
-    let local = || {
-        let (task, _, _) = classifier::classify(prompt);
-        let (text, new_task) = match previous {
-            // A generic follow-up borrows the previous task for classification.
-            Some(prev) if task == TaskType::General => (format!("{prev}\n{prompt}"), Some(false)),
-            Some(prev) => (
-                prompt.to_string(),
-                Some(classifier::classify(prev).0 != task),
-            ),
-            None => (prompt.to_string(), None),
-        };
-        let (task, req, why) = classifier::classify(&text);
-        Classification {
-            task,
-            req,
-            tier: None,
-            why,
-            new_task,
-            role: None,
-        }
-    };
+    let local = || classify_local(prompt, previous);
     let c = &cfg.inner.classifier;
     let key = api_key(&cfg.path);
     let Some(key) = key.filter(|_| allowed(cfg)) else {

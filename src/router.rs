@@ -1,7 +1,8 @@
 use crate::{
+    classifier::TaskType,
     cli::{Mode, ProviderArg},
     config::Config,
-    models::{Provider, Registry},
+    models::{Provider, Registry, Runtime},
     policy,
 };
 use anyhow::{bail, Result};
@@ -39,16 +40,14 @@ pub fn route(
     if prompt.trim().is_empty() {
         bail!("prompt cannot be empty");
     }
-    let roles = policy::claimed_roles(&registry.models, registry.uses_declared_preferences());
-    route_with(
-        crate::jev::classify_turn(prompt, None, cfg, &roles),
-        prompt,
-        cfg,
-        registry,
-        mode,
-        provider,
-        model,
-    )
+    // A pinned model makes the classification informational; don't pay Jev for it.
+    let classification = if model.is_some() {
+        crate::jev::classify_local(prompt, None)
+    } else {
+        let roles = policy::claimed_roles(&registry.models, registry.uses_declared_preferences());
+        crate::jev::classify_turn(prompt, None, cfg, &roles)
+    };
+    route_with(classification, prompt, cfg, registry, mode, provider, model)
 }
 
 /// `route` with a classification made earlier, e.g. once per chat message
@@ -104,6 +103,19 @@ pub fn route_with(
             (m, policy::score(&req, m, mode) + bonus)
         })
         .collect();
+    // Ollama is chat-only: it can describe a code change but cannot read, edit
+    // or run anything. Work on code goes to a model that can act, whenever one
+    // is eligible, before any local preference is applied.
+    let acts = matches!(
+        task,
+        TaskType::CodeGeneration
+            | TaskType::Debugging
+            | TaskType::Refactoring
+            | TaskType::CodeReview
+    );
+    if acts && candidates.iter().any(|(m, _)| m.runtime != Runtime::Ollama) {
+        candidates.retain(|(m, _)| m.runtime != Runtime::Ollama);
+    }
     if wanted.is_none() && model.is_none() && cfg.ollama_enabled() {
         if let Some(ollama) = &cfg.inner.ollama {
             let prefer_local = ollama.policy == crate::ollama::LocalPolicy::PreferLocal;
@@ -137,7 +149,11 @@ pub fn route_with(
         } else {
             "highest eligible score including task responsibility and complexity"
         }
-    );
+    ) + if acts && winner.runtime == Runtime::Ollama {
+        "; no eligible model can edit files, so this Ollama model can only describe the change"
+    } else {
+        ""
+    };
     Ok(Decision {
         task: task.to_string(),
         provider: winner.provider.as_str().into(),

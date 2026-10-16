@@ -349,3 +349,63 @@ fn responsibility_matrix_and_physical_planning() {
         }
     }
 }
+
+#[test]
+fn work_on_code_never_goes_to_a_chat_only_model_when_one_can_act() {
+    use nectra::ollama::{LocalModel, LocalPolicy, OllamaConfig};
+    for policy in [LocalPolicy::PreferLocal, LocalPolicy::LocalOnly] {
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.ollama = Some(OllamaConfig {
+            base_url: "http://localhost:11434".into(),
+            models: vec![LocalModel {
+                name: "test:latest".into(),
+                context_tokens: 8192,
+            }],
+            policy,
+            timeout_seconds: 2,
+            token_env: None,
+        });
+        let reg = Registry::load(&cfg).unwrap();
+        let route = |p: &str| router::route(p, &cfg, &reg, Mode::Balanced, None, None).unwrap();
+        // Chat still prefers local.
+        assert_eq!(route("hello there").provider, "ollama");
+        let fix = route("fix the failing test in parser.rs");
+        if policy == LocalPolicy::PreferLocal {
+            assert_ne!(fix.runtime, "ollama", "{policy:?}: {}", fix.reason);
+        } else {
+            // Local-only has no model that can act: Ollama answers, and says so.
+            assert_eq!(fix.runtime, "ollama");
+            assert!(fix.reason.contains("can only describe"), "{}", fix.reason);
+        }
+    }
+}
+
+#[test]
+fn short_chit_chat_goes_to_the_simple_model_offline() {
+    let (_dir, cfg, reg) = fixture();
+    for prompt in ["thanks, that worked", "ok great", "hi"] {
+        let d = router::route(prompt, &cfg, &reg, Mode::Balanced, None, None).unwrap();
+        assert_eq!(d.model, "haiku", "{prompt}: {}", d.reason);
+    }
+    let d = router::route(
+        "rename userId to accountId",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(d.task, "refactoring");
+    // A short prompt that names hard work is not cheap work.
+    let d = router::route(
+        "fix the race condition",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_ne!(d.model, "haiku");
+}

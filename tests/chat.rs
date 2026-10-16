@@ -168,8 +168,9 @@ fn reauthentication_restores_provider_without_replaying_prior_work() {
     .unwrap();
     assert_eq!(backend.logins, ["anthropic"]);
     assert_eq!(backend.models.len(), 3);
-    assert_eq!(backend.models[0], "sonnet");
-    assert_eq!(backend.models[2], "sonnet");
+    // Short chit-chat goes to the cheap model.
+    assert_eq!(backend.models[0], "haiku");
+    assert_eq!(backend.models[2], "haiku");
     assert_eq!(session.exchanges.len(), 2);
     assert!(String::from_utf8(output)
         .unwrap()
@@ -195,7 +196,7 @@ fn rate_limits_fail_over_and_keep_context() {
     )
     .unwrap();
     assert_eq!(backend.models.len(), 3);
-    assert_eq!(backend.models[0], "sonnet");
+    assert_eq!(backend.models[0], "haiku");
     assert!(backend.models[1..].iter().all(|m| m.starts_with("gpt-")));
     assert_eq!(backend.prompts[0], backend.prompts[1]);
     assert_eq!(session.exchanges.len(), 2);

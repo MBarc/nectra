@@ -560,8 +560,12 @@ pub fn run_loop(
         let previous = session.exchanges.last();
         let roles =
             crate::policy::claimed_roles(&registry.models, registry.uses_declared_preferences());
-        let classification =
-            crate::jev::classify_turn(&message, previous.map(|e| e.user.as_str()), cfg, &roles);
+        let previous_user = previous.map(|e| e.user.as_str());
+        let classification = if turn_model.is_some() {
+            crate::jev::classify_local(&message, previous_user)
+        } else {
+            crate::jev::classify_turn(&message, previous_user, cfg, &roles)
+        };
         // Stay on the model already doing this task: switching mid-task throws
         // away its session, its cache and what it has read.
         let continuing = cfg.inner.routing.sticky && classification.new_task == Some(false);
