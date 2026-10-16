@@ -111,6 +111,12 @@ fn app() -> Result<i32> {
         _ => {}
     }
     let registry = models::Registry::load(&cfg)?;
+    if cli.continue_latest
+        && !(matches!(cli.command, Some(Commands::Chat { .. }))
+            || (cli.command.is_none() && cli.prompt.is_empty() && !cli.stdin))
+    {
+        bail!("--continue applies to chat only: run `nectra -c` or `nectra chat -c`");
+    }
     if matches!(cli.command, Some(Commands::Chat { .. }))
         || (cli.command.is_none() && cli.prompt.is_empty() && !cli.stdin)
     {

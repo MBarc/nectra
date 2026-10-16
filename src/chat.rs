@@ -145,7 +145,34 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry) -> Result<i32> {
         );
     }
     let cwd = std::env::current_dir()?;
+    let explicit = matches!(
+        &cli.command,
+        Some(
+            Commands::Chat {
+                resume: Some(_),
+                ..
+            } | Commands::Chat {
+                session: Some(_),
+                ..
+            }
+        )
+    );
+    if cli.continue_latest && explicit {
+        bail!("use --continue, --resume or --session, not more than one");
+    }
+    let latest = if cli.continue_latest {
+        let latest = Session::latest_default(&cwd)?;
+        if latest.is_none() {
+            crate::terminal::line(
+                "No earlier conversation in this directory; starting a new one.",
+            )?;
+        }
+        latest
+    } else {
+        None
+    };
     let mut session = match &cli.command {
+        _ if latest.is_some() => Session::resume(latest.as_deref().unwrap(), &cwd)?,
         Some(Commands::Chat {
             resume: Some(path), ..
         }) => Session::resume(path, &cwd)?,

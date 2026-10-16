@@ -231,7 +231,8 @@ Start a chat with `nectra` and keep typing. Inside the chat:
 | `/login PROVIDER` | Opens that provider's login when it expires |
 | `/clear`, `/quit` | Clears the active context, or leaves |
 
-Chats save as they go and can be resumed with `nectra chat --resume FILE`.
+Chats save as they go. `nectra -c` picks up the latest one you started in the
+current directory, and `nectra chat --resume FILE` opens a specific one.
 
 `nectra usage` shows what your chats used, per model, read from Claude Code's and
 Codex's own session logs:
@@ -280,7 +281,7 @@ lines or start with a dash.
 
 | Command | What it does |
 |---|---|
-| `nectra` or `nectra chat` | One conversation, routed message by message. `--session FILE` or `--resume FILE`. |
+| `nectra` or `nectra chat` | One conversation, routed message by message. `-c` continues the latest chat here; `--session FILE` or `--resume FILE`. |
 | `route [PROMPT]` | Prints the routing decision as JSON. Never launches a model. |
 | `run [PROMPT]` | Routes and runs once. The provider CLI's exit code is passed through. |
 | `models` | The model registry, with each model's provider, effort and declared roles. |

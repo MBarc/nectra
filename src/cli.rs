@@ -57,6 +57,9 @@ pub struct Cli {
     /// Show the routing decision as JSON without launching a provider.
     #[arg(global = true, long)]
     pub dry_run: bool,
+    /// Chat: continue the latest conversation started in this directory.
+    #[arg(global = true, short = 'c', long = "continue")]
+    pub continue_latest: bool,
     /// Read the prompt from stdin (cannot be combined with positional text).
     #[arg(global = true, long)]
     pub stdin: bool,

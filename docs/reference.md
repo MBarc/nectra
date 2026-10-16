@@ -139,7 +139,9 @@ you> Review what we have so far.
 
 Sessions save automatically under the platform's local data directory:
 `%LOCALAPPDATA%\nectra\sessions` on Windows. The session path is printed when the
-session opens and closes. Choose your own new file or resume an existing one:
+session opens and closes. `nectra -c` (or `nectra chat -c`) continues the newest
+automatic session started in the current directory. Choose your own new file or
+resume an existing one:
 
 ```powershell
 .\target\release\nectra.exe chat --session .\my-session.jsonl

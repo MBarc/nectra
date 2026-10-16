@@ -98,10 +98,41 @@ impl Session {
         })?;
         Ok(session)
     }
-    pub fn create_default(cwd: &Path) -> Result<Self> {
-        let dir = dirs::data_local_dir()
+    fn default_dir() -> Result<PathBuf> {
+        Ok(dirs::data_local_dir()
             .context("no local data directory; use chat --session PATH")?
-            .join("nectra/sessions");
+            .join("nectra/sessions"))
+    }
+    /// The newest default session started in `cwd`, if any.
+    pub fn latest_default(cwd: &Path) -> Result<Option<PathBuf>> {
+        Self::latest_in(&Self::default_dir()?, cwd)
+    }
+    /// Names start with a nanosecond timestamp, so the largest name is the newest.
+    pub fn latest_in(dir: &Path, cwd: &Path) -> Result<Option<PathBuf>> {
+        let cwd = fs::canonicalize(cwd)?;
+        let Ok(entries) = fs::read_dir(dir) else {
+            return Ok(None);
+        };
+        let mut paths: Vec<PathBuf> = entries
+            .filter_map(|e| Some(e.ok()?.path()))
+            .filter(|p| p.extension().is_some_and(|e| e == "jsonl"))
+            .collect();
+        paths.sort_unstable_by(|a, b| b.cmp(a));
+        Ok(paths.into_iter().find(|path| {
+            let Ok(file) = File::open(path) else {
+                return false;
+            };
+            let mut header = String::new();
+            let _ = std::io::BufRead::read_line(&mut std::io::BufReader::new(file), &mut header);
+            matches!(
+                serde_json::from_str(&header),
+                Ok(Event::Header { cwd: saved, .. })
+                    if fs::canonicalize(&saved).is_ok_and(|saved| saved == cwd)
+            )
+        }))
+    }
+    pub fn create_default(cwd: &Path) -> Result<Self> {
+        let dir = Self::default_dir()?;
         fs::create_dir_all(&dir).context("creating sessions directory")?;
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
         Self::create(

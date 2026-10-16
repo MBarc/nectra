@@ -409,3 +409,23 @@ fn short_chit_chat_goes_to_the_simple_model_offline() {
     .unwrap();
     assert_ne!(d.model, "haiku");
 }
+
+#[test]
+fn continue_finds_the_newest_session_for_this_directory_only() {
+    let sessions = tempfile::tempdir().unwrap();
+    let here = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let path = |n: &str| sessions.path().join(format!("{n}-1.jsonl"));
+    assert_eq!(
+        nectra::session::Session::latest_in(sessions.path(), here.path()).unwrap(),
+        None
+    );
+    drop(nectra::session::Session::create(&path("100"), here.path()).unwrap());
+    drop(nectra::session::Session::create(&path("200"), here.path()).unwrap());
+    drop(nectra::session::Session::create(&path("300"), elsewhere.path()).unwrap());
+    fs::write(sessions.path().join("400-1.jsonl"), "not json\n").unwrap();
+    assert_eq!(
+        nectra::session::Session::latest_in(sessions.path(), here.path()).unwrap(),
+        Some(path("200"))
+    );
+}
