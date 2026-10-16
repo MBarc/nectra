@@ -20,6 +20,7 @@ out = {
  "food": f([I(100, 1, "food"), I(100)], 10),
  "exempt": f([I(100, 1, "exempt"), I(100)], 10),
  "share": f([I(100, 1, "food"), I(100)], 10, discount=0.5),
+ "share_unequal": f([I(100, 1, "food"), I(300)], 10, discount=0.5),
 }
 print(json.dumps(out))
 """
@@ -45,7 +46,8 @@ def check(repo):
     c["returns_float"] = p.get("float") is True
     c["food_half_rate"] = p.get("food") == 215.0
     c["exempt_untaxed"] = p.get("exempt") == 210.0
-    c["discount_shared"] = p.get("share") == 107.5
+    # Unequal lines tell proportional sharing (217.5) from an equal split (220.0).
+    c["discount_shared"] = p.get("share") == 107.5 and p.get("share_unequal") == 217.5
     with tempfile.TemporaryDirectory() as d:
         good = pathlib.Path(d, "good.csv")
         good.write_text("name,price,qty\npen,2.5,4\npad,5.0,1\n", encoding="utf-8")
@@ -57,9 +59,12 @@ def check(repo):
         c["csv_reads"] = r.returncode == 0 and "16.50" in r.stdout
         r = py(repo, "-m", "invoice.cli", str(cat), "--tax", "10", "--csv")
         c["csv_category"] = r.returncode == 0 and "215.00" in r.stdout
-        r = py(repo, "-m", "invoice.cli", str(bad), "--tax", "10", "--csv")
-        c["csv_rejects_bad_qty"] = (r.returncode == 2 and "Traceback" not in r.stderr
-                                    and len(r.stderr.strip().splitlines()) == 1)
+        neg = pathlib.Path(d, "neg.csv")
+        neg.write_text("name,price,qty\npen,2.5,4\npad,5.0,-1\n", encoding="utf-8")
+        rejected = [py(repo, "-m", "invoice.cli", str(f), "--tax", "10", "--csv") for f in (bad, neg)]
+        c["csv_rejects_bad_qty"] = all(
+            r.returncode == 2 and "Traceback" not in r.stderr and len(r.stderr.strip().splitlines()) == 1
+            for r in rejected)
     r = py(repo, "-m", "invoice.cli", "items.json", "--tax", "10")
     c["json_input_kept"] = r.returncode == 0 and "16.50" in r.stdout
     tests = py(repo, "-m", "unittest", "-v")
