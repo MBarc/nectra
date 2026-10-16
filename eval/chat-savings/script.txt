@@ -1,0 +1,9 @@
+Give me a two-sentence overview of what this project does.
+The tests are failing. Find out why and fix it.
+thanks, that worked
+Add a --json flag to the CLI that prints {"total": <number>} instead of the text line, and add a test for it.
+Run the whole test suite and tell me if everything passes.
+Write a short section in README.md explaining the --json flag.
+great, thanks
+Rename the function calc to calculate_total everywhere, including the tests.
+/quit
