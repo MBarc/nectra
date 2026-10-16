@@ -4,7 +4,7 @@ if ($repo -notmatch '^[\w.-]+/[\w.-]+$') { throw "NECTRA_REPO must be a GitHub o
 $version = if ($env:NECTRA_VERSION) { $env:NECTRA_VERSION } else { "latest" }
 if ($version -notmatch '^[\w.-]+$') { throw "Invalid NECTRA_VERSION." }
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne "X64") { throw "Prebuilt Windows releases currently support x64 only. Build from source on other architectures." }
-$name = "nectra-x86_64-pc-windows-msvc.zip"
+$name = "nectra-x86_64-pc-windows-gnu.zip"
 $base = "https://github.com/$repo/releases"
 $base = if ($version -eq "latest") { "$base/latest/download" } else { "$base/download/$version" }
 $dest = Join-Path $HOME ".nectra\bin"

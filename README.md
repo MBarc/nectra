@@ -176,14 +176,14 @@ included.
 
 ## Install
 
-Prebuilt for Windows (x64), Linux (x64) and macOS (Intel and Apple Silicon).
-On Windows, in PowerShell:
+Prebuilt for Windows (x64) and Linux (x64). On macOS, build from source (below)
+until macOS releases are available. On Windows, in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/MBarc/nectra/master/scripts/install.ps1 | iex
 ```
 
-On Linux or macOS:
+On Linux:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/MBarc/nectra/master/scripts/install.sh | sh
