@@ -429,3 +429,19 @@ fn continue_finds_the_newest_session_for_this_directory_only() {
         Some(path("200"))
     );
 }
+
+#[test]
+fn a_partial_config_section_takes_defaults() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    fs::write(
+        &path,
+        "registry = \"models.toml\"\n[claude]\ncommand = \"claude\"\n[codex]\ncommand = \"codex\"\n[routing]\nsticky = false\n[classifier]\nbackend = \"local\"\n",
+    )
+    .unwrap();
+    let cfg = Config::from_path(&path).unwrap();
+    assert!(!cfg.inner.routing.sticky);
+    assert!(cfg.inner.routing.resume_sessions);
+    assert_eq!(cfg.inner.routing.confidence_margin, 0.035);
+    assert_eq!(cfg.inner.classifier.timeout_ms, 1500);
+}

@@ -15,8 +15,10 @@ pub struct RuntimeConfig {
     #[serde(default)]
     pub extra_args: Vec<String>,
 }
+// Every section takes defaults for the keys it leaves out, so a hand-written
+// `[routing]` with one setting is enough.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, default)]
 pub struct RoutingConfig {
     pub confidence_margin: f32,
     pub default_mode: Mode,
@@ -34,6 +36,17 @@ pub struct RoutingConfig {
 fn enabled() -> bool {
     true
 }
+impl Default for RoutingConfig {
+    fn default() -> Self {
+        Self {
+            confidence_margin: 0.035,
+            default_mode: Mode::Balanced,
+            resume_sessions: true,
+            sticky: true,
+            handoff_summary: true,
+        }
+    }
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClassifierBackend {
@@ -42,7 +55,7 @@ pub enum ClassifierBackend {
     Local,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, default)]
 pub struct ClassifierConfig {
     pub backend: ClassifierBackend,
     pub timeout_ms: u64,
@@ -76,6 +89,7 @@ pub struct ConfigFile {
     pub registry: String,
     pub claude: RuntimeConfig,
     pub codex: RuntimeConfig,
+    #[serde(default)]
     pub routing: RoutingConfig,
 }
 #[derive(Debug, Clone)]
