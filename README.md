@@ -260,7 +260,7 @@ you're setting Nectra up for someone.
 ### Don't use it for
 
 - calling model APIs directly. Nectra drives the provider CLIs; it has no HTTP adapter for OpenAI, Anthropic or Google APIs.
-- providers without a CLI adapter. The setup menu lists xAI, Mistral, OpenRouter and others, but they're saved as preferences only and can't answer yet.
+- providers without a CLI adapter. Only Claude Code, Codex, Gemini CLI and Ollama can answer.
 - measuring answer quality. `nectra eval` checks task classification, not whether the chosen model answered well.
 
 ### The loop

@@ -31,6 +31,12 @@ pub const PROVIDERS: &[ProviderChoice] = &[
     ),
     provider!("openai", "OpenAI", "requires Codex CLI"),
     provider!("google", "Google / Gemini", "requires Gemini CLI"),
+    provider!(
+        "ollama",
+        "Ollama (local or your own server)",
+        "requires a running Ollama server (chat only)"
+    ),
+    // Not offered by setup: kept so configurations that saved them still load.
     provider!("xai", "xAI / Grok"),
     provider!("mistral", "Mistral AI"),
     provider!("deepseek", "DeepSeek"),
@@ -43,11 +49,6 @@ pub const PROVIDERS: &[ProviderChoice] = &[
     provider!("azure", "Microsoft Azure"),
     provider!("bedrock", "Amazon Bedrock"),
     provider!("huggingface", "Hugging Face"),
-    provider!(
-        "ollama",
-        "Ollama (local or your own server)",
-        "requires a running Ollama server (chat only)"
-    ),
     provider!("lmstudio", "LM Studio (local)"),
     provider!("custom", "Other / custom endpoint"),
 ];
@@ -354,7 +355,13 @@ pub fn configure(
             output,
             "Which providers do you have access to? Select all that apply."
         )?;
-        for (i, provider) in PROVIDERS.iter().enumerate() {
+        // Only providers that can answer are offered; they come first, so the
+        // numbers shown are the numbers parse_providers accepts.
+        for (i, provider) in PROVIDERS
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.connection != "not yet implemented")
+        {
             writeln!(
                 output,
                 "{:>2}. {} [{}] — {}",
@@ -364,10 +371,6 @@ pub fn configure(
                 provider.connection
             )?;
         }
-        writeln!(
-            output,
-            "Unimplemented connections are saved as preferences only and cannot answer yet."
-        )?;
         if let Some(current) = &cfg.inner.providers {
             writeln!(output, "Current selection: {}", current.join(", "))?;
         }

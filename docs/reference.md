@@ -417,10 +417,9 @@ Selected Claude Code and Codex CLIs must resolve to native executables and pass
 setup incomplete, with instructions to install/repair the CLI and rerun setup.
 These checks make no model calls and do not verify login or model entitlement.
 
-The menu includes Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Cohere, Groq,
-Together AI, Fireworks AI, Perplexity, OpenRouter, Azure, Bedrock, Hugging Face,
-Ollama, LM Studio, and a custom endpoint option. **Claude Code, Codex, Gemini CLI, and Ollama are executable connections.** Other selections are saved as preferences and are
-explicitly labeled unimplemented; selecting them does not enable an adapter.
+The menu offers the four connections that can answer: Anthropic (Claude Code), OpenAI
+(Codex), Google (Gemini CLI) and Ollama. Earlier versions also listed providers with no
+adapter; configurations that saved those IDs still load, and the IDs do nothing.
 
 Run `nectra setup` again to change your choices, or use
 `nectra setup --providers anthropic,openai`. `--providers none` disables all providers.
