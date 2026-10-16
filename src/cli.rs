@@ -150,6 +150,9 @@ pub enum Commands {
         /// Print JSON instead of a table.
         #[arg(long)]
         json: bool,
+        /// Count one chat only: a session file from `/session`.
+        #[arg(long)]
+        session: Option<PathBuf>,
     },
 }
 

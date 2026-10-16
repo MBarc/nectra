@@ -82,8 +82,17 @@ fn app() -> Result<i32> {
         nectra::setup::manage(cli.config.as_deref(), command)?;
         return Ok(0);
     }
-    if let Some(Commands::Usage { days, json }) = &cli.command {
-        let usage = nectra::usage::collect(&nectra::usage::Logs::default_paths()?, *days)?;
+    if let Some(Commands::Usage {
+        days,
+        json,
+        session,
+    }) = &cli.command
+    {
+        let mut logs = nectra::usage::Logs::default_paths()?;
+        if let Some(path) = session {
+            logs.nectra_sessions = path.clone();
+        }
+        let usage = nectra::usage::collect(&logs, *days)?;
         if *json {
             println!("{}", serde_json::to_string_pretty(&usage)?);
         } else {

@@ -71,7 +71,13 @@ pub fn collect(logs: &Logs, days: Option<u64>) -> Result<BTreeMap<String, ModelU
     let since = days.map(|d| SystemTime::now() - Duration::from_secs(d * 86_400));
     let mut by_model: BTreeMap<String, ModelUsage> = BTreeMap::new();
     let mut sessions: HashSet<(String, String)> = HashSet::new();
-    for path in files(&logs.nectra_sessions, |_| true)? {
+    // A single session file counts that chat alone.
+    let chats = if logs.nectra_sessions.is_file() {
+        vec![logs.nectra_sessions.clone()]
+    } else {
+        files(&logs.nectra_sessions, |_| true)?
+    };
+    for path in chats {
         if since.is_some_and(|s| {
             fs::metadata(&path)
                 .and_then(|m| m.modified())
@@ -307,6 +313,11 @@ mod tests {
             }
         );
         assert_eq!(u["gemini-2.5-pro"].turns_without_data, 1);
+        let one = Logs {
+            nectra_sessions: logs.nectra_sessions.join("s.jsonl"),
+            ..logs
+        };
+        assert_eq!(collect(&one, None).unwrap()["opus"].sessions, 1);
         assert!(render(&u).contains("1 turns have no token data"));
     }
 }
