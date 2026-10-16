@@ -1,0 +1,7 @@
+The tests are failing. Find out why and fix it.
+Money must be exact. Switch calc to decimal.Decimal arithmetic and round the invoice total half-up to cents, so a 2.675 total becomes 2.68 and 1.005 becomes 1.01. calc should still return a float so callers don't break.
+Items may now carry an optional "category". Category "food" is taxed at half the invoice's tax rate, "exempt" is not taxed at all, and anything else (or no category) pays the full rate. The discount still applies to the whole subtotal before tax, shared across items in proportion to their line totals.
+Add a --csv flag to the CLI: when it is given, the positional file is a CSV with a header row name,price,qty and an optional category column, instead of JSON. A row with a quantity of zero or less must be rejected with a one-line error on stderr and exit code 2, not a traceback.
+Make sure the test suite covers the rounding, the categories and the CSV error, then run it and tell me the result.
+thanks, that's all
+/quit

@@ -56,10 +56,14 @@ def main():
     ap.add_argument("out")
     ap.add_argument("label")
     ap.add_argument("--model")
+    ap.add_argument("--mode", choices=["fast", "balanced", "best"])
     ap.add_argument("--jev", action="store_true", help="classify with Jev (needs TYPESAFE_API_KEY)")
-    ap.add_argument("--script", default=str(HERE / "script.txt"))
+    ap.add_argument("--workload", choices=["light", "hard"], default="light")
+    ap.add_argument("--script", help="override the workload's script")
     ap.add_argument("--nectra", default=str(ROOT / "target/release/nectra.exe"))
     a = ap.parse_args()
+    a.script = a.script or str(HERE / ("script-hard.txt" if a.workload == "hard" else "script.txt"))
+    checker = HERE / ("check_hard.py" if a.workload == "hard" else "check.py")
     run = pathlib.Path(a.out).resolve() / a.label
     if run.exists():
         sys.exit(f"{run} exists; pick a new label")
@@ -81,6 +85,8 @@ def main():
     nectra = [a.nectra, "--config", str(cfg / "config.toml"), "--provider-view", "stream"]
     if a.model:
         nectra += ["--model", a.model]
+    if a.mode:
+        nectra += ["--mode", a.mode]
     script = [l for l in pathlib.Path(a.script).read_text(encoding="utf-8").splitlines()
               if l.strip() and not l.startswith("/")]
     session = run / "session.jsonl"
@@ -104,7 +110,7 @@ def main():
     except ValueError:
         usage = {}
     try:
-        check = json.loads(output(sys.executable, str(HERE / "check.py"), str(repo)))
+        check = json.loads(output(sys.executable, str(checker), str(repo)))
     except ValueError:
         check = {"error": "checker produced no verdict", "core": False, "score": 0}
     transcript = (run / "transcript.txt").read_text(encoding="utf-8", errors="replace")
@@ -122,7 +128,7 @@ def main():
     if any(u.get("turns_without_data") for u in usage.values()):
         problems.append("some turns have no token data")
     result = {
-        "label": a.label, "pinned": a.model, "jev": a.jev, "seconds": seconds,
+        "label": a.label, "workload": a.workload, "pinned": a.model, "mode": a.mode, "jev": a.jev, "seconds": seconds,
         "valid": not problems, "problems": problems,
         "routes": attempts, "check": check, "usage": usage,
         "versions": {"nectra": output(a.nectra, "--version"),
