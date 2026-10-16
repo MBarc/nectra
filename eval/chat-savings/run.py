@@ -58,12 +58,13 @@ def main():
     ap.add_argument("--model")
     ap.add_argument("--mode", choices=["fast", "balanced", "best"])
     ap.add_argument("--jev", action="store_true", help="classify with Jev (needs TYPESAFE_API_KEY)")
-    ap.add_argument("--workload", choices=["light", "hard"], default="light")
+    ap.add_argument("--workload", choices=["light", "hard", "expert"], default="light")
     ap.add_argument("--script", help="override the workload's script")
     ap.add_argument("--nectra", default=str(ROOT / "target/release/nectra.exe"))
     a = ap.parse_args()
-    a.script = a.script or str(HERE / ("script-hard.txt" if a.workload == "hard" else "script.txt"))
-    checker = HERE / ("check_hard.py" if a.workload == "hard" else "check.py")
+    suffix = "" if a.workload == "light" else f"-{a.workload}"
+    a.script = a.script or str(HERE / f"script{suffix}.txt")
+    checker = HERE / ("check.py" if a.workload == "light" else f"check_{a.workload}.py")
     run = pathlib.Path(a.out).resolve() / a.label
     if run.exists():
         sys.exit(f"{run} exists; pick a new label")
@@ -125,7 +126,7 @@ def main():
         problems.append("pin not honoured")
     if "rate limited" in transcript:
         problems.append("rate limited")
-    if any(u.get("turns_without_data") for u in usage.values()):
+    if not usage or any(u.get("turns_without_data") for u in usage.values()):
         problems.append("some turns have no token data")
     result = {
         "label": a.label, "workload": a.workload, "pinned": a.model, "mode": a.mode, "jev": a.jev, "seconds": seconds,
