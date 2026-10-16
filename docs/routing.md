@@ -19,16 +19,19 @@ The bundled registry declares these roles:
 | Role | Task | Declared by |
 | --- | --- | --- |
 | `simple` | Short answers, small edits | haiku |
-| `simple-coding` | Small technical tasks | gpt-5.6-luna |
+| `simple-coding` | Coding in balanced and fast mode | gpt-5.6-luna |
 | `general` | Conversation, writing, research synthesis | sonnet |
 | `planning` | Planning and architecture | opus |
-| `coding` | Implementation, debugging, refactoring, review, data analysis | gpt-5.6-sol |
+| `coding` | Coding in best mode, or in balanced when nobody claims `simple-coding` | gpt-5.6-sol |
 | `demanding` | Explicitly demanding or complex tasks | gpt-6-astra |
 
 These are product routing preferences, not measured capability claims. Preferences
 add 0.30 to the existing quality/speed/cost score; other eligible models remain
 fallbacks. Fast mode prefers Haiku for nontechnical tasks and Luna for technical
-ones. Explicit demanding-task signals take precedence over that speed preference.
+ones. Balanced mode also sends ordinary coding to the `simple-coding` model first,
+because in [`eval/chat-savings`](../eval/chat-savings/RESULTS.md) it passed every
+check at 3-4% of the strong coders' cost. Explicit demanding-task signals (or a
+demanding Jev difficulty) take precedence over both.
 
 Demanding signals: complex, difficult, hardest, multi-step, multistep, end-to-end,
 escalate, deep reasoning. Light-task signals: quick, simple, brief, briefly,

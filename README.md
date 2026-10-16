@@ -114,43 +114,33 @@ cache carries over. So Nectra routes per task, not per message:
 Each of these can be switched off in `[routing]`: `sticky`, `resume_sessions`,
 `handoff_summary`.
 
-## Expected savings
+## Measured savings
 
-These are estimates from published prices, not measurements. Your own numbers
-come from `nectra usage` (below). Nectra saves the most when your day mixes
-heavy work with lots of quick, separate questions, because each quick one can go
-to a cheap model instead of opening a new session on your most expensive one.
+We ran 51 scripted coding chats through Nectra, on three workloads from a quick
+bug fix up to an optimal-assignment algorithm, and scored the results with
+independent checks. Costs are API-equivalent, from the providers' own token logs:
 
-Example: one standalone quick question ("what's the flag to skip git hooks?") in
-Claude Code. Every new Claude Code session first caches its own instructions,
-about 36,000 tokens (we measured 35,868), at 1.25x the input price:
-
-| Where it goes | Startup cache write | 300-token answer | About |
-|---|---|---|---|
-| Opus 5.5 ($4 in / $20 out) | $0.18 | $0.006 | **$0.19** |
-| Sonnet 5.5 ($2 / $10) | $0.09 | $0.003 | **$0.09** |
-| Haiku 5.5 ($0.10 / $0.50) | $0.0045 | $0.0002 | **$0.005** |
-
-If Claude Code writes that cache for an hour rather than five minutes, the write
-costs 2x instead of 1.25x and every row above rises by the same factor, so the
-ratios hold. Jev adds about $0.00003 per message (around 630 input tokens at
-$0.042 per million). Prices are Anthropic's list prices as of October 2026.
-
-| Who you are | Where Nectra saves | Rough size |
+| Configuration | Cost per chat, relative to staying on Opus | Checks passed |
 |---|---|---|
-| **One subscription, one strong model** (e.g. Claude Max, always Opus) | Quick standalone questions go to Sonnet or Haiku instead of opening Opus sessions. Long coding tasks stay on Opus. | Small to moderate. If a quarter of your messages are quick standalone ones, they cost roughly a twentieth to a half of what they did. Long tasks cost the same. Shows up as weekly-limit headroom, not dollars. |
-| **Several subscriptions** (Claude + ChatGPT/Codex, maybe Gemini) | Work spreads across all your plans by fit, and a rate-limited one hands over to another. | The biggest win here is not hitting a weekly limit mid-task. Token savings are on top of that. |
-| **Pay-as-you-go API keys** | Same routing, counted in dollars. | Per quick question, roughly $0.19 on Opus down to $0.005 on Haiku (table above). Multiply by how many you ask. |
-| **Local models** (Ollama) | Easy questions go to a model on your own machine. | Those messages cost $0 in tokens. |
-| **Light, mostly-chat users** | Little to route. | Close to nothing. Plain Claude Code or Codex is fine. |
+| Opus all the way | 100% | all |
+| gpt-5.6-sol all the way | 78–131% | all |
+| **Nectra's default (balanced)** | **4–18%** | **all** |
+| Nectra fast mode | 3–4% | all |
 
-What doesn't get cheaper: a long task on one model costs what it would without
-Nectra, because it stays on that model with its cache intact. Moving a long task
-from Opus to Sonnet saves less than half price suggests, because both read cached
-tokens at $0.20 per million, and in long sessions those reads are most of the bill.
+**Which model writes the code decides the bill.** Sending a thank-you to Haiku
+saves almost nothing, because a resumed session makes those turns cheap already.
+So balanced mode tries your cheap coder first (`prefers = ["simple-coding"]`,
+gpt-5.6-luna in the bundled registry). Demanding work still escalates to your
+strongest model. If the cheap coder isn't enough for some work, use `/mode best`.
 
-To measure yours: use your usual tool for a week, then Nectra for a week, and
-compare `nectra usage --days 7` with your provider's usage page for the first week.
+**The limits:** one small project, two or three runs per configuration. Large
+repositories and long debugging sessions are untested. Read the method, every
+number and its caveats in
+[`eval/chat-savings/RESULTS.md`](eval/chat-savings/RESULTS.md), and rerun it on
+your own accounts with `eval/chat-savings/run.py`.
+
+To see your own spend: `nectra usage --days 7`, or `nectra usage --session FILE`
+for one chat.
 
 ## The real CLIs, not imitations
 
