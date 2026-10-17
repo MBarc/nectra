@@ -48,6 +48,10 @@ enum Event {
     User {
         text: String,
         model: String,
+        /// `/again`: this turn replaces the last answer, which stays in the log
+        /// but leaves the context. One record, so a crash can't split the two.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        replaces: bool,
     },
     Assistant {
         text: String,
@@ -62,8 +66,6 @@ enum Event {
         provider_session: Option<String>,
     },
     Clear,
-    /// `/again` replaced the last answer: it stays in the log but leaves the context.
-    Superseded,
 }
 pub struct Session {
     pub path: PathBuf,
@@ -208,9 +210,20 @@ impl Session {
         };
         for line in lines {
             match serde_json::from_str::<Event>(line).context("invalid complete session record")? {
-                Event::User { text, model } => {
+                Event::User {
+                    text,
+                    model,
+                    replaces,
+                } => {
                     if session.pending.is_some() {
                         bail!("session contains overlapping turns");
+                    }
+                    if replaces {
+                        session.provider_session = None;
+                        session
+                            .exchanges
+                            .pop()
+                            .context("replacing turn without an answer")?;
                     }
                     session.pending = Some((text, model));
                 }
@@ -244,13 +257,6 @@ impl Session {
                     session.pending = None;
                     session.last_failed = None;
                 }
-                Event::Superseded => {
-                    session.provider_session = None;
-                    session
-                        .exchanges
-                        .pop()
-                        .context("replaced answer without an answer")?;
-                }
                 Event::Header { .. } => bail!("unexpected session header"),
             }
         }
@@ -280,13 +286,28 @@ impl Session {
         Ok(())
     }
     pub fn begin(&mut self, text: &str, model: &str) -> Result<()> {
+        self.begin_turn(text, model, false)
+    }
+    /// `begin` for a turn that replaces the last answer (`/again`).
+    pub fn begin_replacing(&mut self, text: &str, model: &str) -> Result<()> {
+        self.begin_turn(text, model, true)
+    }
+    fn begin_turn(&mut self, text: &str, model: &str, replaces: bool) -> Result<()> {
         if self.pending.is_some() {
             bail!("previous turn is still pending");
+        }
+        if replaces && self.exchanges.is_empty() {
+            bail!("no answer to replace");
         }
         self.append(&Event::User {
             text: text.into(),
             model: model.into(),
+            replaces,
         })?;
+        if replaces {
+            self.exchanges.pop();
+            self.provider_session = None;
+        }
         self.pending = Some((text.into(), model.into()));
         Ok(())
     }
@@ -322,17 +343,6 @@ impl Session {
             provider_session: provider_session.map(String::from),
         })?;
         self.last_failed = self.pending.take().map(|(text, _)| text);
-        Ok(())
-    }
-    /// Takes the last answer out of the context, keeping it in the log.
-    /// Recorded after the retry's user turn, so a crash in between keeps it.
-    pub fn supersede(&mut self) -> Result<()> {
-        if self.exchanges.is_empty() {
-            bail!("no answer to replace");
-        }
-        self.append(&Event::Superseded)?;
-        self.exchanges.pop();
-        self.provider_session = None;
         Ok(())
     }
     pub fn clear(&mut self) -> Result<()> {

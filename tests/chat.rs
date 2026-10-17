@@ -1044,18 +1044,23 @@ fn again_is_refused_in_debate_and_logs_the_retry_before_the_replacement() {
     assert_eq!(session.exchanges.last().unwrap().user, "fails");
     assert_eq!(session.exchanges.len(), 2);
 
-    // The retry's user turn is durable before the old answer leaves the log.
+    // The retry and the replacement are one record.
     drop(session);
-    let kinds: Vec<String> = fs::read_to_string(&path)
+    let records: Vec<serde_json::Value> = fs::read_to_string(&path)
         .unwrap()
         .lines()
-        .map(|l| {
-            serde_json::from_str::<serde_json::Value>(l).unwrap()["type"]
-                .as_str()
-                .unwrap()
-                .to_string()
-        })
+        .map(|l| serde_json::from_str(l).unwrap())
         .collect();
-    let at = kinds.iter().position(|k| k == "superseded").unwrap();
-    assert_eq!(kinds[at - 1..=at + 1], ["user", "superseded", "assistant"]);
+    let retry = records.iter().position(|r| r["replaces"] == true).unwrap();
+    assert_eq!(records[retry]["text"], "hello there");
+    assert_eq!(records[retry + 1]["type"], "assistant");
+    // An interrupted retry already left the old answer out, so /again resends
+    // it without the rejected answer.
+    let interrupted = dir.path().join("again-crash.jsonl");
+    let mut log: Vec<String> = records[..=retry].iter().map(|r| r.to_string()).collect();
+    log.push(String::new());
+    fs::write(&interrupted, log.join("\n")).unwrap();
+    let session = Session::resume(&interrupted, dir.path()).unwrap();
+    assert_eq!(session.interrupted.as_deref(), Some("hello there"));
+    assert!(session.exchanges.is_empty());
 }

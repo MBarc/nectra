@@ -760,8 +760,8 @@ pub fn run_loop(
                 continue 'messages;
             }
             // The retry must not see the answer it replaces, nor resume the
-            // session that wrote it. The log drops the answer only once the
-            // retry is recorded (below), so a retry that can't run keeps it.
+            // session that wrote it. The answer leaves the log only with the
+            // retry's own record (below), so a retry that can't run keeps it.
             let held = replaces.as_ref().and_then(|_| session.exchanges.pop());
             let live_session = if replaces.is_some() {
                 None
@@ -868,12 +868,13 @@ pub fn run_loop(
             }
             output.flush()?;
             // Persist the input before launching a child; failures never become assistant context.
-            session.begin(&message, &decision.model)?;
-            unanswered = Some(message.clone());
             if let Some(model) = replaces.take() {
-                session.supersede()?;
+                session.begin_replacing(&message, &decision.model)?;
                 writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
+            } else {
+                session.begin(&message, &decision.model)?;
             }
+            unanswered = Some(message.clone());
             attempted.push(decision.model.clone());
             // Track the session for `nectra usage` even when it won't be resumed.
             let keep = executor::ProviderSession::supported(&decision.runtime)
