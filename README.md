@@ -238,6 +238,15 @@ sonnet                2         1            4        38053        35868        
 Two turns in one session means the follow-up resumed instead of starting over.
 Add `--days 7` for a week, or `--json` for scripts.
 
+Claude Code, Codex and Gemini CLI each read skills from different folders:
+Claude from `.claude/skills`, Codex from `.agents/skills` and `.codex/skills`,
+and Gemini from `.agents/skills` and `.gemini/skills`. A skill only one of them
+sees comes and goes as Nectra routes between them. `nectra skills` shows which
+CLI sees each of your skills, and `nectra skills --link` links your user skills
+between `~/.claude/skills` and `~/.agents/skills` so all three do. It never
+replaces an existing entry, and a skill written around one CLI's tools may still
+need edits to work in another.
+
 ## For AI agents
 
 This part is for you, the agent deciding whether to use Nectra. It also helps if
