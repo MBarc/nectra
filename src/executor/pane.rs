@@ -116,6 +116,9 @@ fn allocate(rows: u16) -> Result<u16> {
     Ok(bottom.saturating_sub(rows + 1))
 }
 
+/// Provider silence longer than this, mid-turn, means it is waiting on the user.
+const QUIET: Duration = Duration::from_secs(3);
+
 pub(super) fn run(
     cmd: CommandBuilder,
     model: &str,
@@ -161,6 +164,9 @@ pub(super) fn run(
     let mut origin = allocate(display_rows)?;
     let mut guard = TerminalGuard::enter(origin + display_rows + 1)?;
     let started = Instant::now();
+    let mut last_output = started;
+    // Shown because the provider went quiet; not again until it speaks.
+    let mut revealed = false;
     let mut parser = vt100::Parser::new(rows, cols, 10_000);
     let mut responder = Queries::default();
     let mut previous: Option<Vec<Vec<vt100::Cell>>> = None;
@@ -195,6 +201,8 @@ pub(super) fn run(
                         }
                         parser.process(&bytes);
                         responder.process(&bytes, parser.screen(), &mut writer)?;
+                        last_output = Instant::now();
+                        revealed = false;
                         dirty = true;
                     }
                     Ok(Err(e)) => {
@@ -228,11 +236,38 @@ pub(super) fn run(
                 }
                 last_capture = Instant::now();
             }
+            // Spinners and timers repaint every second while a provider works, so
+            // one that falls silent mid-turn is waiting on the user: a folder-trust,
+            // login or approval prompt. Show it instead of a frozen "Working…",
+            // unless the user is typing a queued message.
+            let waiting = !ready && started.elapsed() > QUIET && last_output.elapsed() > QUIET;
+            // A provider still starting up has drawn nothing worth showing.
+            if waiting
+                && !revealed
+                && !parser.screen().contents().trim().is_empty()
+                && !provider_input
+                && !too_small
+                && !confirm_cancel
+                && draft.text.is_empty()
+            {
+                clear_region(origin, display_rows)?;
+                provider_input = true;
+                revealed = true;
+                display_rows = rows;
+                origin = allocate(display_rows)?;
+                guard.bottom = origin + display_rows + 1;
+                previous = None;
+                dirty = true;
+            }
             if !too_small
                 && (dirty || !provider_input)
                 && last_render.elapsed() >= Duration::from_millis(100)
             {
-                let prefix = if cols >= 50 {
+                let prefix = if cols >= 50 && waiting {
+                    format!(
+                        "Queued: {queued_count} | {model} is waiting for you: F2 to answer | you> "
+                    )
+                } else if cols >= 50 {
                     format!("Queued: {queued_count} | F2: approvals | you> ")
                 } else {
                     "> ".into()
@@ -248,6 +283,8 @@ pub(super) fn run(
                         model,
                         if confirm_cancel {
                             "Work may be running. Ctrl+] again: stop and return; Esc: stay"
+                        } else if waiting {
+                            "WAITING FOR YOU: answer the prompt above | F2: back to Nectra queue | Ctrl+]: cancel"
                         } else if provider_input {
                             "PROVIDER INPUT | F2: back to Nectra queue | Ctrl+]: cancel"
                         } else {

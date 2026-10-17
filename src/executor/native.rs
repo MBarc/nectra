@@ -182,6 +182,12 @@ fn record(runtime: &str, event: &Value) -> Option<Record> {
     Some(r)
 }
 
+/// What Codex is asked each turn. A short file reference avoids Windows'
+/// command-line limit and exposing chat text in argv.
+fn codex_prompt(root: &Path) -> String {
+    format!("Read the UTF-8 conversation at {} and answer its current_user_message. Use the history silently; do not acknowledge loading context, model routing, or the handoff. Begin directly with the answer and do not repeat completed work.", root.join("context.txt").display())
+}
+
 fn write_record(root: &Path, record: &Record) -> Result<()> {
     // Unique files avoid interleaved writes from concurrent provider hook processes.
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
@@ -247,6 +253,20 @@ impl Capture {
                     self.answer.clear();
                 }
                 "answer" => {
+                    // Codex also reports its own side turns, such as titling the thread
+                    // (seen on 0.162.1), as completed turns. The first real one answers
+                    // our context file; later ones, typed in the pane, continue its thread.
+                    if !r.session.is_empty() {
+                        // A side turn's prompt can quote ours, so match from the start.
+                        let ours = if self.session.is_empty() {
+                            r.prompt.trim_start().starts_with(&codex_prompt(root))
+                        } else {
+                            r.session == self.session
+                        };
+                        if !ours {
+                            continue;
+                        }
+                    }
                     // Codex notifications also carry the user message for each completed turn.
                     if !r.prompt.is_empty() && self.ready {
                         self.earlier.push((
@@ -418,8 +438,7 @@ fn command(
         if let Some(id) = &resume_id {
             args.push(id.into());
         }
-        // A short file reference avoids Windows' command-line limit and exposing chat text in argv.
-        args.push(format!("Read the UTF-8 conversation at {} and answer its current_user_message. Use the history silently; do not acknowledge loading context, model routing, or the handoff. Begin directly with the answer and do not repeat completed work.", root.join("context.txt").display()).into());
+        args.push(codex_prompt(root).into());
     } else {
         let index = args
             .iter()
@@ -498,6 +517,25 @@ pub fn conversation_with_session(
     if !capture.ready {
         if let Some(error) = crate::access::ModelUnavailable::detect(&outcome.diagnostic, false) {
             return Err(error.into());
+        }
+        // A provider that quits before answering (a bad flag, a login screen it
+        // can't show) said why on its screen; "no answer captured" would hide it.
+        if !outcome.success && !outcome.pending_input {
+            let said: Vec<&str> = outcome
+                .diagnostic
+                .lines()
+                .map(str::trim_end)
+                .filter(|l| !l.is_empty())
+                .collect();
+            bail!(
+                "{} exited before answering. Its last output:
+{}",
+                d.model,
+                said[said.len().saturating_sub(6)..].join(
+                    "
+"
+                )
+            );
         }
     }
     if outcome.pending_input {
@@ -818,6 +856,39 @@ mod tests {
                 && saved.contains("Second")
         );
         assert!(!saved.contains("bootstrap"));
+    }
+    #[test]
+    fn codex_side_turns_are_not_the_answer() {
+        let root = tempfile::tempdir().unwrap();
+        let ask = codex_prompt(root.path());
+        let mut capture = Capture::default();
+        let turn = |capture: &mut Capture, thread: &str, prompt: &str, answer: &str| {
+            let event = json!({"type":"agent-turn-complete","thread-id":thread,"input-messages":[prompt],"last-assistant-message":answer});
+            write_record(root.path(), &record("codex", &event).unwrap()).unwrap();
+            capture.refresh(root.path()).unwrap();
+        };
+        turn(
+            &mut capture,
+            "title",
+            &format!("Generate a concise, single-line task title for: {ask}"),
+            r#"{"title":"Answer"}"#,
+        );
+        assert!(!capture.ready);
+        turn(&mut capture, "t1", &ask, "Created out");
+        turn(
+            &mut capture,
+            "title2",
+            "Generate a concise, single-line task title",
+            r#"{"title":"Again"}"#,
+        );
+        turn(&mut capture, "t1", "and list it", "out/");
+        let saved = capture.finish().unwrap();
+        assert!(
+            saved.contains("Created out") && saved.contains("out/"),
+            "{saved}"
+        );
+        assert!(!saved.contains("title"), "{saved}");
+        assert_eq!(capture.session, "t1");
     }
     #[test]
     fn shell_paths_are_quoted_and_existing_hooks_survive() {
