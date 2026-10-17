@@ -695,13 +695,14 @@ fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
     let (dir, cfg, reg) = fixture();
     let mut session = Session::create(&dir.path().join("handoff.jsonl"), dir.path()).unwrap();
     let mut backend = Sessions::default();
+    let mut output = vec![];
     chat::run_loop(
         &cfg,
         &reg,
         options(),
         &mut session,
         &mut Cursor::new("/model opus\nfirst\n/model gpt-5.6-sol\ncontinue with that\n/quit\n"),
-        &mut Vec::new(),
+        &mut output,
         &mut backend,
     )
     .unwrap();
@@ -716,6 +717,9 @@ fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
     assert_eq!(incoming["current_user_message"], "continue with that");
     // The note is internal: only the two real exchanges are saved.
     assert_eq!(session.exchanges.len(), 2);
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("gpt-5.6-sol (openai) · pinned with /model> "));
+    assert!(output.contains("Switched from opus, which wrote gpt-5.6-sol a handoff note"));
 }
 
 #[test]
@@ -802,4 +806,70 @@ fn a_resumed_chat_continues_the_provider_session() {
     let t = &second.turns[0];
     assert!(t.1 && t.2 == first.turns[0].2, "{:?}", t.2);
     assert!(context(&t.3).get("conversation").is_none());
+}
+
+#[test]
+fn again_replaces_the_answer_with_a_stronger_models_and_says_why() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("again-stronger.jsonl");
+    let mut opts = options();
+    opts.mode = Mode::Fast;
+    let mut backend = Mock::default();
+    let mut output = vec![];
+    {
+        let mut session = Session::create(&path, dir.path()).unwrap();
+        chat::run_loop(
+            &cfg,
+            &reg,
+            opts,
+            &mut session,
+            &mut Cursor::new("thanks, what time zone is UTC?\n/again\n/again haiku\n/quit\n"),
+            &mut output,
+            &mut backend,
+        )
+        .unwrap();
+    }
+    let output = String::from_utf8(output).unwrap();
+    let [first, second, third] = &backend.models[..] else {
+        panic!("{:?}", backend.models)
+    };
+    assert_ne!(first, second);
+    assert_eq!(third, "haiku");
+    // Each turn says why it went where it did.
+    assert!(output.contains(&format!("\n{first} (")), "{output}");
+    assert!(output.contains(&format!("you asked for a stronger model than {first}")));
+    assert!(output.contains("kept in the log as replaced"));
+    // A retry never sees the answer it replaces, and only the last one counts.
+    for prompt in &backend.prompts[1..] {
+        assert!(!prompt.contains("answer from"), "{prompt}");
+    }
+    let session = Session::resume(&path, dir.path()).unwrap();
+    assert_eq!(session.exchanges.len(), 1);
+    assert_eq!(session.exchanges[0].model, "haiku");
+    assert_eq!(session.exchanges[0].user, "thanks, what time zone is UTC?");
+}
+
+#[test]
+fn again_resends_an_unanswered_message_and_needs_something_to_resend() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("again-failed.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock {
+        codex_only: true,
+        ..Mock::default()
+    };
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/again\n/again nope\n/quit\n"),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Nothing to send again yet."));
+    assert!(output.contains("Unknown, disabled or unavailable model"));
+    assert!(backend.models.is_empty());
 }

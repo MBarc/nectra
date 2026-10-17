@@ -61,6 +61,20 @@ pub fn route_with(
     provider: Option<ProviderArg>,
     model: Option<String>,
 ) -> Result<Decision> {
+    route_summarized(classification, prompt, cfg, registry, mode, provider, model).map(|(d, _)| d)
+}
+
+/// `route_with`, plus the one-line why chat shows above each answer, such as
+/// "quick question · preferred for this".
+pub fn route_summarized(
+    classification: crate::jev::Classification,
+    prompt: &str,
+    cfg: &Config,
+    registry: &Registry,
+    mode: Mode,
+    provider: Option<ProviderArg>,
+    model: Option<String>,
+) -> Result<(Decision, String)> {
     let crate::jev::Classification {
         task,
         req,
@@ -181,25 +195,48 @@ pub fn route_with(
     } else {
         ""
     };
-    Ok(Decision {
-        task: task.to_string(),
-        provider: winner.provider.as_str().into(),
-        runtime: winner.runtime.as_str().into(),
-        model: winner.id.clone(),
-        effort: winner.effort.clone(),
-        mode,
-        score,
-        score_margin: margin,
-        ambiguous,
-        overridden,
-        reason,
-        candidates: candidates
-            .iter()
-            .map(|(m, score)| Candidate {
-                model: m.id.clone(),
-                provider: m.provider.as_str().into(),
-                score: *score,
-            })
-            .collect(),
-    })
+    let kind = match role {
+        "simple" => "quick question",
+        "simple-coding" => "small code change",
+        "coding" => "coding",
+        "planning" => "planning",
+        "general" => "writing or explaining",
+        other => other,
+    };
+    let how = if overridden {
+        "your choice".to_string()
+    } else if unclaimed {
+        "strongest available".to_string()
+    } else if ambiguous {
+        format!("close call with {}", candidates[1].0.id)
+    } else if policy::claims(winner, role, declarative) {
+        "preferred for this".to_string()
+    } else {
+        "best fit available".to_string()
+    };
+    let summary = format!("{kind} · {how}");
+    Ok((
+        Decision {
+            task: task.to_string(),
+            provider: winner.provider.as_str().into(),
+            runtime: winner.runtime.as_str().into(),
+            model: winner.id.clone(),
+            effort: winner.effort.clone(),
+            mode,
+            score,
+            score_margin: margin,
+            ambiguous,
+            overridden,
+            reason,
+            candidates: candidates
+                .iter()
+                .map(|(m, score)| Candidate {
+                    model: m.id.clone(),
+                    provider: m.provider.as_str().into(),
+                    score: *score,
+                })
+                .collect(),
+        },
+        summary,
+    ))
 }

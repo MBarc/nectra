@@ -130,6 +130,10 @@ you> Review what we have so far.
 - `/models` lists configured models and executable availability.
 - `/model ID` pins subsequent turns to a model; `/model auto` restores automatic
   routing across selected providers under your local routing policy.
+- `/again` sends your last message again, routed in best mode to any model but
+  the one that answered; `/again ID` sends it to that model. The replaced answer
+  stays in the session log but leaves the conversation context; files it changed
+  stay changed. After a failed turn, `/again` resends the message as it was.
 - `/provider anthropic`, `/provider openai`, `/provider google`, `/provider ollama`, or `/provider auto` restricts routing
   and clears a model pin. `/mode fast|balanced|best` changes policy.
 - `/paste` begins multiline input. Finish with `/send` or discard with `/cancel`.

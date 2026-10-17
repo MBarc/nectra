@@ -64,8 +64,15 @@ nectra route "debug this intermittent race condition in the scheduler"
 
 <sub>Abbreviated. The full output also carries the provider, effort, mode and override flags.</sub>
 
-Don't agree? `/model sonnet` in the chat, or `--model` on the command line, and
-the conversation carries on.
+In chat, each answer starts with its model and why it was picked, e.g.
+`haiku (anthropic) · quick question · preferred for this`. When Nectra switches
+models mid-task it says so, because the new model starts without the old one's
+cached context.
+
+Don't agree? `/again` sends your last message again to a stronger model, or
+`/again opus` to the one you name; the replaced answer stays in the log but
+leaves the conversation. `/model sonnet` pins a model, and `--model` does the
+same on the command line.
 
 ## Easy prompts go to cheaper models
 

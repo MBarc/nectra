@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use clap::ValueEnum;
 use std::io::{self, BufRead, Write};
 
-const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/debate on|off        Toggle isolated two-provider comparison\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
+const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/again [ID]           Send your last message again to a stronger model, or to ID\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/debate on|off        Toggle isolated two-provider comparison\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
 
 pub const BANNER: &str = r"
  _   _ _____ ____ _____ ____      _
@@ -275,6 +275,10 @@ pub fn run_loop(
     // Set by /mode: the next message routes afresh instead of staying on the
     // model the previous mode picked.
     let mut reroute = false;
+    // The last message that got no saved answer, which /again sends as is.
+    let mut unanswered = session.interrupted.clone();
+    // Set by /again for the next turn: a model to use, or one to beat.
+    let mut again: Option<Again> = None;
     'messages: loop {
         queued.extend(backend.take_queued_messages());
         write!(output, "\nyou> ")?;
@@ -375,6 +379,43 @@ pub fn run_loop(
                 "/help" => {
                     write!(output, "{HELP}")?;
                     continue;
+                }
+                "/again" => {
+                    let usable = |id: &str| {
+                        registry
+                            .models
+                            .iter()
+                            .any(|m| m.enabled && m.id == id && backend.available(m.runtime, cfg))
+                    };
+                    if !value.is_empty() && !usable(value) {
+                        writeln!(
+                            output,
+                            "Unknown, disabled or unavailable model. Use /models."
+                        )?;
+                        continue;
+                    }
+                    let (last, model) = if let Some(text) = unanswered.clone() {
+                        (text, None)
+                    } else if let Some(last) = session.exchanges.last().cloned() {
+                        (last.user, Some(last.model))
+                    } else {
+                        writeln!(output, "Nothing to send again yet.")?;
+                        continue;
+                    };
+                    if let Some(model) = &model {
+                        // The retry must not see the answer it replaces.
+                        session.supersede()?;
+                        provider_session = None;
+                        writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
+                    }
+                    again = Some(match (value, model) {
+                        ("", Some(beat)) => Again::Stronger(beat),
+                        ("", None) => Again::Same,
+                        (id, _) => Again::Model(id.to_string()),
+                    });
+                    reroute = true;
+                    message = last;
+                    writeln!(output, "you> {message} [again]")?;
                 }
                 "/session" => {
                     writeln!(output, "{}", session.path.display())?;
@@ -531,6 +572,11 @@ pub fn run_loop(
         }
         // Read directives from this message only, never from shared history or quoted text.
         let requested_model = requested_model(&message, registry);
+        let again = again.take();
+        let requested_model = match &again {
+            Some(Again::Model(id)) => Some(id.clone()),
+            _ => requested_model,
+        };
         let mut turn_model = requested_model.clone().or_else(|| options.model.clone());
         let mut turn_provider = if requested_model.is_some() {
             None
@@ -575,6 +621,12 @@ pub fn run_loop(
             continue;
         }
         let mut attempted = Vec::new();
+        // "/again" alone: anything but the model that answered, judged on capability.
+        let mut turn_mode = options.mode;
+        if let Some(Again::Stronger(beat)) = &again {
+            attempted.push(beat.clone());
+            turn_mode = Mode::Best;
+        }
         if let Some(id) = &turn_model {
             if registry.models.iter().any(|m| {
                 &m.id == id
@@ -658,16 +710,16 @@ pub fn run_loop(
                     && turn_provider.is_none()
                     && available.models.iter().any(|a| &a.id == m)
             });
-            let decision = match router::route_with(
+            let (decision, mut why) = match router::route_summarized(
                 classification.clone(),
                 &message,
                 cfg,
                 &available,
-                options.mode,
+                turn_mode,
                 turn_provider,
                 turn_model.clone().or(sticky.clone()),
             ) {
-                Ok(mut decision) => {
+                Ok((mut decision, why)) => {
                     if let Some(model) = &sticky {
                         decision.overridden = false;
                         decision.reason = format!(
@@ -679,7 +731,7 @@ pub fn run_loop(
                                 .unwrap_or_default()
                         );
                     }
-                    decision
+                    (decision, why)
                 }
                 Err(error) => {
                     writeln!(
@@ -756,13 +808,41 @@ pub fn run_loop(
             if omitted > 0 {
                 writeln!(output, "Context window: {omitted} earlier turns omitted from this request; the saved log retains them.")?;
             }
-            writeln!(output, "\n{} ({})> ", decision.model, decision.provider)?;
+            if sticky.is_some() {
+                why = "same task as your last message".into();
+            } else if let Some(Again::Stronger(beat)) = &again {
+                why = format!("you asked for a stronger model than {beat}");
+            } else if requested_model.is_none() && options.model.as_ref() == Some(&decision.model) {
+                why = "pinned with /model".into();
+            }
+            writeln!(
+                output,
+                "\n{} ({}) · {why}> ",
+                decision.model, decision.provider
+            )?;
+            // Switching mid-task has a cost the user should see: the new model
+            // starts without the old one's session and cache.
+            match &last_model {
+                Some(previous)
+                    if previous != &decision.model
+                        && again.is_none()
+                        && classification.new_task != Some(true) =>
+                {
+                    if note.is_some() {
+                        writeln!(output, "Switched from {previous}, which wrote {} a handoff note; its cached context isn't reused.", decision.model)?;
+                    } else {
+                        writeln!(output, "Switched from {previous}: the conversation is sent again, and its cached context isn't reused.")?;
+                    }
+                }
+                _ => {}
+            }
             if options.explain {
                 writeln!(output, "{}", decision.reason)?;
             }
             output.flush()?;
             // Persist the input before launching a child; failures never become assistant context.
             session.begin(&message, &decision.model)?;
+            unanswered = Some(message.clone());
             attempted.push(decision.model.clone());
             // Track the session for `nectra usage` even when it won't be resumed.
             let keep = executor::ProviderSession::supported(&decision.runtime)
@@ -781,6 +861,7 @@ pub fn run_loop(
                 Ok(reply) if !reply.trim().is_empty() => {
                     successful_models.insert(decision.model.clone());
                     session.complete_in(&reply, turn_session.id.as_deref())?;
+                    unanswered = None;
                     provider_session = turn_session
                         .id
                         .filter(|_| resumable)
@@ -884,6 +965,15 @@ pub fn run_loop(
     }
     writeln!(output, "Session saved: {}", session.path.display())?;
     Ok(())
+}
+
+/// What `/again` asked of the next turn.
+enum Again {
+    /// Route afresh, excluding this model and judging on capability.
+    Stronger(String),
+    /// The last message got no answer; send it as it was.
+    Same,
+    Model(String),
 }
 
 /// Resumes the outgoing model's session once to ask for a handoff note.
