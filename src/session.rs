@@ -301,6 +301,7 @@ impl Session {
             provider_session: provider_session.map(String::from),
         })?;
         self.pending = None;
+        self.last_failed = None;
         self.exchanges.push(Exchange {
             user,
             assistant: text.into(),
@@ -320,12 +321,13 @@ impl Session {
             error: error.into(),
             provider_session: provider_session.map(String::from),
         })?;
-        self.pending = None;
+        self.last_failed = self.pending.take().map(|(text, _)| text);
         Ok(())
     }
     /// Takes the last answer out of the context, keeping it in the log.
+    /// Recorded after the retry's user turn, so a crash in between keeps it.
     pub fn supersede(&mut self) -> Result<()> {
-        if self.pending.is_some() || self.exchanges.is_empty() {
+        if self.exchanges.is_empty() {
             bail!("no answer to replace");
         }
         self.append(&Event::Superseded)?;
@@ -337,6 +339,7 @@ impl Session {
         self.append(&Event::Clear)?;
         self.exchanges.clear();
         self.pending = None;
+        self.last_failed = None;
         Ok(())
     }
     /// Asked of the outgoing model's resumed session when another model takes over mid-task.

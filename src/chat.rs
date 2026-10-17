@@ -381,6 +381,13 @@ pub fn run_loop(
                     continue;
                 }
                 "/again" => {
+                    if debate_mode {
+                        writeln!(
+                            output,
+                            "/again isn't available in debate mode; use /debate off first."
+                        )?;
+                        continue;
+                    }
                     let usable = |id: &str| {
                         registry
                             .models
@@ -752,13 +759,15 @@ pub fn run_loop(
                 writeln!(output, "{}", serde_json::to_string_pretty(&decision)?)?;
                 continue 'messages;
             }
-            // Routed, so the retry will run: now take the old answer out. The
-            // retry must not see it, nor resume the session that wrote it.
-            if let Some(model) = replaces.take() {
-                session.supersede()?;
-                provider_session = None;
-                writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
-            }
+            // The retry must not see the answer it replaces, nor resume the
+            // session that wrote it. The log drops the answer only once the
+            // retry is recorded (below), so a retry that can't run keeps it.
+            let held = replaces.as_ref().and_then(|_| session.exchanges.pop());
+            let live_session = if replaces.is_some() {
+                None
+            } else {
+                provider_session.clone()
+            };
             let budget = if decision.runtime == "ollama" {
                 cfg.inner
                     .ollama
@@ -776,7 +785,7 @@ pub fn run_loop(
             let resumable = cfg.inner.routing.resume_sessions
                 && executor::ProviderSession::supported(&decision.runtime)
                 && executor::can_resume(&decision.runtime, cfg);
-            let mut turn_session = match &provider_session {
+            let mut turn_session = match &live_session {
                 Some((model, id)) if resumable && model == &decision.model => {
                     executor::ProviderSession::resume(id)
                 }
@@ -784,7 +793,7 @@ pub fn run_loop(
             };
             // Another model taking over mid-task gets the outgoing one's handoff
             // note instead of a full transcript replay.
-            let note = match &provider_session {
+            let note = match &live_session {
                 Some((model, id))
                     if cfg.inner.routing.handoff_summary
                         && !turn_session.resume
@@ -812,6 +821,9 @@ pub fn run_loop(
             } else {
                 session.prompt(&message, budget)
             };
+            if let Some(exchange) = held {
+                session.exchanges.push(exchange);
+            }
             let (prompt, omitted) = match context {
                 Ok(context) => context,
                 Err(error) => {
@@ -858,6 +870,10 @@ pub fn run_loop(
             // Persist the input before launching a child; failures never become assistant context.
             session.begin(&message, &decision.model)?;
             unanswered = Some(message.clone());
+            if let Some(model) = replaces.take() {
+                session.supersede()?;
+                writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
+            }
             attempted.push(decision.model.clone());
             // Track the session for `nectra usage` even when it won't be resumed.
             let keep = executor::ProviderSession::supported(&decision.runtime)

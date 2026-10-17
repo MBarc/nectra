@@ -994,3 +994,68 @@ fn again_tracks_the_unanswered_message_across_clear_and_resume() {
         .unwrap()
         .contains("Nothing to send again yet."));
 }
+
+#[test]
+fn again_is_refused_in_debate_and_logs_the_retry_before_the_replacement() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("again-order.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut backend = Mock::default();
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("hello there\n/debate on\n/again\n/debate off\n/again\n/quit\n"),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("/again isn't available in debate mode"));
+    assert_eq!(backend.models.len(), 2, "{output}");
+    // A failure in this running session is remembered by the next loop over it.
+    let mut failing = Mock {
+        limit_all: true,
+        ..Mock::default()
+    };
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("fails\n/quit\n"),
+        &mut Vec::new(),
+        &mut failing,
+    )
+    .unwrap();
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/again\n/quit\n"),
+        &mut Vec::new(),
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(session.exchanges.last().unwrap().user, "fails");
+    assert_eq!(session.exchanges.len(), 2);
+
+    // The retry's user turn is durable before the old answer leaves the log.
+    drop(session);
+    let kinds: Vec<String> = fs::read_to_string(&path)
+        .unwrap()
+        .lines()
+        .map(|l| {
+            serde_json::from_str::<serde_json::Value>(l).unwrap()["type"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    let at = kinds.iter().position(|k| k == "superseded").unwrap();
+    assert_eq!(kinds[at - 1..=at + 1], ["user", "superseded", "assistant"]);
+}
