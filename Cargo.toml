@@ -1,6 +1,6 @@
 [package]
 name = "nectra"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2021"
 rust-version = "1.89"
 description = "Local conversation router for Claude Code, Codex, Gemini CLI, and Ollama"
