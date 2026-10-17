@@ -2,8 +2,8 @@
 
 **Summary.** On three coding workloads, the cheapest coder (gpt-5.6-luna) passed every
 check at 3–4% of Opus's cost. The old balanced default cost 66–136% of Opus. The new
-balanced default sends ordinary coding to the cheap coder first, and it cost 4–18% of
-Opus with no lost checks.
+balanced default sends ordinary coding to the cheap coder first. With the keyword
+classifier it cost 4–18% of Opus with no lost checks; with Jev it cost 3–54%.
 
 ## What was measured
 
@@ -22,8 +22,8 @@ token counts from the providers' own logs, and [`report.py`](report.py) prices t
 Each checker was validated twice. The untouched fixture scores near zero. A hand-written
 reference scores full marks.
 
-Cost is **API-equivalent USD** from [`prices.json`](prices.json), so subscription and API
-users compare on one scale. On a subscription the same ratios show up as quota used.
+Cost is **API-equivalent USD** from [`prices.json`](prices.json): token prices, not
+subscription quota, which this does not measure.
 Claude Code's cache writes were confirmed to be 1-hour TTL in its own logs. The prices
 come from third-party sources, and Jev's own fee (about $0.00003 a message) is not included.
 
@@ -66,8 +66,9 @@ rate limits, token data present for every turn.
 - **It does not show that a cheap model is always enough.** All three workloads use one
   small fixture with precise specs. Large repositories, vague requests and long debugging
   sessions are untested, so call this "no lost checks", not "no quality loss".
-- **The run counts are small**: 2–3 per configuration. That's enough to see a 25× cost
-  gap, not to rank configurations that are close together.
+- **The run counts are small**: 1–3 per configuration, and only 1 for the new default
+  with Jev. That's enough to see a 25× cost gap, not to rank configurations that are
+  close together.
 - **It is an end-to-end comparison of Nectra configurations**, not of bare CLIs.
 
 ## What changed because of it

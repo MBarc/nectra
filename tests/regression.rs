@@ -455,3 +455,45 @@ fn a_partial_config_section_takes_defaults() {
     assert_eq!(cfg.inner.routing.confidence_margin, 0.035);
     assert_eq!(cfg.inner.classifier.timeout_ms, 1500);
 }
+
+#[test]
+fn demanding_work_is_never_sent_cheap_first() {
+    use nectra::{
+        classifier::TaskType,
+        jev::{Classification, Tier},
+    };
+    let (_dir, cfg, reg) = fixture();
+    // Jev chose the plain coding role but judged the work demanding.
+    let jev = Classification {
+        task: TaskType::CodeGeneration,
+        req: classifier::requirements(TaskType::CodeGeneration),
+        tier: Some(Tier::Demanding),
+        why: "test".into(),
+        new_task: None,
+        role: Some("coding".into()),
+    };
+    let d = router::route_with(
+        jev,
+        "port the scheduler",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(d.model, "gpt-5.6-sol", "{}", d.reason);
+    // No model claims "demanding": demanding words keep the strong coder.
+    let mut reg = reg;
+    reg.models.retain(|m| m.id != "gpt-6-astra");
+    let d = router::route(
+        "complex end to end rewrite of the scheduler code",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(d.model, "gpt-5.6-sol", "{}", d.reason);
+}

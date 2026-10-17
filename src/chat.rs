@@ -267,6 +267,9 @@ pub fn run_loop(
     let mut provider_session: Option<(String, String)> = None;
     let mut queued = std::collections::VecDeque::new();
     let mut debate_mode = false;
+    // Set by /mode: the next message routes afresh instead of staying on the
+    // model the previous mode picked.
+    let mut reroute = false;
     'messages: loop {
         queued.extend(backend.take_queued_messages());
         write!(output, "\nyou> ")?;
@@ -487,6 +490,7 @@ pub fn run_loop(
                     match Mode::from_str(value, true) {
                         Ok(mode) => {
                             options.mode = mode;
+                            reroute = true;
                             writeln!(output, "Mode: {value}.")?;
                         }
                         Err(_) => writeln!(output, "Use /mode fast, balanced or best.")?,
@@ -595,7 +599,18 @@ pub fn run_loop(
         };
         // Stay on the model already doing this task: switching mid-task throws
         // away its session, its cache and what it has read.
-        let continuing = cfg.inner.routing.sticky && classification.new_task == Some(false);
+        // A demanding follow-up ("this is harder than it looks, escalate") or a
+        // mode change escalates instead.
+        let demanding = crate::policy::preferred_role(
+            classification.task,
+            &message,
+            options.mode,
+            classification.tier,
+        ) == "demanding";
+        let continuing = cfg.inner.routing.sticky
+            && classification.new_task == Some(false)
+            && !std::mem::take(&mut reroute)
+            && !demanding;
         let last_model = previous.map(|e| e.model.clone());
         loop {
             let mut available = Registry {
@@ -742,7 +757,9 @@ pub fn run_loop(
             // Persist the input before launching a child; failures never become assistant context.
             session.begin(&message, &decision.model)?;
             attempted.push(decision.model.clone());
-            let keep = resumable.then_some(&mut turn_session);
+            // Track the session for `nectra usage` even when it won't be resumed.
+            let keep = executor::ProviderSession::supported(&decision.runtime)
+                .then_some(&mut turn_session);
             let response = if decision.runtime != "ollama" && executor::native::enabled(cfg)? {
                 backend.respond_session(&decision, &prompt, cfg, output, keep)
             } else {
@@ -756,9 +773,11 @@ pub fn run_loop(
             match response {
                 Ok(reply) if !reply.trim().is_empty() => {
                     successful_models.insert(decision.model.clone());
-                    let kept = turn_session.id.filter(|_| resumable);
-                    session.complete_in(&reply, kept.as_deref())?;
-                    provider_session = kept.map(|id| (decision.model.clone(), id));
+                    session.complete_in(&reply, turn_session.id.as_deref())?;
+                    provider_session = turn_session
+                        .id
+                        .filter(|_| resumable)
+                        .map(|id| (decision.model.clone(), id));
                 }
                 Ok(_) => {
                     session.fail_in("agent returned no answer", turn_session.id.as_deref())?;

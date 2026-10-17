@@ -701,3 +701,28 @@ fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
     // The note is internal: only the two real exchanges are saved.
     assert_eq!(session.exchanges.len(), 2);
 }
+
+#[test]
+fn mode_best_escapes_a_sticky_cheap_model() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("mode.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        ChatOptions {
+            mode: Mode::Balanced,
+            ..options()
+        },
+        &mut session,
+        &mut Cursor::new(
+            "fix the failing test in parser.rs\n/mode best\nnow do that again\n/quit\n",
+        ),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    // Balanced tries the cheap coder. The follow-up would stay on it, but after
+    // /mode best it routes afresh to the strong coder.
+    assert_eq!(backend.models, ["gpt-5.6-luna", "gpt-5.6-sol"]);
+}

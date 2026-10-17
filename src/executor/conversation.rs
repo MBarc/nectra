@@ -113,11 +113,14 @@ pub fn conversation_with_session(
     }
     let mut command = launch(command)?;
     command.args(args);
-    let (reply, thread) = run_command(d, prompt, &mut command, output, cancel, None)?;
+    // The thread id is kept even when the turn fails: it spent tokens, and
+    // `nectra usage` finds them through it.
+    let mut thread = None;
+    let reply = run_command(d, prompt, &mut command, output, cancel, None, &mut thread);
     if let (Some(session), Some(thread)) = (session, thread) {
         session.id.get_or_insert(thread);
     }
-    Ok(reply)
+    reply
 }
 
 pub(super) fn run_command(
@@ -127,7 +130,8 @@ pub(super) fn run_command(
     output: &mut dyn Write,
     cancel: &super::CancellationToken,
     timeout: Option<Duration>,
-) -> Result<(String, Option<String>)> {
+    thread: &mut Option<String>,
+) -> Result<String> {
     if cancel.is_cancelled() {
         bail!("Turn cancelled; partial output was not saved or replayed.");
     }
@@ -250,6 +254,7 @@ pub(super) fn run_command(
         }
         Ok(())
     })();
+    *thread = state.thread.take();
     // Kill the owned job/group before joining: descendants may still hold pipes open.
     owned.stop();
     drop(rx);
@@ -267,10 +272,9 @@ pub(super) fn run_command(
         bail!("{} exited unsuccessfully", d.runtime);
     }
     written??;
-    let thread = state.thread.take();
     let reply = state.finish()?;
     writeln!(output)?;
-    Ok((reply, thread))
+    Ok(reply)
 }
 
 #[derive(Default)]

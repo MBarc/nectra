@@ -177,7 +177,7 @@ pub fn usable_tier(
 pub fn cheap_first<'a>(
     role: &'a str,
     mode: Mode,
-    models: &[crate::models::ModelProfile],
+    models: &[&crate::models::ModelProfile],
     declarative: bool,
 ) -> &'a str {
     if mode == Mode::Balanced
@@ -247,7 +247,8 @@ mod tests {
 
     #[test]
     fn balanced_coding_tries_the_cheap_coder_first() {
-        let models = [local("luna", &["simple-coding"]), local("sol", &["coding"])];
+        let (luna, sol) = (local("luna", &["simple-coding"]), local("sol", &["coding"]));
+        let models = [&luna, &sol];
         assert_eq!(
             cheap_first("coding", Mode::Balanced, &models, true),
             "simple-coding"

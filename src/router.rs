@@ -76,19 +76,12 @@ pub fn route_with(
         ProviderArg::Google => Provider::Google,
     });
     let declarative = registry.uses_declared_preferences();
+    // Demanding intent, from Jev's difficulty or the prompt's own words, even
+    // when no model claims the demanding role and the tier is dropped below.
+    let demanding = tier == Some(crate::jev::Tier::Demanding)
+        || policy::preferred_role(task, prompt, mode, None) == "demanding";
     let tier = policy::usable_tier(task, prompt, mode, tier, &registry.models, declarative);
-    // Jev's role is chosen among roles your models claim; otherwise the local
-    // heuristic picks one from task type and wording. Both then go cheap-first.
-    // Product routing preferences, not model benchmark measurements.
-    let role = policy::cheap_first(
-        jev_role
-            .as_deref()
-            .unwrap_or_else(|| policy::preferred_role(task, prompt, mode, tier)),
-        mode,
-        &registry.models,
-        declarative,
-    );
-    let mut candidates: Vec<_> = registry
+    let mut eligible: Vec<_> = registry
         .models
         .iter()
         .filter(|m| {
@@ -103,14 +96,6 @@ pub fn route_with(
                 && wanted.is_none_or(|p| p == m.provider)
                 && model.as_ref().is_none_or(|id| id == &m.id)
         })
-        .map(|m| {
-            let bonus = if policy::claims(m, role, declarative) {
-                0.30
-            } else {
-                0.0
-            };
-            (m, policy::score(&req, m, mode) + bonus)
-        })
         .collect();
     // Ollama is chat-only: it can describe a code change but cannot read, edit
     // or run anything. Work on code goes to a model that can act, whenever one
@@ -122,9 +107,39 @@ pub fn route_with(
             | TaskType::Refactoring
             | TaskType::CodeReview
     );
-    if acts && candidates.iter().any(|(m, _)| m.runtime != Runtime::Ollama) {
-        candidates.retain(|(m, _)| m.runtime != Runtime::Ollama);
+    if acts && eligible.iter().any(|m| m.runtime != Runtime::Ollama) {
+        eligible.retain(|m| m.runtime != Runtime::Ollama);
     }
+    // Jev's role is chosen among roles your models claim; otherwise the local
+    // heuristic picks one from task type and wording. Both then go cheap-first
+    // among the models actually eligible. These are product routing
+    // preferences, not model benchmark measurements.
+    let role = jev_role
+        .as_deref()
+        .unwrap_or_else(|| policy::preferred_role(task, prompt, mode, tier));
+    let role = if !demanding {
+        policy::cheap_first(role, mode, &eligible, declarative)
+    } else if eligible
+        .iter()
+        .any(|m| policy::claims(m, role, declarative))
+    {
+        role
+    } else {
+        // Nobody takes demanding work: fall back to the task's strong role
+        // (coding, planning or general), never to raw scores or the cheap coder.
+        policy::preferred_role(task, "", Mode::Best, None)
+    };
+    let mut candidates: Vec<_> = eligible
+        .into_iter()
+        .map(|m| {
+            let bonus = if policy::claims(m, role, declarative) {
+                0.30
+            } else {
+                0.0
+            };
+            (m, policy::score(&req, m, mode) + bonus)
+        })
+        .collect();
     if wanted.is_none() && model.is_none() && cfg.ollama_enabled() {
         if let Some(ollama) = &cfg.inner.ollama {
             let prefer_local = ollama.policy == crate::ollama::LocalPolicy::PreferLocal;

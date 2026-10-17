@@ -124,7 +124,8 @@ independent checks. Costs are API-equivalent, from the providers' own token logs
 |---|---|---|
 | Opus all the way | 100% | all |
 | gpt-5.6-sol all the way | 78–131% | all |
-| **Nectra's default (balanced)** | **4–18%** | **all** |
+| **Nectra's default (balanced), keyword classifier** | **4–18%** | **all** |
+| Nectra's default (balanced), with a Jev key | 3–54% | all |
 | Nectra fast mode | 3–4% | all |
 
 **Which model writes the code decides the bill.** Sending a thank-you to Haiku
@@ -133,7 +134,8 @@ So balanced mode tries your cheap coder first (`prefers = ["simple-coding"]`,
 gpt-5.6-luna in the bundled registry). Demanding work still escalates to your
 strongest model. If the cheap coder isn't enough for some work, use `/mode best`.
 
-**The limits:** one small project, two or three runs per configuration. Large
+**The limits:** one small project, one to three runs per configuration. Costs
+are token prices, not subscription quota. Large
 repositories and long debugging sessions are untested. Read the method, every
 number and its caveats in
 [`eval/chat-savings/RESULTS.md`](eval/chat-savings/RESULTS.md), and rerun it on

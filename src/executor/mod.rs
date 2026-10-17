@@ -265,12 +265,11 @@ const CODEX_NOT_RESUMABLE: [&str; 4] = ["--add-dir", "--approve-for-me", "--cd",
 /// Whether this runtime's configured flags survive a resumed launch.
 pub fn can_resume(runtime: &str, cfg: &Config) -> bool {
     runtime != "codex"
-        || !cfg
-            .inner
-            .codex
-            .extra_args
-            .iter()
-            .any(|a| CODEX_NOT_RESUMABLE.contains(&a.split('=').next().unwrap_or(a)))
+        || !cfg.inner.codex.extra_args.iter().any(|a| {
+            CODEX_NOT_RESUMABLE.contains(&a.split('=').next().unwrap_or(a))
+                    // -C takes its value attached too: -Cpath
+                    || (a.starts_with("-C") && !a.starts_with("--"))
+        })
 }
 
 /// A random version 4 UUID. Not security sensitive: it only names a session.
@@ -322,8 +321,18 @@ pub fn session_arguments(
             let mut it = args.into_iter();
             while let Some(arg) = it.next() {
                 let text = arg.to_string_lossy().into_owned();
+                if text == "--" {
+                    // Everything after the delimiter is positional.
+                    kept.push(arg);
+                    kept.extend(it.by_ref());
+                    break;
+                }
                 let (flag, inline) = match text.split_once('=') {
                     Some((f, v)) => (f.to_string(), Some(v.to_string())),
+                    // -s takes its value attached too: -sworkspace-write
+                    None if text.starts_with("-s") && text.len() > 2 && !text.starts_with("--") => {
+                        ("-s".to_string(), Some(text[2..].to_string()))
+                    }
                     None => (text.clone(), None),
                 };
                 if matches!(flag.as_str(), "--sandbox" | "-s" | "--color") {
@@ -574,6 +583,7 @@ mod tests {
             "workspace-write",
             "--color=never",
             "-s=read-only",
+            "-sdanger-full-access",
             "--",
             "-",
         ]);
@@ -588,6 +598,8 @@ mod tests {
                 "sandbox_mode=\"workspace-write\"",
                 "--config",
                 "sandbox_mode=\"read-only\"",
+                "--config",
+                "sandbox_mode=\"danger-full-access\"",
                 "--",
                 "t1",
                 "-"
