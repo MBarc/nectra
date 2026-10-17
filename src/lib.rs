@@ -8,6 +8,7 @@ pub mod debate;
 pub mod executor;
 pub mod jev;
 pub mod limits;
+pub mod mcp;
 pub mod models;
 pub mod ollama;
 pub mod policy;

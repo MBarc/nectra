@@ -482,6 +482,9 @@ fn command(
     cmd.args(args);
     cmd.cwd(std::env::current_dir()?);
     cmd.env("TERM", "xterm-256color");
+    for (key, value) in crate::mcp::for_launch(&d.runtime, cfg).1 {
+        cmd.env(key, value);
+    }
     Ok(cmd)
 }
 

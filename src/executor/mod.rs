@@ -98,7 +98,14 @@ pub fn launch(command: &str) -> Result<Command> {
         for dir in
             env::split_paths(&env::var_os("PATH").unwrap_or_default()).filter(|p| p.is_absolute())
         {
-            let script = dir.join("node_modules/@google/gemini-cli/dist/index.js");
+            // The entry point moves between releases (dist/index.js, then
+            // bundle/gemini.js by 0.64), so read it from the package.
+            let package = dir.join("node_modules/@google/gemini-cli");
+            let bin = std::fs::read(package.join("package.json"))
+                .ok()
+                .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                .and_then(|p| p["bin"]["gemini"].as_str().map(String::from));
+            let script = package.join(bin.as_deref().unwrap_or("dist/index.js"));
             if script.is_file() {
                 let mut cmd = Command::new(resolve("node")?);
                 cmd.arg(script);
@@ -222,6 +229,7 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
         }
         args.push(arg.into());
     }
+    args.extend(crate::mcp::for_launch(&d.runtime, cfg).0);
     if cfg.read_only {
         // Claude gets no tools at all: `--tools ""` alone still leaves every MCP
         // server's tools (seen live on 2.1.302). Codex has no tool-less mode, so
@@ -401,7 +409,12 @@ pub fn execute(d: &Decision, prompt: &str, cfg: &Config) -> Result<i32> {
         "gemini" => &cfg.inner.gemini,
         _ => bail!("unsupported runtime"),
     };
-    run_child(launch(&runtime.command)?.args(arguments(d, cfg)?), prompt)
+    run_child(
+        launch(&runtime.command)?
+            .args(arguments(d, cfg)?)
+            .envs(crate::mcp::for_launch(&d.runtime, cfg).1),
+        prompt,
+    )
 }
 fn run_child(command: &mut Command, prompt: &str) -> Result<i32> {
     let mut child = command

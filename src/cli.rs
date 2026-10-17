@@ -154,6 +154,13 @@ pub enum Commands {
         #[arg(long)]
         session: Option<PathBuf>,
     },
+    /// Which provider CLI has each of your MCP servers. Nectra shares local
+    /// servers with Claude and Codex when it launches them.
+    Mcp {
+        /// Add every local server to each installed CLI's own config, Gemini included.
+        #[arg(long)]
+        sync: bool,
+    },
     /// Which provider CLI sees each of your skills (Claude, Codex and Gemini each
     /// read different folders).
     Skills {

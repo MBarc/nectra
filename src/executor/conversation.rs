@@ -112,7 +112,9 @@ pub fn conversation_with_session(
         args = super::session_arguments(args, &d.runtime, session)?;
     }
     let mut command = launch(command)?;
-    command.args(args);
+    command
+        .args(args)
+        .envs(crate::mcp::for_launch(&d.runtime, cfg).1);
     // The thread id is kept even when the turn fails: it spent tokens, and
     // `nectra usage` finds them through it.
     let mut thread = None;

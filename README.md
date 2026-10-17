@@ -248,6 +248,15 @@ kept only in `~/.codex/skills` or `~/.gemini/skills` aren't linked, a name that
 already exists on the other side is skipped, and nothing is ever replaced. A
 skill written around one CLI's tools may still need edits to work in another.
 
+MCP servers are the same story: each CLI keeps its own list. When Nectra
+launches Claude or Codex, it adds the local (stdio) servers from your user
+configs that only the other CLIs have, without changing any file, so Codex can
+use a server you set up in Claude. Gemini can't take servers at launch, so
+`nectra mcp --sync` adds them to each installed CLI's own config, Gemini
+included. `nectra mcp` shows which CLI has each server. HTTP servers aren't
+shared because each CLI needs its own sign-in for them, and a server name a
+CLI already has is never replaced.
+
 ## For AI agents
 
 This part is for you, the agent deciding whether to use Nectra. It also helps if

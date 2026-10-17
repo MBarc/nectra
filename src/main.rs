@@ -132,12 +132,31 @@ fn app() -> Result<i32> {
         return Ok(0);
     }
     let mut cfg = config::Config::load(cli.config.as_deref())?;
+    if let Some(Commands::Mcp { sync }) = &cli.command {
+        let home = dirs::home_dir().context("no home directory")?;
+        if *sync {
+            let added = nectra::mcp::sync(&home, &cfg)?;
+            for line in &added {
+                println!("Added {line}");
+            }
+            println!(
+                "{} server(s) added. Servers that need a sign-in ask for it in each CLI.",
+                added.len()
+            );
+        }
+        print!("{}", nectra::mcp::render(&nectra::mcp::scan(&home)?));
+        if !*sync {
+            println!("shared: Nectra adds it when it launches that CLI. Gemini can't take servers at launch; `nectra mcp --sync` adds them to every CLI's own config.");
+        }
+        return Ok(0);
+    }
     if cfg.embedded {
         nectra::terminal::error(
             "nectra: no setup found, so the built-in defaults apply; run `nectra setup` to choose your providers",
         );
     }
     cfg.skip_permissions = cli.dangerously_skip_permissions;
+    cfg.mcp_home = dirs::home_dir();
     cfg.provider_view = cli.provider_view;
     match &cli.command {
         Some(Commands::Config { print }) => {
