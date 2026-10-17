@@ -155,7 +155,7 @@ pub enum Commands {
         #[arg(long)]
         session: Option<PathBuf>,
         /// Also count Claude Code and Codex sessions you ran without Nectra, to compare.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "session")]
         direct: bool,
         /// Price the same tokens at this model's rates, for comparison.
         #[arg(long, default_value = crate::usage::BASELINE)]

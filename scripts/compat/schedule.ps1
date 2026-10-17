@@ -35,7 +35,10 @@ $logs = Join-Path $env:LOCALAPPDATA "nectra\compat"
 New-Item -ItemType Directory -Force $logs | Out-Null
 $log = Join-Path $logs ("{0:yyyy-MM-dd}.log" -f (Get-Date))
 $config = (& $Nectra config --print) -join "`n"
-$providers = [regex]::Match($config, 'providers\s*=\s*\[([^\]]*)\]').Groups[1].Value -replace '[",\s]+', ',' -replace '^,|,$', ''
+# check.py knows the CLI providers; Ollama has no CLI to check.
+$listed = [regex]::Match($config, 'providers\s*=\s*\[([^\]]*)\]').Groups[1].Value -split '[",\s]+'
+$providers = ($listed | Where-Object { $_ -in "anthropic", "openai", "google" }) -join ","
+if (-not $providers) { "No provider CLIs selected; nothing to check." | Out-File $log; exit 0 }
 & $Python (Join-Path $PSScriptRoot "check.py") --nectra $Nectra --providers $providers --live *> $log
 if ($LASTEXITCODE -ne 0) {
     $failed = (Select-String -Path $log -Pattern '^\[FAIL\]' | ForEach-Object { $_.Line }) -join "`n"

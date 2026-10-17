@@ -16,9 +16,10 @@ limits are.
 ## Your code
 
 - **Edits.** A provider changes your files only as its own CLI would. Its approval
-  prompts still appear in terminal view (press F2 to answer one). The only flag
-  that turns them off is `--dangerously-skip-permissions`, and it lasts for one
-  launch.
+  prompts still appear in terminal view (press F2 to answer one).
+  `--dangerously-skip-permissions` turns them off for one launch. Nectra never
+  saves it, but it does pass on any `extra_args` you put in a provider's section
+  of `config.toml`, so a bypass flag there applies to every launch.
 - **Nothing is undone automatically.** Interrupting a turn, a failed turn and
   `/again` all leave changed files changed. Use git to review and revert.
 - **Handoff notes are read-only, with one exception.** When a task moves to
@@ -78,7 +79,10 @@ terms, and they differ:
   otherwise" unless Anthropic explicitly permits it.
   - Terminal view runs the interactive Claude Code you type into.
   - Stream view runs `claude -p`, and so does `nectra run` outside a terminal.
-  - If that distinction matters to you, stay in terminal view.
+  - Handoff notes always use `claude -p` too, when a task moves off Claude in
+    either view.
+  - To avoid `claude -p` entirely, stay in terminal view and set
+    `handoff_summary = false` under `[routing]`.
 - **OpenAI.** Codex documents scripted use with `codex exec`
   ([non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)), and
   recommends API keys for automation.

@@ -58,6 +58,9 @@ enum Event {
         /// The model took over with the previous model's handoff note.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         handoff: bool,
+        /// Sent with `/again`, whether or not it replaces an answer.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        again: bool,
     },
     Assistant {
         text: String,
@@ -72,6 +75,16 @@ enum Event {
         provider_session: Option<String>,
     },
     Clear,
+}
+/// How a turn was routed, kept in its log record for `nectra usage`.
+#[derive(Debug, Default)]
+pub struct Route {
+    /// Why the router chose the model, as shown above the answer.
+    pub why: String,
+    /// The model took over with the previous model's handoff note.
+    pub handoff: bool,
+    /// Sent with `/again`.
+    pub again: bool,
 }
 pub struct Session {
     pub path: PathBuf,
@@ -301,11 +314,15 @@ impl Session {
         Ok(())
     }
     pub fn begin(&mut self, text: &str, model: &str) -> Result<()> {
-        self.begin_routed(text, model, false, "", false)
+        self.begin_routed(text, model, false, &Route::default())
     }
     /// `begin` for a turn that replaces the last answer (`/again`).
     pub fn begin_replacing(&mut self, text: &str, model: &str) -> Result<()> {
-        self.begin_routed(text, model, true, "", false)
+        let again = Route {
+            again: true,
+            ..Route::default()
+        };
+        self.begin_routed(text, model, true, &again)
     }
     /// `begin`, recording how the turn was routed for `nectra usage`.
     pub fn begin_routed(
@@ -313,8 +330,7 @@ impl Session {
         text: &str,
         model: &str,
         replaces: bool,
-        why: &str,
-        handoff: bool,
+        route: &Route,
     ) -> Result<()> {
         if self.pending.is_some() {
             bail!("previous turn is still pending");
@@ -326,8 +342,9 @@ impl Session {
             text: text.into(),
             model: model.into(),
             replaces,
-            why: why.into(),
-            handoff,
+            why: route.why.clone(),
+            handoff: route.handoff,
+            again: route.again,
         })?;
         if replaces {
             self.exchanges.pop();

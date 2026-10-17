@@ -364,7 +364,8 @@ pub fn sync(home: &Path, cfg: &crate::config::Config) -> Result<Vec<String>> {
 fn add(home: &Path, cli: &str, name: &str, server: &Server) -> Result<()> {
     if cli == "codex" {
         let path = config_file(home, "CODEX_HOME", ".codex", "config.toml");
-        let mut text = read(&path)?.unwrap_or_default();
+        let before = read(&path)?;
+        let mut text = before.clone().unwrap_or_default();
         let table = json!({"mcp_servers": {name: {
             "command": server.command, "args": server.args, "env": server.env,
         }}});
@@ -373,16 +374,22 @@ fn add(home: &Path, cli: &str, name: &str, server: &Server) -> Result<()> {
             text.push('\n');
         }
         text += &format!("\n{}", toml::to_string(&table)?);
-        toml::from_str::<toml::Value>(&text)
-            .with_context(|| format!("adding {name} to {}", path.display()))?;
-        return replace(&path, &text);
+        // An inline `mcp_servers = {...}` can't take an appended table.
+        toml::from_str::<toml::Value>(&text).with_context(|| {
+            format!(
+                "can't append {name} to {}; add it with `codex mcp add`",
+                path.display()
+            )
+        })?;
+        return replace(&path, before.as_deref(), &text);
     }
     let path = if cli == "claude" {
         config_file(home, "CLAUDE_CONFIG_DIR", "", ".claude.json")
     } else {
         config_file(home, "GEMINI_CLI_HOME", "", ".gemini/settings.json")
     };
-    let text = read(&path)?.unwrap_or_else(|| "{}".into());
+    let before = read(&path)?;
+    let text = before.clone().unwrap_or_else(|| "{}".into());
     if strip_comments(&text) != text {
         anyhow::bail!(
             "{} has comments, which rewriting it would lose; add {name} with `{cli} mcp add`",
@@ -403,19 +410,34 @@ fn add(home: &Path, cli: &str, name: &str, server: &Server) -> Result<()> {
         .as_object_mut()
         .context("mcpServers is not an object")?
         .insert(name.into(), entry);
-    // ponytail: a Claude session that rewrites ~/.claude.json from memory can drop
-    // the server again, as it can after `claude mcp add`; rerun --sync if so.
-    replace(&path, &serde_json::to_string_pretty(&config)?)
+    // A Claude session that rewrites ~/.claude.json from memory can drop the
+    // server again, as it can after `claude mcp add`; rerun --sync if so.
+    replace(
+        &path,
+        before.as_deref(),
+        &serde_json::to_string_pretty(&config)?,
+    )
 }
 
-/// Writes through a temporary file, so a failed write can't truncate the config.
-fn replace(path: &Path, text: &str) -> Result<()> {
-    if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir)?;
+/// Writes through a private, uniquely named temporary file, so a failed or
+/// concurrent write can't truncate the config. The file keeps its permissions,
+/// and is left alone if something else changed it since `before` was read.
+fn replace(path: &Path, before: Option<&str>, text: &str) -> Result<()> {
+    let dir = path.parent().context("config path has no folder")?;
+    fs::create_dir_all(dir)?;
+    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
+    std::io::Write::write_all(&mut tmp, text.as_bytes())?;
+    if let Ok(meta) = fs::metadata(path) {
+        fs::set_permissions(tmp.path(), meta.permissions())?;
     }
-    let tmp = path.with_extension("nectra-tmp");
-    fs::write(&tmp, text).with_context(|| format!("writing {}", tmp.display()))?;
-    fs::rename(&tmp, path).with_context(|| format!("replacing {}", path.display()))
+    // ponytail: a writer between this check and the rename can still lose its
+    // change; that window is microseconds, against the CLI's own `mcp add`'s same race.
+    if read(path)?.as_deref() != before {
+        anyhow::bail!("{} changed while syncing; run it again", path.display());
+    }
+    tmp.persist(path)
+        .with_context(|| format!("replacing {}", path.display()))?;
+    Ok(())
 }
 
 pub fn render(servers: &Servers) -> String {
@@ -582,6 +604,12 @@ mod tests {
         fs::create_dir_all(home.join(".codex")).unwrap();
         fs::write(home.join(".codex/config.toml"), "# mine\nmodel = \"x\"").unwrap();
         fs::write(home.join(".claude.json"), r#"{"numStartups": 3}"#).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let private = fs::Permissions::from_mode(0o600);
+            fs::set_permissions(home.join(".claude.json"), private).unwrap();
+        }
         let server = Server {
             command: r"C:\mcp\gh.exe".into(),
             args: vec!["--a=\"q\"".into()],
@@ -595,6 +623,15 @@ mod tests {
         let claude: Value =
             serde_json::from_str(&fs::read_to_string(home.join(".claude.json")).unwrap()).unwrap();
         assert_eq!(claude["numStartups"], 3);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(home.join(".claude.json"))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o600, "a private config stays private");
+        }
         let servers = scan(home).unwrap();
         for cli in ["claude", "codex", "gemini"] {
             assert!(servers.names[cli].contains(&"gh".to_string()), "{cli}");

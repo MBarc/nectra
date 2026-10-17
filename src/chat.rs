@@ -869,13 +869,12 @@ pub fn run_loop(
             output.flush()?;
             // Persist the input before launching a child; failures never become assistant context.
             let replaced = replaces.take();
-            session.begin_routed(
-                &message,
-                &decision.model,
-                replaced.is_some(),
-                &why,
-                note.is_some(),
-            )?;
+            let route = crate::session::Route {
+                why: why.clone(),
+                handoff: note.is_some(),
+                again: again.is_some(),
+            };
+            session.begin_routed(&message, &decision.model, replaced.is_some(), &route)?;
             if let Some(model) = replaced {
                 writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
             }

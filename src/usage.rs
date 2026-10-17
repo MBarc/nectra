@@ -70,6 +70,8 @@ pub struct ModelUsage {
     pub sessions: u64,
     /// Turns whose provider session could not be found (or Gemini/Ollama).
     pub turns_without_data: u64,
+    /// Answered turns whose provider session has token data: cost per turn uses these.
+    pub turns_with_data: u64,
     /// Attempts that failed; their tokens are included when their session is known.
     pub failed: u64,
     pub tokens: Tokens,
@@ -139,27 +141,34 @@ pub fn collect(logs: &Logs, days: Option<u64>, direct: bool) -> Result<Report> {
     };
     let mut report = Report::default();
     let by_model = &mut report.models;
-    let mut sessions: HashSet<(String, String)> = HashSet::new();
+    // Answered turns per (model, provider session).
+    let mut sessions: HashMap<(String, String), u64> = HashMap::new();
     // A single session file counts that chat alone.
     let chats = if logs.nectra_sessions.is_file() {
         vec![logs.nectra_sessions.clone()]
     } else {
         files(&logs.nectra_sessions, |_| true)?
     };
+    // Every chat's sessions are Nectra's, whichever chats this report counts.
+    let mut ours: HashSet<String> = HashSet::new();
     for path in chats {
-        if !recent(&path) {
-            continue;
-        }
         let Ok(text) = fs::read_to_string(&path) else {
             report.unreadable += 1;
             continue;
         };
+        let counted = recent(&path);
         let mut model = String::new();
         let mut answered_by: Option<String> = None;
         for line in text.lines() {
             let Ok(event) = serde_json::from_str::<Value>(line) else {
                 continue;
             };
+            if let Some(id) = event["provider_session"].as_str() {
+                ours.insert(id.into());
+            }
+            if !counted {
+                continue;
+            }
             match event["type"].as_str() {
                 Some("user") => {
                     model = event["model"].as_str().unwrap_or("").into();
@@ -168,7 +177,7 @@ pub fn collect(logs: &Logs, days: Option<u64>, direct: bool) -> Result<Report> {
                         entry.switches += 1;
                     }
                     entry.handoffs += u64::from(event["handoff"] == true);
-                    entry.again += u64::from(event["replaces"] == true);
+                    entry.again += u64::from(event["again"] == true);
                     if let Some(why) = event["why"].as_str() {
                         let kind = why.split(" · ").next().unwrap_or(why);
                         *entry.kinds.entry(kind.into()).or_default() += 1;
@@ -180,7 +189,7 @@ pub fn collect(logs: &Logs, days: Option<u64>, direct: bool) -> Result<Report> {
                     entry.turns += 1;
                     match event["provider_session"].as_str() {
                         Some(id) => {
-                            sessions.insert((model.clone(), id.into()));
+                            *sessions.entry((model.clone(), id.into())).or_default() += 1;
                         }
                         None => entry.turns_without_data += 1,
                     }
@@ -190,7 +199,7 @@ pub fn collect(logs: &Logs, days: Option<u64>, direct: bool) -> Result<Report> {
                     entry.failed += 1;
                     match event["provider_session"].as_str() {
                         Some(id) => {
-                            sessions.insert((model.clone(), id.into()));
+                            sessions.entry((model.clone(), id.into())).or_default();
                         }
                         None => entry.turns_without_data += 1,
                     }
@@ -201,50 +210,53 @@ pub fn collect(logs: &Logs, days: Option<u64>, direct: bool) -> Result<Report> {
         }
     }
     let (claude, codex) = logs.index()?;
-    let ours: HashSet<&str> = sessions.iter().map(|(_, id)| id.as_str()).collect();
-    for (model, id) in &sessions {
+    for ((model, id), turns) in &sessions {
+        let entry = by_model.entry(model.clone()).or_default();
         let Some(tokens) = session_tokens(&claude, &codex, id)? else {
-            by_model
-                .entry(model.clone())
-                .or_default()
-                .turns_without_data += 1;
+            entry.turns_without_data += 1;
             continue;
         };
-        let entry = by_model.entry(model.clone()).or_default();
         entry.sessions += 1;
+        entry.turns_with_data += turns;
         entry.tokens.add(tokens);
     }
     if direct {
         let mut out: BTreeMap<String, ModelUsage> = BTreeMap::new();
-        let mut add = |model: String, turns: u64, tokens: Tokens| {
-            if turns > 0 {
-                let entry = out.entry(model).or_default();
-                entry.turns += turns;
-                entry.sessions += 1;
-                entry.tokens.add(tokens);
+        // Tokens go to the model that used them; a session's turns and its
+        // count go to the model that wrote most.
+        let mut add = |per_model: BTreeMap<String, Tokens>, turns: u64| {
+            let Some(main) = per_model
+                .iter()
+                .max_by_key(|(_, t)| t.output)
+                .map(|(m, _)| m.clone())
+            else {
+                return;
+            };
+            if turns == 0 {
+                return;
             }
+            for (model, tokens) in per_model {
+                out.entry(model).or_default().tokens.add(tokens);
+            }
+            let entry = out.entry(main).or_default();
+            entry.turns += turns;
+            entry.turns_with_data += turns;
+            entry.sessions += 1;
         };
         // Subagent logs (agent-*.jsonl) aren't counted on either side.
         for (id, path) in &claude {
-            if ours.contains(id.as_str()) || id.starts_with("agent-") || !recent(path) {
+            if ours.contains(id) || id.starts_with("agent-") || !recent(path) {
                 continue;
             }
             let (per_model, turns) = claude_log(path)?;
-            let mut total = Tokens::default();
-            for t in per_model.values() {
-                total.add(*t);
-            }
-            // A session that switched models counts under the one that wrote most.
-            if let Some((model, _)) = per_model.iter().max_by_key(|(_, t)| t.output) {
-                add(model.clone(), turns, total);
-            }
+            add(per_model, turns);
         }
         for (id, path) in &codex {
-            if ours.contains(id.as_str()) || !recent(path) {
+            if ours.contains(id) || !recent(path) {
                 continue;
             }
-            let (tokens, model, turns) = codex_log(path)?;
-            add(model, turns, tokens);
+            let (per_model, turns) = codex_log(path)?;
+            add(per_model, turns);
         }
         report.direct = Some(out);
     }
@@ -287,7 +299,11 @@ fn session_tokens(
         }
         Ok(Some(total))
     } else if let Some(path) = codex.get(id) {
-        Ok(Some(codex_log(path)?.0))
+        let mut total = Tokens::default();
+        for t in codex_log(path)?.0.into_values() {
+            total.add(t);
+        }
+        Ok(Some(total))
     } else {
         Ok(None)
     }
@@ -370,20 +386,21 @@ fn claude_log(path: &Path) -> Result<(BTreeMap<String, Tokens>, u64)> {
     Ok((by_model, typed))
 }
 
-/// A Codex session's tokens, its (last) model and its turns. Codex logs
-/// running totals, so the last one is the session's; its input count includes
-/// cached input, which is split out here.
-fn codex_log(path: &Path) -> Result<(Tokens, String, u64)> {
-    let mut last = Value::Null;
+/// A Codex session's tokens per model, and its turns. Codex logs running
+/// totals, so each model gets the growth while it was in use; input counts
+/// include cached input, which is split out here.
+fn codex_log(path: &Path) -> Result<(BTreeMap<String, Tokens>, u64)> {
+    let mut by_model: BTreeMap<String, Tokens> = BTreeMap::new();
     let mut model = String::from("unknown");
+    let mut seen = Tokens::default();
     let mut turns = 0;
     for line in BufReader::new(fs::File::open(path)?).lines() {
         let line = line?;
         if line.contains("\"task_started\"") {
             turns += 1;
         }
-        let tokens = line.contains("\"token_count\"");
-        if !tokens && !line.contains("\"turn_context\"") {
+        let counts = line.contains("\"token_count\"");
+        if !counts && !line.contains("\"turn_context\"") {
             continue;
         }
         let Ok(entry) = serde_json::from_str::<Value>(&line) else {
@@ -393,19 +410,26 @@ fn codex_log(path: &Path) -> Result<(Tokens, String, u64)> {
             model = m.into();
         }
         let total = &entry["payload"]["info"]["total_token_usage"];
-        if tokens && !total.is_null() {
-            last = total.clone();
+        if !counts || total.is_null() {
+            continue;
         }
+        let n = |k: &str| total[k].as_u64().unwrap_or(0);
+        let cached = n("cached_input_tokens");
+        let now = Tokens {
+            input: n("input_tokens").saturating_sub(cached),
+            cache_read: cached,
+            cache_write: n("cache_write_input_tokens"),
+            output: n("output_tokens"),
+        };
+        by_model.entry(model.clone()).or_default().add(Tokens {
+            input: now.input.saturating_sub(seen.input),
+            cache_read: now.cache_read.saturating_sub(seen.cache_read),
+            cache_write: now.cache_write.saturating_sub(seen.cache_write),
+            output: now.output.saturating_sub(seen.output),
+        });
+        seen = now;
     }
-    let n = |k: &str| last[k].as_u64().unwrap_or(0);
-    let cached = n("cached_input_tokens");
-    let tokens = Tokens {
-        input: n("input_tokens").saturating_sub(cached),
-        cache_read: cached,
-        cache_write: n("cache_write_input_tokens"),
-        output: n("output_tokens"),
-    };
-    Ok((tokens, model, turns))
+    Ok((by_model, turns))
 }
 
 pub fn usd(x: f64) -> String {
@@ -430,7 +454,7 @@ fn table(by_model: &BTreeMap<String, ModelUsage>) -> (String, f64, u64, Tokens) 
         let price = price(model);
         if let Some(p) = price {
             cost += t.cost(p);
-            priced_turns += u.turns;
+            priced_turns += u.turns_with_data;
             priced_tokens.add(t);
         }
         out += &format!(
@@ -486,8 +510,9 @@ pub fn render(report: &Report, baseline: &str) -> String {
     }
     if report.unreadable > 0 {
         out += &format!(
-            "{} chats couldn't be read and are left out; a chat open in a running Nectra is locked on Windows.\n",
-            report.unreadable
+            "{} chats couldn't be read and are left out{}; a chat open in a running Nectra is locked on Windows.\n",
+            report.unreadable,
+            if report.direct.is_some() { ", so their sessions may show as direct use" } else { "" }
         );
     }
     if let Some(direct) = &report.direct {
@@ -615,7 +640,7 @@ mod tests {
                 r#"{"type":"assistant","text":"b","provider_session":"c1"}"#,
                 r#"{"type":"user","text":"c","model":"gpt-5.6-luna","why":"small code change · best fit available","handoff":true}"#,
                 &format!(r#"{{"type":"assistant","text":"d","provider_session":"{luna}"}}"#),
-                r#"{"type":"user","text":"c","model":"opus","replaces":true}"#,
+                r#"{"type":"user","text":"c","model":"opus","replaces":true,"again":true}"#,
                 r#"{"type":"assistant","text":"e"}"#,
                 r#"{"type":"clear"}"#,
                 r#"{"type":"user","text":"f","model":"haiku"}"#,
@@ -639,7 +664,10 @@ mod tests {
         fs::write(logs.codex_sessions.join("rollout-2026-10-17T11-00-00-11111111-2222-3333-4444-555555555555.jsonl"), [
             r#"{"type":"turn_context","payload":{"model":"gpt-5.6-sol"}}"#,
             r#"{"type":"event_msg","payload":{"type":"task_started"}}"#,
-            r#"{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":2000000,"cached_input_tokens":1000000,"output_tokens":0}}}}"#,
+            r#"{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":2000000,"cached_input_tokens":1000000,"output_tokens":10}}}}"#,
+            // Switched models mid-session: luna is charged only for what it added.
+            r#"{"type":"turn_context","payload":{"model":"gpt-5.6-luna"}}"#,
+            r#"{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":3000000,"cached_input_tokens":1000000,"output_tokens":10}}}}"#,
         ].join("\n")).unwrap();
 
         let report = collect(&logs, None, true).unwrap();
@@ -660,6 +688,14 @@ mod tests {
             !direct.contains_key("claude-sonnet-5-5"),
             "Nectra's own sessions aren't direct"
         );
+        assert_eq!(
+            (
+                direct["gpt-5.6-luna"].tokens.input,
+                direct["gpt-5.6-luna"].turns
+            ),
+            (1_000_000, 0)
+        );
+        assert_eq!(direct["gpt-5.6-sol"].tokens.input, 1_000_000);
 
         // 1M input tokens: sonnet $2.00 + luna $0.20; the same at opus: $8.00.
         let text = render(&report, BASELINE);
@@ -672,9 +708,10 @@ mod tests {
             text.contains("2 model switches (1 with a handoff note), 1 /again retries"),
             "{text}"
         );
-        // Direct: opus $4.00 + sol $5.00 + $0.50 over 3 turns; Nectra $2.20 over 4.
+        // Direct: opus $4.00 + sol $5.50 + luna $0.20 over 3 turns. Nectra: $2.20
+        // over the 2 turns with token data, not the opus and haiku turns without.
         assert!(
-            text.contains("$0.55 through Nectra, $3.17 direct"),
+            text.contains("$1.10 through Nectra, $3.23 direct"),
             "{text}"
         );
         let chat = [("sonnet".to_string(), "c1".to_string())];

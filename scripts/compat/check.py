@@ -195,7 +195,7 @@ def main():
     ap.add_argument("--live", action="store_true", help="also run one tiny turn per provider")
     args = ap.parse_args()
     args.nectra = os.path.abspath(args.nectra)
-    providers = args.providers.split(",")
+    providers = [p for p in args.providers.split(",") if p in CLI]
     cfg = config_dir(providers)
     for provider in providers:
         code, out = run([CLI[provider], "--version"])
