@@ -718,7 +718,9 @@ fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
     // The note is internal: only the two real exchanges are saved.
     assert_eq!(session.exchanges.len(), 2);
     let output = String::from_utf8(output).unwrap();
-    assert!(output.contains("gpt-5.6-sol (openai) · pinned with /model> "));
+    assert!(
+        output.contains("gpt-5.6-sol (openai) · ") && output.contains(" · pinned with /model> ")
+    );
     assert!(output.contains("Switched from opus, which wrote gpt-5.6-sol a handoff note"));
 }
 
@@ -837,7 +839,7 @@ fn again_replaces_the_answer_with_a_stronger_models_and_says_why() {
     assert_eq!(third, "haiku");
     // Each turn says why it went where it did.
     assert!(output.contains(&format!("\n{first} (")), "{output}");
-    assert!(output.contains(&format!("you asked for a stronger model than {first}")));
+    assert!(output.contains(&format!("/again: best available other than {first}")));
     assert!(output.contains("kept in the log as replaced"));
     // A retry never sees the answer it replaces, and only the last one counts.
     for prompt in &backend.prompts[1..] {
@@ -872,4 +874,123 @@ fn again_resends_an_unanswered_message_and_needs_something_to_resend() {
     assert!(output.contains("Nothing to send again yet."));
     assert!(output.contains("Unknown, disabled or unavailable model"));
     assert!(backend.models.is_empty());
+}
+
+#[test]
+fn again_ignores_a_pin_and_keeps_the_answer_when_nothing_else_can_run() {
+    // A pin would only point back at the model that answered.
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("again-pin.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock::default();
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/model sonnet\nexplain lifetimes\n/again\n/quit\n"),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(
+        backend.models.len(),
+        2,
+        "{}",
+        String::from_utf8_lossy(&output)
+    );
+    assert_eq!(backend.models[0], "sonnet");
+    assert_ne!(backend.models[1], "sonnet");
+    assert!(String::from_utf8(output)
+        .unwrap()
+        .contains(" · pinned with /model> "));
+
+    // With one usable model, /again can't run, so the answer stays.
+    let (dir, cfg, mut reg) = fixture();
+    reg.models.retain(|m| m.id == "haiku");
+    let mut session = Session::create(&dir.path().join("again-one.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("hello\n/again\n/quit\n"),
+        &mut Vec::new(),
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models, ["haiku"]);
+    assert_eq!(session.exchanges.len(), 1);
+}
+
+#[test]
+fn again_tracks_the_unanswered_message_across_clear_and_resume() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("again-resume.jsonl");
+    {
+        let mut session = Session::create(&path, dir.path()).unwrap();
+        let mut backend = Mock::default();
+        chat::run_loop(
+            &cfg,
+            &reg,
+            options(),
+            &mut session,
+            &mut Cursor::new("/model haiku\nfirst question\n/quit\n"),
+            &mut Vec::new(),
+            &mut backend,
+        )
+        .unwrap();
+        // A failed second turn: the model errors out and nothing else is allowed.
+        let mut backend = Mock {
+            limit_all: true,
+            ..Mock::default()
+        };
+        chat::run_loop(
+            &cfg,
+            &reg,
+            options(),
+            &mut session,
+            &mut Cursor::new("second question\n/quit\n"),
+            &mut Vec::new(),
+            &mut backend,
+        )
+        .unwrap();
+    }
+    // Reopened: /again resends the failed message and replaces nothing.
+    let mut session = Session::resume(&path, dir.path()).unwrap();
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/again\n/quit\n"),
+        &mut Vec::new(),
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models.len(), 1);
+    assert_eq!(session.exchanges.len(), 2);
+    assert_eq!(session.exchanges[1].user, "second question");
+
+    // After /clear there is nothing to resend.
+    let mut backend = Mock {
+        limit_all: true,
+        ..Mock::default()
+    };
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("third\n/clear\n/again\n/quit\n"),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    assert!(String::from_utf8(output)
+        .unwrap()
+        .contains("Nothing to send again yet."));
 }

@@ -69,8 +69,9 @@ In chat, each answer starts with its model and why it was picked, e.g.
 models mid-task it says so, because the new model starts without the old one's
 cached context.
 
-Don't agree? `/again` sends your last message again to a stronger model, or
-`/again opus` to the one you name; the replaced answer stays in the log but
+Don't agree? `/again` sends your last message again to the best other model
+(any model but the one that answered, judged on capability), or `/again opus`
+to the one you name; the replaced answer stays in the log but
 leaves the conversation. `/model sonnet` pins a model, and `--model` does the
 same on the command line.
 

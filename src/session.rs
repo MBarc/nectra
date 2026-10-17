@@ -71,6 +71,8 @@ pub struct Session {
     pub exchanges: Vec<Exchange>,
     pub recovered_tail: bool,
     pub interrupted: Option<String>,
+    /// The message of a last turn that failed, which `/again` can resend.
+    pub last_failed: Option<String>,
     /// (model, provider session id) behind the last saved answer, so a resumed
     /// chat continues that agent's own session instead of replaying the log.
     pub provider_session: Option<(String, String)>,
@@ -101,6 +103,7 @@ impl Session {
             exchanges: vec![],
             recovered_tail: false,
             interrupted: None,
+            last_failed: None,
             provider_session: None,
             file,
             pending: None,
@@ -199,6 +202,7 @@ impl Session {
             exchanges: vec![],
             recovered_tail,
             interrupted: None,
+            last_failed: None,
             provider_session: None,
             pending: None,
         };
@@ -219,6 +223,7 @@ impl Session {
                         .take()
                         .context("assistant record without a user turn")?;
                     session.provider_session = provider_session.map(|id| (model.clone(), id));
+                    session.last_failed = None;
                     session.exchanges.push(Exchange {
                         user,
                         assistant: text,
@@ -227,15 +232,17 @@ impl Session {
                 }
                 Event::Failed { .. } => {
                     session.provider_session = None;
-                    session
+                    let (text, _) = session
                         .pending
                         .take()
                         .context("failure without a user turn")?;
+                    session.last_failed = Some(text);
                 }
                 Event::Clear => {
                     session.provider_session = None;
                     session.exchanges.clear();
                     session.pending = None;
+                    session.last_failed = None;
                 }
                 Event::Superseded => {
                     session.provider_session = None;

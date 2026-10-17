@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use clap::ValueEnum;
 use std::io::{self, BufRead, Write};
 
-const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/again [ID]           Send your last message again to a stronger model, or to ID\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/debate on|off        Toggle isolated two-provider comparison\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
+const HELP: &str = "/help                 Show commands\n/models               Show enabled models and availability\n/model ID | auto      Pin a model or route each turn automatically\n/again [ID]           Send your last message again to the best other model, or to ID\n/provider NAME | auto anthropic, openai, google, ollama, or auto\n/theme NAME           default, hacker, or ice-blue (saved)\n/login PROVIDER       Reauthenticate through the provider CLI\n/mode fast|balanced|best\n/debate on|off        Toggle isolated two-provider comparison\n/history              Show this conversation\n/session              Show the saved session path\n/clear                Start fresh context in this saved session\n/paste                Multiline message; finish with /send, discard with /cancel\n/quit                 Save and exit (EOF also exits)\n";
 
 pub const BANNER: &str = r"
  _   _ _____ ____ _____ ____      _
@@ -276,7 +276,7 @@ pub fn run_loop(
     // model the previous mode picked.
     let mut reroute = false;
     // The last message that got no saved answer, which /again sends as is.
-    let mut unanswered = session.interrupted.clone();
+    let mut unanswered = session.interrupted.clone().or(session.last_failed.clone());
     // Set by /again for the next turn: a model to use, or one to beat.
     let mut again: Option<Again> = None;
     'messages: loop {
@@ -402,16 +402,10 @@ pub fn run_loop(
                         writeln!(output, "Nothing to send again yet.")?;
                         continue;
                     };
-                    if let Some(model) = &model {
-                        // The retry must not see the answer it replaces.
-                        session.supersede()?;
-                        provider_session = None;
-                        writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
-                    }
                     again = Some(match (value, model) {
                         ("", Some(beat)) => Again::Stronger(beat),
                         ("", None) => Again::Same,
-                        (id, _) => Again::Model(id.to_string()),
+                        (id, replaces) => Again::Model(id.to_string(), replaces),
                     });
                     reroute = true;
                     message = last;
@@ -434,6 +428,7 @@ pub fn run_loop(
                 "/clear" => {
                     session.clear()?;
                     provider_session = None;
+                    unanswered = None;
                     writeln!(
                         output,
                         "Context cleared. Earlier turns remain in the saved log."
@@ -574,10 +569,16 @@ pub fn run_loop(
         let requested_model = requested_model(&message, registry);
         let again = again.take();
         let requested_model = match &again {
-            Some(Again::Model(id)) => Some(id.clone()),
+            Some(Again::Model(id, _)) => Some(id.clone()),
+            // Any model but the one that answered: a pin or a model named in
+            // the message would only point back at it.
+            Some(Again::Stronger(_)) => None,
             _ => requested_model,
         };
-        let mut turn_model = requested_model.clone().or_else(|| options.model.clone());
+        let mut turn_model = requested_model.clone().or_else(|| match &again {
+            Some(Again::Stronger(_)) => None,
+            _ => options.model.clone(),
+        });
         let mut turn_provider = if requested_model.is_some() {
             None
         } else {
@@ -621,6 +622,12 @@ pub fn run_loop(
             continue;
         }
         let mut attempted = Vec::new();
+        // Taken (once) when the retry is routed; see below.
+        let mut replaces = match &again {
+            Some(Again::Stronger(model)) => Some(model.clone()),
+            Some(Again::Model(_, replaces)) => replaces.clone(),
+            _ => None,
+        };
         // "/again" alone: anything but the model that answered, judged on capability.
         let mut turn_mode = options.mode;
         if let Some(Again::Stronger(beat)) = &again {
@@ -745,6 +752,13 @@ pub fn run_loop(
                 writeln!(output, "{}", serde_json::to_string_pretty(&decision)?)?;
                 continue 'messages;
             }
+            // Routed, so the retry will run: now take the old answer out. The
+            // retry must not see it, nor resume the session that wrote it.
+            if let Some(model) = replaces.take() {
+                session.supersede()?;
+                provider_session = None;
+                writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
+            }
             let budget = if decision.runtime == "ollama" {
                 cfg.inner
                     .ollama
@@ -808,12 +822,13 @@ pub fn run_loop(
             if omitted > 0 {
                 writeln!(output, "Context window: {omitted} earlier turns omitted from this request; the saved log retains them.")?;
             }
+            let kind = why.split(" · ").next().unwrap_or_default().to_string();
             if sticky.is_some() {
-                why = "same task as your last message".into();
+                why = format!("{kind} · same task as your last message");
             } else if let Some(Again::Stronger(beat)) = &again {
-                why = format!("you asked for a stronger model than {beat}");
+                why = format!("{kind} · /again: best available other than {beat}");
             } else if requested_model.is_none() && options.model.as_ref() == Some(&decision.model) {
-                why = "pinned with /model".into();
+                why = format!("{kind} · pinned with /model");
             }
             writeln!(
                 output,
@@ -973,7 +988,8 @@ enum Again {
     Stronger(String),
     /// The last message got no answer; send it as it was.
     Same,
-    Model(String),
+    /// This model, replacing the last answer when there is one.
+    Model(String, Option<String>),
 }
 
 /// Resumes the outgoing model's session once to ask for a handoff note.
