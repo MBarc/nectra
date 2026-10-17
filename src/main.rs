@@ -100,7 +100,23 @@ fn app() -> Result<i32> {
         }
         return Ok(0);
     }
+    let chatting = matches!(cli.command, Some(Commands::Chat { .. }))
+        || (cli.command.is_none() && cli.prompt.is_empty() && !cli.stdin);
+    // The built-in defaults assume providers this user may not have, so a
+    // first interactive chat sets up instead of failing on them later.
+    if chatting
+        && cli.config.is_none()
+        && std::io::stdin().is_terminal()
+        && dirs::config_dir().is_some_and(|d| !d.join("nectra/config.toml").exists())
+    {
+        nectra::setup::run(None, None, false)?;
+    }
     let mut cfg = config::Config::load(cli.config.as_deref())?;
+    if cfg.embedded {
+        nectra::terminal::error(
+            "nectra: no setup found, so the built-in defaults apply; run `nectra setup` to choose your providers",
+        );
+    }
     cfg.skip_permissions = cli.dangerously_skip_permissions;
     cfg.provider_view = cli.provider_view;
     match &cli.command {
@@ -120,15 +136,10 @@ fn app() -> Result<i32> {
         _ => {}
     }
     let registry = models::Registry::load(&cfg)?;
-    if cli.continue_latest
-        && !(matches!(cli.command, Some(Commands::Chat { .. }))
-            || (cli.command.is_none() && cli.prompt.is_empty() && !cli.stdin))
-    {
+    if cli.continue_latest && !chatting {
         bail!("--continue applies to chat only: run `nectra -c` or `nectra chat -c`");
     }
-    if matches!(cli.command, Some(Commands::Chat { .. }))
-        || (cli.command.is_none() && cli.prompt.is_empty() && !cli.stdin)
-    {
+    if chatting {
         return chat::run(&cli, &cfg, &registry);
     }
     if matches!(cli.command, Some(Commands::Models)) {

@@ -180,10 +180,12 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
         "gemini" => &cfg.inner.gemini,
         _ => bail!("unsupported runtime"),
     };
+    // Both replace the configured permissions with their own.
+    let override_permissions = cfg.skip_permissions || cfg.read_only;
     let mut extras = runtime.extra_args.iter();
     while let Some(arg) = extras.next() {
         let flag = arg.split('=').next().unwrap_or(arg);
-        if cfg.skip_permissions
+        if override_permissions
             && [
                 "--sandbox",
                 "-s",
@@ -199,7 +201,7 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
             }
             continue;
         }
-        if cfg.skip_permissions
+        if override_permissions
             && [
                 "--full-auto",
                 "--yolo",
@@ -213,7 +215,17 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
         }
         args.push(arg.into());
     }
-    if cfg.skip_permissions {
+    if cfg.read_only {
+        // Claude gets no tools at all: `--tools ""` alone still leaves every MCP
+        // server's tools (seen live on 2.1.302). Codex has no tool-less mode, so
+        // it gets its read-only sandbox (which on Windows still permits deletion).
+        let flags: &[&str] = match d.runtime.as_str() {
+            "claude" => &["--tools", "", "--strict-mcp-config"],
+            "codex" => &["--sandbox", "read-only"],
+            _ => bail!("{} has no read-only launch", d.runtime),
+        };
+        args.extend(flags.iter().map(OsString::from));
+    } else if cfg.skip_permissions {
         args.push(
             match d.runtime.as_str() {
                 "claude" => "--dangerously-skip-permissions",

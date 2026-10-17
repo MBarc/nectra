@@ -750,3 +750,40 @@ fn a_mode_change_before_a_new_task_does_not_unstick_its_follow_up() {
     // /mode applied to the new task (Astra); its follow-up stays there.
     assert_eq!(backend.models[2], backend.models[1], "{:?}", backend.models);
 }
+
+#[test]
+fn a_resumed_chat_continues_the_provider_session() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("again.jsonl");
+    let mut first = Sessions::default();
+    {
+        let mut session = Session::create(&path, dir.path()).unwrap();
+        chat::run_loop(
+            &cfg,
+            &reg,
+            options(),
+            &mut session,
+            &mut Cursor::new("/model opus\nfirst\n/quit\n"),
+            &mut Vec::new(),
+            &mut first,
+        )
+        .unwrap();
+    }
+    let mut session = Session::resume(&path, dir.path()).unwrap();
+    let mut second = Sessions::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/model opus\nsecond\n/quit\n"),
+        &mut Vec::new(),
+        &mut second,
+    )
+    .unwrap();
+    // `nectra -c` resumes opus's own session with just the new message,
+    // keeping its tool context and prompt cache.
+    let t = &second.turns[0];
+    assert!(t.1 && t.2 == first.turns[0].2, "{:?}", t.2);
+    assert!(context(&t.3).get("conversation").is_none());
+}

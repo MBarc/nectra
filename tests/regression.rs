@@ -536,3 +536,14 @@ fn demanding_work_goes_to_the_strongest_model_when_no_role_catches_it() {
     .unwrap();
     assert_eq!(d.model, "opus", "{}", d.reason);
 }
+
+#[cfg(unix)]
+#[test]
+fn saved_chats_are_private_to_the_user() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("private.jsonl");
+    nectra::session::Session::create(&path, dir.path()).unwrap();
+    let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o600, "{mode:o}");
+}

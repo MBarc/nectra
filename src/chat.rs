@@ -121,6 +121,11 @@ impl Backend for NativeBackend {
         session: &mut executor::ProviderSession,
     ) -> Result<String> {
         // Always the quiet stream view: no provider terminal flashes up for a note.
+        // A note needs no writes, whatever the working agent was allowed.
+        let cfg = &Config {
+            read_only: true,
+            ..cfg.clone()
+        };
         let activity = crate::activity::Activity::start(&decision.model);
         let mut sink = Vec::new();
         let mut progress = activity.writer(&mut sink);
@@ -264,7 +269,7 @@ pub fn run_loop(
     let mut successful_models = std::collections::HashSet::<String>::new();
     // The provider session behind the last completed turn. Only that model can
     // resume it: any other answer since would be missing from its history.
-    let mut provider_session: Option<(String, String)> = None;
+    let mut provider_session = session.provider_session.clone();
     let mut queued = std::collections::VecDeque::new();
     let mut debate_mode = false;
     // Set by /mode: the next message routes afresh instead of staying on the

@@ -69,12 +69,19 @@ pub struct Session {
     pub exchanges: Vec<Exchange>,
     pub recovered_tail: bool,
     pub interrupted: Option<String>,
+    /// (model, provider session id) behind the last saved answer, so a resumed
+    /// chat continues that agent's own session instead of replaying the log.
+    pub provider_session: Option<(String, String)>,
     file: File,
     pending: Option<(String, String)>,
 }
 impl Session {
     pub fn create(path: &Path, cwd: &Path) -> Result<Self> {
-        let file = OpenOptions::new()
+        let mut options = OpenOptions::new();
+        // Transcripts hold prompts and answers: private to the user from the start.
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let file = options
             .read(true)
             .write(true)
             .create_new(true)
@@ -92,6 +99,7 @@ impl Session {
             exchanges: vec![],
             recovered_tail: false,
             interrupted: None,
+            provider_session: None,
             file,
             pending: None,
         };
@@ -137,6 +145,11 @@ impl Session {
     pub fn create_default(cwd: &Path) -> Result<Self> {
         let dir = Self::default_dir()?;
         fs::create_dir_all(&dir).context("creating sessions directory")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))?;
+        }
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
         Self::create(
             &dir.join(format!("{stamp}-{}.jsonl", std::process::id())),
@@ -184,6 +197,7 @@ impl Session {
             exchanges: vec![],
             recovered_tail,
             interrupted: None,
+            provider_session: None,
             pending: None,
         };
         for line in lines {
@@ -194,11 +208,15 @@ impl Session {
                     }
                     session.pending = Some((text, model));
                 }
-                Event::Assistant { text, .. } => {
+                Event::Assistant {
+                    text,
+                    provider_session,
+                } => {
                     let (user, model) = session
                         .pending
                         .take()
                         .context("assistant record without a user turn")?;
+                    session.provider_session = provider_session.map(|id| (model.clone(), id));
                     session.exchanges.push(Exchange {
                         user,
                         assistant: text,
@@ -206,12 +224,14 @@ impl Session {
                     });
                 }
                 Event::Failed { .. } => {
+                    session.provider_session = None;
                     session
                         .pending
                         .take()
                         .context("failure without a user turn")?;
                 }
                 Event::Clear => {
+                    session.provider_session = None;
                     session.exchanges.clear();
                     session.pending = None;
                 }

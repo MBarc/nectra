@@ -181,8 +181,8 @@ On Linux:
 curl -fsSL https://raw.githubusercontent.com/MBarc/nectra/master/scripts/install.sh | sh
 ```
 
-The installer checks the download's SHA-256, puts `nectra` on your PATH and runs
-`nectra setup`. Or grab the archive yourself from
+The installer checks the download's SHA-256, installs `nectra` to `~/.local/bin` and runs
+`nectra setup`. If that directory isn't on your PATH, it prints the line to add. Or grab the archive yourself from
 [Releases](https://github.com/MBarc/nectra/releases).
 
 To build from source instead, with current stable Rust:

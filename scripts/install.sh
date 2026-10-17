@@ -39,5 +39,14 @@ elif ( : </dev/tty ) 2>/dev/null; then
 else
   "$DIR/nectra" setup --if-needed </dev/null || { echo "Installed, but setup needs a terminal or NECTRA_PROVIDERS=anthropic,openai (or none). Run nectra setup." >&2; exit 1; }
 fi
-echo "Ensure $DIR is on PATH, then run: nectra"
+case ":$PATH:" in
+  *":$DIR:"*) echo "Run: nectra";;
+  *)
+    echo "$DIR is not on your PATH yet. Add it, then run nectra:"
+    case "${SHELL##*/}" in
+      fish) echo "  fish_add_path $DIR";;
+      zsh) echo "  echo 'export PATH=\"$DIR:\$PATH\"' >> ~/.zshrc && . ~/.zshrc";;
+      *) echo "  echo 'export PATH=\"$DIR:\$PATH\"' >> ~/.bashrc && . ~/.bashrc";;
+    esac;;
+esac
 echo "To uninstall, run: uninstall-nectra"

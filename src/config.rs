@@ -96,6 +96,9 @@ pub struct ConfigFile {
 pub struct Config {
     pub provider_view: crate::executor::native::ProviderView,
     pub skip_permissions: bool,
+    /// Launch with no write access whatever the configured permissions, e.g.
+    /// to ask the outgoing agent for a handoff note.
+    pub read_only: bool,
     pub path: PathBuf,
     pub inner: ConfigFile,
     pub embedded: bool,
@@ -120,6 +123,7 @@ impl Config {
         let cfg = Self {
             provider_view: Default::default(),
             skip_permissions: false,
+            read_only: false,
             inner: toml::from_str(DEFAULT_CONFIG)?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -142,6 +146,7 @@ impl Config {
         let cfg = Self {
             provider_view: Default::default(),
             skip_permissions: false,
+            read_only: false,
             inner: toml::from_str(DEFAULT_CONFIG).context("parsing embedded config")?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -155,6 +160,7 @@ impl Config {
         let cfg = Self {
             provider_view: Default::default(),
             skip_permissions: false,
+            read_only: false,
             inner: toml::from_str(&text).context("parsing config")?,
             path: path.to_path_buf(),
             embedded: false,
