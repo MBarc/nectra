@@ -60,15 +60,17 @@ pub fn scan(home: &Path) -> Result<Servers> {
     let claude = config_file(home, "CLAUDE_CONFIG_DIR", "", ".claude.json");
     let codex = config_file(home, "CODEX_HOME", ".codex", "config.toml");
     let gemini = config_file(home, "GEMINI_CLI_HOME", "", ".gemini/settings.json");
+    // Both expand $VAR in a server's settings, which another CLI might not.
     let json_servers = |path: &Path| -> Result<Vec<(String, Value)>> {
         let Some(text) = read(path)? else {
             return Ok(vec![]);
         };
-        let value: Value =
-            serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        // Gemini allows comments in its settings; Claude's file has none.
+        let value: Value = serde_json::from_str(&strip_comments(&text))
+            .with_context(|| format!("parsing {}", path.display()))?;
         Ok(value["mcpServers"]
             .as_object()
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), expand_all(v))).collect())
             .unwrap_or_default())
     };
     let codex_servers = || -> Result<Vec<(String, Value)>> {
@@ -108,11 +110,24 @@ fn read(path: &Path) -> Result<Option<String>> {
     }
 }
 
-/// A server another CLI can run as is: stdio, enabled, and not tied to a
-/// working directory (Claude has no setting for one).
+/// Settings that limit a server's tools. Claude has no equivalent, so a server
+/// using one is not shared rather than shared without its limits.
+const RESTRICTIONS: [&str; 4] = [
+    "includeTools",
+    "excludeTools",
+    "enabled_tools",
+    "disabled_tools",
+];
+
+/// A server another CLI can run as is: stdio, enabled, unrestricted, and not
+/// tied to a working directory (Claude has no setting for one).
 fn local(v: &Value) -> Option<Server> {
     let stdio = v["type"].as_str().is_none_or(|t| t == "stdio");
-    if !stdio || v["enabled"] == json!(false) || !v["cwd"].is_null() {
+    if !stdio
+        || v["enabled"] == json!(false)
+        || !v["cwd"].is_null()
+        || RESTRICTIONS.iter().any(|r| !v[r].is_null())
+    {
         return None;
     }
     let strings = |v: &Value| v.as_str().map(String::from);
@@ -214,19 +229,89 @@ pub fn for_launch(
     }
 }
 
+/// Hex keeps every (server, key) pair distinct: `foo-bar` and `foo_bar` differ.
 fn env_name(server: &str, key: &str) -> String {
-    let clean = |s: &str| -> String {
-        s.chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() {
-                    c.to_ascii_uppercase()
-                } else {
-                    '_'
+    let hex = |s: &str| s.bytes().map(|b| format!("{b:02X}")).collect::<String>();
+    format!("NECTRA_MCP_{}_{}", hex(server), hex(key))
+}
+
+/// `$VAR`, `${VAR}` and `${VAR:-default}` from Nectra's environment, as Claude
+/// and Gemini expand them. An unset variable without a default stays as written.
+fn expand(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(i) = rest.find('$') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i + 1..];
+        let (name, default, len) = if let Some(body) = rest.strip_prefix('{') {
+            match body.find('}') {
+                Some(end) => {
+                    let inner = &body[..end];
+                    let (name, default) = match inner.split_once(":-") {
+                        Some((n, d)) => (n, Some(d)),
+                        None => (inner, None),
+                    };
+                    (name, default, end + 2)
                 }
-            })
-            .collect()
-    };
-    format!("NECTRA_MCP_{}_{}", clean(server), clean(key))
+                None => ("", None, 0),
+            }
+        } else {
+            let end = rest
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .unwrap_or(rest.len());
+            (&rest[..end], None, end)
+        };
+        match std::env::var(name)
+            .ok()
+            .filter(|_| !name.is_empty())
+            .or(default.map(String::from))
+        {
+            Some(value) => out.push_str(&value),
+            None => out.push_str(&format!("${}", &rest[..len])),
+        }
+        rest = &rest[len..];
+    }
+    out + rest
+}
+
+fn expand_all(v: &Value) -> Value {
+    match v {
+        Value::String(s) => Value::String(expand(s)),
+        Value::Array(a) => Value::Array(a.iter().map(expand_all).collect()),
+        Value::Object(m) => {
+            Value::Object(m.iter().map(|(k, v)| (k.clone(), expand_all(v))).collect())
+        }
+        other => other.clone(),
+    }
+}
+
+/// JSON with `//` and `/* */` comments outside strings removed.
+fn strip_comments(text: &str) -> String {
+    let (mut out, mut chars) = (String::new(), text.chars().peekable());
+    let mut in_string = false;
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            match c {
+                '\\' => out.extend(chars.next()),
+                '"' => in_string = false,
+                _ => {}
+            }
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            while chars.next_if(|&c| c != '\n').is_some() {}
+        } else if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            while let Some(c) = chars.next() {
+                if c == '*' && chars.next_if_eq(&'/').is_some() {
+                    break;
+                }
+            }
+        } else {
+            in_string = c == '"';
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// Adds every shareable server to each installed CLI that lacks it, through the
@@ -386,11 +471,45 @@ mod tests {
             serde_json::from_str(config.strip_prefix("--mcp-config=").unwrap()).unwrap();
         assert_eq!(
             config["mcpServers"]["db"]["env"]["DB_PASS"],
-            "${NECTRA_MCP_DB_DB_PASS}"
+            "${NECTRA_MCP_6462_44425F50415353}"
         );
         assert_eq!(
             env,
-            [("NECTRA_MCP_DB_DB_PASS".to_string(), "pw".to_string())]
+            [(
+                "NECTRA_MCP_6462_44425F50415353".to_string(),
+                "pw".to_string()
+            )]
         );
+    }
+
+    #[test]
+    fn gemini_settings_are_read_as_gemini_reads_them() {
+        let home = tempfile::tempdir().unwrap();
+        let home = home.path();
+        fs::create_dir_all(home.join(".gemini")).unwrap();
+        std::env::set_var("NECTRA_TEST_MCP_KEY", "k1");
+        fs::write(
+            home.join(".gemini/settings.json"),
+            r#"{
+              // comments are allowed here
+              "mcpServers": {
+                "api": {"command": "api-mcp", "args": ["--url=http://x//y"],
+                        "env": {"KEY": "$NECTRA_TEST_MCP_KEY", "B": "${NECTRA_TEST_UNSET:-dflt}", "C": "$NECTRA_TEST_UNSET"}},
+                /* a server limited to some tools isn't shared without its limits */
+                "db": {"command": "db-mcp", "excludeTools": ["drop_table"]}
+              }
+            }"#,
+        )
+        .unwrap();
+        let servers = scan(home).unwrap();
+        let shared = servers.missing("codex");
+        assert_eq!(shared.len(), 1);
+        let (name, api) = shared[0];
+        assert_eq!(name, "api");
+        assert_eq!(api.args, ["--url=http://x//y"]);
+        assert_eq!(api.env["KEY"], "k1");
+        assert_eq!(api.env["B"], "dflt");
+        assert_eq!(api.env["C"], "$NECTRA_TEST_UNSET");
+        assert_ne!(env_name("foo-bar", "T"), env_name("foo_bar", "T"));
     }
 }
