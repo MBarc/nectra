@@ -111,6 +111,26 @@ fn app() -> Result<i32> {
     {
         nectra::setup::run(None, None, false)?;
     }
+    if let Some(Commands::Skills { link }) = &cli.command {
+        let home = dirs::home_dir().context("no home directory")?;
+        if *link {
+            let linked = nectra::skills::link(&home)?;
+            for line in &linked {
+                println!("Linked {line}");
+            }
+            println!(
+                "{} skill link(s) created. Skills written for one CLI's tools may still need edits to work in another.",
+                linked.len()
+            );
+        }
+        let project = std::env::current_dir()?;
+        let mut scopes = vec![("user", nectra::skills::scan(&home)?)];
+        if project != home {
+            scopes.push(("project", nectra::skills::scan(&project)?));
+        }
+        print!("{}", nectra::skills::render(&scopes));
+        return Ok(0);
+    }
     let mut cfg = config::Config::load(cli.config.as_deref())?;
     if cfg.embedded {
         nectra::terminal::error(

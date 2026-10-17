@@ -154,6 +154,14 @@ pub enum Commands {
         #[arg(long)]
         session: Option<PathBuf>,
     },
+    /// Which provider CLI sees each of your skills (Claude, Codex and Gemini each
+    /// read different folders).
+    Skills {
+        /// Link your user skills between ~/.claude/skills and ~/.agents/skills so
+        /// every CLI sees them. Never replaces an existing entry.
+        #[arg(long)]
+        link: bool,
+    },
 }
 
 #[derive(Subcommand, Debug, Clone)]
