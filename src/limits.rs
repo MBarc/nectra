@@ -81,6 +81,18 @@ impl RateLimited {
         } else {
             message
         };
+        // Scope comes from the provider's own type and message. A sibling
+        // account_id field is metadata, not a statement that every model of
+        // this provider is exhausted.
+        let provider_wide = [
+            "usage_limit",
+            "usage limit",
+            "spend_limit",
+            "organization",
+            "hit your limit",
+        ]
+        .iter()
+        .any(|s| kind.contains(s) || lower.contains(s));
         let seconds = event["retry_after"]
             .as_u64()
             .or_else(|| event["error"]["retry_after"].as_u64())
@@ -94,22 +106,14 @@ impl RateLimited {
                     .as_secs();
                 Some(reset.saturating_sub(now))
             })
-            .unwrap_or(60)
+            // ponytail: a plan's usage limit lasts hours and Codex states its reset
+            // as a local clock time ("try again at 10:53 PM"), which needs a
+            // time-zone library to parse; re-probing hourly beats every minute.
+            .unwrap_or(if provider_wide { 3600 } else { 60 })
             .clamp(1, 86400);
         Some(Self {
             message,
-            // Scope comes from the provider's own type and message. A sibling
-            // account_id field is metadata, not a statement that every model of
-            // this provider is exhausted.
-            provider_wide: [
-                "usage_limit",
-                "usage limit",
-                "spend_limit",
-                "organization",
-                "hit your limit",
-            ]
-            .iter()
-            .any(|s| kind.contains(s) || lower.contains(s)),
+            provider_wide,
             retry_after: Duration::from_secs(seconds),
             safe_to_retry,
         })
