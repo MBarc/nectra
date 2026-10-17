@@ -495,5 +495,24 @@ fn demanding_work_is_never_sent_cheap_first() {
         None,
     )
     .unwrap();
-    assert_eq!(d.model, "gpt-5.6-sol", "{}", d.reason);
+    // Scored for capability: a strong model, never the cheap coder.
+    assert!(
+        ["opus", "gpt-5.6-sol"].contains(&d.model.as_str()),
+        "{}",
+        d.model
+    );
+}
+
+#[test]
+fn demanding_work_goes_to_the_strongest_model_when_no_role_catches_it() {
+    let (_dir, cfg, reg) = fixture();
+    let mut reg = reg;
+    reg.models.retain(|m| m.provider.as_str() == "anthropic");
+    let route = |p: &str| {
+        router::route(p, &cfg, &reg, Mode::Balanced, None, None)
+            .unwrap()
+            .model
+    };
+    assert_eq!(route("complex end to end rewrite of the scheduler"), "opus");
+    assert_eq!(route("fix the failing test in parser.rs"), "sonnet");
 }

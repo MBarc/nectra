@@ -117,17 +117,22 @@ pub fn route_with(
     let role = jev_role
         .as_deref()
         .unwrap_or_else(|| policy::preferred_role(task, prompt, mode, tier));
-    let role = if !demanding {
-        policy::cheap_first(role, mode, &eligible, declarative)
-    } else if eligible
-        .iter()
-        .any(|m| policy::claims(m, role, declarative))
-    {
+    let role = if demanding {
         role
     } else {
-        // Nobody takes demanding work: fall back to the task's strong role
-        // (coding, planning or general), never to raw scores or the cheap coder.
-        policy::preferred_role(task, "", Mode::Best, None)
+        policy::cheap_first(role, mode, &eligible, declarative)
+    };
+    // Demanding work that no model claims is scored for capability alone, so a
+    // registry without a demanding model sends it to its strongest one (Opus
+    // when only Claude is set up), never the cheap coder or the balanced pick.
+    let scoring = if demanding
+        && !eligible
+            .iter()
+            .any(|m| policy::claims(m, role, declarative))
+    {
+        Mode::Best
+    } else {
+        mode
     };
     let mut candidates: Vec<_> = eligible
         .into_iter()
@@ -137,7 +142,7 @@ pub fn route_with(
             } else {
                 0.0
             };
-            (m, policy::score(&req, m, mode) + bonus)
+            (m, policy::score(&req, m, scoring) + bonus)
         })
         .collect();
     if wanted.is_none() && model.is_none() && cfg.ollama_enabled() {
