@@ -1,0 +1,58 @@
+name: cli-compat
+# Provider CLIs ship often and Nectra relies on their flags, settings files and
+# terminal behaviour, so check every day against their latest releases.
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compat:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # Live turns run only when these secrets are set; a few cents a day.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: cargo build --release --locked
+      - name: Install the latest provider CLIs
+        shell: bash
+        run: |
+          npm install -g @openai/codex@latest @google/gemini-cli@latest
+          if [ "$RUNNER_OS" = Windows ]; then
+            powershell -NoProfile -Command "irm https://claude.ai/install.ps1 | iex"
+            echo "$USERPROFILE\\.local\\bin" >> "$GITHUB_PATH"
+            pip install pyte pywinpty
+          else
+            curl -fsSL https://claude.ai/install.sh | bash
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+            pip install pyte
+          fi
+      - name: Sign the CLIs in with API keys
+        if: env.ANTHROPIC_API_KEY != ''
+        shell: bash
+        run: |
+          printenv OPENAI_API_KEY | codex login --with-api-key
+          python scripts/compat/ci_auth.py
+      - name: Check Nectra against them
+        shell: bash
+        run: |
+          live=""
+          if [ -n "$ANTHROPIC_API_KEY" ]; then live="--live"; fi
+          exe=target/release/nectra
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          python scripts/compat/check.py --nectra "$exe" $live
