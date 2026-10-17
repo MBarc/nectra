@@ -177,7 +177,8 @@ pub fn collect(logs: &Logs, days: Option<u64>, direct: bool) -> Result<Report> {
                         entry.switches += 1;
                     }
                     entry.handoffs += u64::from(event["handoff"] == true);
-                    entry.again += u64::from(event["again"] == true);
+                    // 0.4.4 logs mark only retries that replaced an answer.
+                    entry.again += u64::from(event["again"] == true || event["replaces"] == true);
                     if let Some(why) = event["why"].as_str() {
                         let kind = why.split(" · ").next().unwrap_or(why);
                         *entry.kinds.entry(kind.into()).or_default() += 1;
@@ -292,21 +293,19 @@ fn session_tokens(
     codex: &HashMap<String, PathBuf>,
     id: &str,
 ) -> Result<Option<Tokens>> {
-    if let Some(path) = claude.get(id) {
-        let mut total = Tokens::default();
-        for t in claude_log(path)?.0.into_values() {
-            total.add(t);
-        }
-        Ok(Some(total))
+    let per_model = if let Some(path) = claude.get(id) {
+        claude_log(path)?.0
     } else if let Some(path) = codex.get(id) {
-        let mut total = Tokens::default();
-        for t in codex_log(path)?.0.into_values() {
-            total.add(t);
-        }
-        Ok(Some(total))
+        codex_log(path)?.0
     } else {
-        Ok(None)
+        return Ok(None);
+    };
+    let mut total = Tokens::default();
+    for t in per_model.into_values() {
+        total.add(t);
     }
+    // A log with no usage records yet is no data, not a free turn.
+    Ok((total != Tokens::default()).then_some(total))
 }
 
 fn files(dir: &Path, keep: impl Fn(&str) -> bool) -> Result<Vec<PathBuf>> {
@@ -644,7 +643,7 @@ mod tests {
                 r#"{"type":"assistant","text":"e"}"#,
                 r#"{"type":"clear"}"#,
                 r#"{"type":"user","text":"f","model":"haiku"}"#,
-                r#"{"type":"assistant","text":"g"}"#,
+                r#"{"type":"assistant","text":"g","provider_session":"e1"}"#,
             ]
             .join("\n"),
         )
@@ -670,7 +669,20 @@ mod tests {
             r#"{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":3000000,"cached_input_tokens":1000000,"output_tokens":10}}}}"#,
         ].join("\n")).unwrap();
 
+        // A provider log with no usage yet is no data, not a free turn.
+        fs::write(
+            logs.claude_projects.join("e1.jsonl"),
+            r#"{"type":"user","message":{"content":"f"}}"#,
+        )
+        .unwrap();
         let report = collect(&logs, None, true).unwrap();
+        assert_eq!(
+            (
+                report.models["haiku"].turns_with_data,
+                report.models["haiku"].turns_without_data
+            ),
+            (0, 1)
+        );
         let m = &report.models;
         assert_eq!(
             (m["gpt-5.6-luna"].switches, m["gpt-5.6-luna"].handoffs),

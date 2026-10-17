@@ -685,6 +685,8 @@ pub fn run_loop(
             && !rerouted
             && !demanding;
         let last_model = previous.map(|e| e.model.clone());
+        // One /again is one retry, however many models the turn falls back through.
+        let mut again_recorded = false;
         loop {
             let mut available = Registry {
                 models: registry
@@ -872,7 +874,7 @@ pub fn run_loop(
             let route = crate::session::Route {
                 why: why.clone(),
                 handoff: note.is_some(),
-                again: again.is_some(),
+                again: again.is_some() && !std::mem::replace(&mut again_recorded, true),
             };
             session.begin_routed(&message, &decision.model, replaced.is_some(), &route)?;
             if let Some(model) = replaced {
