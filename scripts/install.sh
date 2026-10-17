@@ -7,8 +7,8 @@ case "$REPO" in */*) ;; *) echo "Expected owner/repository" >&2; exit 1;; esac
 case "$VERSION" in *[!a-zA-Z0-9_.-]*|'') echo "Invalid NECTRA_VERSION" >&2; exit 1;; esac
 case "$(uname -s)/$(uname -m)" in
   Linux/x86_64) TARGET=x86_64-unknown-linux-gnu;;
-  # ponytail: macOS releases need a macOS build host; restore these lines once CI builds them.
-  Darwin/*) echo "No prebuilt macOS release yet; build from source: https://github.com/MBarc/nectra#install" >&2; exit 1;;
+  Darwin/arm64) TARGET=aarch64-apple-darwin;;
+  Darwin/x86_64) TARGET=x86_64-apple-darwin;;
   *) echo "No prebuilt release for this platform; build from source." >&2; exit 1;;
 esac
 NAME="nectra-$TARGET.tar.gz"

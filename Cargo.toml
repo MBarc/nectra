@@ -19,7 +19,7 @@ portable-pty = "0.9"
 vt100 = "0.15"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
-ctrlc = "3.4"
+ctrlc = "~3.4"
 tempfile = "3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 
