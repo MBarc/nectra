@@ -127,12 +127,13 @@ fn link_dir(link: &Path, target: &Path) -> Result<()> {
         // A junction needs neither admin rights nor developer mode; a symlink does.
         // The paths travel as environment variables, which PowerShell never parses
         // as code, so a folder named `x&del ...` stays a name (`cmd /c mklink` ran it).
+        // -Value treats [ ] as wildcards, -Path doesn't (seen on PowerShell 5.1).
         let status = std::process::Command::new("powershell")
             .args([
                 "-NoProfile",
                 "-NonInteractive",
                 "-Command",
-                "New-Item -ItemType Junction -Path $env:NECTRA_LINK -Value $env:NECTRA_TARGET -ErrorAction Stop | Out-Null",
+                "New-Item -ItemType Junction -Path $env:NECTRA_LINK -Value ([WildcardPattern]::Escape($env:NECTRA_TARGET)) -ErrorAction Stop | Out-Null",
             ])
             .env("NECTRA_LINK", link)
             .env("NECTRA_TARGET", target)
@@ -188,7 +189,7 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let home = home.path();
         // Under `cmd /c mklink` this created `pwned` and expanded %OS%.
-        let name = "x&mkdir pwned&rem %OS%";
+        let name = "x&mkdir pwned&rem %OS% $(whoami) [1]";
         skill(home, ".claude/skills", name);
         assert_eq!(link(home).unwrap().len(), 1);
         assert!(home
