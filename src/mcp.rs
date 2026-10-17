@@ -61,7 +61,7 @@ pub fn scan(home: &Path) -> Result<Servers> {
     let codex = config_file(home, "CODEX_HOME", ".codex", "config.toml");
     let gemini = config_file(home, "GEMINI_CLI_HOME", "", ".gemini/settings.json");
     // Both expand $VAR in a server's settings, which another CLI might not.
-    let json_servers = |path: &Path| -> Result<Vec<(String, Value)>> {
+    let json_servers = |path: &Path, gemini: bool| -> Result<Vec<(String, Value)>> {
         let Some(text) = read(path)? else {
             return Ok(vec![]);
         };
@@ -70,7 +70,11 @@ pub fn scan(home: &Path) -> Result<Servers> {
             .with_context(|| format!("parsing {}", path.display()))?;
         Ok(value["mcpServers"]
             .as_object()
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), expand_all(v))).collect())
+            .map(|m| {
+                m.iter()
+                    .map(|(k, v)| (k.clone(), expand_server(v, gemini)))
+                    .collect()
+            })
             .unwrap_or_default())
     };
     let codex_servers = || -> Result<Vec<(String, Value)>> {
@@ -88,9 +92,9 @@ pub fn scan(home: &Path) -> Result<Servers> {
             .collect()
     };
     for (cli, entries) in [
-        ("claude", json_servers(&claude)?),
+        ("claude", json_servers(&claude, false)?),
         ("codex", codex_servers()?),
-        ("gemini", json_servers(&gemini)?),
+        ("gemini", json_servers(&gemini, true)?),
     ] {
         for (name, value) in entries {
             servers.names.entry(cli).or_default().push(name.clone());
@@ -235,9 +239,10 @@ fn env_name(server: &str, key: &str) -> String {
     format!("NECTRA_MCP_{}_{}", hex(server), hex(key))
 }
 
-/// `$VAR`, `${VAR}` and `${VAR:-default}` from Nectra's environment, as Claude
-/// and Gemini expand them. An unset variable without a default stays as written.
-fn expand(s: &str) -> String {
+/// `${VAR}` and `${VAR:-default}` from Nectra's environment, plus `$VAR` when
+/// `bare`. An unset variable without a default stays as written, or is dropped
+/// when `drop_unset`.
+fn expand(s: &str, bare: bool, drop_unset: bool) -> String {
     let mut out = String::new();
     let mut rest = s;
     while let Some(i) = rest.find('$') {
@@ -255,11 +260,13 @@ fn expand(s: &str) -> String {
                 }
                 None => ("", None, 0),
             }
-        } else {
+        } else if bare {
             let end = rest
                 .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
                 .unwrap_or(rest.len());
             (&rest[..end], None, end)
+        } else {
+            ("", None, 0)
         };
         match std::env::var(name)
             .ok()
@@ -267,6 +274,7 @@ fn expand(s: &str) -> String {
             .or(default.map(String::from))
         {
             Some(value) => out.push_str(&value),
+            None if drop_unset && !name.is_empty() => {}
             None => out.push_str(&format!("${}", &rest[..len])),
         }
         rest = &rest[len..];
@@ -274,15 +282,61 @@ fn expand(s: &str) -> String {
     out + rest
 }
 
-fn expand_all(v: &Value) -> Value {
-    match v {
-        Value::String(s) => Value::String(expand(s)),
-        Value::Array(a) => Value::Array(a.iter().map(expand_all).collect()),
-        Value::Object(m) => {
-            Value::Object(m.iter().map(|(k, v)| (k.clone(), expand_all(v))).collect())
+/// A server's settings as its own CLI sees them. Claude expands only `${VAR}`
+/// (code.claude.com/docs/en/mcp). Gemini 0.64 expands `$VAR` too across its
+/// settings, then expands env values again when starting the server: `%VAR%`
+/// on Windows, with unset variables becoming empty.
+fn expand_server(v: &Value, gemini: bool) -> Value {
+    fn walk(v: &Value, f: &dyn Fn(&str) -> String) -> Value {
+        match v {
+            Value::String(s) => Value::String(f(s)),
+            Value::Array(a) => Value::Array(a.iter().map(|v| walk(v, f)).collect()),
+            Value::Object(m) => {
+                Value::Object(m.iter().map(|(k, v)| (k.clone(), walk(v, f))).collect())
+            }
+            other => other.clone(),
         }
-        other => other.clone(),
     }
+    let mut v = walk(v, &|s| expand(s, gemini, false));
+    if gemini {
+        if let Some(env) = v.get_mut("env") {
+            *env = walk(env, &|s| {
+                let s = if cfg!(windows) {
+                    percent(s)
+                } else {
+                    s.to_string()
+                };
+                expand(&s, true, true)
+            });
+        }
+    }
+    v
+}
+
+/// Windows `%VAR%`, unset ones empty, as Gemini expands a server's env.
+fn percent(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(i) = rest.find('%') {
+        let after = &rest[i + 1..];
+        match after.find('%') {
+            Some(end)
+                if end > 0
+                    && after[..end]
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_') =>
+            {
+                out.push_str(&rest[..i]);
+                out.push_str(&std::env::var(&after[..end]).unwrap_or_default());
+                rest = &after[end + 1..];
+            }
+            _ => {
+                out.push_str(&rest[..=i]);
+                rest = after;
+            }
+        }
+    }
+    out + rest
 }
 
 /// JSON with `//` and `/* */` comments outside strings removed.
@@ -494,7 +548,7 @@ mod tests {
               // comments are allowed here
               "mcpServers": {
                 "api": {"command": "api-mcp", "args": ["--url=http://x//y"],
-                        "env": {"KEY": "$NECTRA_TEST_MCP_KEY", "B": "${NECTRA_TEST_UNSET:-dflt}", "C": "$NECTRA_TEST_UNSET"}},
+                        "env": {"KEY": "$NECTRA_TEST_MCP_KEY", "B": "${NECTRA_TEST_UNSET:-dflt}", "C": "$NECTRA_TEST_UNSET", "P": "%NECTRA_TEST_MCP_KEY%"}},
                 /* a server limited to some tools isn't shared without its limits */
                 "db": {"command": "db-mcp", "excludeTools": ["drop_table"]}
               }
@@ -509,7 +563,23 @@ mod tests {
         assert_eq!(api.args, ["--url=http://x//y"]);
         assert_eq!(api.env["KEY"], "k1");
         assert_eq!(api.env["B"], "dflt");
-        assert_eq!(api.env["C"], "$NECTRA_TEST_UNSET");
+        assert_eq!(api.env["C"], ""); // Gemini empties an unset env reference
+        if cfg!(windows) {
+            assert_eq!(api.env["P"], "k1");
+        }
+
+        // Claude expands only the braced form: `abc$X` is a literal secret.
+        fs::write(
+            home.join(".claude.json"),
+            r#"{"mcpServers": {"c": {"command": "c-mcp",
+                "env": {"LIT": "abc$NECTRA_TEST_MCP_KEY", "REF": "${NECTRA_TEST_MCP_KEY}", "U": "${NECTRA_TEST_UNSET}"}}}}"#,
+        )
+        .unwrap();
+        let servers = scan(home).unwrap();
+        let c = &servers.shared["c"].1;
+        assert_eq!(c.env["LIT"], "abc$NECTRA_TEST_MCP_KEY");
+        assert_eq!(c.env["REF"], "k1");
+        assert_eq!(c.env["U"], "${NECTRA_TEST_UNSET}");
         assert_ne!(env_name("foo-bar", "T"), env_name("foo_bar", "T"));
     }
 }
