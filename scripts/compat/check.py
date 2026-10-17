@@ -34,12 +34,12 @@ def check(name, ok, detail=""):
     print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f": {detail}" if detail and not ok else ""), flush=True)
 
 
-def run(cmd, env=None, timeout=120, stdin=subprocess.DEVNULL):
+def run(cmd, env=None, timeout=120, stdin=subprocess.DEVNULL, cwd=None):
     # Windows npm CLIs are .cmd shims, which only a resolved path can start.
     cmd = [shutil.which(cmd[0]) or cmd[0], *cmd[1:]]
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           env={**os.environ, **(env or {})}, timeout=timeout, stdin=stdin)
+                           env={**os.environ, **(env or {})}, timeout=timeout, stdin=stdin, cwd=cwd)
         return p.returncode, p.stdout + p.stderr
     except (OSError, subprocess.TimeoutExpired) as e:
         return -1, str(e)
@@ -81,8 +81,9 @@ QUESTION = "What is 6 times 7? Reply with just the number."
 
 def live_stream(nectra, cfg, work, provider):
     model = CHEAP[provider]
+    # In the trusted work folder: Codex refuses to run elsewhere outside a git repo.
     code, out = run([nectra, "--config", cfg, "run", "--model", model, "--provider-view", "stream", QUESTION],
-                    timeout=300)
+                    timeout=300, cwd=work)
     check(f"stream view answers with {model}", code == 0 and "42" in out, last_lines(out))
 
 
