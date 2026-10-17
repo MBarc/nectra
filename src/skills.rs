@@ -4,7 +4,7 @@
 //! reads another's own skill folder, but Codex and Gemini share `.agents/skills`.
 //! Routing moves a task between CLIs, so a skill only one of them sees comes and
 //! goes from turn to turn.
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use std::{
     collections::BTreeMap,
     fs,
@@ -33,13 +33,9 @@ pub fn scan(root: &Path) -> Result<BTreeMap<String, Skill>> {
     for (folder, clis) in FOLDERS {
         // Joined per component: `mklink` rejects mixed separators.
         let dir = folder.split('/').fold(root.to_path_buf(), |p, c| p.join(c));
-        let Ok(entries) = fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries {
-            let path = entry?.path();
+        for path in entries(&dir)? {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
-            if name.starts_with('.') || !path.join("SKILL.md").is_file() {
+            if name.starts_with('.') || !has_skill(&path)? {
                 continue;
             }
             let skill = skills.entry(name.into_owned()).or_default();
@@ -86,13 +82,9 @@ pub fn link(home: &Path) -> Result<Vec<String>> {
     let shared = home.join(".agents").join("skills");
     let mut done = vec![];
     for (from, to) in [(&claude, &shared), (&shared, &claude)] {
-        let Ok(entries) = fs::read_dir(from) else {
-            continue;
-        };
-        for entry in entries {
-            let target = entry?.path();
+        for target in entries(from)? {
             let name = target.file_name().unwrap_or_default();
-            if name.to_string_lossy().starts_with('.') || !target.join("SKILL.md").is_file() {
+            if name.to_string_lossy().starts_with('.') || !has_skill(&target)? {
                 continue;
             }
             let link = to.join(name);
@@ -107,14 +99,43 @@ pub fn link(home: &Path) -> Result<Vec<String>> {
     Ok(done)
 }
 
+/// The entries of a skills folder; a folder that doesn't exist has none, but
+/// any other failure (permissions, say) is reported rather than read as empty.
+fn entries(dir: &Path) -> Result<Vec<PathBuf>> {
+    match fs::read_dir(dir) {
+        Ok(entries) => entries
+            .map(|e| Ok(e?.path()))
+            .collect::<Result<_>>()
+            .with_context(|| format!("reading {}", dir.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(vec![]),
+        Err(e) => Err(e).with_context(|| format!("reading {}", dir.display())),
+    }
+}
+
+fn has_skill(dir: &Path) -> Result<bool> {
+    let file = dir.join("SKILL.md");
+    match fs::metadata(&file) {
+        Ok(m) => Ok(m.is_file()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e).with_context(|| format!("reading {}", file.display())),
+    }
+}
+
 fn link_dir(link: &Path, target: &Path) -> Result<()> {
     #[cfg(windows)]
     {
         // A junction needs neither admin rights nor developer mode; a symlink does.
-        let status = std::process::Command::new("cmd")
-            .args(["/C", "mklink", "/J"])
-            .arg(link)
-            .arg(target)
+        // The paths travel as environment variables, which PowerShell never parses
+        // as code, so a folder named `x&del ...` stays a name (`cmd /c mklink` ran it).
+        let status = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "New-Item -ItemType Junction -Path $env:NECTRA_LINK -Value $env:NECTRA_TARGET -ErrorAction Stop | Out-Null",
+            ])
+            .env("NECTRA_LINK", link)
+            .env("NECTRA_TARGET", target)
             .stdout(std::process::Stdio::null())
             .status()?;
         if !status.success() {
@@ -122,7 +143,8 @@ fn link_dir(link: &Path, target: &Path) -> Result<()> {
         }
     }
     #[cfg(unix)]
-    std::os::unix::fs::symlink(target, link)?;
+    std::os::unix::fs::symlink(target, link)
+        .with_context(|| format!("linking {} to {}", link.display(), target.display()))?;
     #[cfg(not(any(windows, unix)))]
     bail!("linking skills is not supported on this platform");
     Ok(())
@@ -159,6 +181,22 @@ mod tests {
         // Idempotent, and an existing entry is never replaced.
         assert!(link(home).unwrap().is_empty());
         assert!(home.join(".agents/skills/review/SKILL.md").is_file());
+    }
+
+    #[test]
+    fn a_skill_name_is_never_run_as_a_command() {
+        let home = tempfile::tempdir().unwrap();
+        let home = home.path();
+        // Under `cmd /c mklink` this created `pwned` and expanded %OS%.
+        let name = "x&mkdir pwned&rem %OS%";
+        skill(home, ".claude/skills", name);
+        assert_eq!(link(home).unwrap().len(), 1);
+        assert!(home
+            .join(".agents/skills")
+            .join(name)
+            .join("SKILL.md")
+            .is_file());
+        assert!(!home.join("pwned").exists() && !Path::new("pwned").exists());
     }
 
     #[test]

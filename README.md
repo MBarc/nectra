@@ -243,9 +243,10 @@ Claude from `.claude/skills`, Codex from `.agents/skills` and `.codex/skills`,
 and Gemini from `.agents/skills` and `.gemini/skills`. A skill only one of them
 sees comes and goes as Nectra routes between them. `nectra skills` shows which
 CLI sees each of your skills, and `nectra skills --link` links your user skills
-between `~/.claude/skills` and `~/.agents/skills` so all three do. It never
-replaces an existing entry, and a skill written around one CLI's tools may still
-need edits to work in another.
+between `~/.claude/skills` and `~/.agents/skills` so all three see them. Skills
+kept only in `~/.codex/skills` or `~/.gemini/skills` aren't linked, a name that
+already exists on the other side is skipped, and nothing is ever replaced. A
+skill written around one CLI's tools may still need edits to work in another.
 
 ## For AI agents
 
