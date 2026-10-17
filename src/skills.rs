@@ -4,7 +4,7 @@
 //! reads another's own skill folder, but Codex and Gemini share `.agents/skills`.
 //! Routing moves a task between CLIs, so a skill only one of them sees comes and
 //! goes from turn to turn.
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use std::{
     collections::BTreeMap,
     fs,
@@ -113,6 +113,13 @@ fn entries(dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn has_skill(dir: &Path) -> Result<bool> {
+    // A stray file (a README) or a broken link in a skills folder isn't a skill.
+    match fs::metadata(dir) {
+        Ok(m) if !m.is_dir() => return Ok(false),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", dir.display())),
+        Ok(_) => {}
+    }
     let file = dir.join("SKILL.md");
     match fs::metadata(&file) {
         Ok(m) => Ok(m.is_file()),
@@ -140,14 +147,14 @@ fn link_dir(link: &Path, target: &Path) -> Result<()> {
             .stdout(std::process::Stdio::null())
             .status()?;
         if !status.success() {
-            bail!("could not link {} to {}", link.display(), target.display());
+            anyhow::bail!("could not link {} to {}", link.display(), target.display());
         }
     }
     #[cfg(unix)]
     std::os::unix::fs::symlink(target, link)
         .with_context(|| format!("linking {} to {}", link.display(), target.display()))?;
     #[cfg(not(any(windows, unix)))]
-    bail!("linking skills is not supported on this platform");
+    anyhow::bail!("linking skills is not supported on this platform");
     Ok(())
 }
 
@@ -169,6 +176,7 @@ mod tests {
         skill(home, ".agents/skills", "deploy");
         skill(home, ".codex/skills/.system", "bundled");
         fs::create_dir_all(home.join(".agents/skills/notes")).unwrap(); // no SKILL.md
+        fs::write(home.join(".claude/skills/README.md"), "not a skill").unwrap();
         let before = scan(home).unwrap();
         assert_eq!(before.keys().collect::<Vec<_>>(), ["deploy", "review"]);
         assert_eq!(before["review"].seen_by, ["claude"]);
