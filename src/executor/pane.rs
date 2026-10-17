@@ -253,6 +253,9 @@ pub(super) fn run(
                 clear_region(origin, display_rows)?;
                 provider_input = true;
                 revealed = true;
+                // The prompt is on the live screen, not in scrollback.
+                scrollback = 0;
+                parser.set_scrollback(0);
                 display_rows = rows;
                 origin = allocate(display_rows)?;
                 guard.bottom = origin + display_rows + 1;
@@ -263,14 +266,20 @@ pub(super) fn run(
                 && (dirty || !provider_input)
                 && last_render.elapsed() >= Duration::from_millis(100)
             {
-                let prefix = if cols >= 50 && waiting {
-                    format!(
-                        "Queued: {queued_count} | {model} is waiting for you: F2 to answer | you> "
-                    )
-                } else if cols >= 50 {
-                    format!("Queued: {queued_count} | F2: approvals | you> ")
-                } else {
+                let prefix = if cols < 50 {
                     "> ".into()
+                } else if waiting {
+                    let full = format!(
+                        "Queued: {queued_count} | {model} is waiting for you: F2 to answer | you> "
+                    );
+                    // Leave room for the draft being typed.
+                    if full.chars().count() + 20 <= cols as usize {
+                        full
+                    } else {
+                        format!("Queued: {queued_count} | waiting: F2 | you> ")
+                    }
+                } else {
+                    format!("Queued: {queued_count} | F2: approvals | you> ")
                 };
                 let (visible, cursor) = draft.view((cols as usize).saturating_sub(prefix.len()));
                 let cursor = (prefix.len() + cursor) as u16;
@@ -352,6 +361,8 @@ pub(super) fn run(
                         if key.code == KeyCode::F(2) {
                             clear_region(origin, display_rows)?;
                             provider_input = !provider_input;
+                            // The user chose a view; don't take focus back for this prompt.
+                            revealed = true;
                             display_rows = if provider_input { rows } else { 2 };
                             origin = allocate(display_rows)?;
                             guard.bottom = origin + display_rows + 1;

@@ -232,6 +232,21 @@ impl Capture {
             }
             let r: Record = serde_json::from_slice(&fs::read(&path)?)?;
             self.seen.insert(path);
+            // Rejected before the revision advances, so the pane never sees it.
+            // Codex also reports its own side turns, such as titling the thread
+            // (seen on 0.162.1), as completed turns. The first real one answers
+            // our context file; later ones, typed in the pane, continue its thread.
+            if r.kind == "answer" && !r.session.is_empty() {
+                // A side turn's prompt can quote ours, so match from the start.
+                let ours = if self.session.is_empty() {
+                    r.prompt.trim_start().starts_with(&codex_prompt(root))
+                } else {
+                    r.session == self.session
+                };
+                if !ours {
+                    continue;
+                }
+            }
             self.revision += 1;
             match r.kind.as_str() {
                 "begin" => {
@@ -253,20 +268,6 @@ impl Capture {
                     self.answer.clear();
                 }
                 "answer" => {
-                    // Codex also reports its own side turns, such as titling the thread
-                    // (seen on 0.162.1), as completed turns. The first real one answers
-                    // our context file; later ones, typed in the pane, continue its thread.
-                    if !r.session.is_empty() {
-                        // A side turn's prompt can quote ours, so match from the start.
-                        let ours = if self.session.is_empty() {
-                            r.prompt.trim_start().starts_with(&codex_prompt(root))
-                        } else {
-                            r.session == self.session
-                        };
-                        if !ours {
-                            continue;
-                        }
-                    }
                     // Codex notifications also carry the user message for each completed turn.
                     if !r.prompt.is_empty() && self.ready {
                         self.earlier.push((
@@ -874,6 +875,8 @@ mod tests {
             r#"{"title":"Answer"}"#,
         );
         assert!(!capture.ready);
+        // Nor does it count as progress the pane would react to.
+        assert_eq!(capture.revision, 0);
         turn(&mut capture, "t1", &ask, "Created out");
         turn(
             &mut capture,
