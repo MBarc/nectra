@@ -86,17 +86,19 @@ fn app() -> Result<i32> {
         days,
         json,
         session,
+        direct,
+        baseline,
     }) = &cli.command
     {
         let mut logs = nectra::usage::Logs::default_paths()?;
         if let Some(path) = session {
             logs.nectra_sessions = path.clone();
         }
-        let usage = nectra::usage::collect(&logs, *days)?;
+        let usage = nectra::usage::collect(&logs, *days, *direct)?;
         if *json {
             println!("{}", serde_json::to_string_pretty(&usage)?);
         } else {
-            print!("{}", nectra::usage::render(&usage));
+            print!("{}", nectra::usage::render(&usage, baseline));
         }
         return Ok(0);
     }

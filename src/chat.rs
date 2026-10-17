@@ -88,7 +88,7 @@ impl Backend for NativeBackend {
     ) -> Result<String> {
         if decision.runtime == "ollama" {
             crate::ollama::conversation(&decision.model, prompt, cfg, output)
-        } else if executor::native::enabled(cfg)? {
+        } else if executor::native::enabled(cfg, &decision.runtime)? {
             executor::native::conversation(decision, prompt, cfg)
         } else {
             executor::conversation(decision, prompt, cfg, output)
@@ -107,7 +107,7 @@ impl Backend for NativeBackend {
                 s.id = None;
             }
             self.respond(decision, prompt, cfg, output)
-        } else if executor::native::enabled(cfg)? {
+        } else if executor::native::enabled(cfg, &decision.runtime)? {
             executor::native::conversation_with_session(decision, prompt, cfg, session)
         } else {
             executor::conversation_resumable(decision, prompt, cfg, output, session)
@@ -868,18 +868,23 @@ pub fn run_loop(
             }
             output.flush()?;
             // Persist the input before launching a child; failures never become assistant context.
-            if let Some(model) = replaces.take() {
-                session.begin_replacing(&message, &decision.model)?;
+            let replaced = replaces.take();
+            session.begin_routed(
+                &message,
+                &decision.model,
+                replaced.is_some(),
+                &why,
+                note.is_some(),
+            )?;
+            if let Some(model) = replaced {
                 writeln!(output, "{model}'s answer is kept in the log as replaced. Any files it changed stay changed.")?;
-            } else {
-                session.begin(&message, &decision.model)?;
             }
             unanswered = Some(message.clone());
             attempted.push(decision.model.clone());
             // Track the session for `nectra usage` even when it won't be resumed.
             let keep = executor::ProviderSession::supported(&decision.runtime)
                 .then_some(&mut turn_session);
-            let response = if decision.runtime != "ollama" && executor::native::enabled(cfg)? {
+            let response = if executor::native::enabled(cfg, &decision.runtime)? {
                 backend.respond_session(&decision, &prompt, cfg, output, keep)
             } else {
                 let activity = crate::activity::Activity::start(&decision.model);
@@ -894,6 +899,10 @@ pub fn run_loop(
                     successful_models.insert(decision.model.clone());
                     session.complete_in(&reply, turn_session.id.as_deref())?;
                     unanswered = None;
+                    // Real chats only: a test run (no cooldown state) never reads real logs.
+                    if cooldown_state.is_some() {
+                        cost_line(session, output)?;
+                    }
                     provider_session = turn_session
                         .id
                         .filter(|_| resumable)
@@ -1043,6 +1052,27 @@ fn handoff_note(
             Ok(None)
         }
     }
+}
+
+/// The chat's running API-equivalent cost, beside the same tokens at the baseline's prices.
+fn cost_line(session: &Session, output: &mut dyn Write) -> Result<()> {
+    let Ok(logs) = crate::usage::Logs::default_paths() else {
+        return Ok(());
+    };
+    let base = crate::usage::BASELINE;
+    // Best effort: a provider log that can't be read never fails the turn.
+    if let Ok(Some((cost, at_base))) =
+        crate::usage::chat_cost(&logs, &session.provider_sessions, base)
+    {
+        let usd = crate::usage::usd;
+        let compare = if (at_base - cost).abs() > 0.0005 {
+            format!("; the same tokens at {base} prices: {}", usd(at_base))
+        } else {
+            String::new()
+        };
+        writeln!(output, "This chat: {} at API prices{compare}.", usd(cost))?;
+    }
+    Ok(())
 }
 
 /// Deliberately narrow leading directives: mentioning a model in a task is not a pin.

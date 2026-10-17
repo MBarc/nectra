@@ -24,7 +24,7 @@ FLAGS = {
                                   "--dangerously-bypass-approvals-and-sandbox", "read-only"],
     ("codex", "exec", "resume", "--help"): ["--model", "--config", "--json"],
     ("codex", "--help"): ["--ask-for-approval", "on-request", "--no-alt-screen", "--config"],
-    ("gemini", "--help"): ["--model", "--output-format", "stream-json", "--approval-mode", "--prompt-interactive"],
+    ("gemini", "--help"): ["--model", "--output-format", "stream-json", "--approval-mode"],
 }
 results = []
 
@@ -73,13 +73,6 @@ def contract(nectra, providers, cfg):
     if "openai" in providers:
         code, out = run(["codex", "mcp", "list", "-c", f'mcp_servers.{probe}={{command="nectra-probe"}}'])
         check("Codex takes an MCP server with --config at launch", probe in out, last_lines(out))
-    if "google" in providers:
-        d = tempfile.mkdtemp(prefix="nectra-compat-gemini-")
-        path = os.path.join(d, "settings.json")
-        json.dump({"mcpServers": {probe: {"command": "nectra-probe"}}}, open(path, "w"))
-        code, out = run(["gemini", "mcp", "list"], env={"GEMINI_CLI_SYSTEM_DEFAULTS_PATH": path})
-        # Nectra installs Gemini's terminal-view hooks through this file.
-        check("Gemini loads a Nectra-written system defaults file", probe in out, last_lines(out))
 
 
 # ---- live checks --------------------------------------------------------------------
@@ -216,7 +209,9 @@ def main():
             subprocess.run(["git", "init", "-q", work], check=False)
         for provider in providers:
             live_stream(args.nectra, cfg, work, provider)
-            live_terminal(args.nectra, cfg, work, provider)
+            # Gemini has no terminal view (src/executor/native.rs `enabled`).
+            if provider != "google":
+                live_terminal(args.nectra, cfg, work, provider)
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed")
     sys.exit(1 if failed else 0)

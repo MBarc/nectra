@@ -50,7 +50,13 @@ pub enum ProviderView {
     Stream,
 }
 
-pub fn enabled(cfg: &Config) -> Result<bool> {
+/// Whether this runtime's turn runs in the provider's own terminal.
+/// Ollama has none. Gemini CLI 0.64+ loads per-launch settings, and so Nectra's
+/// hooks, only from admin-owned files, so its turns use stream view.
+pub fn enabled(cfg: &Config, runtime: &str) -> Result<bool> {
+    if matches!(runtime, "ollama" | "gemini") {
+        return Ok(false);
+    }
     let interactive = io::stdin().is_terminal()
         && io::stdout().is_terminal()
         && std::env::var("TERM").ok().as_deref() != Some("dumb");

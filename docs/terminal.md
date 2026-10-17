@@ -54,7 +54,9 @@ nectra --provider-view stream
 otherwise use structured streams. `terminal` requires an interactive terminal at
 least 20 columns by 8 rows. `stream` retains the previous inline answer display and
 Nectra's status spinner. Ollama always uses its HTTP stream; it has no native CLI
-subterminal to embed.
+subterminal to embed. Gemini CLI always uses stream view too: since 0.64 it loads
+per-launch settings only from administrator-owned files, so Nectra can't install
+the hooks that capture its replies in a terminal.
 
 During CLI-backed chat in stream view, **Ctrl+C** cancels the current turn and
 returns to the chat prompt. Partial output is neither saved as a completed reply

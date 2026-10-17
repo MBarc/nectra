@@ -338,8 +338,9 @@ fn strip_comments(text: &str) -> String {
     out
 }
 
-/// Adds every shareable server to each installed CLI that lacks it, through the
-/// CLI's own `mcp add`. Values are written to that CLI's config, as it would.
+/// Adds every shareable server to each installed CLI that lacks it. Nectra writes
+/// the CLI's config itself rather than running its `mcp add`, which takes
+/// environment values as arguments that other users can read in the process list.
 pub fn sync(home: &Path, cfg: &crate::config::Config) -> Result<Vec<String>> {
     let servers = scan(home)?;
     let mut done = vec![];
@@ -352,45 +353,69 @@ pub fn sync(home: &Path, cfg: &crate::config::Config) -> Result<Vec<String>> {
             continue; // not installed
         }
         for (name, server) in servers.missing(cli) {
-            let env = server.env.iter().map(|(k, v)| format!("{k}={v}"));
-            let flag = if cli == "codex" { "--env" } else { "-e" };
-            let env: Vec<String> = env.flat_map(|e| [flag.to_string(), e]).collect();
-            let mut args: Vec<String> = vec!["mcp".into(), "add".into()];
-            match cli {
-                "claude" => {
-                    args.extend(["-s".into(), "user".into(), name.into()]);
-                    args.extend(env);
-                    args.extend(["--".into(), server.command.clone()]);
-                }
-                "codex" => {
-                    args.push(name.into());
-                    args.extend(env);
-                    args.extend(["--".into(), server.command.clone()]);
-                }
-                _ => {
-                    args.extend([
-                        "-s".into(),
-                        "user".into(),
-                        name.into(),
-                        server.command.clone(),
-                    ]);
-                    args.extend(env);
-                    args.push("--".into());
-                }
-            }
-            args.extend(server.args.iter().cloned());
-            let status = crate::executor::launch(command)?
-                .args(&args)
-                .stdout(std::process::Stdio::null())
-                .status()
-                .with_context(|| format!("running {cli} mcp add"))?;
-            if !status.success() {
-                anyhow::bail!("{cli} mcp add {name} failed ({status})");
-            }
+            add(home, cli, name, server)?;
             done.push(format!("{name} -> {cli}"));
         }
     }
     Ok(done)
+}
+
+/// Adds one server to a CLI's user config, as its own `mcp add` would.
+fn add(home: &Path, cli: &str, name: &str, server: &Server) -> Result<()> {
+    if cli == "codex" {
+        let path = config_file(home, "CODEX_HOME", ".codex", "config.toml");
+        let mut text = read(&path)?.unwrap_or_default();
+        let table = json!({"mcp_servers": {name: {
+            "command": server.command, "args": server.args, "env": server.env,
+        }}});
+        // Appended, so the user's comments and layout stay as they are.
+        if !text.is_empty() && !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text += &format!("\n{}", toml::to_string(&table)?);
+        toml::from_str::<toml::Value>(&text)
+            .with_context(|| format!("adding {name} to {}", path.display()))?;
+        return replace(&path, &text);
+    }
+    let path = if cli == "claude" {
+        config_file(home, "CLAUDE_CONFIG_DIR", "", ".claude.json")
+    } else {
+        config_file(home, "GEMINI_CLI_HOME", "", ".gemini/settings.json")
+    };
+    let text = read(&path)?.unwrap_or_else(|| "{}".into());
+    if strip_comments(&text) != text {
+        anyhow::bail!(
+            "{} has comments, which rewriting it would lose; add {name} with `{cli} mcp add`",
+            path.display()
+        );
+    }
+    let mut config: Value =
+        serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+    let mut entry = json!({"command": server.command, "args": server.args, "env": server.env});
+    if cli == "claude" {
+        entry["type"] = "stdio".into();
+    }
+    config
+        .as_object_mut()
+        .with_context(|| format!("{} is not a JSON object", path.display()))?
+        .entry("mcpServers")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .context("mcpServers is not an object")?
+        .insert(name.into(), entry);
+    // ponytail: a Claude session that rewrites ~/.claude.json from memory can drop
+    // the server again, as it can after `claude mcp add`; rerun --sync if so.
+    replace(&path, &serde_json::to_string_pretty(&config)?)
+}
+
+/// Writes through a temporary file, so a failed write can't truncate the config.
+fn replace(path: &Path, text: &str) -> Result<()> {
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    let tmp = path.with_extension("nectra-tmp");
+    fs::write(&tmp, text).with_context(|| format!("writing {}", tmp.display()))?;
+    fs::rename(&tmp, path).with_context(|| format!("replacing {}", path.display()))
 }
 
 pub fn render(servers: &Servers) -> String {
@@ -548,5 +573,35 @@ mod tests {
         assert_eq!(c.env["REF"], "k1");
         assert_eq!(c.env["U"], "${NECTRA_TEST_UNSET}");
         assert_ne!(env_name("foo-bar", "T"), env_name("foo_bar", "T"));
+    }
+
+    #[test]
+    fn sync_writes_each_config_so_the_cli_reads_the_server_back() {
+        let home = tempfile::tempdir().unwrap();
+        let home = home.path();
+        fs::create_dir_all(home.join(".codex")).unwrap();
+        fs::write(home.join(".codex/config.toml"), "# mine\nmodel = \"x\"").unwrap();
+        fs::write(home.join(".claude.json"), r#"{"numStartups": 3}"#).unwrap();
+        let server = Server {
+            command: r"C:\mcp\gh.exe".into(),
+            args: vec!["--a=\"q\"".into()],
+            env: [("TOKEN".to_string(), "s3cret".to_string())].into(),
+        };
+        for cli in ["claude", "codex", "gemini"] {
+            add(home, cli, "gh", &server).unwrap();
+        }
+        let codex = fs::read_to_string(home.join(".codex/config.toml")).unwrap();
+        assert!(codex.starts_with("# mine\nmodel = \"x\"\n"));
+        let claude: Value =
+            serde_json::from_str(&fs::read_to_string(home.join(".claude.json")).unwrap()).unwrap();
+        assert_eq!(claude["numStartups"], 3);
+        let servers = scan(home).unwrap();
+        for cli in ["claude", "codex", "gemini"] {
+            assert!(servers.names[cli].contains(&"gh".to_string()), "{cli}");
+        }
+        assert_eq!(servers.shared["gh"].1, server);
+
+        fs::write(home.join(".gemini/settings.json"), "{ // mine\n}").unwrap();
+        assert!(add(home, "gemini", "gh", &server).is_err());
     }
 }

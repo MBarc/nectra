@@ -142,7 +142,8 @@ pub enum Commands {
     Models,
     /// Evaluate task classification against a local JSON corpus (uses Jev when TYPESAFE_API_KEY is set).
     Eval { corpus: PathBuf },
-    /// Tokens per model across your Nectra chats, from the providers' own logs.
+    /// Tokens and API-equivalent cost per model across your Nectra chats, from
+    /// the providers' own logs.
     Usage {
         /// Only chats active in the last N days.
         #[arg(long)]
@@ -153,6 +154,12 @@ pub enum Commands {
         /// Count one chat only: a session file from `/session`.
         #[arg(long)]
         session: Option<PathBuf>,
+        /// Also count Claude Code and Codex sessions you ran without Nectra, to compare.
+        #[arg(long)]
+        direct: bool,
+        /// Price the same tokens at this model's rates, for comparison.
+        #[arg(long, default_value = crate::usage::BASELINE)]
+        baseline: String,
     },
     /// Which provider CLI has each of your MCP servers. Nectra shares local
     /// servers with Claude and Codex when it launches them.

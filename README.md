@@ -149,15 +149,17 @@ number and its caveats in
 [`eval/chat-savings/RESULTS.md`](eval/chat-savings/RESULTS.md), and rerun it on
 your own accounts with `eval/chat-savings/run.py`.
 
-To see your own spend: `nectra usage --days 7`, or `nectra usage --session FILE`
-for one chat.
+After each answer, chat shows what the conversation has cost so far at API
+prices, next to what the same tokens would cost at Opus prices. For your own
+numbers over time, see `nectra usage` below.
 
 ## The real CLIs, not imitations
 
-Claude Code, Codex and Gemini CLI run in a real terminal (ConPTY on Windows), so
+Claude Code and Codex run in a real terminal (ConPTY on Windows), so
 you get their actual interface: colors, tool output and approval prompts. Nectra
 shows a compact activity view while they work. Press F2 to see the full terminal
-and answer an approval.
+and answer an approval. Gemini CLI runs in stream view for now: since 0.64 it
+won't load the per-launch hooks Nectra's terminal view needs.
 
 ## It keeps going when a provider hits a limit
 
@@ -238,13 +240,26 @@ current directory, and `nectra chat --resume FILE` opens a specific one.
 Codex's own session logs:
 
 ```text
-MODEL             TURNS  SESSIONS        INPUT   CACHE READ  CACHE WRITE     OUTPUT
-gpt-5.6-luna          2         1         4379        26112            0        246
-sonnet                2         1            4        38053        35868          8
+MODEL             TURNS  SESSIONS        INPUT   CACHE READ  CACHE WRITE     OUTPUT      COST
+gpt-5.6-luna         12         6        40917       260608            0       1415    $0.015
+haiku                 7         3           10       203540        66788        211    $0.015
+sonnet                2         1            4        38053        35868          8     $0.15
+total                                    40931       502201       102656       1634     $0.18
+COST is API-equivalent: list prices for the same tokens. Plans don't bill per token.
+The same tokens at opus prices: $1.12, so routing cost 16% of that.
+1 model switches (0 with a handoff note), 0 /again retries.
 ```
 
-Two turns in one session means the follow-up resumed instead of starting over.
-Add `--days 7` for a week, or `--json` for scripts.
+More turns than sessions means follow-ups resumed instead of starting over.
+Add `--days 14` for two weeks, `--baseline gpt-5.6-sol` to compare against
+another model, or `--json` for scripts.
+
+`--direct` adds the Claude Code and Codex sessions you ran without Nectra, and
+the cost per turn of each. Use Nectra for some of your work and the CLIs
+directly for the rest, then compare `nectra usage --days 14 --direct`. The tasks
+differ, so treat the comparison as rough. Plans don't publish how much each
+model draws from them, so the costs are list prices for the same tokens, not
+quota.
 
 Claude Code, Codex and Gemini CLI each read skills from different folders:
 Claude from `.claude/skills`, Codex from `.agents/skills` and `.codex/skills`,
@@ -378,7 +393,17 @@ their login screen.
 
 Only as much as the provider CLI would on its own. Their approval prompts still
 appear. `--dangerously-skip-permissions` turns them off for one launch, and it's
-never saved.
+never saved. Interrupted turns and `/again` don't undo file changes, so keep
+your work in git. [What Nectra does on your machine](docs/trust.md) lists
+everything it reads, writes and sends.
+
+### Is this allowed by my providers' terms?
+
+Nectra runs each provider's own CLI under your own login, the way you would
+yourself, and never touches your credentials. The terms still differ by
+provider, and Anthropic's restrict scripted use of Pro and Max plans; see
+[provider terms](docs/trust.md#provider-terms). Use it for your own
+subscriptions, not to share them.
 
 ### Which platforms?
 
@@ -389,6 +414,7 @@ anything that breaks there.
 ## More reading
 
 - [Reference](docs/reference.md): every command, flag and setting.
+- [Trust](docs/trust.md): what Nectra reads, writes and sends, and provider terms.
 - [Routing](docs/routing.md): how task types map to model roles.
 - [Terminal guide](docs/terminal.md): the embedded terminals and their controls.
 - [Local models](docs/local-providers.md): setting up Ollama.

@@ -393,7 +393,7 @@ pub fn session_arguments(
 }
 
 pub fn execute(d: &Decision, prompt: &str, cfg: &Config) -> Result<i32> {
-    if d.runtime != "ollama" && native::enabled(cfg)? {
+    if native::enabled(cfg, &d.runtime)? {
         native::conversation(d, &native::one_shot_context(prompt), cfg)?;
         return Ok(0);
     }

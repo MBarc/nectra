@@ -93,7 +93,7 @@ Start `nectra chat`, or just `nectra` in an interactive terminal. Keep typing in
 one conversation; Nectra routes each new message among enabled profiles whose
 CLI is installed or whose Ollama connection is configured. The chosen model is displayed above its reply.
 Each chat opens with a Nectra ASCII-art banner and the installed version.
-In an interactive terminal, Claude, Codex and Gemini run behind a compact activity
+In an interactive terminal, Claude and Codex run behind a compact activity
 view that clears before displaying the final answer once. F2 reveals the full native
 terminal, including tool output, errors and approval prompts. Typing queues messages in the main thread;
 press F2 to interact with provider approvals and F2 again to return to queuing.
@@ -106,7 +106,8 @@ Use `nectra --provider-view stream` for the previous structured streaming view,
 which retains Nectra's elapsed-time activity indicator and automatic pre-work
 failover. Redirected input/output selects this view automatically. Explicit
 `--provider-view terminal` requires an interactive terminal. Ollama uses its HTTP
-stream and Nectra activity indicator because it has no child terminal UI.
+stream and Nectra activity indicator because it has no child terminal UI. Gemini
+CLI uses stream view too; see [the terminal guide](terminal.md#choosing-a-view).
 See [the terminal guide](terminal.md) for controls and compatibility details.
 Automatic routing may choose the same model for several turns when its policy
 score remains highest. You can switch models without losing the conversation.
@@ -166,16 +167,20 @@ turn with a visible explanation; `/model auto` restores normal routing preferenc
 
 Limited models are skipped during a cooldown; account/usage-limit errors cool down
 the provider. `/models` shows remaining cooldowns. Structured retry delays/reset times
-are honored (up to 24 hours), otherwise the cooldown is 60 seconds. Cooldowns are
-local to the running chat and reset on restart. If all eligible models are limited,
+are honored (up to 24 hours), otherwise the cooldown is one hour for an exhausted
+usage limit and 60 seconds for other limits. Cooldowns are saved to
+`cooldowns.json` in the local data directory, so a restarted chat still skips a
+limited model until its cooldown expires. If all eligible models are limited,
 chat stays open and you can send again later. Requests that already streamed activity
 are never automatically replayed. Detection uses structured CLI error events; opaque
 stderr-only errors still require manual recovery. This is reactive failover, not live
 quota forecasting, and does not change one-shot execution.
 
-Nectra owns the shared transcript and sends it with the current message on every
-turn. This works across providers without depending on their private session
-formats. Only successful final answers enter shared context; raw tool output and
+Nectra owns the shared transcript. While one model keeps a task, Nectra resumes
+that model's own session (Claude and Codex) and sends only the new message. When
+another model takes over, it gets the outgoing model's handoff note with up to
+16 KiB of the transcript, or the transcript alone when there is no note. Gemini
+and Ollama get the transcript every turn. Only successful final answers enter shared context; raw tool output and
 hidden provider state do not. In terminal view, per-launch provider hooks or
 notifications capture completed replies separately from screen redraws. Follow-ups
 typed within a provider UI stay with that provider until you return to Nectra;
@@ -247,6 +252,7 @@ cat task.txt | nectra run --stdin
 nectra config --print
 nectra models
 nectra eval eval/tasks.json
+nectra usage --days 14 --direct
 ```
 
 In PowerShell use `Get-Content -Raw task.txt | nectra route --stdin`.
@@ -254,6 +260,18 @@ Place Nectra flags before prompt text. Use `--stdin` for multiline text or text
 starting with a dash. Empty prompts and conflicting positional/stdin inputs fail.
 `route` and `--dry-run` print JSON and never launch a model.
 `--explain` writes a brief explanation to stderr and **still executes**.
+
+`nectra usage` reads the provider session ids Nectra saves with each turn and
+totals the tokens from Claude Code's and Codex's own logs. It prices them at the
+list prices in `eval/chat-savings/prices.json`, and compares that with the same
+tokens at `--baseline` prices (Opus by default). Each chat turn's log record also
+notes why the router chose the model, whether it took over with a handoff note,
+and whether it was an `/again` retry. `--json` includes those counts per model.
+`--direct` adds Claude Code and Codex sessions that no Nectra chat recorded. Chat
+prints the same running cost after each answer. Gemini and Ollama turns have no
+token data. Claude Code subagent logs aren't counted on either side. On Windows,
+a chat open in another Nectra is locked and left out. Chat logs that record
+routing can't be resumed by Nectra 0.4.4 or older.
 
 ## Routing policy
 
@@ -372,9 +390,11 @@ cargo run --locked -- eval eval/tasks.json
 cargo build --release --locked
 ```
 
-Commit `Cargo.lock` for reproducible dependency resolution. CI covers Windows,
-Linux and macOS. Tag-based release automation builds Windows x64, Linux x64,
-and macOS Intel/Apple Silicon archives with SHA-256 sidecars after validation.
+Commit `Cargo.lock` for reproducible dependency resolution. The repository has
+GitHub Actions workflows for CI, tagged releases and a daily check against the
+latest provider CLIs, but Actions is not running on this repository yet.
+Releases are currently built by hand: Windows x64, Linux x64 and macOS Intel and
+Apple Silicon archives, each with a SHA-256 sidecar.
 
 Install scripts download from `MBarc/nectra` unless `NECTRA_REPO=owner/repository`
 names a fork, and take an optional `NECTRA_VERSION=v0.3.0`. They reject

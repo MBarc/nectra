@@ -722,6 +722,30 @@ fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
         output.contains("gpt-5.6-sol (openai) · ") && output.contains(" · pinned with /model> ")
     );
     assert!(output.contains("Switched from opus, which wrote gpt-5.6-sol a handoff note"));
+    // The log keeps how each turn was routed, for `nectra usage`.
+    let path = session.path.clone();
+    drop(session);
+    let users: Vec<serde_json::Value> = fs::read_to_string(&path)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap())
+        .filter(|r| r["type"] == "user")
+        .collect();
+    assert!(users[0]["why"]
+        .as_str()
+        .unwrap()
+        .ends_with(" · pinned with /model"));
+    assert_eq!(users[0].get("handoff"), None);
+    assert_eq!(users[1]["handoff"], true);
+    let resumed = Session::resume(&path, dir.path()).unwrap();
+    assert_eq!(
+        resumed
+            .provider_sessions
+            .iter()
+            .map(|(m, _)| m.as_str())
+            .collect::<Vec<_>>(),
+        ["opus", "gpt-5.6-sol"]
+    );
 }
 
 #[test]

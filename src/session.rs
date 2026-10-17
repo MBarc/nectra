@@ -52,6 +52,12 @@ enum Event {
         /// but leaves the context. One record, so a crash can't split the two.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         replaces: bool,
+        /// Why the router chose the model, as shown above the answer; for `nectra usage`.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        why: String,
+        /// The model took over with the previous model's handoff note.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        handoff: bool,
     },
     Assistant {
         text: String,
@@ -78,6 +84,8 @@ pub struct Session {
     /// (model, provider session id) behind the last saved answer, so a resumed
     /// chat continues that agent's own session instead of replaying the log.
     pub provider_session: Option<(String, String)>,
+    /// Every (model, provider session id) this chat has used, for its running cost.
+    pub provider_sessions: Vec<(String, String)>,
     file: File,
     pending: Option<(String, String)>,
 }
@@ -107,6 +115,7 @@ impl Session {
             interrupted: None,
             last_failed: None,
             provider_session: None,
+            provider_sessions: vec![],
             file,
             pending: None,
         };
@@ -206,6 +215,7 @@ impl Session {
             interrupted: None,
             last_failed: None,
             provider_session: None,
+            provider_sessions: vec![],
             pending: None,
         };
         for line in lines {
@@ -214,6 +224,7 @@ impl Session {
                     text,
                     model,
                     replaces,
+                    ..
                 } => {
                     if session.pending.is_some() {
                         bail!("session contains overlapping turns");
@@ -235,6 +246,7 @@ impl Session {
                         .pending
                         .take()
                         .context("assistant record without a user turn")?;
+                    session.used(&model, provider_session.as_deref());
                     session.provider_session = provider_session.map(|id| (model.clone(), id));
                     session.last_failed = None;
                     session.exchanges.push(Exchange {
@@ -243,12 +255,15 @@ impl Session {
                         model,
                     });
                 }
-                Event::Failed { .. } => {
+                Event::Failed {
+                    provider_session, ..
+                } => {
                     session.provider_session = None;
-                    let (text, _) = session
+                    let (text, model) = session
                         .pending
                         .take()
                         .context("failure without a user turn")?;
+                    session.used(&model, provider_session.as_deref());
                     session.last_failed = Some(text);
                 }
                 Event::Clear => {
@@ -286,13 +301,21 @@ impl Session {
         Ok(())
     }
     pub fn begin(&mut self, text: &str, model: &str) -> Result<()> {
-        self.begin_turn(text, model, false)
+        self.begin_routed(text, model, false, "", false)
     }
     /// `begin` for a turn that replaces the last answer (`/again`).
     pub fn begin_replacing(&mut self, text: &str, model: &str) -> Result<()> {
-        self.begin_turn(text, model, true)
+        self.begin_routed(text, model, true, "", false)
     }
-    fn begin_turn(&mut self, text: &str, model: &str, replaces: bool) -> Result<()> {
+    /// `begin`, recording how the turn was routed for `nectra usage`.
+    pub fn begin_routed(
+        &mut self,
+        text: &str,
+        model: &str,
+        replaces: bool,
+        why: &str,
+        handoff: bool,
+    ) -> Result<()> {
         if self.pending.is_some() {
             bail!("previous turn is still pending");
         }
@@ -303,6 +326,8 @@ impl Session {
             text: text.into(),
             model: model.into(),
             replaces,
+            why: why.into(),
+            handoff,
         })?;
         if replaces {
             self.exchanges.pop();
@@ -321,6 +346,7 @@ impl Session {
             text: text.into(),
             provider_session: provider_session.map(String::from),
         })?;
+        self.used(&model, provider_session);
         self.pending = None;
         self.last_failed = None;
         self.exchanges.push(Exchange {
@@ -342,8 +368,18 @@ impl Session {
             error: error.into(),
             provider_session: provider_session.map(String::from),
         })?;
-        self.last_failed = self.pending.take().map(|(text, _)| text);
+        let (text, model) = self.pending.take().context("no pending turn")?;
+        self.used(&model, provider_session);
+        self.last_failed = Some(text);
         Ok(())
+    }
+    fn used(&mut self, model: &str, provider_session: Option<&str>) {
+        if let Some(id) = provider_session {
+            let entry = (model.to_string(), id.to_string());
+            if !self.provider_sessions.contains(&entry) {
+                self.provider_sessions.push(entry);
+            }
+        }
     }
     pub fn clear(&mut self) -> Result<()> {
         self.append(&Event::Clear)?;
