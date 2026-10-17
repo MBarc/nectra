@@ -381,6 +381,22 @@ fn resume_recovers_partial_tail_and_does_not_replay_interrupted_work() {
     );
 }
 #[test]
+fn an_interrupted_turn_is_not_resumed_into() {
+    let (dir, _, _) = fixture();
+    let path = dir.path().join("crash.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    session.begin("first", "opus").unwrap();
+    session.complete_in("answer", Some("s1")).unwrap();
+    drop(session);
+    let mut session = Session::resume(&path, dir.path()).unwrap();
+    assert_eq!(session.provider_session, Some(("opus".into(), "s1".into())));
+    // A crash mid-turn may have left unsaved work in s1.
+    session.begin("second", "opus").unwrap();
+    drop(session);
+    let session = Session::resume(&path, dir.path()).unwrap();
+    assert_eq!(session.provider_session, None);
+}
+#[test]
 fn session_refuses_overwrite_concurrent_access_and_wrong_directory() {
     let (dir, _, _) = fixture();
     let path = dir.path().join("locked.jsonl");

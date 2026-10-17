@@ -182,7 +182,14 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
     };
     // Both replace the configured permissions with their own.
     let override_permissions = cfg.skip_permissions || cfg.read_only;
-    let mut extras = runtime.extra_args.iter();
+    // Any extra argument could reopen a tool surface (`--mcp-config` adds servers
+    // that `--strict-mcp-config` then keeps), so a read-only Claude launch takes none.
+    let extras: &[String] = if cfg.read_only && d.runtime == "claude" {
+        &[]
+    } else {
+        &runtime.extra_args
+    };
+    let mut extras = extras.iter();
     while let Some(arg) = extras.next() {
         let flag = arg.split('=').next().unwrap_or(arg);
         if override_permissions

@@ -246,6 +246,9 @@ impl Session {
         session.file.seek(SeekFrom::End(0))?;
         if let Some((text, _)) = &session.pending {
             session.interrupted = Some(text.clone());
+            // The interrupted turn may have resumed that session and left unsaved
+            // work in it; the next turn starts fresh.
+            session.provider_session = None;
             session.fail("interrupted before a complete answer was saved")?;
         }
         Ok(session)

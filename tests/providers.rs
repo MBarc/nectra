@@ -42,7 +42,12 @@ fn permissions_are_translated_per_runtime_and_never_persisted() {
 fn a_read_only_launch_drops_every_configured_permission() {
     let mut cfg = Config::from_defaults().unwrap();
     cfg.inner.providers = Some(vec!["anthropic".into(), "openai".into()]);
-    cfg.inner.claude.extra_args = vec!["--permission-mode".into(), "acceptEdits".into()];
+    cfg.inner.claude.extra_args = vec![
+        "--permission-mode".into(),
+        "acceptEdits".into(),
+        "--mcp-config".into(),
+        "servers.json".into(),
+    ];
     cfg.inner.codex.extra_args = vec!["--sandbox".into(), "workspace-write".into()];
     cfg.skip_permissions = true;
     cfg.read_only = true;
@@ -75,6 +80,7 @@ fn a_read_only_launch_drops_every_configured_permission() {
         assert!(
             !args.iter().any(|a| a.contains("dangerously")
                 || a.contains("acceptEdits")
+                || a.contains("servers.json")
                 || a.contains("workspace-write")),
             "{args:?}"
         );
