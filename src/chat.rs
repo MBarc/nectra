@@ -607,9 +607,11 @@ pub fn run_loop(
             options.mode,
             classification.tier,
         ) == "demanding";
+        // Consumed every message, so a /mode before a new task doesn't linger.
+        let rerouted = std::mem::take(&mut reroute);
         let continuing = cfg.inner.routing.sticky
             && classification.new_task == Some(false)
-            && !std::mem::take(&mut reroute)
+            && !rerouted
             && !demanding;
         let last_model = previous.map(|e| e.model.clone());
         loop {

@@ -726,3 +726,27 @@ fn mode_best_escapes_a_sticky_cheap_model() {
     // /mode best it routes afresh to the strong coder.
     assert_eq!(backend.models, ["gpt-5.6-luna", "gpt-5.6-sol"]);
 }
+
+#[test]
+fn a_mode_change_before_a_new_task_does_not_unstick_its_follow_up() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("stale.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        ChatOptions {
+            mode: Mode::Balanced,
+            ..options()
+        },
+        &mut session,
+        &mut Cursor::new(
+            "hello\n/mode best\ncomplex end to end rewrite of the scheduler code\nnow do that again\n/quit\n",
+        ),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    // /mode applied to the new task (Astra); its follow-up stays there.
+    assert_eq!(backend.models[2], backend.models[1], "{:?}", backend.models);
+}

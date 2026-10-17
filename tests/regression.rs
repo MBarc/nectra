@@ -515,4 +515,24 @@ fn demanding_work_goes_to_the_strongest_model_when_no_role_catches_it() {
     };
     assert_eq!(route("complex end to end rewrite of the scheduler"), "opus");
     assert_eq!(route("fix the failing test in parser.rs"), "sonnet");
+    // Jev's ordinary role must not hand demanding work back to sonnet.
+    let jev = nectra::jev::Classification {
+        task: classifier::TaskType::General,
+        req: classifier::requirements(classifier::TaskType::General),
+        tier: Some(nectra::jev::Tier::Demanding),
+        why: "test".into(),
+        new_task: None,
+        role: Some("general".into()),
+    };
+    let d = router::route_with(
+        jev,
+        "weigh these designs",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(d.model, "opus", "{}", d.reason);
 }

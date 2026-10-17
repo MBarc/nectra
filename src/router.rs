@@ -125,19 +125,17 @@ pub fn route_with(
     // Demanding work that no model claims is scored for capability alone, so a
     // registry without a demanding model sends it to its strongest one (Opus
     // when only Claude is set up), never the cheap coder or the balanced pick.
-    let scoring = if demanding
+    // An ordinary role (Jev's "general", say) must not hand its bonus back to
+    // the balanced pick.
+    let unclaimed = demanding
         && !eligible
             .iter()
-            .any(|m| policy::claims(m, role, declarative))
-    {
-        Mode::Best
-    } else {
-        mode
-    };
+            .any(|m| policy::claims(m, "demanding", declarative));
+    let scoring = if unclaimed { Mode::Best } else { mode };
     let mut candidates: Vec<_> = eligible
         .into_iter()
         .map(|m| {
-            let bonus = if policy::claims(m, role, declarative) {
+            let bonus = if !unclaimed && policy::claims(m, role, declarative) {
                 0.30
             } else {
                 0.0

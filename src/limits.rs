@@ -84,15 +84,18 @@ impl RateLimited {
         // Scope comes from the provider's own type and message. A sibling
         // account_id field is metadata, not a statement that every model of
         // this provider is exhausted.
-        let provider_wide = [
+        let says = |s: &&str| kind.contains(s) || lower.contains(s);
+        // An exhausted plan or spend cap lasts hours; an organization's
+        // per-minute rate limit is provider-wide but clears within a minute.
+        let exhausted = [
             "usage_limit",
             "usage limit",
             "spend_limit",
-            "organization",
             "hit your limit",
         ]
         .iter()
-        .any(|s| kind.contains(s) || lower.contains(s));
+        .any(says);
+        let provider_wide = exhausted || says(&"organization");
         let seconds = event["retry_after"]
             .as_u64()
             .or_else(|| event["error"]["retry_after"].as_u64())
@@ -109,7 +112,7 @@ impl RateLimited {
             // ponytail: a plan's usage limit lasts hours and Codex states its reset
             // as a local clock time ("try again at 10:53 PM"), which needs a
             // time-zone library to parse; re-probing hourly beats every minute.
-            .unwrap_or(if provider_wide { 3600 } else { 60 })
+            .unwrap_or(if exhausted { 3600 } else { 60 })
             .clamp(1, 86400);
         Some(Self {
             message,
@@ -148,6 +151,24 @@ mod tests {
         )
         .expect("rate limit should be detected");
         assert!(!limit.provider_wide);
+    }
+
+    #[test]
+    fn only_an_exhausted_plan_cools_down_for_an_hour() {
+        let cooldown = |message: &str| {
+            RateLimited::from_error(&serde_json::json!({ "message": message }), true)
+                .unwrap()
+                .retry_after
+                .as_secs()
+        };
+        assert_eq!(
+            cooldown("You've hit your usage limit. Try again at 10:53 PM."),
+            3600
+        );
+        assert_eq!(
+            cooldown("Rate limit reached for organization org-1 on tokens per min"),
+            60
+        );
     }
 
     #[test]
