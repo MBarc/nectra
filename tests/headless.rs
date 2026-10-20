@@ -142,7 +142,12 @@ fn fake_codex(args: &[String], prompt: &str) {
     let rollout = (!args.iter().any(|a| a == "--ephemeral")).then(|| {
         let dir = Path::new(&std::env::var("CODEX_HOME").unwrap()).join("sessions/2026/10/20");
         fs::create_dir_all(&dir).unwrap();
-        dir.join(format!("rollout-2026-10-20T08-00-00-{thread}.jsonl"))
+        let path = dir.join(format!("rollout-2026-10-20T08-00-00-{thread}.jsonl"));
+        if !path.exists() {
+            let meta = json!({"type":"session_meta","payload":{"id":thread}});
+            fs::write(&path, format!("{meta}\n")).unwrap();
+        }
+        path
     });
     // The thread's running total so far: the last one logged.
     let mut total = rollout
@@ -154,6 +159,7 @@ fn fake_codex(args: &[String], prompt: &str) {
                 .map(|l| serde_json::from_str::<Value>(l).unwrap())
         })
         .map(|e| e["payload"]["info"]["total_token_usage"].clone())
+        .filter(|t| !t.is_null())
         .unwrap_or(json!({"input_tokens":0,"cached_input_tokens":0,"output_tokens":0}));
     let mut call = |input: u64, cached: u64, output: u64| {
         for (k, v) in [
@@ -169,7 +175,8 @@ fn fake_codex(args: &[String], prompt: &str) {
                 .append(true)
                 .open(path)
                 .unwrap();
-            let context = json!({"type":"turn_context","payload":{"turn_id":"t","model":"gpt-5.6-luna"}});
+            let context =
+                json!({"type":"turn_context","payload":{"turn_id":"t","model":"gpt-5.6-luna"}});
             let count = json!({"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":total}}});
             writeln!(f, "{context}\n{count}").unwrap();
         }

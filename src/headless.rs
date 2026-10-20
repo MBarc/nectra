@@ -223,6 +223,10 @@ struct Rollout {
     total: Usage,
     model: Option<String>,
     counted: bool,
+    /// The running total before this attempt is known: zero on a new thread,
+    /// read from the log before a resumed one starts. Without it nothing is
+    /// counted from the log, which would include the thread's history.
+    based: bool,
 }
 
 /// Token usage as the providers report it, per call. Claude's result
@@ -255,9 +259,7 @@ impl Ledger {
         self.rollout = Rollout::default();
         if d.runtime == "codex" && logged {
             self.rollout.thread = Some(thread.unwrap_or_default().to_string());
-            if thread.is_some() {
-                self.read_rollout(d, false);
-            }
+            self.rollout.based = thread.is_none() || self.read_rollout(d, false);
         }
     }
     fn call(&mut self, d: &Decision, model: &str, tokens: Usage, complete: bool) -> usize {
@@ -366,32 +368,38 @@ impl Ledger {
         }
     }
     /// Counts the calls Codex has logged since the last read. With `count`
-    /// false, only takes the running total so far as the baseline.
-    fn read_rollout(&mut self, d: &Decision, count: bool) {
+    /// false, only takes the running total so far as the baseline. Whether
+    /// the log was read.
+    fn read_rollout(&mut self, d: &Decision, count: bool) -> bool {
         use std::io::{Read, Seek};
         let r = &mut self.rollout;
         let Some(thread) = r.thread.as_deref().filter(|t| !t.is_empty()) else {
-            return;
+            return false;
         };
+        if count && !r.based {
+            return false;
+        }
         if r.path.is_none() {
             // Codex writes the log as the thread starts; look at most every 2 s.
             if r.looked
                 .is_some_and(|t| t.elapsed() < Duration::from_secs(2))
             {
-                return;
+                return false;
             }
             r.looked = Some(Instant::now());
             r.path = usage::codex_rollout(thread);
         }
-        let Some(path) = &r.path else { return };
+        let Some(path) = &r.path else { return false };
         let mut text = vec![];
         let read = std::fs::File::open(path).and_then(|mut f| {
             f.seek(std::io::SeekFrom::Start(r.read))?;
             f.read_to_end(&mut text)
         });
         // Only whole lines; a line still being written is read next time.
-        let (Ok(_), Some(end)) = (read, text.iter().rposition(|&b| b == b'\n')) else {
-            return;
+        let end = match (read, text.iter().rposition(|&b| b == b'\n')) {
+            (Ok(_), Some(end)) => end,
+            (Ok(_), None) => return true,
+            (Err(_), _) => return false,
         };
         r.read += end as u64 + 1;
         let mut found = vec![];
@@ -421,6 +429,7 @@ impl Ledger {
         for (model, call) in found {
             self.call(d, &model, call, true);
         }
+        true
     }
     /// The attempt on `d` ended: reads what Codex logged last, and marks paid
     /// work whose count never arrived.
@@ -1166,7 +1175,8 @@ mod tests {
         let path = dir.path().join("rollout-x-thread-1.jsonl");
         // As Codex 0.162.1 writes it: the kind is the entry's, not the payload's.
         // The answering model differs from the routed one, which must not be used.
-        let context = json!({"type":"turn_context","payload":{"turn_id":"t","model":"gpt-5.6-sol"}});
+        let context =
+            json!({"type":"turn_context","payload":{"turn_id":"t","model":"gpt-5.6-sol"}});
         // Turn 1 as Codex 0.162.1 logged it: running totals after each call.
         std::fs::write(
             &path,
@@ -1181,7 +1191,7 @@ mod tests {
         l.begin(&d, Some("thread-1"), true);
         l.rollout.path = Some(path.clone());
         l.rollout.read = 0;
-        l.read_rollout(&d, false);
+        l.rollout.based = l.read_rollout(&d, false);
         // Turn 2 appends two calls; turn.completed repeats the thread's total.
         let more = rollout(&[
             context,
@@ -1208,7 +1218,64 @@ mod tests {
         );
         assert!(complete);
         assert_eq!(l.calls.len(), 2, "one entry per model call");
-        assert_eq!(l.models()[0].0.model, "gpt-5.6-sol", "the model that answered");
+        assert_eq!(
+            l.models()[0].0.model,
+            "gpt-5.6-sol",
+            "the model that answered"
+        );
+    }
+
+    #[test]
+    fn a_resumed_codex_thread_without_its_baseline_never_counts_history() {
+        let d = decision("codex", "gpt-5.6-luna");
+        let dir = tempfile::tempdir().unwrap();
+        let mut l = Ledger::default();
+        // The log can't be found as the attempt starts...
+        l.begin(&d, Some("019a0000-0000-7000-8000-00000000dead"), true);
+        // ...and turns up later, history and this turn's call together.
+        let path = dir
+            .path()
+            .join("rollout-x-019a0000-0000-7000-8000-00000000dead.jsonl");
+        std::fs::write(
+            &path,
+            rollout(&[counted(30697, 26368, 288), counted(46314, 41728, 513)]),
+        )
+        .unwrap();
+        l.rollout.path = Some(path);
+        l.observe(
+            &d,
+            &json!({"type":"item.completed","item":{"type":"agent_message"}}),
+        );
+        l.observe(&d, &json!({"type":"turn.completed","usage":{"input_tokens":46314,"cached_input_tokens":41728,"output_tokens":513}}));
+        l.finish(&d);
+        let (t, complete) = total(&l);
+        assert_eq!(t, Usage::default(), "history is never counted as this turn");
+        assert!(!complete, "this turn's usage is unknown");
+    }
+
+    #[test]
+    fn the_active_rollout_of_a_thread_is_found_by_its_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let id = "019a0000-0000-7000-8000-0000000000aa";
+        let meta = |id: &str| format!("{}\n", json!({"type":"session_meta","payload":{"id":id}}));
+        let day = dir.path().join("2026/10/20");
+        std::fs::create_dir_all(&day).unwrap();
+        let first = day.join(format!("rollout-2026-10-20T08-00-00-{id}.jsonl"));
+        std::fs::write(&first, meta(id)).unwrap();
+        assert_eq!(usage::codex_rollout_in(dir.path(), id), Some(first));
+        // `thread/revert` writes a new file for the same thread, with a suffix.
+        std::thread::sleep(Duration::from_millis(20));
+        let reverted = day.join(format!("rollout-2026-10-20T09-00-00-{id}_r2.jsonl"));
+        std::fs::write(&reverted, meta(id)).unwrap();
+        assert_eq!(usage::codex_rollout_in(dir.path(), id), Some(reverted));
+        // A file whose name matches but which logs another thread is not it.
+        let other = "019a0000-0000-7000-8000-0000000000bb";
+        std::fs::write(
+            day.join(format!("rollout-2026-10-20T10-00-00-{other}.jsonl")),
+            meta(id),
+        )
+        .unwrap();
+        assert_eq!(usage::codex_rollout_in(dir.path(), other), None);
     }
 
     #[test]

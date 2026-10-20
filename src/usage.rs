@@ -51,12 +51,28 @@ fn price_of(model: &str, key: &str) -> Option<f64> {
 
 /// The log (rollout) Codex keeps of thread `id`, once it has written one.
 pub fn codex_rollout(id: &str) -> Option<PathBuf> {
-    let name = format!("{id}.jsonl");
-    let dir = Logs::default_paths().ok()?.codex_sessions;
-    files(&dir, |n| n.starts_with("rollout-") && n.ends_with(&name))
-        .ok()?
+    codex_rollout_in(&Logs::default_paths().ok()?.codex_sessions, id)
+}
+/// In `dir`: `rollout-<time>-<id>.jsonl`, or `rollout-<time>-<id>_<n>.jsonl` once
+/// `thread/revert` has started a new file for the thread; the newest is the one
+/// Codex writes to. Its first line (`session_meta`) must name the thread.
+pub fn codex_rollout_in(dir: &Path, id: &str) -> Option<PathBuf> {
+    let (plain, reverted) = (format!("-{id}.jsonl"), format!("-{id}_"));
+    let mut found = files(dir, |n| {
+        n.starts_with("rollout-") && (n.ends_with(&plain) || n.contains(&reverted))
+    })
+    .ok()?;
+    found.retain(|path| {
+        let first = fs::File::open(path)
+            .ok()
+            .and_then(|f| BufReader::new(f).lines().next()?.ok());
+        first
+            .and_then(|l| serde_json::from_str::<Value>(&l).ok())
+            .is_some_and(|e| e["type"] == "session_meta" && e["payload"]["id"] == id)
+    });
+    found
         .into_iter()
-        .next()
+        .max_by_key(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, PartialEq, Eq)]
