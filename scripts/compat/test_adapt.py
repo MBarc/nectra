@@ -868,5 +868,27 @@ class AstraRound3(Sandbox):
         self.assertIn("simulated prune failure", self.latest_report())
 
 
+    # Docs: every command the run starts is bounded, git and check.py included
+    def test_git_calls_are_bounded(self):
+        from unittest import mock
+        with mock.patch.object(adapt, "run_bounded", side_effect=subprocess.TimeoutExpired("git", 600)) as rb:
+            code, out = adapt.git("status", cwd=self.repo)
+        self.assertNotEqual(code, 0)
+        self.assertIn("timed out", out)
+        self.assertEqual(rb.call_args.args[0][0], "git")
+
+    def test_the_check_run_is_bounded(self):
+        from unittest import mock
+        real = adapt.run_bounded
+
+        def hang_check(cmd, timeout, **kw):
+            if any(str(c).endswith("check.py") for c in cmd):
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            return real(cmd, timeout, **kw)
+        with mock.patch.object(adapt, "run_bounded", side_effect=hang_check):
+            self.assertEqual(self.run_main(fixture=self.clean_fixture(), extra=["--nectra", "nectra"]), 1)
+        self.assertIn("check.py timed out", self.latest_report())
+
+
 if __name__ == "__main__":
     unittest.main()

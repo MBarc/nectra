@@ -253,6 +253,7 @@ def recover_swap(path):
 
 # Cargo and training jobs start children; the timeout must hold for all of them.
 run_bounded = check.run_bounded
+CHECK_TIMEOUT = 3600  # check.py bounds each CLI call itself; this bounds the whole of it
 
 
 # ---- registry -----------------------------------------------------------------------
@@ -457,15 +458,24 @@ def analyse(obs, prev, registry_text):
 
 
 # ---- fixes --------------------------------------------------------------------------
-def git(*args, cwd=ROOT):
-    p = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return p.returncode, (p.stdout + p.stderr).strip()
+GIT_TIMEOUT = 600
+
+
+def git(*args, cwd=ROOT, strip=True):
+    """(exit code, stdout + stderr), bounded like every other command the run starts."""
+    try:
+        code, out = run_bounded(["git", *args], GIT_TIMEOUT, cwd=cwd, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return -1, f"git {' '.join(args)} timed out after {GIT_TIMEOUT}s"
+    except OSError as e:
+        return -1, f"git {' '.join(args)} could not start: {e}"
+    return code, out.strip() if strip else out
 
 
 def git_blob(repo, spec):
-    """The exact bytes of a file in git (`rev:path`), or None. Nothing stripped or translated."""
-    p = subprocess.run(["git", "cat-file", "blob", spec], cwd=repo, capture_output=True)
-    return p.stdout if p.returncode == 0 else None
+    """The exact text of a file in git (`rev:path`), or None. Nothing stripped or translated."""
+    code, out = git("cat-file", "blob", spec, cwd=repo, strip=False)
+    return out if code == 0 else None
 
 
 def rename_plan(root, old, new):
@@ -867,7 +877,7 @@ def run(args, installed, configured_ollama, selected):
         work = os.path.join(tempfile.gettempdir(), "nectra-compat-work")
         os.makedirs(work, exist_ok=True)
         if not os.path.isdir(os.path.join(work, ".git")):
-            subprocess.run(["git", "init", "-q", work], check=False)
+            git("init", "-q", work)
         obs, prev = observe(providers, bundled, state, args.live, work, args.max_probes), state
     obs.setdefault("ollama_configured", configured_ollama)
 
@@ -893,10 +903,14 @@ def run(args, installed, configured_ollama, selected):
     if recovered:
         rep["recovered"] = recovered
     if args.nectra:
-        p = subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "check.py"), "--nectra", args.nectra,
-                            "--providers", ",".join(providers)] + (["--live"] if args.live else []),
-                           capture_output=True, text=True, encoding="utf-8", errors="replace")
-        rep["check"] = p.stdout + p.stderr
+        cmd = [sys.executable, os.path.join(os.path.dirname(__file__), "check.py"), "--nectra", args.nectra,
+               "--providers", ",".join(providers)] + (["--live"] if args.live else [])
+        try:
+            rep["check"] = run_bounded(cmd, CHECK_TIMEOUT, stdin=subprocess.DEVNULL)[1]
+        except subprocess.TimeoutExpired:
+            rep["check"] = f"[FAIL] check.py timed out after {CHECK_TIMEOUT}s"
+        except OSError as e:
+            rep["check"] = f"[FAIL] check.py could not start: {e}"
         findings += [{"kind": "check", "detail": l[7:]} for l in rep["check"].splitlines() if l.startswith("[FAIL]")]
     # A rename is only mechanical where Nectra builds that provider's command with the literal.
     for f in fixes:
@@ -929,7 +943,7 @@ def run(args, installed, configured_ollama, selected):
         why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else "no test result")
         rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
     elif proposed != routing:
-        tested = b and b.get("tests_passed") and git_blob(args.repo, f"{b['branch']}:config/models.toml") == proposed.encode()
+        tested = b and b.get("tests_passed") and git_blob(args.repo, f"{b['branch']}:config/models.toml") == proposed
         if not tested:
             t = test_registry(args.repo, args.base, proposed, args.test_cmd, target, args.test_timeout)
             rep["installed_tests"] = {**t, "base": args.base}

@@ -273,7 +273,7 @@ def main():
         work = os.path.join(tempfile.gettempdir(), "nectra-compat-work")
         os.makedirs(work, exist_ok=True)
         if not os.path.isdir(os.path.join(work, ".git")):
-            subprocess.run(["git", "init", "-q", work], check=False)
+            run(["git", "init", "-q", work])
         for provider in providers:
             live_stream(args.nectra, cfg, work, provider)
             # Gemini has no terminal view (src/executor/native.rs `enabled`).
