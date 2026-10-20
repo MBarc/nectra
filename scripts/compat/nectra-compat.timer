@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Nectra provider CLI check
+
+[Timer]
+OnCalendar=*-*-* 09:00
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

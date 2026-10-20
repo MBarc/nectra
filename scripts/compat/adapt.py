@@ -469,7 +469,7 @@ def default_dirs():
 def main(argv=None):
     state_dir, user_config = default_dirs()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--providers", default="anthropic,openai,google")
+    ap.add_argument("--providers", help="default: the providers in the installed config, else all three")
     ap.add_argument("--live", action="store_true", help="raw stream turns and one probe per new model")
     ap.add_argument("--nectra", help="also run check.py against this binary")
     ap.add_argument("--repo", default=ROOT)
@@ -484,13 +484,14 @@ def main(argv=None):
     os.makedirs(args.state_dir, exist_ok=True)
     state_path = os.path.join(args.state_dir, "state.json")
     state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
-    providers = [p for p in args.providers.split(",") if p in check.CLI]
-
-    installed, configured_ollama = None, []
+    installed, configured_ollama, selected = None, [], None
     if args.config != "none" and os.path.exists(args.config):
         cfg = tomllib.loads(open(args.config, encoding="utf-8").read())
         installed = os.path.join(os.path.dirname(args.config), cfg.get("registry", "models.toml"))
         configured_ollama = [m["name"] for m in cfg.get("ollama", {}).get("models", [])]
+        selected = cfg.get("providers")
+    chosen = args.providers.split(",") if args.providers else selected or list(check.CLI)
+    providers = [p for p in chosen if p in check.CLI]
     bundled = open(os.path.join(args.repo, "config", "models.toml"), encoding="utf-8").read()
     routing = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
 

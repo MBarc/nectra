@@ -97,7 +97,8 @@ account or to serve other people from your plan.
 - **Gemini runs in stream view, not in its own terminal.** Gemini CLI 0.64 loads
   per-launch settings only from files an administrator owns, so Nectra can't add
   the hooks its terminal view needs.
-- **Provider CLIs change without notice.** `scripts/compat/check.py` checks
-  Nectra against the installed versions; `scripts/compat/schedule.ps1` runs it
-  daily on Windows until the GitHub workflow can.
+- **Provider CLIs change without notice.** `scripts/compat/adapt.py` runs daily
+  (Task Scheduler or a systemd timer). It checks Nectra against the installed
+  versions, puts mechanical fixes on a local branch for review and reports the
+  rest. See [compat.md](compat.md).
 - **The macOS builds have not yet run on a real Mac.**

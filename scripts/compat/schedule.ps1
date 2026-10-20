@@ -1,10 +1,12 @@
-# Run check.py daily on this Windows PC, against the CLIs you actually use, until
-# the GitHub workflow can run it. Live checks make one tiny turn per provider.
+# Run adapt.py daily on this Windows PC, against the CLIs you actually use. It runs
+# check.py, puts mechanical fixes on a local compat/auto-* branch, updates the
+# installed models.toml (with a backup) and asks for a Laya retrain when needed.
+# Live checks make one tiny turn per provider. See docs/compat.md.
 #
 #   powershell -File scripts\compat\schedule.ps1          # register (daily 09:00)
 #   powershell -File scripts\compat\schedule.ps1 -Remove  # unregister
 #
-# Logs go to %LOCALAPPDATA%\nectra\compat; a failure also shows a notification.
+# Logs and reports go to %LOCALAPPDATA%\nectra\compat; anything that needs you shows a notification.
 param([switch]$Run, [switch]$Remove, [string]$At = "09:00", [string]$Python = "", [string]$Nectra = "")
 $ErrorActionPreference = "Stop"
 $name = "Nectra CLI compatibility check"
@@ -39,13 +41,14 @@ $config = (& $Nectra config --print) -join "`n"
 $listed = [regex]::Match($config, 'providers\s*=\s*\[([^\]]*)\]').Groups[1].Value -split '[",\s]+'
 $providers = ($listed | Where-Object { $_ -in "anthropic", "openai", "google" }) -join ","
 if (-not $providers) { "No provider CLIs selected; nothing to check." | Out-File $log; exit 0 }
-& $Python (Join-Path $PSScriptRoot "check.py") --nectra $Nectra --providers $providers --live *> $log
+& $Python (Join-Path $PSScriptRoot "adapt.py") --nectra $Nectra --providers $providers --live *> $log
 if ($LASTEXITCODE -ne 0) {
-    $failed = (Select-String -Path $log -Pattern '^\[FAIL\]' | ForEach-Object { $_.Line }) -join "`n"
+    $issues = Select-String -Path $log -Pattern '^- \*\*' | Select-Object -First 3 | ForEach-Object { $_.Line }
+    $failed = (@($issues) + "Report: $logs\report-$('{0:yyyy-MM-dd}' -f (Get-Date)).md") -join "`n"
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
     $toast = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
     $text = $toast.GetElementsByTagName("text")
-    $text.Item(0).AppendChild($toast.CreateTextNode("Nectra compatibility check failed")) | Out-Null
+    $text.Item(0).AppendChild($toast.CreateTextNode("Nectra: provider CLIs need attention")) | Out-Null
     $text.Item(1).AppendChild($toast.CreateTextNode("$failed`nLog: $log")) | Out-Null
     $powershell = "{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe"
     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($powershell).Show(
