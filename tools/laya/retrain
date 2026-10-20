@@ -263,13 +263,9 @@ def to_laya_items(data, criteria, claimed):
 # ---------------------------------------------------------------- train / export
 
 
-def train_cmd(python, args, data, out):
-    pre = [python]
-    if args.adamw8bit:  # 6 GB GPUs: monkeypatch laya's inline AdamW
-        pre += ["-c", "import sys,torch,bitsandbytes as b; torch.optim.AdamW=b.optim.AdamW8bit; "
-                      "from laya.train_cli import main; sys.exit(main(sys.argv[1:]))"]
-    else:
-        pre += ["-m", "laya.train_cli"]
+def train_cmd(python, args, script, data, out):
+    # laya-train plus per-epoch resume state: rerunning the same command continues the run.
+    pre = [python, script] + (["--adamw8bit"] if args.adamw8bit else [])
     return pre + ["--data", data, "--base", args.base, "--out", out, "--epochs", str(args.epochs),
                   "--micro-batch", str(args.micro_batch), "--grad-accum", str(args.grad_accum),
                   "--device", args.device, "--seed", str(args.seed)]
@@ -293,21 +289,38 @@ def ssh(host, script, **kw):
 def train_remote(args, items_path, run_dir, run_id):
     host, remote = args.host, f"nectra-laya/runs/{run_id}"
     ssh(host, HOST_SETUP)
+    session = args.session or f"laya-{run_id}"
     ssh(host, f"mkdir -p ~/{remote}")
-    run(["scp", "-q", items_path, f"{host}:{remote}/train.jsonl"])
-    cmd = train_cmd("../../venv/bin/python", args, "train.jsonl", "ckpt")
+    if not args.resume:  # a resumed run keeps the train.jsonl its checkpoint was trained on
+        run(["scp", "-q", items_path, f"{host}:{remote}/train.jsonl"])
+    run(["scp", "-q", Path(__file__).parent / "resumable_train.py", f"{host}:{remote}/"])
+    cmd = train_cmd("../../venv/bin/python", args, "resumable_train.py", "train.jsonl", "ckpt")
     export = ["../../venv/bin/python", "../../laya-git/laya-rust/tools/export_onnx.py", "ckpt", "--out", "onnx"]
     job = (f"cd ~/{remote} && export OMP_NUM_THREADS={args.threads} HF_HOME=$HOME/nectra-laya/hf && "
-           f"({shlex.join(cmd)} && {shlex.join(export)}) > train.log 2>&1; echo $? > done")
-    # tmux keeps the job alive if this ssh session drops; we poll for `done`.
-    ssh(host, f"tmux new -d -s laya-{run_id} {shlex.quote(job)}")
-    log(f"training on {host} in tmux session laya-{run_id}; log: ~/{remote}/train.log")
+           f"({shlex.join(cmd)} && {shlex.join(export)}) >> train.log 2>&1; echo $? > done")
+    # tmux keeps the job alive if this ssh session drops. A host reboot kills the
+    # session without writing `done`; relaunching continues from the last finished epoch.
+    launch = (f"cd ~/{remote} && {{ [ \"$(cat done 2>/dev/null)\" = 0 ] || {{ rm -f done; "
+              f"tmux has-session -t {session} 2>/dev/null || tmux new -d -s {session} {shlex.quote(job)}; }}; }}")
+    ssh(host, launch)
+    log(f"training on {host} in tmux session {session}; log: ~/{remote}/train.log")
+    relaunches = 0
     while True:
         time.sleep(60)
         got = subprocess.run(["ssh", "-o", "BatchMode=yes", host,
-                              f"cat ~/{remote}/done 2>/dev/null; tail -c 300 ~/{remote}/train.log | tr '\\r' '\\n' | tail -1"],
+                              f"cat ~/{remote}/done 2>/dev/null || tmux has-session -t {session} 2>/dev/null || echo GONE; "
+                              f"tail -c 300 ~/{remote}/train.log | tr '\\r' '\\n' | tail -1"],
                              capture_output=True, text=True)
+        if got.returncode == 255:  # ssh failed: host down or rebooting
+            continue
         lines = got.stdout.strip().splitlines()
+        if lines and lines[0].strip() == "GONE":
+            relaunches += 1
+            if relaunches > args.relaunches:
+                raise RuntimeError(f"tmux session {session} keeps dying; see {host}:~/{remote}/train.log")
+            log(f"tmux session {session} died without finishing; relaunching ({relaunches}/{args.relaunches})")
+            ssh(host, launch)
+            continue
         if lines and lines[0].strip().isdigit():
             if lines[0].strip() != "0":
                 raise RuntimeError(f"remote training failed; see {host}:~/{remote}/train.log")
@@ -319,7 +332,7 @@ def train_remote(args, items_path, run_dir, run_id):
 
 
 def train_local(args, items_path, run_dir):
-    run(train_cmd(args.python, args, items_path, run_dir / "ckpt"))
+    run(train_cmd(args.python, args, Path(__file__).parent / "resumable_train.py", items_path, run_dir / "ckpt"))
     laya_src = Path(args.laya_src)
     run([args.python, laya_src / "laya-rust" / "tools" / "export_onnx.py", run_dir / "ckpt", "--out", run_dir / "onnx"])
     return find_model(run_dir / "onnx")
@@ -406,6 +419,10 @@ def main(argv=None):
     p.add_argument("--per-batch", type=int, default=40, help="prompts per (label, style) batch; 100 batches")
     p.add_argument("--parallel", type=int, default=4, help="concurrent generator calls")
     p.add_argument("--host", default=None, help="train over ssh on USER@HOST (Linux; set up on first use) instead of locally")
+    p.add_argument("--resume", default=None, metavar="RUN",
+                   help="continue runs/RUN from its last finished epoch (after an interruption) instead of starting over")
+    p.add_argument("--session", default=None, help="tmux session name on --host (default: laya-<run>)")
+    p.add_argument("--relaunches", type=int, default=3, help="relaunch a --host session that died (e.g. reboot) this many times")
     p.add_argument("--threads", type=int, default=8,
                    help="OMP threads on the training host (8 beat 16 and 4 on builder's 16-vCPU Opteron)")
     p.add_argument("--python", default=sys.executable, help="local python with laya installed (local training)")
@@ -432,9 +449,9 @@ def main(argv=None):
     out = Path(args.out).resolve() if args.out else work / "model"
     exe = "nectra.exe" if os.name == "nt" else "nectra"
     args.nectra = args.nectra or str(REPO / "target" / "release" / exe)
-    run_id = time.strftime("%Y%m%d-%H%M%S")
+    run_id = args.resume or time.strftime("%Y%m%d-%H%M%S")
     run_dir = work / "runs" / run_id
-    run_dir.mkdir(parents=True)
+    run_dir.mkdir(parents=True, exist_ok=bool(args.resume))
     summary = {"run": run_id, "laya_rev": LAYA_REV, "bar": args.bar, "max_ms": args.max_ms}
     try:
         criteria = json.loads((LAYA / "criteria.json").read_text(encoding="utf-8"))

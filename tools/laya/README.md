@@ -49,6 +49,18 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
    gets `~/nectra-laya` with a laya checkout at the commit `Cargo.toml` pins,
    plus a CPU torch venv. Without `--host` it trains locally with `--python`;
    use `--adamw8bit` on a 6 GB GPU.
+
+   **Interruptions.** Training goes through `resumable_train.py`, which
+   writes `ckpt/resume.pt` (weights, AdamW and scheduler state, RNG) after
+   every epoch and continues from it when started again.
+   - **Host reboot:** if the tmux session disappears without finishing, retrain
+     relaunches it, up to `--relaunches` times, and the relaunch resumes.
+   - **Retrain itself died:** run `retrain --resume <run>` with the same
+     arguments.
+   - **What can be lost:** at most the epoch in progress.
+   - **Older runs:** a `checkpoint_latest` with an `epochs_done` file but no
+     `resume.pt` resumes from its weights, with fresh AdamW moments and the LR
+     schedule fast-forwarded.
 4. **Export.** Uses laya's `export_onnx.py` (fp32, external weights). Then
    `int8_embeddings.py` stores the token-embedding table as int8 with
    per-row scales (1.29 GB -> 0.70 GB). Matrix multiplies stay fp32.
@@ -77,6 +89,9 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
 | `--base`, `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | multilingual, 3, 8, 8, auto, 0, off | Training knobs. |
 | `--fp32` | off | Keep the embedding table fp32 (the default int8 table halves the size). |
+| `--resume RUN` | none | Continue `runs/RUN` from its last finished epoch instead of starting a new run. |
+| `--session NAME` | `laya-<run>` | tmux session name on `--host`. |
+| `--relaunches N` | 3 | Relaunch a `--host` session that died without finishing (for example, a reboot). |
 | `--model DIR` | none | Skip data and training. Evaluate an already-exported model and emit it if it passes. |
 | `--nectra PATH` | `target/release/nectra[.exe]` | The Nectra binary that runs the evaluation. |
 | `--ort PATH` | `$ORT_DYLIB_PATH` | ONNX Runtime 1.31 library, copied next to the model for evaluation. |
