@@ -505,7 +505,9 @@ def cleanup(repo, wt, branch=None):
             shutil.rmtree(wt, ignore_errors=True)  # a half-made checkout git doesn't know
         if os.path.exists(wt):
             problems.append(f"worktree {wt}: {out}")
-    git("worktree", "prune", cwd=repo)
+    code, out = git("worktree", "prune", cwd=repo)
+    if code:
+        problems.append(f"git worktree prune: {out}")
     if branch and git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", cwd=repo)[0] == 0:
         code, out = git("branch", "-D", branch, cwd=repo)
         if code:

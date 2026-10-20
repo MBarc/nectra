@@ -853,5 +853,20 @@ class AstraRound3(Sandbox):
             self.assertEqual(adapt.run_tests(self.tmp, OK, None, 30), (False, "tests could not start: could not put the tests in a job object"))
 
 
+    # 8: a failed prune is reported like any other cleanup failure
+    def test_a_failed_prune_is_reported_and_fails_the_run(self):
+        from unittest import mock
+        real = adapt.git
+
+        def fake(*args, cwd=adapt.ROOT, **kw):
+            if args[:2] == ("worktree", "prune"):
+                return 1, "error: simulated prune failure"
+            return real(*args, cwd=cwd, **kw)
+        with mock.patch.object(adapt, "git", side_effect=fake):
+            self.assertEqual(self.run_main(fixture=self.clean_fixture()), 1)
+        self.assertIn("Cleanup failed", self.latest_report())
+        self.assertIn("simulated prune failure", self.latest_report())
+
+
 if __name__ == "__main__":
     unittest.main()
