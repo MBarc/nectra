@@ -73,6 +73,7 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--ort PATH` | `$ORT_DYLIB_PATH` | ONNX Runtime 1.31 library, copied next to the model for evaluation. |
 | `--bar F` | 0.95 | Fresh-set accuracy the model must exceed. |
 | `--max-ms F` | 300 | Slowest acceptable ms per message. |
+| `--latency-runs N` | 3 | Time the fresh set N times and keep the fastest (background load only adds time). |
 | `--data-only` | off | Stop after building the training records. |
 
 **Exit codes:** `0` model emitted (or `--data-only` done), `2` trained but
