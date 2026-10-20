@@ -1,0 +1,115 @@
+{
+ "previous_state": {
+  "versions": {
+   "claude": "2.1.304 (Claude Code)",
+   "codex": "codex-cli 0.162.1"
+  },
+  "help_flags": {
+   "claude --help": [
+    "--dangerously-skip-permissions",
+    "--effort",
+    "--include-partial-messages",
+    "--mcp-config",
+    "--model",
+    "--no-session-persistence",
+    "--output-format",
+    "--permission-mode",
+    "--resume",
+    "--session-id",
+    "--settings",
+    "--strict-mcp-config",
+    "--tools",
+    "--verbose",
+    "-p"
+   ],
+   "codex exec --help": [
+    "--config",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--ephemeral",
+    "--json",
+    "--model",
+    "--sandbox"
+   ],
+   "codex exec resume --help": [
+    "--config",
+    "--json",
+    "--model"
+   ],
+   "codex --help": [
+    "--ask-for-approval",
+    "--config",
+    "--no-alt-screen"
+   ],
+   "gemini --help": [
+    "--approval-mode",
+    "--model",
+    "--output-format"
+   ]
+  },
+  "probes": {
+   "anthropic/fable": {
+    "ok": true,
+    "date": "2026-10-19",
+    "detail": "42"
+   }
+  }
+ },
+ "versions": {
+  "claude": "2.2.0 (Claude Code)",
+  "codex": "codex-cli 0.170.0"
+ },
+ "help": {
+  "claude --help": "Usage\n  -p  something\n  --model <model>  Model for the session. Provide\n     an alias (e.g. 'fable', 'opus', or 'sonnet').\n  --output-format  something\n  stream-json  something\n  --effort  something\n  --verbose  something\n  --include-partial-messages  something\n  --no-session-persistence  something\n  --settings  something\n  --session-id  something\n  --resume  something\n  --mcp-config  something\n  --strict-mcp-config  something\n  --tools  something\n  --permission-mode  something",
+  "codex exec --help": "Usage\n  --model  something\n  --config  something\n  --json  something\n  --ephemeral-session  something\n  --sandbox  something\n  --dangerously-bypass-approvals-and-sandbox  something\n  read-only  something",
+  "codex exec resume --help": "Usage\n  --model  something\n  --config  something\n  --json  something",
+  "codex --help": "Usage\n  --ask-for-approval  something\n  on-request  something\n  --no-alt-screen  something\n  --config  something",
+  "gemini --help": "Usage\n  --model  something\n  --output-format  something\n  stream-json  something\n  --approval-mode  something"
+ },
+ "models": {
+  "anthropic": {
+   "listed": [
+    "fable",
+    "opus",
+    "sonnet"
+   ]
+  },
+  "openai": {
+   "catalog": {
+    "gpt-6-astra": "list",
+    "gpt-5.6-sol": "list",
+    "gpt-7-nova": "list",
+    "gpt-reserve": "hide"
+   }
+  }
+ },
+ "streams": {
+  "claude": [
+   {
+    "type": "system",
+    "subtype": "init"
+   },
+   {
+    "type": "result",
+    "subtype": "success",
+    "text": "42"
+   }
+  ],
+  "codex": [
+   {
+    "type": "thread.started"
+   },
+   {
+    "type": "item.completed",
+    "item": {
+     "type": "agent_message",
+     "text": "42"
+    }
+   },
+   {
+    "type": "turn.completed"
+   }
+  ]
+ },
+ "probes": {},
+ "ollama": null
+}
