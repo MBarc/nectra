@@ -817,5 +817,15 @@ class AstraRound3(Sandbox):
             self.assertTrue(error)
 
 
+    # 3: the installed text is compared with the branch's byte for byte
+    def test_an_installed_text_differing_only_in_whitespace_is_tested_itself(self):
+        with open(self.path(), "w", encoding="utf-8", newline="") as f:
+            f.write("\n" + REGISTRY)
+        fails_on_it = self.script("import sys; sys.exit(open('config/models.toml', newline='').read().startswith(chr(10)))")
+        self.assertEqual(self.run_main(test_cmd=fails_on_it), 1)
+        self.assertIn("Tests FAILED with the new installed registry", self.latest_report())
+        self.assertNotIn('id = "gpt-7-nova"', self.installed())
+
+
 if __name__ == "__main__":
     unittest.main()

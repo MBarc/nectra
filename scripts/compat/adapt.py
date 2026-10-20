@@ -462,6 +462,12 @@ def git(*args, cwd=ROOT):
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
+def git_blob(repo, spec):
+    """The exact bytes of a file in git (`rev:path`), or None. Nothing stripped or translated."""
+    p = subprocess.run(["git", "cat-file", "blob", spec], cwd=repo, capture_output=True)
+    return p.stdout if p.returncode == 0 else None
+
+
 def rename_plan(root, old, new):
     """New text per file, with every occurrence of the flag `old` renamed to `new`: in the
     Rust sources and tests, shared code such as the permissions filter included, and in
@@ -919,7 +925,7 @@ def run(args, installed, configured_ollama, selected):
         why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else "no test result")
         rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
     elif proposed != routing:
-        tested = b and b.get("tests_passed") and git("show", f"{b['branch']}:config/models.toml", cwd=args.repo) == (0, proposed.strip())
+        tested = b and b.get("tests_passed") and git_blob(args.repo, f"{b['branch']}:config/models.toml") == proposed.encode()
         if not tested:
             t = test_registry(args.repo, args.base, proposed, args.test_cmd, target, args.test_timeout)
             rep["installed_tests"] = {**t, "base": args.base}
