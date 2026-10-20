@@ -465,6 +465,32 @@ def rename_plan(root, runtime, old, new):
     return plan, unclear
 
 
+def run_tests(wt, test_cmd, target_dir, timeout):
+    env = {**os.environ, "CARGO_TARGET_DIR": target_dir} if target_dir else None
+    try:
+        code, out = run_bounded(test_cmd, timeout, shell=True, cwd=wt, env=env)
+        return code == 0, check.last_lines(out, 6)
+    except subprocess.TimeoutExpired:
+        return False, f"tests timed out after {timeout:g}s"
+
+
+def test_registry(repo, base, text, test_cmd, target_dir, timeout):
+    """Run the tests on `base` with `text` as its registry, in a throwaway worktree: the
+    check an installed change gets when no fix branch tested exactly that text."""
+    wt = tempfile.mkdtemp(prefix="nectra-compat-check-")
+    os.rmdir(wt)
+    code, out = git("worktree", "add", "-q", "--detach", wt, base, cwd=repo)
+    if code:
+        return {"error": f"git worktree add: {out}"}
+    try:
+        with open(os.path.join(wt, "config", "models.toml"), "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        passed, tail = run_tests(wt, test_cmd, target_dir, timeout)
+        return {"tests_passed": passed, "test_tail": tail}
+    finally:
+        git("worktree", "remove", "--force", wt, cwd=repo)
+
+
 def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
     """Apply the fixes on compat/auto-<hash> in a throwaway worktree. Returns a summary dict."""
     digest = hashlib.sha256(json.dumps([f["detail"] for f in fixes], sort_keys=True).encode()).hexdigest()[:8]
@@ -501,12 +527,7 @@ def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
             git("worktree", "remove", "--force", wt, cwd=repo)
             git("branch", "-D", branch, cwd=repo)
             return {"branch": branch, "skipped": "nothing to change on " + base, "unchanged": True}
-        env = {**os.environ, "CARGO_TARGET_DIR": target_dir} if target_dir else None
-        try:
-            code, out = run_bounded(test_cmd, timeout, shell=True, cwd=wt, env=env)
-            passed, tail = code == 0, check.last_lines(out, 6)
-        except subprocess.TimeoutExpired:
-            passed, tail = False, f"tests timed out after {timeout:g}s"
+        passed, tail = run_tests(wt, test_cmd, target_dir, timeout)
         msg = ("Compat: adapt to provider CLI changes\n\n" + "\n".join(f"- {f['detail']}" for f in fixes)
                + f"\n\nTests ({test_cmd}): {'passed' if passed else 'FAILED'}\nMade by scripts/compat/adapt.py; review before merging.\n")
         code, out = git("add", "-A", cwd=wt)
@@ -668,6 +689,12 @@ def write_report(path, findings, rep):
             else f"{result}; files {', '.join(b['files'])}")]
         if b.get("test_tail"):
             lines += ["", "```", b["test_tail"], "```"]
+    if rep.get("installed_tests"):
+        t = rep["installed_tests"]
+        lines += ["", f"Tests {'passed' if t.get('tests_passed') else 'FAILED'} with the new installed registry on "
+                  f"`{t['base']}`" + (f": {t['error']}" if t.get("error") else ".")]
+        if t.get("test_tail"):
+            lines += ["", "```", t["test_tail"], "```"]
     if rep.get("installed_blocked"):
         lines += ["", f"Installed registry not updated: {rep['installed_blocked']}."]
     if rep.get("installed_conflict"):
@@ -816,23 +843,31 @@ def run(args, installed, configured_ollama, selected):
         except ValueError:
             return True  # make_branch hits the same error and reports it
     bundled_fixes = [f for f in fixes if changes_bundled(f)]
+    target = args.target_dir or os.path.join(args.state_dir, "target")
     if bundled_fixes:
-        rep["branch"] = make_branch(args.repo, args.base, bundled_fixes, args.test_cmd,
-                                    args.target_dir or os.path.join(args.state_dir, "target"), args.test_timeout)
-    # The installed registry routes for real, so it only takes changes the branch's tests passed.
+        rep["branch"] = make_branch(args.repo, args.base, bundled_fixes, args.test_cmd, target, args.test_timeout)
+    # The installed registry routes for real, so it only takes a change whose exact text passed
+    # the tests: on the fix branch, or else on its own on the base.
     b = rep.get("branch")
-    if b and not b.get("unchanged") and not (b.get("tests_passed") and not b.get("error")):
+    reg = [f for f in fixes if f["kind"].startswith("model-")]
+    try:
+        proposed = edit_registry(routing, reg) if reg and installed and os.path.exists(installed) else routing
+    except ValueError as e:
+        proposed, rep["installed_blocked"] = routing, f"{installed} could not be edited safely ({e})"
+    if b and (b.get("error") or (not b.get("unchanged") and not b.get("tests_passed"))):
         why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else "no test result")
         rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
-    else:
-        reg = [f for f in fixes if f["kind"].startswith("model-")]
-        try:
-            if reg and installed and os.path.exists(installed):
-                mark_retrain(state, fp(edit_registry(routing, reg)),
-                             "; ".join(f["detail"] for f in reg), save)
+    elif proposed != routing:
+        tested = b and b.get("tests_passed") and git("show", f"{b['branch']}:config/models.toml", cwd=args.repo) == (0, proposed.strip())
+        if not tested:
+            t = test_registry(args.repo, args.base, proposed, args.test_cmd, target, args.test_timeout)
+            rep["installed_tests"] = {**t, "base": args.base}
+            if not t.get("tests_passed"):
+                rep["installed_blocked"] = "the new installed registry did not pass the tests" + (
+                    f" ({t['error']})" if t.get("error") else "")
+        if not rep.get("installed_blocked"):
+            mark_retrain(state, fp(proposed), "; ".join(f["detail"] for f in reg), save)
             update_installed(installed, fixes, rep, routing)
-        except ValueError as e:
-            rep["installed_blocked"] = f"{installed} could not be edited safely ({e})"
 
     after = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
     mark_retrain(state, fp(after), "models, roles, task types or provider selection changed", save)

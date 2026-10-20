@@ -586,5 +586,36 @@ class AstraReReview(Sandbox):
         self.assertIn("would leave openai with no enabled model", self.latest_report())
 
 
+    # 3: the installed change itself must pass the tests
+    def luna_disabled_on_master(self):
+        """master already has luna off; the installed copy still has it on. No branch to make."""
+        with open(os.path.join(self.repo, "config", "models.toml"), "w", encoding="utf-8") as f:
+            f.write(adapt.disable_model(REGISTRY, "gpt-5.6-luna"))
+        git(self.repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "luna off")
+        return self.fixture(help={}, streams={}, versions={},
+                            models={"openai": {"catalog": {"gpt-6-astra": "list", "gpt-5.6-sol": "list"}}})
+
+    def luna(self):
+        return {m["id"]: m for m in adapt.registry_models(self.installed())}["gpt-5.6-luna"]
+
+    def test_an_installed_change_without_a_branch_needs_passing_tests(self):
+        fx = self.luna_disabled_on_master()
+        self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)"), fixture=fx), 1)
+        self.assertTrue(self.luna()["enabled"])
+        self.assertIn("Installed registry not updated", self.latest_report())
+        self.assertEqual(self.run_main(fixture=fx), 0)
+        self.assertFalse(self.luna()["enabled"])
+        self.assertIn("Tests passed with the new installed registry", self.latest_report())
+
+    def test_the_installed_text_is_tested_not_only_the_branch(self):
+        with open(os.path.join(self.user, "models.toml"), "a", encoding="utf-8") as f:
+            f.write("# mine\n")
+        fails_on_mine = self.script("import sys; sys.exit('# mine' in open('config/models.toml').read())")
+        self.assertEqual(self.run_main(test_cmd=fails_on_mine), 1)
+        self.assertIn("tests passed", self.latest_report())  # the branch
+        self.assertIn("Installed registry not updated", self.latest_report())
+        self.assertTrue(self.luna()["enabled"])
+
+
 if __name__ == "__main__":
     unittest.main()
