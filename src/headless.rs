@@ -112,23 +112,27 @@ fn record_path(dir: &Path, id: &str) -> Result<PathBuf> {
 }
 
 /// One model call's tokens as `usage` reports them. `cache_write` includes
-/// `cache_write_5m`, the part Claude wrote at its 5-minute rate; the rest is at
-/// the 1-hour rate.
+/// `cache_write_5m`, the part Claude wrote at its 5-minute rate, and
+/// `cache_write_1h`, the part at the `cache_write` rate; a write the provider
+/// gave no rate for is in neither, and has no price.
 #[derive(Debug, Default, Clone, Copy, Serialize, PartialEq, Eq)]
 struct Usage {
     input: u64,
     cache_read: u64,
     cache_write: u64,
     cache_write_5m: u64,
+    #[serde(skip)]
+    cache_write_1h: u64,
     output: u64,
 }
 impl Usage {
-    fn fields(&mut self) -> [&mut u64; 5] {
+    fn fields(&mut self) -> [&mut u64; 6] {
         [
             &mut self.input,
             &mut self.cache_read,
             &mut self.cache_write,
             &mut self.cache_write_5m,
+            &mut self.cache_write_1h,
             &mut self.output,
         ]
     }
@@ -151,8 +155,15 @@ impl Usage {
             *a = (*a).max(*b);
         }
     }
-    /// USD at `model`'s own price; None when it has none.
+    /// USD at `model`'s own price; None when it has none, or when some write's
+    /// rate is unknown.
     fn cost(&self, model: &str) -> Option<f64> {
+        let unknown = self.cache_write > self.cache_write_5m + self.cache_write_1h;
+        self.ceiling(model).filter(|_| !unknown)
+    }
+    /// The cost with writes of unknown rate at the dearer `cache_write` rate:
+    /// what the cost guard holds against its limit.
+    fn ceiling(&self, model: &str) -> Option<f64> {
         let [input, read, write_1h, output] = usage::price(model)?;
         let write_5m = usage::price_cache_write_5m(model)?;
         let n = |v: u64| v as f64;
@@ -167,8 +178,7 @@ impl Usage {
     }
 }
 
-/// Claude's usage object. Without the TTL split, a cache write is taken to be
-/// at the 1-hour rate, Claude Code's default and the dearer one.
+/// Claude's usage object. A write outside the TTL split has no known rate.
 fn claude_usage(u: &Value) -> Usage {
     let n = |k: &str| u[k].as_u64().unwrap_or(0);
     let split = &u["cache_creation"];
@@ -181,6 +191,7 @@ fn claude_usage(u: &Value) -> Usage {
         cache_read: n("cache_read_input_tokens"),
         cache_write: n("cache_creation_input_tokens").max(m5 + h1),
         cache_write_5m: m5,
+        cache_write_1h: h1,
         output: n("output_tokens"),
     }
 }
@@ -193,6 +204,8 @@ fn codex_usage(u: &Value) -> Usage {
         cache_read: n("cached_input_tokens"),
         cache_write: n("cache_write_input_tokens"),
         cache_write_5m: 0,
+        // Codex has one cache-write rate, `cache_write`.
+        cache_write_1h: n("cache_write_input_tokens"),
         output: n("output_tokens"),
     }
 }
@@ -490,14 +503,15 @@ impl Ledger {
         }
         out
     }
-    /// The priced part of the cost, and whether every model with tokens has
-    /// its own price.
+    /// The priced part of the cost (writes of unknown rate at the dearer one),
+    /// and whether it is exact: every model with tokens has its own price and
+    /// every write its rate.
     fn cost(&self) -> (f64, bool) {
         self.models()
             .iter()
             .fold((0.0, true), |(sum, all), (c, t, _)| {
-                match t.cost(&c.model) {
-                    Some(cost) => (sum + cost, all),
+                match t.ceiling(&c.model) {
+                    Some(cost) => (sum + cost, all && t.cost(&c.model).is_some()),
                     None => (sum, all && *t == Usage::default()),
                 }
             })
@@ -1044,9 +1058,11 @@ mod tests {
             "delta":{"stop_reason": if stop { json!("end_turn") } else { Value::Null }},
             "usage":{"output_tokens":output}}})
     }
+    /// As Claude Code 2.1.304 streams it: writes at the 1-hour TTL, split out.
     fn usage(input: u64, read: u64, write: u64, output: u64) -> Value {
         json!({"input_tokens":input,"cache_read_input_tokens":read,
-            "cache_creation_input_tokens":write,"output_tokens":output})
+            "cache_creation_input_tokens":write,"output_tokens":output,
+            "cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":write}})
     }
     fn total(l: &Ledger) -> (Usage, bool) {
         l.models()
@@ -1084,6 +1100,7 @@ mod tests {
                 cache_read: 55013,
                 cache_write: 23393,
                 cache_write_5m: 0,
+                cache_write_1h: 23393,
                 output: 181
             }
         );
@@ -1109,6 +1126,28 @@ mod tests {
         );
         // haiku: 2M at the 5-minute $0.125, 1M at the 1-hour $0.20.
         assert!((l.cost().0 - 0.45).abs() < 1e-9, "{}", l.cost().0);
+    }
+
+    #[test]
+    fn a_claude_cache_write_without_its_ttl_has_no_price() {
+        let d = decision("claude", "haiku");
+        let mut l = Ledger::default();
+        // A later snapshot without the split doesn't undo the start's.
+        l.observe(&d, &start("m1", None, usage(1, 0, 1000, 1)));
+        let mut late = delta(None, 5, true);
+        late["event"]["usage"]["cache_creation_input_tokens"] = json!(1000);
+        l.observe(&d, &late);
+        assert!(l.cost().1, "split at the start: priced");
+        // Without it, a write could be at either rate: the cost is unknown.
+        let mut bare = usage(1, 0, 1000, 1);
+        bare.as_object_mut().unwrap().remove("cache_creation");
+        l.observe(&d, &start("m2", None, bare));
+        let (t, _) = total(&l);
+        assert_eq!(t.cache_write, 2000, "the tokens still count");
+        assert!(!l.cost().1);
+        assert_eq!(l.models()[0].1.cost("haiku"), None);
+        // The cost guard still holds them at the dearer, 1-hour rate.
+        assert!((l.cost().0 - (2.0 * 0.10 + 2000.0 * 0.20 + 6.0 * 0.50) / 1e6).abs() < 1e-12);
     }
 
     #[test]
