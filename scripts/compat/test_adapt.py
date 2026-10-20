@@ -827,5 +827,31 @@ class AstraRound3(Sandbox):
         self.assertNotIn('id = "gpt-7-nova"', self.installed())
 
 
+    # 4: a command that cannot be contained is not run
+    @unittest.skipUnless(os.name == "nt", "Windows job objects")
+    def test_a_command_windows_will_not_contain_is_not_run(self):
+        import ctypes, types
+        from unittest import mock
+        real = ctypes.WinDLL
+        mark = os.path.join(self.tmp, "ran").replace("\\", "/")
+        cmd = [sys.executable, "-c", f"open('{mark}', 'w')"]
+        for create, assign in ((0, 1), (1234, 0)):
+            fake = types.SimpleNamespace(CreateJobObjectW=lambda *a, r=create: r,
+                                         AssignProcessToJobObject=lambda *a, r=assign: r, CloseHandle=lambda *a: 1)
+            with mock.patch("ctypes.WinDLL", side_effect=lambda name, **kw: fake if name == "kernel32" else real(name, **kw)):
+                with self.assertRaises(OSError):
+                    adapt.run_bounded(cmd, 30)
+                code, out = adapt.check.run(cmd, timeout=30)
+            self.assertEqual(code, -1)
+            self.assertIn("job object", out)
+            time.sleep(1)
+            self.assertFalse(os.path.exists(mark), (create, assign))
+
+    def test_tests_that_cannot_start_count_as_failed(self):
+        from unittest import mock
+        with mock.patch.object(adapt, "run_bounded", side_effect=OSError("could not put the tests in a job object")):
+            self.assertEqual(adapt.run_tests(self.tmp, OK, None, 30), (False, "tests could not start: could not put the tests in a job object"))
+
+
 if __name__ == "__main__":
     unittest.main()

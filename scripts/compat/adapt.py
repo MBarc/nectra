@@ -492,6 +492,8 @@ def run_tests(wt, test_cmd, target_dir, timeout):
         return code == 0, check.last_lines(out, 6)
     except subprocess.TimeoutExpired:
         return False, f"tests timed out after {timeout:g}s"
+    except OSError as e:
+        return False, f"tests could not start: {e}"
 
 
 def cleanup(repo, wt, branch=None):

@@ -36,15 +36,21 @@ def check(name, ok, detail=""):
 
 def _windows_job(p):
     """Put the suspended process `p` in a new job object, then start it. Every process
-    it starts joins the job, even after `p` itself exits. None if Windows refused."""
+    it starts joins the job, even after `p` itself exits. If Windows refuses, `p` is
+    killed before it ever runs and OSError raised: a command that can't be contained
+    is not run."""
     import ctypes
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     k32.CreateJobObjectW.restype = ctypes.c_void_p
     job = k32.CreateJobObjectW(None, None)
     handle = ctypes.c_void_p(int(p._handle))
-    if job and not k32.AssignProcessToJobObject(ctypes.c_void_p(job), handle):
-        k32.CloseHandle(ctypes.c_void_p(job))
-        job = None
+    if not job or not k32.AssignProcessToJobObject(ctypes.c_void_p(job), handle):
+        error = ctypes.get_last_error()
+        if job:
+            k32.CloseHandle(ctypes.c_void_p(job))
+        p.kill()
+        p.wait()
+        raise OSError(f"could not put {p.args!r} in a job object (Windows error {error}); not run")
     ctypes.WinDLL("ntdll").NtResumeProcess(handle)
     return job
 
@@ -56,13 +62,11 @@ def _kill_tree(p, job):
             os.killpg(p.pid, signal.SIGKILL)
         except OSError:
             pass  # the whole group has already exited
-    elif job:
+    else:
         import ctypes
         k32 = ctypes.WinDLL("kernel32")
         k32.TerminateJobObject(ctypes.c_void_p(job), 1)
         k32.CloseHandle(ctypes.c_void_p(job))
-    elif p.poll() is None:
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True)
 
 
 def run_bounded(cmd, timeout, **kw):
