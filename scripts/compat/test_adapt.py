@@ -617,5 +617,45 @@ class AstraReReview(Sandbox):
         self.assertTrue(self.luna()["enabled"])
 
 
+    # 4: a timeout is a bound, even when children outlive their launcher
+    def launcher(self, then=""):
+        """A command that starts a child holding its output, which writes a marker after 3 s."""
+        mark = os.path.join(self.tmp, f"survived-{len(os.listdir(self.tmp))}").replace("\\", "/")
+        path = os.path.join(self.tmp, f"launch-{len(os.listdir(self.tmp))}.py")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("import subprocess, sys, time\n"
+                    f"subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(3); open(\"{mark}\", \"w\")'], stdout=sys.stdout)\n"
+                    f"print('started', flush=True)\n{then}\n")
+        return [sys.executable, path], mark
+
+    def assert_killed(self, mark):
+        time.sleep(4.5)
+        self.assertFalse(os.path.exists(mark), "a child outlived the run")
+
+    def test_children_left_running_by_a_finished_command_are_killed(self):
+        cmd, mark = self.launcher()
+        start = time.time()
+        code, out = adapt.run_bounded(cmd, 30)
+        self.assertLess(time.time() - start, 2.5)
+        self.assertEqual((code, out.strip()), (0, "started"))
+        self.assert_killed(mark)
+
+    def test_a_timeout_kills_the_children_and_returns_on_time(self):
+        cmd, mark = self.launcher("time.sleep(60)")
+        start = time.time()
+        with self.assertRaises(subprocess.TimeoutExpired):
+            adapt.run_bounded(cmd, 0.5)
+        self.assertLess(time.time() - start, 2.5)
+        self.assert_killed(mark)
+
+    def test_cli_calls_are_bounded_too(self):
+        cmd, mark = self.launcher("time.sleep(60)")
+        start = time.time()
+        code, _ = adapt.check.run(cmd, timeout=0.5)
+        self.assertLess(time.time() - start, 2.5)
+        self.assertEqual(code, -1)
+        self.assert_killed(mark)
+
+
 if __name__ == "__main__":
     unittest.main()

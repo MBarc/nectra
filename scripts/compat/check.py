@@ -34,13 +34,64 @@ def check(name, ok, detail=""):
     print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f": {detail}" if detail and not ok else ""), flush=True)
 
 
+def _windows_job(p):
+    """Put the suspended process `p` in a new job object, then start it. Every process
+    it starts joins the job, even after `p` itself exits. None if Windows refused."""
+    import ctypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateJobObjectW.restype = ctypes.c_void_p
+    job = k32.CreateJobObjectW(None, None)
+    handle = ctypes.c_void_p(int(p._handle))
+    if job and not k32.AssignProcessToJobObject(ctypes.c_void_p(job), handle):
+        k32.CloseHandle(ctypes.c_void_p(job))
+        job = None
+    ctypes.WinDLL("ntdll").NtResumeProcess(handle)
+    return job
+
+
+def _kill_tree(p, job):
+    if os.name != "nt":
+        import signal
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass  # the whole group has already exited
+    elif job:
+        import ctypes
+        k32 = ctypes.WinDLL("kernel32")
+        k32.TerminateJobObject(ctypes.c_void_p(job), 1)
+        k32.CloseHandle(ctypes.c_void_p(job))
+    elif p.poll() is None:
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True)
+
+
+def run_bounded(cmd, timeout, **kw):
+    """(exit code, stdout + stderr) of `cmd`. After `timeout` seconds it is killed with
+    every process it started, and TimeoutExpired raised; processes it leaves running
+    when it ends are killed too. Output goes to files, not pipes, so a child holding
+    them open cannot stall the read. The tree is a job object on Windows; elsewhere a
+    session, which a child calling setsid itself can leave."""
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        if os.name == "nt":
+            p = subprocess.Popen(cmd, stdout=out, stderr=err, creationflags=0x4, **kw)  # CREATE_SUSPENDED
+            job = _windows_job(p)
+        else:
+            p, job = subprocess.Popen(cmd, stdout=out, stderr=err, start_new_session=True, **kw), None
+        try:
+            p.wait(timeout)
+        finally:
+            _kill_tree(p, job)
+            p.wait(30)
+        out.seek(0)
+        err.seek(0)
+        return p.returncode, (out.read() + err.read()).decode("utf-8", "replace")
+
+
 def run(cmd, env=None, timeout=120, stdin=subprocess.DEVNULL, cwd=None):
     # Windows npm CLIs are .cmd shims, which only a resolved path can start.
     cmd = [shutil.which(cmd[0]) or cmd[0], *cmd[1:]]
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           env={**os.environ, **(env or {})}, timeout=timeout, stdin=stdin, cwd=cwd)
-        return p.returncode, p.stdout + p.stderr
+        return run_bounded(cmd, timeout, env={**os.environ, **(env or {})}, stdin=stdin, cwd=cwd)
     except (OSError, subprocess.TimeoutExpired) as e:
         return -1, str(e)
 

@@ -218,23 +218,8 @@ def rename_noreplace(src, dst):
         os.unlink(src)
 
 
-def run_bounded(cmd, timeout, **kw):
-    """subprocess.run with a timeout that kills the whole process tree, not just the
-    shell: cargo and training jobs spawn children that would otherwise keep running."""
-    flags = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
-                         errors="replace", **flags, **kw)
-    try:
-        out, _ = p.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True)
-        else:
-            import signal
-            os.killpg(p.pid, signal.SIGKILL)
-        p.communicate()
-        raise
-    return p.returncode, out
+# Cargo and training jobs start children; the timeout must hold for all of them.
+run_bounded = check.run_bounded
 
 
 # ---- registry -----------------------------------------------------------------------
