@@ -451,6 +451,35 @@ class AstraReview(Sandbox):
         self.assertEqual(self.run_main(), 1)
         self.assertIn("Installed registry not updated", self.latest_report())
 
+    # 10: provider selection is honoured and part of the fingerprint
+    def test_an_empty_provider_list_means_none(self):
+        self.assertEqual(adapt.choose_providers("", None), [])
+        self.assertEqual(adapt.choose_providers(None, []), [])
+        self.assertEqual(adapt.choose_providers(None, None), ["anthropic", "openai", "google"])
+        self.assertEqual(adapt.choose_providers(None, ["openai", "ollama"]), ["openai"])
+        self.assertEqual(adapt.choose_providers("anthropic", ["openai"]), ["anthropic"])
+
+    def test_fingerprint_follows_what_nectra_would_route_to(self):
+        fp = lambda providers, ollama=(): adapt.fingerprint(REGISTRY, adapt.ROOT, providers, list(ollama))
+        both = fp(["anthropic", "openai"])
+        self.assertNotEqual(both, fp(["anthropic"]))
+        self.assertNotEqual(both, fp(["anthropic", "openai", "google"]))
+        self.assertNotEqual(both, fp(["anthropic", "openai", "ollama"], ["llama3.1:8b"]))
+        self.assertEqual(both, fp(["anthropic", "openai"], ["llama3.1:8b"]))  # ollama not selected
+        self.assertEqual(both, fp(["openai", "anthropic"]))
+        swapped = REGISTRY.replace('prefers = ["planning"]', 'prefers = ["planning", "coding"]')
+        self.assertEqual(adapt.fingerprint(swapped, adapt.ROOT, None, []),
+                         adapt.fingerprint(swapped.replace('["planning", "coding"]', '["coding", "planning"]'), adapt.ROOT, None, []))
+
+    def test_changing_the_selected_providers_asks_for_a_retrain(self):
+        quiet = self.fixture(help={}, streams={}, versions={}, models={})
+        self.assertEqual(self.run_main(fixture=quiet), 0)
+        self.assertFalse(self.state_json().get("retrain", {}).get("needed"))
+        with open(os.path.join(self.user, "config.toml"), "w") as f:
+            f.write('providers = ["anthropic"]\nregistry = "models.toml"\n')
+        self.run_main(fixture=quiet)
+        self.assertTrue(self.state_json()["retrain"]["needed"])
+
 
 if __name__ == "__main__":
     unittest.main()

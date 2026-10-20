@@ -525,9 +525,24 @@ def update_installed(path, fixes, report, expected):
 
 
 # ---- Laya retrain -------------------------------------------------------------------
-def fingerprint(registry_text, repo):
-    """What Laya learns from: enabled models and their roles, the role table, the task types."""
-    roster = sorted((m["id"], tuple(m.get("prefers", []))) for m in registry_models(registry_text) if m["enabled"])
+FINGERPRINT_VERSION = 2
+
+
+def fingerprint(registry_text, repo, providers, ollama):
+    """What Laya learns from: the models Nectra would actually route to and their roles,
+    the role table and the task types.
+
+    The roster follows src/models.rs: `providers` (None when the config has no list)
+    disables unselected providers, Gemini needs an explicit "google", and configured
+    Ollama models join as ollama/<name> with no role."""
+    def routable(m):
+        if providers is not None and m["provider"] not in providers:
+            return False
+        return m["provider"] != "google" or bool(providers and "google" in providers)
+    roster = sorted((m["id"], sorted(m.get("prefers", []))) for m in registry_models(registry_text)
+                    if m["enabled"] and routable(m))
+    if providers is None or "ollama" in providers:
+        roster += sorted((f"ollama/{name}", []) for name in ollama)
     parts = [json.dumps(roster)]
     for rel, pattern in (("src/policy.rs", r"pub const ROLES.*?\];"), ("src/classifier.rs", r"pub enum TaskType \{.*?\}")):
         try:
@@ -625,6 +640,13 @@ def write_report(path, findings, rep):
     return issues
 
 
+def choose_providers(arg, selected):
+    """The CLIs to check: --providers if given ("" means none), else the config's list
+    (an empty list means none), else all three."""
+    chosen = (arg.split(",") if arg else []) if arg is not None else selected if selected is not None else list(check.CLI)
+    return [p for p in chosen if p in check.CLI]
+
+
 def default_dirs():
     if os.name == "nt":
         return (os.path.join(os.environ["LOCALAPPDATA"], "nectra", "compat"),
@@ -675,13 +697,17 @@ def run(args):
         installed = os.path.join(os.path.dirname(args.config), cfg.get("registry", "models.toml"))
         configured_ollama = [m["name"] for m in cfg.get("ollama", {}).get("models", [])]
         selected = cfg.get("providers")
-    chosen = args.providers.split(",") if args.providers else selected or list(check.CLI)
-    providers = [p for p in chosen if p in check.CLI]
+    providers = choose_providers(args.providers, selected)
     bundled = open(os.path.join(args.repo, "config", "models.toml"), encoding="utf-8").read()
     routing = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
+    def fp(text):
+        return fingerprint(text, args.repo, selected, configured_ollama)
+
     # The first run compares with the registry as found, saved before anything can change it.
-    if "fingerprint" not in state:
-        state["fingerprint"] = fingerprint(routing, args.repo)
+    # So does the first run after the fingerprint's definition changes.
+    if "fingerprint" not in state or state.get("fingerprint_version") != FINGERPRINT_VERSION:
+        state["fingerprint_version"] = FINGERPRINT_VERSION
+        state["fingerprint"] = fp(routing)
         save()
 
     if args.fixture:
@@ -740,14 +766,14 @@ def run(args):
         reg = [f for f in fixes if f["kind"].startswith("model-")]
         try:
             if reg and installed and os.path.exists(installed):
-                mark_retrain(state, fingerprint(edit_registry(routing, reg), args.repo),
+                mark_retrain(state, fp(edit_registry(routing, reg)),
                              "; ".join(f["detail"] for f in reg), save)
             update_installed(installed, fixes, rep, routing)
         except ValueError as e:
             rep["installed_blocked"] = f"{installed} could not be edited safely ({e})"
 
     after = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
-    mark_retrain(state, fingerprint(after, args.repo), "models, roles or task types changed", save)
+    mark_retrain(state, fp(after), "models, roles, task types or provider selection changed", save)
     rep["retrain"] = maybe_retrain(state, args.repo, args.retrain_timeout, save)
 
     state.update(versions={k: v for k, v in obs["versions"].items() if v} or prev.get("versions", {}),
