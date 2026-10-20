@@ -270,11 +270,12 @@ def train_cmd(python, args, data, out):
 
 HOST_SETUP = f"""set -e
 mkdir -p ~/nectra-laya && cd ~/nectra-laya
-if [ ! -d laya/.git ]; then git clone -q {LAYA_GIT} laya; fi
-git -C laya fetch -q origin && git -C laya checkout -q {LAYA_REV}
+if [ ! -d laya-git/.git ]; then git clone -q {LAYA_GIT} laya-git; fi
+git -C laya-git fetch -q origin && git -C laya-git checkout -q {LAYA_REV}
 if [ ! -x venv/bin/python ]; then python3 -m venv venv; fi
 venv/bin/python -c 'import torch' 2>/dev/null || venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cpu
-venv/bin/python -c 'import laya, onnx, onnxscript' 2>/dev/null || venv/bin/pip install -q -e ./laya onnx onnxruntime onnxscript
+# Unconditional: a no-op when current, and it moves the install to this checkout.
+venv/bin/pip install -q -e ./laya-git onnx onnxruntime onnxscript
 """
 
 
@@ -288,7 +289,7 @@ def train_remote(args, items_path, run_dir, run_id):
     ssh(host, f"mkdir -p ~/{remote}")
     run(["scp", "-q", items_path, f"{host}:{remote}/train.jsonl"])
     cmd = train_cmd("../../venv/bin/python", args, "train.jsonl", "ckpt")
-    export = ["../../venv/bin/python", "../../laya/laya-rust/tools/export_onnx.py", "ckpt", "--out", "onnx"]
+    export = ["../../venv/bin/python", "../../laya-git/laya-rust/tools/export_onnx.py", "ckpt", "--out", "onnx"]
     job = (f"cd ~/{remote} && export OMP_NUM_THREADS={args.threads} HF_HOME=$HOME/nectra-laya/hf && "
            f"({shlex.join(cmd)} && {shlex.join(export)}) > train.log 2>&1; echo $? > done")
     # tmux keeps the job alive if this ssh session drops; we poll for `done`.
