@@ -271,6 +271,18 @@ class AstraReview(Sandbox):
         self.assertEqual([f["kind"] for f in found], ["discovery"])
         self.assertEqual(self.analyse_models({}, ollama_error="connection refused", ollama_configured=[]), [])
 
+    # 3: a failing fix branch protects the installed registry
+    def test_failing_branch_tests_leave_the_installed_registry_alone(self):
+        self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)")), 1)
+        self.assertEqual(self.installed(), REGISTRY)
+        self.assertEqual([f for f in os.listdir(self.user) if ".bak-" in f], [])
+        self.assertIn("Installed registry not updated: the fix branch", self.latest_report())
+
+    def test_a_branch_that_cannot_be_made_leaves_the_installed_registry_alone(self):
+        self.assertEqual(self.run_main(extra=["--base", "no-such-branch"]), 1)
+        self.assertEqual(self.installed(), REGISTRY)
+        self.assertIn("Installed registry not updated: the fix branch", self.latest_report())
+
 
 if __name__ == "__main__":
     unittest.main()

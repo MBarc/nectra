@@ -400,7 +400,7 @@ def make_branch(repo, base, fixes, test_cmd, target_dir):
         if not touched:
             git("worktree", "remove", "--force", wt, cwd=repo)
             git("branch", "-D", branch, cwd=repo)
-            return {"branch": branch, "skipped": "nothing to change on " + base}
+            return {"branch": branch, "skipped": "nothing to change on " + base, "unchanged": True}
         env = {**os.environ, "CARGO_TARGET_DIR": target_dir} if target_dir else None
         t = subprocess.run(test_cmd, shell=True, cwd=wt, capture_output=True, text=True, encoding="utf-8",
                            errors="replace", env=env)
@@ -502,6 +502,8 @@ def write_report(path, findings, rep):
                   f"tests {'passed' if b['tests_passed'] else 'FAILED'}; files {', '.join(b['files'])}")]
         if b.get("test_tail"):
             lines += ["", "```", b["test_tail"], "```"]
+    if rep.get("installed_blocked"):
+        lines += ["", f"Installed registry not updated: {rep['installed_blocked']}."]
     if rep.get("installed_conflict"):
         lines += ["", f"Installed registry not updated: {rep['installed_conflict']}."]
     if rep.get("installed"):
@@ -607,7 +609,13 @@ def run(args):
     if bundled_fixes:
         rep["branch"] = make_branch(args.repo, args.base, bundled_fixes, args.test_cmd,
                                     args.target_dir or os.path.join(args.state_dir, "target"))
-    update_installed(installed, fixes, rep, routing)
+    # The installed registry routes for real, so it only takes changes the branch's tests passed.
+    b = rep.get("branch")
+    if b and not b.get("unchanged") and not (b.get("tests_passed") and not b.get("error")):
+        why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else b.get("skipped") or "no test result")
+        rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
+    else:
+        update_installed(installed, fixes, rep, routing)
 
     # The first run has nothing to compare with, so it compares with the registry before its own edits.
     state.setdefault("fingerprint", fingerprint(routing, args.repo))
@@ -624,7 +632,7 @@ def run(args):
     issues = write_report(report, findings, rep)
     print(open(report, encoding="utf-8").read())
     print(f"Report: {report}")
-    return 1 if issues or rep.get("installed_conflict") or (rep.get("branch") or {}).get("tests_passed") is False else 0
+    return 1 if issues or rep.get("installed_conflict") or rep.get("installed_blocked") or (rep.get("branch") or {}).get("tests_passed") is False else 0
 
 
 if __name__ == "__main__":
