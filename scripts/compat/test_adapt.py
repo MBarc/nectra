@@ -1,5 +1,5 @@
 """Tests for adapt.py: python scripts/compat/test_adapt.py"""
-import json, os, shutil, subprocess, sys, tempfile, tomllib, unittest
+import json, os, shutil, subprocess, sys, tempfile, time, tomllib, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -282,6 +282,49 @@ class AstraReview(Sandbox):
         self.assertEqual(self.run_main(extra=["--base", "no-such-branch"]), 1)
         self.assertEqual(self.installed(), REGISTRY)
         self.assertIn("Installed registry not updated: the fix branch", self.latest_report())
+
+    # 4: retrain intent survives interruption, launch errors and hangs
+    def retrain_tool(self, name, body):
+        os.makedirs(os.path.join(self.repo, "tools", "laya"), exist_ok=True)
+        with open(os.path.join(self.repo, "tools", "laya", name), "w") as f:
+            f.write(body)
+
+    def test_retrain_intent_is_saved_before_the_registry_changes(self):
+        from unittest import mock
+        with mock.patch.object(adapt, "update_installed", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_main()
+        st = self.state_json()
+        self.assertTrue(st["retrain"]["needed"])
+        self.assertIn("gpt-5.6-luna", st["retrain"]["reason"])
+        self.assertEqual(st["retrain"]["fingerprint"], st["fingerprint"])
+
+    def test_an_interrupted_first_run_still_retrains_next_time(self):
+        from unittest import mock
+        with mock.patch.object(adapt, "maybe_retrain", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_main()
+        self.assertFalse(adapt.registry_models(self.installed())[3]["enabled"])  # luna already disabled
+        seen = os.path.join(self.tmp, "seen.txt")
+        self.retrain_tool("retrain.py", f"open({seen!r}, 'w').write('ran')\n")
+        self.run_main()
+        self.assertTrue(os.path.exists(seen))
+        self.assertFalse(self.state_json()["retrain"]["needed"])
+
+    def test_a_retrain_tool_that_cannot_start_keeps_it_pending(self):
+        self.retrain_tool("retrain", "this is not a program\n")
+        self.run_main()
+        st = self.state_json()
+        self.assertTrue(st["retrain"]["needed"])
+        self.assertIn("could not start", self.latest_report())
+
+    def test_a_hung_retrain_tool_times_out_and_stays_pending(self):
+        self.retrain_tool("retrain.py", "import time\ntime.sleep(60)\n")
+        start = time.time()
+        self.run_main(extra=["--retrain-timeout", "2"])
+        self.assertLess(time.time() - start, 40)
+        self.assertTrue(self.state_json()["retrain"]["needed"])
+        self.assertIn("timed out", self.latest_report())
 
 
 if __name__ == "__main__":

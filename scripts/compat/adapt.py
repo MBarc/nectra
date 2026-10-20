@@ -198,6 +198,25 @@ def atomic_write(path, text):
         raise
 
 
+def run_bounded(cmd, timeout, **kw):
+    """subprocess.run with a timeout that kills the whole process tree, not just the
+    shell: cargo and training jobs spawn children that would otherwise keep running."""
+    flags = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                         errors="replace", **flags, **kw)
+    try:
+        out, _ = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True)
+        else:
+            import signal
+            os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        raise
+    return p.returncode, out
+
+
 # ---- registry -----------------------------------------------------------------------
 def registry_models(text):
     return tomllib.loads(text).get("model", [])
@@ -461,28 +480,45 @@ def retrain_tool(repo):
     return None
 
 
-def maybe_retrain(state, fp, reason, repo):
+def mark_retrain(state, fp, reason, save):
+    """Record that Laya needs retraining for `fp`, and save it, before anything acts on it."""
+    if fp == state.get("fingerprint"):
+        return
     pending = state.get("retrain", {})
-    if state.get("fingerprint") == fp and not pending.get("needed"):
-        return {"status": "not needed"}
-    reason = reason if state.get("fingerprint") != fp else pending.get("reason", reason)
-    tool = retrain_tool(repo)
-    result = {"status": "retrain needed", "reason": reason}
-    if tool:
-        cmd = {".py": [sys.executable, tool], ".ps1": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tool],
-               ".sh": ["sh", tool]}.get(os.path.splitext(tool)[1], [tool])
-        p = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           env={**os.environ, "NECTRA_RETRAIN_REASON": reason, "NECTRA_RETRAIN_FINGERPRINT": fp})
-        result.update(tool=os.path.relpath(tool, repo), exit=p.returncode, output=check.last_lines(p.stdout + p.stderr))
-        if p.returncode == 0:
-            result["status"] = "retrain triggered"
-            state["retrain"] = {"needed": False, "last": TODAY, "reason": reason}
-            state["fingerprint"] = fp
-            return result
-    else:
-        result["tool"] = "tools/laya/retrain is absent"
-    state["retrain"] = {"needed": True, "reason": reason, "since": pending.get("since", TODAY)}
+    state["retrain"] = {"needed": True, "reason": reason, "fingerprint": fp,
+                        "since": pending.get("since", TODAY) if pending.get("needed") else TODAY}
     state["fingerprint"] = fp
+    save()
+
+
+def maybe_retrain(state, repo, timeout, save):
+    """Run tools/laya/retrain for a pending retrain. Only exit 0 clears it."""
+    pending = state.get("retrain", {})
+    if not pending.get("needed"):
+        return {"status": "not needed"}
+    reason, fp = pending["reason"], pending.get("fingerprint", state.get("fingerprint", ""))
+    result = {"status": "retrain needed", "reason": reason}
+    tool = retrain_tool(repo)
+    if not tool:
+        result["tool"] = "tools/laya/retrain is absent"
+        return result
+    cmd = {".py": [sys.executable, tool], ".ps1": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tool],
+           ".sh": ["sh", tool]}.get(os.path.splitext(tool)[1], [tool])
+    result["tool"] = os.path.relpath(tool, repo)
+    try:
+        code, out = run_bounded(cmd, timeout, cwd=repo,
+                                env={**os.environ, "NECTRA_RETRAIN_REASON": reason, "NECTRA_RETRAIN_FINGERPRINT": fp})
+    except subprocess.TimeoutExpired:
+        result["tool"] += f", timed out after {timeout:g}s"
+        return result
+    except OSError as e:
+        result["tool"] += f", could not start: {e}"
+        return result
+    result.update(exit=code, output=check.last_lines(out))
+    if code == 0:
+        result["status"] = "retrain triggered"
+        state["retrain"] = {"needed": False, "last": TODAY, "reason": reason, "fingerprint": fp}
+        save()
     return result
 
 
@@ -544,6 +580,8 @@ def main(argv=None):
     ap.add_argument("--state-dir", default=state_dir)
     ap.add_argument("--config", default=user_config, help="installed config.toml; 'none' skips the installed registry")
     ap.add_argument("--fixture", help="observation JSON to use instead of the real CLIs (tests, drills)")
+    # Training is slow; the retrain tool may train in place or just queue a job.
+    ap.add_argument("--retrain-timeout", type=float, default=12 * 3600, help="seconds (default 12 h)")
     args = ap.parse_args(argv)
     os.makedirs(args.state_dir, exist_ok=True)
     lock = acquire_lock(args.state_dir)
@@ -560,6 +598,9 @@ def main(argv=None):
 def run(args):
     state_path = os.path.join(args.state_dir, "state.json")
     state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
+
+    def save():
+        atomic_write(state_path, json.dumps(state, indent=1))
     installed, configured_ollama, selected = None, [], None
     if args.config != "none" and os.path.exists(args.config):
         cfg = tomllib.loads(open(args.config, encoding="utf-8").read())
@@ -570,6 +611,10 @@ def run(args):
     providers = [p for p in chosen if p in check.CLI]
     bundled = open(os.path.join(args.repo, "config", "models.toml"), encoding="utf-8").read()
     routing = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
+    # The first run compares with the registry as found, saved before anything can change it.
+    if "fingerprint" not in state:
+        state["fingerprint"] = fingerprint(routing, args.repo)
+        save()
 
     if args.fixture:
         obs = json.load(open(args.fixture, encoding="utf-8"))
@@ -615,19 +660,20 @@ def run(args):
         why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else b.get("skipped") or "no test result")
         rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
     else:
+        reg = [f for f in fixes if f["kind"].startswith("model-")]
+        if reg and installed and os.path.exists(installed):
+            mark_retrain(state, fingerprint(edit_registry(routing, reg), args.repo),
+                         "; ".join(f["detail"] for f in reg), save)
         update_installed(installed, fixes, rep, routing)
 
-    # The first run has nothing to compare with, so it compares with the registry before its own edits.
-    state.setdefault("fingerprint", fingerprint(routing, args.repo))
     after = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
-    changed = [f["detail"] for f in fixes if f["kind"].startswith("model-")]
-    rep["retrain"] = maybe_retrain(state, fingerprint(after, args.repo),
-                                   "; ".join(changed) or "models, roles or task types changed", args.repo)
+    mark_retrain(state, fingerprint(after, args.repo), "models, roles or task types changed", save)
+    rep["retrain"] = maybe_retrain(state, args.repo, args.retrain_timeout, save)
 
     state.update(versions={k: v for k, v in obs["versions"].items() if v} or prev.get("versions", {}),
                  help_flags={k: sorted(flags_in(v)) for k, v in obs["help"].items()} or prev.get("help_flags", {}),
                  probes={**state.get("probes", {}), **obs["probes"]}, last_run=TODAY)
-    atomic_write(state_path, json.dumps(state, indent=1))
+    save()
     report = os.path.join(args.state_dir, f"report-{TODAY}.md")
     issues = write_report(report, findings, rep)
     print(open(report, encoding="utf-8").read())

@@ -27,7 +27,8 @@ if (-not $Run) {
         -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Run -Python `"$Python`" -Nectra `"$Nectra`""
     $trigger = New-ScheduledTaskTrigger -Daily -At $At
     # Runs only while you're signed in: the CLIs use your logins and a console.
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+    # 14 h covers the fix-branch tests plus a Laya retrain (adapt.py --retrain-timeout, 12 h).
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 14)
     Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
     "Registered '$name' daily at $At. Logs: $env:LOCALAPPDATA\nectra\compat"
     return

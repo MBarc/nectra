@@ -8,6 +8,7 @@ Type=oneshot
 WorkingDirectory=%h/nectra
 Environment=PATH=%h/.local/bin:%h/.cargo/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/python3 %h/nectra/scripts/compat/adapt.py --live --nectra %h/nectra/target/release/nectra
-TimeoutStartSec=1h
+# Covers the fix-branch tests plus a retrain (adapt.py --retrain-timeout, default 12 h).
+TimeoutStartSec=14h
 # Issues exit 1; the report is in ~/.local/state/nectra/compat either way.
 SuccessExitStatus=1

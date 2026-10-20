@@ -65,8 +65,19 @@ fix branch. Otherwise it is 0.
 `tools/laya/retrain` is optional and belongs to the Laya side; a `.py`, `.ps1`, `.sh`
 or `.cmd` suffix also works. It runs from the repo root with no arguments.
 `NECTRA_RETRAIN_REASON` and `NECTRA_RETRAIN_FINGERPRINT` are set in its environment.
-Exit 0 means the retrain is done or queued. Anything else, or a missing tool, leaves
-`retrain.needed = true`, and the next run tries again.
+Exit 0 means the retrain is done or queued. Any of these leaves `retrain.needed = true`,
+and the next run tries again:
+- a missing tool;
+- a tool that cannot start;
+- any other exit code;
+- a run longer than `--retrain-timeout`. The default is 12 hours, because training is
+  slow. A tool that only queues a job can return at once.
+
+On a timeout, the tool's whole process tree is killed. The pending flag, with its
+reason and fingerprint, is saved to `state.json` before the registry changes and
+before the tool starts. An interrupted run therefore never loses it. The scheduled
+task and the systemd unit allow 14 hours: room for the fix-branch tests plus a full
+retrain.
 
 ## Schedule it
 
