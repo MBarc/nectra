@@ -238,6 +238,39 @@ class AstraReview(Sandbox):
         self.assertIn("changed while this run was working", self.latest_report())
         self.assertEqual([f for f in os.listdir(self.user) if f.endswith(".tmp")], [])
 
+    # 2: discovery trust
+    def test_codex_catalog_needs_success_and_a_real_list(self):
+        good = '{"models": [{"slug": "gpt-6-luna", "visibility": "list"}]}'
+        self.assertEqual(adapt.parse_codex_catalog(0, good), ({"gpt-6-luna": "list"}, None))
+        for code, out in ((1, '{"models": []}'), (1, good), (0, '{"models": []}'), (0, '{"models": {}}'),
+                          (0, '{"models": [{"name": "x"}]}'), (0, '{"models": ["x"]}'), (0, "error: not signed in"),
+                          (0, '{"models": [{"slug": 7}]}')):
+            catalog, error = adapt.parse_codex_catalog(code, out)
+            self.assertIsNone(catalog, out)
+            self.assertTrue(error)
+
+    def analyse_models(self, models, **extra):
+        obs = {"versions": {}, "help": {}, "streams": {}, "probes": {}, "models": models, "ollama": None, **extra}
+        return adapt.analyse(obs, {}, REGISTRY)
+
+    def test_failed_discovery_never_retires_and_is_an_issue(self):
+        for models in ({"openai": {"catalog": None, "error": "exit 1"}},
+                       {"anthropic": {"listed": [], "error": "claude --help exited 1"}},
+                       {"google": {"listed": [], "mentioned": [], "error": "Gemini CLI bundle not found"}}):
+            found = self.analyse_models(models)
+            self.assertFalse([f for f in found if f["kind"].startswith("model-")], models)
+            self.assertEqual([f["kind"] for f in found], ["discovery"], models)
+
+    def test_a_catalog_that_would_retire_every_model_is_not_trusted(self):
+        found = self.analyse_models({"openai": {"catalog": {"gpt-7-nova": "list"}, "error": None}})
+        self.assertFalse([f for f in found if f["kind"] == "model-retired"])
+        self.assertIn("discovery", [f["kind"] for f in found])
+
+    def test_unreachable_ollama_is_an_issue_when_models_are_configured(self):
+        found = self.analyse_models({}, ollama_error="connection refused", ollama_configured=["llama3.1:8b"])
+        self.assertEqual([f["kind"] for f in found], ["discovery"])
+        self.assertEqual(self.analyse_models({}, ollama_error="connection refused", ollama_configured=[]), [])
+
 
 if __name__ == "__main__":
     unittest.main()

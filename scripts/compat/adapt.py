@@ -72,23 +72,34 @@ def gemini_models(bundle_text):
     return sorted(declared), set(re.findall(r'"(gemini-[0-9][\w.-]*)"', bundle_text))
 
 
-def codex_catalog():
-    code, out = check.run(["codex", "debug", "models"], timeout=60)
+def parse_codex_catalog(code, out):
+    """(catalog, error). Only a successful run with a non-empty, well-formed list counts:
+    the catalog decides retirements, so a broken one must never look authoritative."""
+    if code != 0:
+        return None, f"`codex debug models` exited {code}: {check.last_lines(out, 2)[:200]}"
     try:
         models = json.JSONDecoder().raw_decode(out, out.index("{"))[0]["models"]
-    except (ValueError, KeyError):
-        return None
-    return {m["slug"]: m.get("visibility", "list") for m in models}
+        catalog = {m["slug"]: m.get("visibility", "list") for m in models}
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None, f"`codex debug models` printed no readable catalog: {check.last_lines(out, 2)[:200]}"
+    if not catalog or not all(isinstance(k, str) and k for k in catalog):
+        return None, "`codex debug models` returned an empty or malformed catalog"
+    return catalog, None
+
+
+def codex_catalog():
+    return parse_codex_catalog(*check.run(["codex", "debug", "models"], timeout=60))
 
 
 def ollama_tags():
+    """(names, error)."""
     host = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434")
     host = host if host.startswith("http") else "http://" + host
     try:
         with urllib.request.urlopen(host.rstrip("/") + "/api/tags", timeout=3) as r:
-            return sorted(m["name"] for m in json.load(r)["models"])
-    except Exception:
-        return None
+            return sorted(m["name"] for m in json.load(r)["models"]), None
+    except Exception as e:
+        return None, f"Ollama at {host} did not answer: {e}"
 
 
 def stream_events(text):
@@ -104,26 +115,34 @@ def stream_events(text):
 
 
 def observe(providers, registry_text, state, live, work):
-    obs = {"versions": {}, "help": {}, "models": {}, "streams": {}, "stream_tail": {}, "probes": {}, "ollama": None}
+    obs = {"versions": {}, "help": {}, "help_code": {}, "models": {}, "streams": {}, "stream_tail": {}, "probes": {},
+           "ollama": None}
     for p in providers:
         cli = check.CLI[p]
         code, out = check.run([cli, "--version"])
         obs["versions"][cli] = out.strip().splitlines()[0] if code == 0 and out.strip() else None
     for cmd in check.FLAGS:
         if check.CLI_OF.get(cmd[0]) in providers:
-            obs["help"][" ".join(cmd)] = check.run(list(cmd))[1]
+            key = " ".join(cmd)
+            obs["help_code"][key], obs["help"][key] = check.run(list(cmd))
     if "anthropic" in providers:
-        obs["models"]["anthropic"] = {"listed": claude_aliases(obs["help"].get("claude --help", ""))}
+        listed = claude_aliases(obs["help"].get("claude --help", ""))
+        error = (f"`claude --help` exited {obs['help_code'].get('claude --help')}" if obs["help_code"].get("claude --help")
+                 else None if listed else "`claude --help` names no model aliases under --model")
+        obs["models"]["anthropic"] = {"listed": listed, "error": error}
     if "openai" in providers:
-        obs["models"]["openai"] = {"catalog": codex_catalog()}
+        catalog, error = codex_catalog()
+        obs["models"]["openai"] = {"catalog": catalog, "error": error}
     if "google" in providers:
-        bundle = gemini_bundle()
+        bundle, found = gemini_bundle(), {"listed": [], "mentioned": [], "error": "Gemini CLI bundle not found"}
         if bundle:
             text = "".join(open(os.path.join(bundle, f), encoding="utf-8", errors="replace").read()
                            for f in os.listdir(bundle) if f.endswith(".js"))
             declared, mentioned = gemini_models(text)
-            obs["models"]["google"] = {"listed": declared, "mentioned": sorted(mentioned)}
-    obs["ollama"] = ollama_tags()
+            found = {"listed": declared, "mentioned": sorted(mentioned),
+                     "error": None if declared and mentioned else f"no Gemini model constants found in {bundle}"}
+        obs["models"]["google"] = found
+    obs["ollama"], obs["ollama_error"] = ollama_tags()
     if live:
         for p in providers:
             rt = RUNTIME[p]
@@ -283,19 +302,24 @@ def analyse(obs, prev, registry_text):
     have = {m["id"]: m for m in models}
     for provider, found in obs["models"].items():
         mine = [m["id"] for m in models if m["provider"] == provider]
+        # Failed discovery proves nothing: never retire (or add) from it.
+        if found.get("error") or (provider == "openai" and not found.get("catalog")):
+            out.append({"kind": "discovery", "detail": found.get("error") or f"{provider} discovery returned nothing"})
+            continue
         if provider == "openai":
-            catalog = found.get("catalog")
-            if catalog is None:
-                out.append({"kind": "discovery", "detail": "`codex debug models` returned no catalog"})
+            catalog = found["catalog"]
+            gone = [mid for mid in mine if mid not in catalog and have[mid]["enabled"]]
+            if gone and len(gone) == len([mid for mid in mine if have[mid]["enabled"]]):
+                out.append({"kind": "discovery", "detail": f"the Codex catalog lists none of the enabled models {gone}; "
+                            "not trusting it to retire them all"})
                 continue
             for mid, vis in catalog.items():
                 if vis == "list" and mid not in have:
                     out.append({"kind": "model-new", "fix": True, "provider": provider, "id": mid,
                                 "source": "codex debug models", "detail": f"Codex offers {mid} to this account"})
-            for mid in mine:
-                if mid not in catalog and have[mid]["enabled"]:
-                    out.append({"kind": "model-retired", "fix": True, "provider": provider, "id": mid,
-                                "detail": f"{mid} is no longer in this account's Codex catalog"})
+            for mid in gone:
+                out.append({"kind": "model-retired", "fix": True, "provider": provider, "id": mid,
+                            "detail": f"{mid} is no longer in this account's Codex catalog"})
             continue
         source = "claude --help" if provider == "anthropic" else "Gemini CLI bundle"
         for mid in found.get("listed", []):
@@ -314,6 +338,8 @@ def analyse(obs, prev, registry_text):
                 if mid not in found.get("mentioned", []) and have[mid]["enabled"]:
                     out.append({"kind": "model-retired", "provider": provider, "id": mid,
                                 "detail": f"the Gemini CLI no longer mentions {mid}; check before disabling it"})
+    if obs.get("ollama") is None and obs.get("ollama_error") and obs.get("ollama_configured"):
+        out.append({"kind": "discovery", "detail": obs["ollama_error"]})
     if obs.get("ollama") is not None:
         configured = set(obs.get("ollama_configured", []))
         pulled = set(obs["ollama"])
