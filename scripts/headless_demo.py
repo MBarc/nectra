@@ -88,19 +88,26 @@ def claude_log(session):
 
 
 def codex_log(thread):
-    """The thread's running total after the last call in Codex's own rollout."""
+    """The thread's running total after the last call in Codex's own rollout,
+    and the model it last ran (`_model`)."""
     home = pathlib.Path(os.environ.get("CODEX_HOME") or pathlib.Path.home() / ".codex")
-    logs = list((home / "sessions").rglob(f"rollout-*-{thread}.jsonl"))
-    assert len(logs) == 1, f"Codex log for {thread}: {logs}"
+    # thread/revert starts rollout-<time>-<thread>_<n>.jsonl; the newest is current.
+    logs = sorted((home / "sessions").rglob(f"rollout-*-{thread}*.jsonl"),
+                  key=lambda p: p.stat().st_mtime)
+    assert logs, f"no Codex log for {thread}"
     total = {}
-    for line in logs[0].read_text(encoding="utf-8").splitlines():
-        p = json.loads(line).get("payload", {})
+    model = None
+    for line in logs[-1].read_text(encoding="utf-8").splitlines():
+        entry = json.loads(line)
+        p = entry.get("payload", {})
+        if entry.get("type") == "turn_context":
+            model = p.get("model", model)
         if p.get("type") == "token_count" and p.get("info"):
             t = p["info"]["total_token_usage"]
             total = {"input": t["input_tokens"] - t.get("cached_input_tokens", 0),
                      "cache_read": t.get("cached_input_tokens", 0), "cache_write": 0,
                      "cache_write_5m": 0, "output": t["output_tokens"]}
-    return total
+    return {**total, "_model": model}
 
 
 def provider_usage(state, r, before):
@@ -112,6 +119,8 @@ def provider_usage(state, r, before):
         new = [m for i, m in messages.items() if i not in (before or {})]
         return {k: sum(m[k] for m in new) for k in USAGE}, messages
     total = codex_log(record["provider_session_id"])
+    models = {m["model"] for m in r["models"]}
+    assert models == {total["_model"]}, f"Nectra's models {models}, Codex ran {total['_model']}"
     return {k: total[k] - (before or {}).get(k, 0) for k in USAGE}, total
 
 
