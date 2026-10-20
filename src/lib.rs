@@ -7,6 +7,7 @@ pub mod config;
 pub mod debate;
 pub mod executor;
 pub mod jev;
+pub mod laya;
 pub mod limits;
 pub mod mcp;
 pub mod models;

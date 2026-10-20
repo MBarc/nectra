@@ -261,7 +261,7 @@ fn jev_key_prompt(cfg: &Config, output: &mut dyn Write) -> Result<()> {
     writeln!(
         output,
         "
-Smarter routing (optional): Nectra can classify each message with Jev, TypeSafe's          hosted classifier (~0.2 s and a fraction of a cent per message), so easy prompts go to          cheaper models. Message text is sent to api.typesafe.ai. Get a key at https://typesafe.ai."
+Smarter routing (optional): Nectra can classify each message with Jev, TypeSafe's          hosted classifier (~0.2 s and a fraction of a cent per message), so easy prompts go to          cheaper models. Message text is sent to api.typesafe.ai. Get a key at https://typesafe.ai.          For a free classifier that runs on this machine instead, run `nectra classifier laya`."
     )?;
     loop {
         write!(
@@ -454,6 +454,27 @@ fn save_config(path: &Path, mut cfg: Config, output: &mut dyn Write) -> Result<(
     )?;
     writeln!(output, "Run nectra setup to change this selection later.")?;
     Ok(())
+}
+
+pub fn classifier_setup(
+    path: Option<&Path>,
+    backend: crate::config::ClassifierBackend,
+) -> Result<()> {
+    let path = path
+        .map(Path::to_path_buf)
+        .or_else(|| dirs::config_dir().map(|p| p.join("nectra/config.toml")))
+        .context("cannot find config directory")?;
+    let mut cfg = if path.try_exists()? {
+        Config::from_path(&path)?
+    } else {
+        Config::from_defaults()?
+    };
+    let mut output = crate::terminal::stdout();
+    if backend == crate::config::ClassifierBackend::Laya {
+        crate::laya::download(&cfg, &mut output)?;
+    }
+    cfg.inner.classifier.backend = backend;
+    save_config(&path, cfg, &mut output)
 }
 
 pub fn ollama_setup(
