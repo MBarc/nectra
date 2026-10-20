@@ -81,9 +81,12 @@ fn fake(log: &Path) {
         std::process::exit(1);
     }
     if prompt.contains("leak") {
-        eprintln!("debug: retrying with key {SECRET}");
+        let short = std::env::var("SHORT_API_KEY").unwrap_or_default();
+        eprintln!("debug: retrying with key {SECRET} and {short}");
         let error = format!("401 invalid x-api-key {SECRET}");
         if codex {
+            // Codex's `error` events are shown as text before the turn fails.
+            say(json!({"type":"error","message":format!("stream error: key {SECRET} {short}")}));
             say(json!({"type":"turn.failed","error":{"message":error}}));
         } else {
             say(json!({"type":"result","is_error":true,"errors":[error]}));
@@ -749,18 +752,27 @@ fn conflicting_credentials() {
 fn redaction() {
     let env = Env::new();
     for model in ["haiku", "gpt-5.6-luna"] {
-        let (out, events) = env.run(&["--model", model, "--no-session", "leak it"]);
+        // A short credential is masked too.
+        let (out, events) = env.run_with(
+            &["--model", model, "--no-session", "leak it"],
+            &[("SHORT_API_KEY", "k9x2z")],
+        );
         assert_eq!(out.status.code(), Some(3));
         let stdout = String::from_utf8_lossy(&out.stdout);
         let stderr = String::from_utf8_lossy(&out.stderr);
+        for secret in [SECRET, "k9x2z"] {
+            assert!(
+                !stdout.contains(secret) && !stderr.contains(secret),
+                "{stdout}\n{stderr}"
+            );
+        }
         assert!(
-            !stdout.contains(SECRET) && !stderr.contains(SECRET),
-            "{stdout}\n{stderr}"
-        );
-        assert!(
-            stderr.contains("debug: retrying with key [redacted]"),
+            stderr.contains("debug: retrying with key [redacted] and [redacted]"),
             "{stderr}"
         );
+        if model != "haiku" {
+            assert!(stdout.contains("stream error: key [redacted]"), "{stdout}");
+        }
         if model != "haiku" {
             // Codex's own error message is passed on, masked.
             let error = result(&events)["error"].as_str().unwrap().to_string();

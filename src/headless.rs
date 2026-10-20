@@ -518,7 +518,17 @@ impl Ledger {
     }
 }
 
+/// Writes one event, every string in it with credentials masked.
 fn emit(kind: &str, mut fields: Value) -> Result<()> {
+    fn mask(v: &mut Value) {
+        match v {
+            Value::String(s) => *s = redact::redact(s),
+            Value::Array(items) => items.iter_mut().for_each(mask),
+            Value::Object(map) => map.values_mut().for_each(mask),
+            _ => {}
+        }
+    }
+    mask(&mut fields);
     fields["v"] = json!(VERSION);
     fields["type"] = json!(kind);
     let mut out = std::io::stdout().lock();

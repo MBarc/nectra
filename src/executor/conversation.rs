@@ -199,17 +199,16 @@ pub(super) fn run_command(
         .context("opening agent diagnostics")?;
     let activity = crate::activity::current();
     let diagnostics = thread::spawn(move || -> std::io::Result<()> {
-        // Whole lines, so a credential split across two reads is still masked.
+        // Never cut mid-word, so a credential split across two reads is still masked.
         let mut buffer = [0; 8192];
         let mut pending = vec![];
         loop {
             let count = stderr.read(&mut buffer)?;
             pending.extend_from_slice(&buffer[..count]);
-            let end = match pending.iter().rposition(|&b| b == b'\n') {
-                _ if count == 0 || pending.len() > 65536 => pending.len(),
-                Some(i) => i + 1,
-                None => continue,
-            };
+            let end = crate::redact::ready(&pending, count == 0);
+            if end == 0 && count != 0 {
+                continue;
+            }
             let lines: Vec<u8> = pending.drain(..end).collect();
             let text = crate::redact::redact(&String::from_utf8_lossy(&lines));
             crate::activity::diagnostic(&activity, text.as_bytes())?;

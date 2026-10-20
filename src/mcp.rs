@@ -271,7 +271,7 @@ impl Explicit {
             servers
                 .values()
                 .filter_map(|v| local(&expand_server(v, false)?))
-                .flat_map(|s| s.env.into_values()),
+                .flat_map(|s| s.env.into_iter()),
         );
         Ok(Self {
             path: std::path::absolute(path)?,
