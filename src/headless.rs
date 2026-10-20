@@ -700,6 +700,22 @@ fn bounded<T: Send + 'static>(
 
 type Outcome = std::result::Result<String, (&'static str, String)>;
 
+/// Whatever fails once the arguments are parsed, the caller still gets its
+/// one result: a failed `setup`, an error or a panic in `run` is Nectra's own
+/// failure.
+fn settle<T>(setup: Result<T>, run: impl FnOnce(&T) -> Result<Outcome>) -> Outcome {
+    let error = |e: anyhow::Error| Err(("harness_error", redact::redact(&format!("{e:#}"))));
+    let setup = match setup {
+        Ok(setup) => setup,
+        Err(e) => return error(e),
+    };
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&setup))) {
+        Ok(Ok(outcome)) => outcome,
+        Ok(Err(e)) => error(e),
+        Err(_) => Err(("harness_error", "Nectra panicked; this is a bug".into())),
+    }
+}
+
 pub fn run(
     cli: &Cli,
     cfg: &Config,
@@ -713,8 +729,8 @@ pub fn run(
     if args.no_mcp_share {
         cfg.mcp_home = None;
     }
-    let turn = executor::TurnCancellation::install()?;
-    let cancel = turn.token();
+    let turn = executor::TurnCancellation::install();
+    let cancel = &turn.as_ref().map(|t| t.token().clone()).unwrap_or_default();
     #[cfg(unix)]
     cancel_on_sigterm(cancel);
     let mut ledger = Ledger::default();
@@ -728,7 +744,7 @@ pub fn run(
         class @ ("cancelled" | "deadline") => class,
         _ => "harness_error",
     };
-    let run = || -> Result<Outcome> {
+    let mut run = || -> Result<Outcome> {
         let fail = |class, e: anyhow::Error| Ok(Err((class, error(&e))));
         let prompt = match (cli.stdin, words.is_empty()) {
             (true, false) => {
@@ -979,12 +995,7 @@ pub fn run(
             return fail(class, e);
         }
     };
-    // Whatever fails from here on, the caller still gets its one result event.
-    let outcome: Outcome = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
-        Ok(Ok(outcome)) => outcome,
-        Ok(Err(e)) => Err(("harness_error", error(&e))),
-        Err(_) => Err(("harness_error", "Nectra panicked; this is a bug".into())),
-    };
+    let outcome = settle(turn, |_| run());
     let (class, text, error) = match outcome {
         Ok(text) => (None, Some(text), None),
         Err((class, error)) => (Some(class), None, Some(error)),
@@ -1495,6 +1506,30 @@ mod tests {
             &mut names
         )
         .is_empty());
+    }
+
+    #[test]
+    fn setup_failures_errors_and_panics_all_become_one_outcome() {
+        let failed: Result<()> = Err(anyhow::anyhow!("installing interrupt handler: denied"));
+        let outcome = settle(failed, |_| unreachable!("the run never starts"));
+        assert_eq!(
+            outcome,
+            Err((
+                "harness_error",
+                "installing interrupt handler: denied".into()
+            ))
+        );
+        assert_eq!(
+            settle(Ok(()), |_| Err(anyhow::anyhow!("disk full"))),
+            Err(("harness_error", "disk full".into()))
+        );
+        assert_eq!(
+            settle(Ok(()), |_| -> Result<Outcome> { panic!("bug") })
+                .unwrap_err()
+                .0,
+            "harness_error"
+        );
+        assert_eq!(settle(Ok(()), |_| Ok(Ok("done".into()))), Ok("done".into()));
     }
 
     #[test]
