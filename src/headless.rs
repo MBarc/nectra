@@ -256,6 +256,9 @@ struct Ledger {
     worked: bool,
     reported: Option<Usage>,
     resumed: bool,
+    /// The provider refused the attempt before any work (a usage limit, a
+    /// sign-in or an unavailable model), so it cost nothing.
+    rejected: bool,
     rollout: Rollout,
     /// Claude Code's own `total_cost_usd`, for cross-checking: on a resumed
     /// session it covers the whole session.
@@ -268,6 +271,7 @@ impl Ledger {
         self.worked = false;
         self.reported = None;
         self.resumed = thread.is_some();
+        self.rejected = false;
         self.rollout = Rollout::default();
         self.rollout.based = thread.is_none();
         if d.runtime == "codex" && logged {
@@ -476,7 +480,7 @@ impl Ledger {
                 }
             }
         }
-        if self.worked || self.reported.is_some() {
+        if (self.worked || self.reported.is_some()) && !self.rejected {
             let model = self
                 .rollout
                 .model
@@ -971,6 +975,7 @@ pub fn run(
                     }
                 },
             );
+            ledger.rejected = result.as_ref().is_err_and(|e| classify(e, cancel).1);
             ledger.finish(&decision);
             // Usage first known as the turn ends (Codex without a log, Gemini)
             // meets the guard here: the turn is over, but it went past the limit.
@@ -1399,6 +1404,13 @@ mod tests {
         }
         l.finish(&d);
         assert!(!total(&l).1, "Codex");
+        // A turn the provider refused before any work (a usage limit) is free.
+        let mut l = Ledger::default();
+        l.begin(&d, None, true);
+        l.observe(&d, &json!({"type":"turn.started"}));
+        l.rejected = true;
+        l.finish(&d);
+        assert_eq!(total(&l), (Usage::default(), true));
         // Claude: the session started, then nothing more arrived.
         let d = decision("claude", "haiku");
         let mut l = Ledger::default();
