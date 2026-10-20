@@ -29,10 +29,16 @@ fn selection_disables_unselected_providers_and_preserves_custom_config() {
     assert_eq!(checked, ["codex"]);
     let cfg = Config::from_path(&path).unwrap();
     let models = Registry::load(&cfg).unwrap();
+    // Registry entries may ship disabled (scripts/compat adds discovered models that
+    // way), so selection only promises: unselected providers off, the chosen one on.
     assert!(models
         .models
         .iter()
-        .all(|m| m.enabled == (m.provider.as_str() == "openai")));
+        .all(|m| !m.enabled || m.provider.as_str() == "openai"));
+    assert!(models
+        .models
+        .iter()
+        .any(|m| m.enabled && m.provider.as_str() == "openai"));
     let mut cfg = cfg;
     cfg.inner.codex.command = "custom-codex".into();
     fs::write(&path, cfg.pretty_toml().unwrap()).unwrap();

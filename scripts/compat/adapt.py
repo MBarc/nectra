@@ -276,7 +276,7 @@ def analyse(obs, prev, registry_text):
             elif probe:
                 out.append({"kind": "model-unavailable", "detail": f"{source} names {mid}, but this account cannot use it: {probe['detail']}"})
             else:
-                out.append({"kind": "model-candidate", "detail": f"{source} names {mid}; run with --live to verify it"})
+                out.append({"kind": "model-candidate", "detail": f"{source} names {mid}; not verified (needs --live and a signed-in CLI)"})
         if provider == "google":
             for mid in mine:
                 if mid not in found.get("mentioned", []) and have[mid]["enabled"]:
