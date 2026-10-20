@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 14] = [
+    let scenarios: [(&str, fn()); 15] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -38,6 +38,10 @@ fn main() {
             conflicting_credentials,
         ),
         ("credentials are redacted", redaction),
+        (
+            "Codex without a log still meets the cost guard",
+            cost_guard_without_codex_log,
+        ),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -418,6 +422,23 @@ fn cost_guard() {
     assert!(r["cost_usd"].as_f64().unwrap() > 0.01);
     // A stopped task can still be continued.
     assert!(r["session_id"].is_string());
+}
+
+fn cost_guard_without_codex_log() {
+    let env = Env::new();
+    // The turn's whole cost, $0.000116, is only known from turn.completed.
+    let (out, events) = env.run(&[
+        "--model",
+        "gpt-5.6-luna",
+        "--no-session",
+        "--max-cost-usd",
+        "0.0001",
+        "fix it",
+    ]);
+    let r = result(&events);
+    assert_eq!(r["error_class"], "cost_limit", "{r}");
+    assert_eq!(out.status.code(), Some(4));
+    assert!(r["cost_usd"].as_f64().unwrap() > 0.0001);
 }
 
 fn deadline() {

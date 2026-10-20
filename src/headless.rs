@@ -931,6 +931,12 @@ pub fn run(
                 },
             );
             ledger.finish(&decision);
+            // Usage first known as the turn ends (Codex without a log, Gemini)
+            // meets the guard here: the turn is over, but it went past the limit.
+            let result = match (result, args.max_cost_usd) {
+                (Ok(_), Some(max)) if ledger.cost().0 > max => Err(CostLimit(max).into()),
+                (result, _) => result,
+            };
             // A task that ran keeps its session, even when it failed (a cost
             // stop can be continued); failing to save it only loses --resume.
             let mut keep = || match remember(
