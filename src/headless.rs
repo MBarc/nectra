@@ -5,8 +5,9 @@ use crate::{
     config::Config,
     executor::{self, CancellationToken, ProviderSession},
     models::Registry,
+    redact,
     router::{self, Decision},
-    usage::{self, Tokens},
+    usage,
 };
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -110,131 +111,381 @@ fn record_path(dir: &Path, id: &str) -> Result<PathBuf> {
     Ok(dir.join("runs").join(format!("{id}.json")))
 }
 
-/// One model call (Claude), turn (Codex) or per-model total (Gemini).
+/// One model call's tokens as `usage` reports them. `cache_write` includes
+/// `cache_write_5m`, the part Claude wrote at its 5-minute rate; the rest is at
+/// the 1-hour rate.
+#[derive(Debug, Default, Clone, Copy, Serialize, PartialEq, Eq)]
+struct Usage {
+    input: u64,
+    cache_read: u64,
+    cache_write: u64,
+    cache_write_5m: u64,
+    output: u64,
+}
+impl Usage {
+    fn fields(&mut self) -> [&mut u64; 5] {
+        [
+            &mut self.input,
+            &mut self.cache_read,
+            &mut self.cache_write,
+            &mut self.cache_write_5m,
+            &mut self.output,
+        ]
+    }
+    fn add(&mut self, mut o: Usage) {
+        for (a, b) in self.fields().into_iter().zip(o.fields()) {
+            *a += *b;
+        }
+    }
+    /// The growth from `before` to these running totals.
+    fn since(mut self, mut before: Usage) -> Usage {
+        for (a, b) in self.fields().into_iter().zip(before.fields()) {
+            *a = a.saturating_sub(*b);
+        }
+        self
+    }
+    /// Field by field, the larger. A provider's counters for a call only grow,
+    /// so a repeated or stale snapshot never lowers what was counted.
+    fn max(&mut self, mut o: Usage) {
+        for (a, b) in self.fields().into_iter().zip(o.fields()) {
+            *a = (*a).max(*b);
+        }
+    }
+    /// USD at `model`'s own price; None when it has none.
+    fn cost(&self, model: &str) -> Option<f64> {
+        let [input, read, write_1h, output] = usage::price(model)?;
+        let write_5m = usage::price_cache_write_5m(model)?;
+        let n = |v: u64| v as f64;
+        Some(
+            (n(self.input) * input
+                + n(self.cache_read) * read
+                + n(self.cache_write.saturating_sub(self.cache_write_5m)) * write_1h
+                + n(self.cache_write_5m) * write_5m
+                + n(self.output) * output)
+                / 1e6,
+        )
+    }
+}
+
+/// Claude's usage object. Without the TTL split, a cache write is taken to be
+/// at the 1-hour rate, Claude Code's default and the dearer one.
+fn claude_usage(u: &Value) -> Usage {
+    let n = |k: &str| u[k].as_u64().unwrap_or(0);
+    let split = &u["cache_creation"];
+    let (m5, h1) = (
+        split["ephemeral_5m_input_tokens"].as_u64().unwrap_or(0),
+        split["ephemeral_1h_input_tokens"].as_u64().unwrap_or(0),
+    );
+    Usage {
+        input: n("input_tokens"),
+        cache_read: n("cache_read_input_tokens"),
+        cache_write: n("cache_creation_input_tokens").max(m5 + h1),
+        cache_write_5m: m5,
+        output: n("output_tokens"),
+    }
+}
+
+/// Codex's usage object, whose input includes cached input.
+fn codex_usage(u: &Value) -> Usage {
+    let n = |k: &str| u[k].as_u64().unwrap_or(0);
+    Usage {
+        input: n("input_tokens").saturating_sub(n("cached_input_tokens")),
+        cache_read: n("cached_input_tokens"),
+        cache_write: n("cache_write_input_tokens"),
+        cache_write_5m: 0,
+        output: n("output_tokens"),
+    }
+}
+
+/// One model call (Claude), log record (Codex) or per-model total (Gemini).
+/// `complete` is false when the provider never gave the call's final count.
 struct Call {
     routed: String,
     provider: String,
     model: String,
-    tokens: Tokens,
+    tokens: Usage,
+    complete: bool,
 }
 
-/// Token usage as the provider streams it. Claude's result `modelUsage` adds up
-/// the whole session on a resumed one, so Claude is counted from each
-/// message's own usage instead.
+/// Codex's own log of the thread. Codex reports usage on `turn.completed`
+/// only, as the thread's running total, so a resumed thread would count its
+/// history again and an interrupted turn would count nothing. Its log
+/// (rollout) has the running total after every model call, which gives each
+/// call's tokens as they happen.
+#[derive(Default)]
+struct Rollout {
+    /// Empty until a new thread's `thread.started`; None when Codex keeps no log.
+    thread: Option<String>,
+    path: Option<PathBuf>,
+    read: u64,
+    looked: Option<Instant>,
+    /// The last running total read; on a resumed thread, at first the history's.
+    total: Usage,
+    model: Option<String>,
+    counted: bool,
+}
+
+/// Token usage as the providers report it, per call. Claude's result
+/// `modelUsage` adds up the whole session on a resumed one, so Claude is
+/// counted from each message's own usage instead.
 #[derive(Default)]
 struct Ledger {
     calls: Vec<Call>,
-    claude_messages: HashMap<String, usize>,
-    current: Option<usize>,
-}
-fn tokens(u: &Value, input: &str, cache_read: &str, cache_write: &str, output: &str) -> Tokens {
-    let n = |k: &str| u[k].as_u64().unwrap_or(0);
-    Tokens {
-        input: n(input),
-        cache_read: n(cache_read),
-        cache_write: n(cache_write),
-        output: n(output),
-    }
+    /// Claude: each message id's call, and the message each stream (the main
+    /// agent, or a subagent under its tool use id) is in.
+    claude: HashMap<String, usize>,
+    streams: HashMap<String, usize>,
+    /// Codex and Gemini, this attempt: the agent did paid work, and the
+    /// provider's final count of it.
+    worked: bool,
+    reported: Option<Usage>,
+    resumed: bool,
+    rollout: Rollout,
+    /// Claude Code's own `total_cost_usd`, for cross-checking: on a resumed
+    /// session it covers the whole session.
+    provider_cost: Option<f64>,
 }
 impl Ledger {
-    fn observe(&mut self, d: &Decision, event: &Value) {
-        let call = |model: &str, tokens| Call {
+    /// A new attempt on `d`. `thread` is a resumed Codex thread, whose log so
+    /// far is history; `logged` says whether Codex keeps a log at all.
+    fn begin(&mut self, d: &Decision, thread: Option<&str>, logged: bool) {
+        self.worked = false;
+        self.reported = None;
+        self.resumed = thread.is_some();
+        self.rollout = Rollout::default();
+        if d.runtime == "codex" && logged {
+            self.rollout.thread = Some(thread.unwrap_or_default().to_string());
+            if thread.is_some() {
+                self.read_rollout(d, false);
+            }
+        }
+    }
+    fn call(&mut self, d: &Decision, model: &str, tokens: Usage, complete: bool) -> usize {
+        self.calls.push(Call {
             routed: d.model.clone(),
             provider: d.provider.clone(),
             model: model.to_string(),
             tokens,
+            complete,
+        });
+        self.calls.len() - 1
+    }
+    fn observe(&mut self, d: &Decision, event: &Value) {
+        let kind = event["type"].as_str().unwrap_or("");
+        match d.runtime.as_str() {
+            "claude" => self.claude(d, event),
+            "codex" => {
+                match kind {
+                    "thread.started" if self.rollout.thread.as_deref() == Some("") => {
+                        self.rollout.thread = event["thread_id"].as_str().map(String::from);
+                    }
+                    "item.started" | "item.completed" => self.worked = true,
+                    "turn.completed" => self.reported = Some(codex_usage(&event["usage"])),
+                    _ => {}
+                }
+                self.read_rollout(d, true);
+            }
+            "gemini" => match kind {
+                "result" => {
+                    let mut total = Usage::default();
+                    for (model, u) in event["stats"]["models"].as_object().into_iter().flatten() {
+                        let n = |k: &str| u[k].as_u64().unwrap_or(0);
+                        let t = Usage {
+                            input: n("input"),
+                            cache_read: n("cached"),
+                            output: n("output_tokens"),
+                            ..Usage::default()
+                        };
+                        total.add(t);
+                        // Gemini's stream stats leave out thinking tokens.
+                        self.call(d, model, t, false);
+                    }
+                    self.reported = Some(total);
+                }
+                "init" => {}
+                _ => self.worked = true,
+            },
+            _ => {}
+        }
+    }
+    fn claude(&mut self, d: &Decision, event: &Value) {
+        // A subagent's messages stream under its tool use id.
+        let stream = event["parent_tool_use_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let snapshot = |ledger: &mut Ledger, m: &Value, stopped: bool| -> Option<usize> {
+            let id = m["id"].as_str()?.to_string();
+            let index = match ledger.claude.get(&id) {
+                Some(&i) => i,
+                None => {
+                    let model = m["model"].as_str().unwrap_or("unknown");
+                    let i = ledger.call(d, model, Usage::default(), false);
+                    ledger.claude.insert(id, i);
+                    i
+                }
+            };
+            let call = &mut ledger.calls[index];
+            call.tokens.max(claude_usage(&m["usage"]));
+            call.complete |= stopped;
+            Some(index)
         };
-        let claude = |u: &Value| {
-            tokens(
-                u,
-                "input_tokens",
-                "cache_read_input_tokens",
-                "cache_creation_input_tokens",
-                "output_tokens",
-            )
-        };
-        match (d.runtime.as_str(), event["type"].as_str().unwrap_or("")) {
-            ("claude", "stream_event") => {
+        match event["type"].as_str() {
+            Some("stream_event") => {
                 let e = &event["event"];
                 match e["type"].as_str() {
                     Some("message_start") => {
-                        let m = &e["message"];
-                        let model = m["model"].as_str().unwrap_or(&d.model);
-                        let id = m["id"].as_str().unwrap_or_default().to_string();
-                        let index = *self.claude_messages.entry(id).or_insert_with(|| {
-                            self.calls.push(call(model, Tokens::default()));
-                            self.calls.len() - 1
-                        });
-                        self.calls[index].tokens = claude(&m["usage"]);
-                        self.current = Some(index);
+                        if let Some(i) = snapshot(self, &e["message"], false) {
+                            self.streams.insert(stream, i);
+                        }
                     }
-                    // Counts in a delta are running totals for the message.
-                    Some("message_delta") => {
-                        if let Some(c) = self.current.and_then(|i| self.calls.get_mut(i)) {
-                            let (u, t) = (&e["usage"], &mut c.tokens);
-                            for (field, key) in [
-                                (&mut t.input, "input_tokens"),
-                                (&mut t.cache_read, "cache_read_input_tokens"),
-                                (&mut t.cache_write, "cache_creation_input_tokens"),
-                                (&mut t.output, "output_tokens"),
-                            ] {
-                                if let Some(n) = u[key].as_u64() {
-                                    *field = n;
-                                }
-                            }
+                    // A delta's counts are running totals for its stream's message.
+                    Some(kind @ ("message_delta" | "message_stop")) => {
+                        if let Some(&i) = self.streams.get(&stream) {
+                            let call = &mut self.calls[i];
+                            call.tokens.max(claude_usage(&e["usage"]));
+                            call.complete |=
+                                kind == "message_stop" || !e["delta"]["stop_reason"].is_null();
                         }
                     }
                     _ => {}
                 }
             }
-            ("codex", "turn.completed") => {
-                let u = &event["usage"];
-                let mut t = tokens(
-                    u,
-                    "input_tokens",
-                    "cached_input_tokens",
-                    "cache_write_input_tokens",
-                    "output_tokens",
-                );
-                // Codex counts cached input inside input_tokens.
-                t.input = t.input.saturating_sub(t.cache_read);
-                self.calls.push(call(&d.model, t));
-            }
-            ("gemini", "result") => {
-                for (model, u) in event["stats"]["models"].as_object().into_iter().flatten() {
-                    let t = tokens(u, "input", "cached", "", "output_tokens");
-                    self.calls.push(call(model, t));
+            Some("result") => {
+                if let Some(cost) = event["total_cost_usd"].as_f64() {
+                    *self.provider_cost.get_or_insert(0.0) += cost;
                 }
+            }
+            // Whole messages, which also cover calls whose raw stream isn't
+            // forwarded (a subagent's); final once they carry a stop reason.
+            Some("assistant") => {
+                let m = &event["message"];
+                snapshot(self, m, !m["stop_reason"].is_null());
             }
             _ => {}
         }
     }
-    /// Per (routed model, reporting model), in first-seen order.
-    fn models(&self) -> Vec<(&Call, Tokens)> {
-        let mut out: Vec<(&Call, Tokens)> = vec![];
+    /// Counts the calls Codex has logged since the last read. With `count`
+    /// false, only takes the running total so far as the baseline.
+    fn read_rollout(&mut self, d: &Decision, count: bool) {
+        use std::io::{Read, Seek};
+        let r = &mut self.rollout;
+        let Some(thread) = r.thread.as_deref().filter(|t| !t.is_empty()) else {
+            return;
+        };
+        if r.path.is_none() {
+            // Codex writes the log as the thread starts; look at most every 2 s.
+            if r.looked
+                .is_some_and(|t| t.elapsed() < Duration::from_secs(2))
+            {
+                return;
+            }
+            r.looked = Some(Instant::now());
+            r.path = usage::codex_rollout(thread);
+        }
+        let Some(path) = &r.path else { return };
+        let mut text = vec![];
+        let read = std::fs::File::open(path).and_then(|mut f| {
+            f.seek(std::io::SeekFrom::Start(r.read))?;
+            f.read_to_end(&mut text)
+        });
+        // Only whole lines; a line still being written is read next time.
+        let (Ok(_), Some(end)) = (read, text.iter().rposition(|&b| b == b'\n')) else {
+            return;
+        };
+        r.read += end as u64 + 1;
+        let mut found = vec![];
+        for line in text[..end].split(|&b| b == b'\n') {
+            let Ok(entry) = serde_json::from_slice::<Value>(line) else {
+                continue;
+            };
+            let p = &entry["payload"];
+            if p["type"] == "turn_context" {
+                r.model = p["model"].as_str().map(String::from).or(r.model.take());
+            }
+            let total = &p["info"]["total_token_usage"];
+            if p["type"] != "token_count" || total.is_null() {
+                continue;
+            }
+            let total = codex_usage(total);
+            let call = total.since(r.total);
+            r.total = total;
+            if count && call != Usage::default() {
+                found.push((r.model.clone().unwrap_or_else(|| d.model.clone()), call));
+            }
+        }
+        if !found.is_empty() {
+            self.rollout.counted = true;
+            self.worked = true;
+        }
+        for (model, call) in found {
+            self.call(d, &model, call, true);
+        }
+    }
+    /// The attempt on `d` ended: reads what Codex logged last, and marks paid
+    /// work whose count never arrived.
+    fn finish(&mut self, d: &Decision) {
+        match d.runtime.as_str() {
+            "claude" => return,
+            "codex" => {
+                self.rollout.looked = None;
+                self.read_rollout(d, true);
+                // Without a log, `turn.completed` is exact on a new thread only.
+                if let Some(u) = self.reported {
+                    if !self.rollout.counted && !self.resumed {
+                        self.call(d, &d.model, u, true);
+                    }
+                }
+                // The log has every finished call; a stopped turn's last may be missing.
+                if self.reported.is_some() && (self.rollout.counted || !self.resumed) {
+                    return;
+                }
+            }
+            _ => {
+                if self.reported.is_some() {
+                    return;
+                }
+            }
+        }
+        if self.worked || self.reported.is_some() {
+            let model = self
+                .rollout
+                .model
+                .clone()
+                .unwrap_or_else(|| d.model.clone());
+            self.call(d, &model, Usage::default(), false);
+        }
+    }
+    /// Per (routed model, reporting model), in first-seen order: tokens, and
+    /// whether every call's final count arrived.
+    fn models(&self) -> Vec<(&Call, Usage, bool)> {
+        let mut out: Vec<(&Call, Usage, bool)> = vec![];
         for c in &self.calls {
             match out
                 .iter_mut()
-                .find(|(o, _)| o.routed == c.routed && o.model == c.model)
+                .find(|(o, ..)| o.routed == c.routed && o.model == c.model)
             {
-                Some((_, t)) => t.add(c.tokens),
-                None => out.push((c, c.tokens)),
+                Some((_, t, complete)) => {
+                    t.add(c.tokens);
+                    *complete &= c.complete;
+                }
+                None => out.push((c, c.tokens, c.complete)),
             }
         }
         out
     }
-    /// The priced part of the cost, and whether every call was priced.
+    /// The priced part of the cost, and whether every model with tokens has
+    /// its own price.
     fn cost(&self) -> (f64, bool) {
         self.models()
             .iter()
-            .fold((0.0, true), |(sum, all), (c, t)| match price(c) {
-                Some(p) => (sum + t.cost(p), all),
-                None => (sum, all && *t == Tokens::default()),
+            .fold((0.0, true), |(sum, all), (c, t, _)| {
+                match t.cost(&c.model) {
+                    Some(cost) => (sum + cost, all),
+                    None => (sum, all && *t == Usage::default()),
+                }
             })
     }
-}
-fn price(c: &Call) -> Option<[f64; 4]> {
-    usage::price(&c.model).or_else(|| usage::price(&c.routed))
 }
 
 fn emit(kind: &str, mut fields: Value) -> Result<()> {
@@ -351,7 +602,8 @@ fn cancel_on_sigterm(token: &CancellationToken) {
     });
 }
 
-/// The session id to report: the resumed one, or a new record for this task.
+/// The session id to report: the resumed one, or a new record for this task,
+/// written privately and whole.
 fn remember(
     state: Option<&Path>,
     resumed: Option<&Record>,
@@ -376,13 +628,57 @@ fn remember(
         cwd: std::env::current_dir()?,
     };
     let path = record_path(state, &record.id)?;
-    std::fs::create_dir_all(path.parent().context("no runs directory")?)?;
-    std::fs::write(&path, serde_json::to_vec_pretty(&record)?)?;
+    let dir = path.parent().context("no runs directory")?;
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    builder
+        .create(dir)
+        .with_context(|| format!("creating {}", dir.display()))?;
+    // A temporary file is private (0600 on Unix) and renamed into place whole.
+    let mut file = tempfile::NamedTempFile::new_in(dir)?;
+    file.write_all(&serde_json::to_vec_pretty(&record)?)?;
+    file.persist(&path)
+        .with_context(|| format!("writing {}", path.display()))?;
     Ok(Some(record.id))
 }
 
-pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Args) -> Result<i32> {
+/// Runs `work` on its own thread and waits for it until the deadline or a
+/// cancel, so neither a stdin that never closes nor a slow router outlasts them.
+fn bounded<T: Send + 'static>(
+    until: Option<Instant>,
+    cancel: &CancellationToken,
+    work: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || tx.send(work()));
+    loop {
+        if cancel.is_cancelled() {
+            bail!("cancelled");
+        }
+        if until.is_some_and(|u| Instant::now() >= u) {
+            return Err(executor::DeadlineExceeded.into());
+        }
+        match rx.recv_timeout(Duration::from_millis(50)) {
+            Ok(result) => return result,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => bail!("worker thread failed"),
+        }
+    }
+}
+
+type Outcome = std::result::Result<String, (&'static str, String)>;
+
+pub fn run(
+    cli: &Cli,
+    cfg: &Config,
+    registry: &Registry,
+    words: &[String],
+    args: &Args,
+) -> Result<i32> {
     let started = Instant::now();
+    let until = args.deadline.map(|d| started + d);
     let mut cfg = cfg.clone();
     if args.no_mcp_share {
         cfg.mcp_home = None;
@@ -393,17 +689,55 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
     cancel_on_sigterm(cancel);
     let mut ledger = Ledger::default();
     let mut attempts: Vec<Value> = vec![];
+    let mut warnings: Vec<String> = vec![];
     let mut session_id = None;
     let mut last: Option<Decision> = None;
-    let outcome = (|| -> Result<std::result::Result<String, (&'static str, String)>> {
-        let fail = |class, e: anyhow::Error| Ok(Err((class, format!("{e:#}"))));
+    let error = |e: &anyhow::Error| redact::redact(&format!("{e:#}"));
+    // Before the run starts, anything but a guard is Nectra's own failure.
+    let early = |e: &anyhow::Error| match classify(e, cancel).0 {
+        class @ ("cancelled" | "deadline") => class,
+        _ => "harness_error",
+    };
+    let run = || -> Result<Outcome> {
+        let fail = |class, e: anyhow::Error| Ok(Err((class, error(&e))));
+        let prompt = match (cli.stdin, words.is_empty()) {
+            (true, false) => {
+                let e = anyhow::anyhow!("use either --stdin or positional prompt text");
+                return fail("harness_error", e);
+            }
+            (true, true) => {
+                let read = bounded(until, cancel, || {
+                    let mut text = String::new();
+                    std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
+                        .context("reading prompt from stdin")?;
+                    Ok(text)
+                });
+                match read {
+                    Ok(text) => text,
+                    Err(e) => return fail(early(&e), e),
+                }
+            }
+            (false, _) => words.join(" "),
+        };
         if prompt.trim().is_empty() {
             return fail("harness_error", anyhow::anyhow!("prompt cannot be empty"));
         }
         if let Some(path) = &args.mcp_config {
-            let home = cfg.mcp_home.clone().or_else(dirs::home_dir);
-            match crate::mcp::Explicit::load(path, home.as_deref()) {
-                Ok(explicit) => cfg.mcp_config = Some(explicit),
+            let codex = registry
+                .models
+                .iter()
+                .any(|m| m.runtime.as_str() == "codex")
+                .then_some(cfg.inner.codex.command.as_str());
+            match crate::mcp::Explicit::load(path, codex) {
+                Ok(explicit) => {
+                    if let (Some(_), Some(why)) = (codex, explicit.codex_excluded()) {
+                        eprintln!(
+                            "nectra: --mcp-config: Codex models skipped: {}",
+                            redact::redact(why)
+                        );
+                    }
+                    cfg.mcp_config = Some(explicit);
+                }
                 Err(e) => return fail("harness_error", e),
             }
         }
@@ -466,25 +800,30 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
                 .as_ref()
                 .map(|r| r.model.clone())
                 .or(cli.model.clone());
-            let decision = match router::route(
-                prompt,
-                &cfg,
-                &available,
-                cli.mode.unwrap_or(cfg.inner.routing.default_mode),
-                if resumed.is_some() {
+            let route = {
+                let (prompt, cfg, pinned) = (prompt.clone(), cfg.clone(), pinned.clone());
+                let mode = cli.mode.unwrap_or(cfg.inner.routing.default_mode);
+                let provider = if resumed.is_some() {
                     None
                 } else {
                     cli.provider
-                },
-                pinned.clone(),
-            ) {
+                };
+                bounded(until, cancel, move || {
+                    router::route(&prompt, &cfg, &available, mode, provider, pinned)
+                })
+            };
+            let decision = match route {
                 Ok(d) => d,
                 Err(e) => {
+                    let class = match early(&e) {
+                        "harness_error" => "no_model",
+                        class => class,
+                    };
                     let e = match tried.last() {
                         Some(_) => e.context(format!("after trying {}", tried.join(", "))),
                         None => e,
                     };
-                    return fail("no_model", e);
+                    return fail(class, e);
                 }
             };
             tried.push(decision.model.clone());
@@ -511,7 +850,7 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
                     "resumed": resumed.is_some(),
                 }),
             )?;
-            let remaining = match args.deadline.map(|d| d.checked_sub(started.elapsed())) {
+            let remaining = match until.map(|u| u.checked_duration_since(Instant::now())) {
                 Some(None) => {
                     last = Some(decision);
                     return fail("deadline", executor::DeadlineExceeded.into());
@@ -526,16 +865,21 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
             };
             // A missing CLI is Nectra's environment, not the agent: try another.
             if let Err(e) = executor::launch(command) {
-                attempts.push(json!({"model": decision.model, "error_class": "harness_error", "error": format!("{e:#}")}));
+                attempts.push(json!({"model": decision.model, "error_class": "harness_error", "error": error(&e)}));
                 last = Some(decision);
                 if pinned.is_none() {
                     continue;
                 }
                 return fail("harness_error", e);
             }
+            ledger.begin(
+                &decision,
+                resumed.as_ref().map(|r| r.provider_session_id.as_str()),
+                provider_session.is_some(),
+            );
             let result = executor::conversation_observed(
                 &decision,
-                prompt,
+                &prompt,
                 &cfg,
                 &mut std::io::sink(),
                 cancel,
@@ -556,23 +900,34 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
                     }
                 },
             );
-            let error = match result {
+            ledger.finish(&decision);
+            // A task that ran keeps its session, even when it failed (a cost
+            // stop can be continued); failing to save it only loses --resume.
+            let mut keep = || match remember(
+                state.as_deref(),
+                resumed.as_ref(),
+                &decision,
+                &provider_session,
+            ) {
+                Ok(id) => session_id = id,
+                Err(e) => warnings.push(format!(
+                    "session not saved, so it can't be resumed: {}",
+                    error(&e)
+                )),
+            };
+            let e = match result {
                 Ok(reply) => {
+                    keep();
                     attempts.push(json!({"model": decision.model, "error_class": null}));
-                    session_id = remember(
-                        state.as_deref(),
-                        resumed.as_ref(),
-                        &decision,
-                        &provider_session,
-                    )?;
                     last = Some(decision);
                     return Ok(Ok(reply));
                 }
                 Err(e) => e,
             };
-            let (class, retry) = classify(&error, cancel);
-            attempts.push(json!({"model": decision.model, "error_class": class, "error": format!("{error:#}")}));
-            if let Some(limit) = error.downcast_ref::<crate::limits::RateLimited>() {
+            let (class, retry) = classify(&e, cancel);
+            attempts
+                .push(json!({"model": decision.model, "error_class": class, "error": error(&e)}));
+            if let Some(limit) = e.downcast_ref::<crate::limits::RateLimited>() {
                 cooldowns.record(&decision.model, &decision.provider, limit);
                 if let Some(path) = &cooldown_path {
                     let _ = cooldowns.persist(path);
@@ -583,34 +938,37 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
                 last = Some(decision);
                 continue;
             }
-            // A failed task can still be resumed, e.g. after a cost stop.
-            session_id = remember(
-                state.as_deref(),
-                resumed.as_ref(),
-                &decision,
-                &provider_session,
-            )?;
+            keep();
             last = Some(decision);
-            return fail(class, error);
+            return fail(class, e);
         }
-    })()?;
+    };
+    // Whatever fails from here on, the caller still gets its one result event.
+    let outcome: Outcome = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
+        Ok(Ok(outcome)) => outcome,
+        Ok(Err(e)) => Err(("harness_error", error(&e))),
+        Err(_) => Err(("harness_error", "Nectra panicked; this is a bug".into())),
+    };
     let (class, text, error) = match outcome {
         Ok(text) => (None, Some(text), None),
         Err((class, error)) => (Some(class), None, Some(error)),
     };
     let (cost, priced) = ledger.cost();
-    let mut total = Tokens::default();
+    let mut total = Usage::default();
+    let mut complete = true;
     let models: Vec<Value> = ledger
         .models()
         .into_iter()
-        .map(|(c, t)| {
+        .map(|(c, t, done)| {
             total.add(t);
+            complete &= done;
             json!({
                 "model": c.model,
                 "routed_as": c.routed,
                 "provider": c.provider,
                 "usage": t,
-                "cost_usd": price(c).map(|p| t.cost(p)),
+                "usage_complete": done,
+                "cost_usd": t.cost(&c.model),
             })
         })
         .collect();
@@ -626,10 +984,13 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry, prompt: &str, args: &Ar
             "model": last.as_ref().map(|d| &d.model),
             "provider": last.as_ref().map(|d| &d.provider),
             "usage": total,
+            "usage_complete": complete,
             "cost_usd": priced.then_some(cost),
+            "provider_cost_usd": ledger.provider_cost,
             "models": models,
             "attempts": attempts,
             "route": last,
+            "warnings": warnings,
             "duration_ms": started.elapsed().as_millis() as u64,
             "exit_code": code,
         }),
@@ -658,66 +1019,267 @@ mod tests {
         }
     }
 
+    fn start(id: &str, parent: Option<&str>, usage: Value) -> Value {
+        json!({"type":"stream_event","parent_tool_use_id":parent,"event":{"type":"message_start",
+            "message":{"id":id,"model":"claude-haiku-5-5","usage":usage}}})
+    }
+    fn delta(parent: Option<&str>, output: u64, stop: bool) -> Value {
+        json!({"type":"stream_event","parent_tool_use_id":parent,"event":{"type":"message_delta",
+            "delta":{"stop_reason": if stop { json!("end_turn") } else { Value::Null }},
+            "usage":{"output_tokens":output}}})
+    }
+    fn usage(input: u64, read: u64, write: u64, output: u64) -> Value {
+        json!({"input_tokens":input,"cache_read_input_tokens":read,
+            "cache_creation_input_tokens":write,"output_tokens":output})
+    }
+    fn total(l: &Ledger) -> (Usage, bool) {
+        l.models()
+            .iter()
+            .fold((Usage::default(), true), |(mut t, c), m| {
+                t.add(m.1);
+                (t, c && m.2)
+            })
+    }
+
     #[test]
     fn claude_usage_sums_each_message_once() {
         let d = decision("claude", "haiku");
         let mut l = Ledger::default();
-        let start = |id: &str, i, cr, cw, o| {
-            json!({"type":"stream_event","event":{"type":"message_start","message":{"id":id,"model":"claude-haiku-5-5",
-                "usage":{"input_tokens":i,"cache_read_input_tokens":cr,"cache_creation_input_tokens":cw,"output_tokens":o}}}})
-        };
-        let delta = |o| json!({"type":"stream_event","event":{"type":"message_delta","usage":{"output_tokens":o}}});
-        // Live shape from Claude Code 2.1.304: two messages, deltas carry running output.
+        // Live shape from Claude Code 2.1.304: two messages; the final delta
+        // carries the message's output.
         for e in [
-            start("m1", 2, 16670, 21673, 5),
-            delta(167),
-            start("m2", 2, 38343, 1720, 2),
-            delta(14),
+            start("m1", None, usage(2, 16670, 21673, 5)),
+            delta(None, 167, true),
+            start("m2", None, usage(2, 38343, 1720, 2)),
+            delta(None, 14, true),
             // A cumulative modelUsage in the result must not be added on top.
             json!({"type":"result","modelUsage":{"claude-haiku-5-5":{"inputTokens":999}}}),
         ] {
             l.observe(&d, &e);
         }
+        l.finish(&d);
         let models = l.models();
         assert_eq!(models.len(), 1);
         assert_eq!(models[0].0.model, "claude-haiku-5-5");
         assert_eq!(
             models[0].1,
-            Tokens {
+            Usage {
                 input: 4,
                 cache_read: 55013,
                 cache_write: 23393,
+                cache_write_5m: 0,
                 output: 181
             }
         );
-        // Claude Code itself reported $0.00531963 for this run.
+        assert!(models[0].2, "every call stopped");
+        // Claude Code itself reported $0.00531963 for this run (1-hour writes).
         let (cost, priced) = l.cost();
         assert!(priced && (cost - 0.00531963).abs() < 1e-9, "{cost}");
     }
 
     #[test]
+    fn claude_cache_writes_are_priced_by_their_ttl() {
+        let d = decision("claude", "haiku");
+        let mut l = Ledger::default();
+        let mut u = usage(0, 0, 3_000_000, 0);
+        u["cache_creation"] =
+            json!({"ephemeral_5m_input_tokens":2_000_000,"ephemeral_1h_input_tokens":1_000_000});
+        l.observe(&d, &start("m1", None, u));
+        l.observe(&d, &delta(None, 0, true));
+        let (t, complete) = total(&l);
+        assert_eq!(
+            (t.cache_write, t.cache_write_5m, complete),
+            (3_000_000, 2_000_000, true)
+        );
+        // haiku: 2M at the 5-minute $0.125, 1M at the 1-hour $0.20.
+        assert!((l.cost().0 - 0.45).abs() < 1e-9, "{}", l.cost().0);
+    }
+
+    #[test]
+    fn replayed_and_interleaved_claude_messages_count_once_each() {
+        let d = decision("claude", "haiku");
+        let mut l = Ledger::default();
+        for e in [
+            start("m1", None, usage(1, 10, 0, 1)),
+            delta(None, 100, false),
+            // A subagent's message streams while the main one is open.
+            start("s1", Some("toolu_1"), usage(5, 0, 0, 1)),
+            delta(Some("toolu_1"), 40, true),
+            // A replayed start must not lower m1's output back to 1.
+            start("m1", None, usage(1, 10, 0, 1)),
+            delta(None, 120, true),
+            // The whole-message snapshot of a call already counted adds nothing.
+            json!({"type":"assistant","message":{"id":"m1","model":"claude-haiku-5-5",
+                "stop_reason":"end_turn","usage":usage(1, 10, 0, 120)}}),
+        ] {
+            l.observe(&d, &e);
+        }
+        let (t, complete) = total(&l);
+        assert_eq!(
+            (t.input, t.cache_read, t.output, complete),
+            (6, 10, 160, true)
+        );
+        assert_eq!(l.calls.len(), 2);
+    }
+
+    #[test]
+    fn interrupted_claude_call_counts_its_spend_and_is_flagged() {
+        let d = decision("claude", "haiku");
+        let mut l = Ledger::default();
+        l.observe(&d, &start("m1", None, usage(3, 0, 50_000, 1)));
+        l.finish(&d);
+        let (t, complete) = total(&l);
+        assert_eq!(t.cache_write, 50_000, "the call's input is real spend");
+        assert!(!complete, "its output never arrived");
+        assert!(l.cost().0 > 0.0);
+    }
+
+    #[test]
+    fn a_model_without_a_price_is_never_given_another_ones() {
+        let d = decision("claude", "haiku");
+        let mut l = Ledger::default();
+        l.observe(&d, &start("m1", None, usage(1, 0, 0, 1)));
+        let mut other = start("m2", None, usage(1000, 0, 0, 1));
+        other["event"]["message"]["model"] = json!("claude-fable-5-1");
+        l.observe(&d, &other);
+        assert!(
+            !l.cost().1,
+            "fable has no price: the cost is unknown, not haiku's"
+        );
+        let models = l.models();
+        assert_eq!(models[1].0.model, "claude-fable-5-1");
+        assert_eq!(models[1].1.cost(&models[1].0.model), None);
+    }
+
+    fn rollout(lines: &[Value]) -> String {
+        lines.iter().map(|l| format!("{l}\n")).collect()
+    }
+    fn counted(total_input: u64, cached: u64, output: u64) -> Value {
+        json!({"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":
+            {"input_tokens":total_input,"cached_input_tokens":cached,"output_tokens":output}}}})
+    }
+
+    #[test]
+    fn resumed_codex_thread_counts_only_its_own_calls() {
+        let d = decision("codex", "gpt-5.6-luna");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rollout-x-thread-1.jsonl");
+        let context =
+            json!({"type":"turn_context","payload":{"type":"turn_context","model":"gpt-5.6-luna"}});
+        // Turn 1 as Codex 0.162.1 logged it: running totals after each call.
+        std::fs::write(
+            &path,
+            rollout(&[
+                context.clone(),
+                counted(15188, 11392, 216),
+                counted(30697, 26368, 288),
+            ]),
+        )
+        .unwrap();
+        let mut l = Ledger::default();
+        l.begin(&d, Some("thread-1"), true);
+        l.rollout.path = Some(path.clone());
+        l.rollout.read = 0;
+        l.read_rollout(&d, false);
+        // Turn 2 appends two calls; turn.completed repeats the thread's total.
+        let more = rollout(&[
+            context,
+            counted(46314, 41728, 513),
+            counted(63403, 57216, 657),
+        ]);
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(more.as_bytes())
+            .unwrap();
+        l.observe(
+            &d,
+            &json!({"type":"item.completed","item":{"type":"agent_message"}}),
+        );
+        l.observe(&d, &json!({"type":"turn.completed","usage":{"input_tokens":63403,"cached_input_tokens":57216,"output_tokens":657}}));
+        l.finish(&d);
+        let (t, complete) = total(&l);
+        // (63403 - 30697) input, of which (57216 - 26368) cached; 657 - 288 output.
+        assert_eq!(
+            (t.input + t.cache_read, t.cache_read, t.output),
+            (32706, 30848, 369)
+        );
+        assert!(complete);
+        assert_eq!(l.calls.len(), 2, "one entry per model call");
+    }
+
+    #[test]
+    fn interrupted_codex_turn_keeps_logged_calls_and_is_flagged() {
+        let d = decision("codex", "gpt-5.6-luna");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rollout-x-thread-2.jsonl");
+        std::fs::write(&path, rollout(&[counted(1000, 800, 50)])).unwrap();
+        let mut l = Ledger::default();
+        l.begin(&d, None, true);
+        l.observe(&d, &json!({"type":"thread.started","thread_id":"thread-2"}));
+        l.rollout.path = Some(path);
+        l.observe(
+            &d,
+            &json!({"type":"item.started","item":{"type":"command_execution"}}),
+        );
+        // The process is killed: no turn.completed.
+        l.finish(&d);
+        let (t, complete) = total(&l);
+        assert_eq!((t.input, t.cache_read, t.output), (200, 800, 50));
+        assert!(!complete, "the call in flight was never counted");
+
+        // Without a log at all, a turn that worked is flagged, never free.
+        let mut l = Ledger::default();
+        l.begin(&d, None, false);
+        l.observe(
+            &d,
+            &json!({"type":"item.started","item":{"type":"command_execution"}}),
+        );
+        l.finish(&d);
+        assert!(!total(&l).1);
+        // A turn rejected before any work costs nothing and is complete.
+        let mut l = Ledger::default();
+        l.begin(&d, None, false);
+        l.observe(
+            &d,
+            &json!({"type":"turn.failed","error":{"message":"usage limit"}}),
+        );
+        l.finish(&d);
+        assert_eq!(total(&l), (Usage::default(), true));
+    }
+
+    #[test]
     fn codex_cached_input_is_not_counted_twice_and_models_stay_apart() {
         let mut l = Ledger::default();
+        let codex = decision("codex", "gpt-5.6-luna");
+        l.begin(&codex, None, false);
         l.observe(
-            &decision("codex", "gpt-5.6-luna"),
+            &codex,
             &json!({"type":"turn.completed","usage":{"input_tokens":29493,"cached_input_tokens":25856,"cache_write_input_tokens":0,"output_tokens":139}}),
         );
+        l.finish(&codex);
+        let gemini = decision("gemini", "gemini-x");
+        l.begin(&gemini, None, false);
         l.observe(
-            &decision("gemini", "gemini-x"),
+            &gemini,
             &json!({"type":"result","status":"success","stats":{"models":{"gemini-x":{"input":7,"cached":3,"output_tokens":2}}}}),
         );
+        l.finish(&gemini);
         let models = l.models();
         assert_eq!(models[0].1.input, 3637);
         assert_eq!(models[0].1.cache_read, 25856);
+        assert!(models[0].2);
         assert_eq!(
             models[1].1,
-            Tokens {
+            Usage {
                 input: 7,
                 cache_read: 3,
-                cache_write: 0,
-                output: 2
+                output: 2,
+                ..Usage::default()
             }
         );
+        assert!(!models[1].2, "Gemini leaves out thinking tokens");
         // Gemini has no price: the total is not claimed as complete.
         assert!(!l.cost().1);
     }

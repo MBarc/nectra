@@ -27,18 +27,36 @@ const PRICES: &str = include_str!("../eval/chat-savings/prices.json");
 /// models in `eval/chat-savings/prices.json`. Claude Code logs full names
 /// (`claude-opus-5-5`), which resolve to their short ids.
 pub fn price(model: &str) -> Option<[f64; 4]> {
-    let id = ["opus", "sonnet", "haiku"]
-        .into_iter()
-        .find(|s| model.starts_with("claude-") && model.contains(s))
-        .unwrap_or(model);
-    let prices: Value = serde_json::from_str(PRICES).ok()?;
-    let n = |k: &str| prices[id][k].as_f64();
+    let n = |k: &str| price_of(model, k);
     Some([
         n("input")?,
         n("cache_read")?,
         n("cache_write")?,
         n("output")?,
     ])
+}
+/// USD per million tokens of a 5-minute cache write (Claude), where `cache_write`
+/// is the 1-hour rate; the same as `cache_write` for models without the split.
+pub fn price_cache_write_5m(model: &str) -> Option<f64> {
+    price_of(model, "cache_write_5m").or_else(|| price_of(model, "cache_write"))
+}
+fn price_of(model: &str, key: &str) -> Option<f64> {
+    let id = ["opus", "sonnet", "haiku"]
+        .into_iter()
+        .find(|s| model.starts_with("claude-") && model.contains(s))
+        .unwrap_or(model);
+    let prices: Value = serde_json::from_str(PRICES).ok()?;
+    prices[id][key].as_f64()
+}
+
+/// The log (rollout) Codex keeps of thread `id`, once it has written one.
+pub fn codex_rollout(id: &str) -> Option<PathBuf> {
+    let name = format!("{id}.jsonl");
+    let dir = Logs::default_paths().ok()?.codex_sessions;
+    files(&dir, |n| n.starts_with("rollout-") && n.ends_with(&name))
+        .ok()?
+        .into_iter()
+        .next()
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, PartialEq, Eq)]

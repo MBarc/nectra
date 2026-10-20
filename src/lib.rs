@@ -13,6 +13,7 @@ pub mod mcp;
 pub mod models;
 pub mod ollama;
 pub mod policy;
+pub mod redact;
 pub mod router;
 pub mod session;
 pub mod setup;

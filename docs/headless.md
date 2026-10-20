@@ -22,8 +22,8 @@ fast|balanced|best`, `--provider anthropic|openai|google`, `--stdin`,
 | Flag | Meaning |
 |---|---|
 | `--resume ID` | Continue the task whose result event had `session_id` ID: same model, same provider session, only the new prompt is sent. Run it from the same directory. |
-| `--max-cost-usd N` | Stop once the task's API-equivalent cost passes N USD. Only models with a price are routed to. |
-| `--deadline T` | Stop after T: seconds, or `90s`, `10m`, `2h`. Counts from Nectra's start, across failover. |
+| `--max-cost-usd N` | Stop once the task's API-equivalent cost passes N USD. Only models with a price are routed to. See [when it is checked](#usage-and-cost). |
+| `--deadline T` | Stop after T: seconds, or `90s`, `10m`, `2h`. Counts from the start of the run, across reading `--stdin`, routing and failover. |
 | `--no-session` | Write nothing: no session record, no cooldown state. Claude runs with `--no-session-persistence`, Codex with `--ephemeral`. `session_id` is `null`. |
 | `--state-dir DIR` | Keep session records (`DIR/runs/ID.json`) and cooldowns (`DIR/cooldowns.json`) here. Default: the user data directory's `nectra` folder, the same cooldowns chat uses. |
 | `--mcp-config FILE` | Give the agent exactly the servers in FILE (standard `{"mcpServers": {...}}`). See [MCP](#mcp-servers). |
@@ -63,26 +63,38 @@ Names are the provider's: Claude's tool name, Codex's item type
 {"v":1,"type":"result","is_error":false,"error_class":null,"error":null,
  "text":"Fixed the typo in README.md.",
  "session_id":"5f0c...","model":"haiku","provider":"anthropic",
- "usage":{"input":5,"cache_read":40913,"cache_write":21393,"output":301},
- "cost_usd":0.00468,
+ "usage":{"input":8,"cache_read":131826,"cache_write":22130,"cache_write_5m":0,"output":437},
+ "usage_complete":true,"cost_usd":0.00596356,"provider_cost_usd":0.00596356,
  "models":[{"model":"claude-haiku-5-5","routed_as":"haiku","provider":"anthropic",
-            "usage":{"input":5,"cache_read":40913,"cache_write":21393,"output":301},"cost_usd":0.00468}],
+            "usage":{"input":8,"cache_read":131826,"cache_write":22130,"cache_write_5m":0,"output":437},
+            "usage_complete":true,"cost_usd":0.00596356}],
  "attempts":[{"model":"haiku","error_class":null}],
  "route":{"task":"...","model":"haiku","candidates":[...], "...": "the full decision, as `nectra route` prints it"},
- "duration_ms":8123,"exit_code":0}
+ "warnings":[],"duration_ms":8123,"exit_code":0}
 ```
 
 | Field | |
 |---|---|
 | `is_error`, `error_class`, `error` | Outcome; `error` is the message, `null` on success. |
 | `text` | The final answer, `null` on failure. |
-| `session_id` | Pass to `--resume`. `null` with `--no-session`, or when the runtime can't resume (Gemini). A task stopped by a guard still gets one. |
+| `session_id` | Pass to `--resume`. `null` with `--no-session`, when the runtime can't resume (Gemini), or when the session record couldn't be saved (see `warnings`). A task stopped by a guard still gets one. |
 | `model`, `provider` | The model that ran last. |
-| `usage` | Tokens for this task, summed over every model call it made. `input` excludes cached input. |
-| `cost_usd` | API-equivalent USD for `usage`, or `null` when some call's model has no price. |
-| `models` | `usage` and `cost_usd` per model. `model` is the name the provider reported (Claude Code may use more than one model in a task); `routed_as` is the Nectra model id the attempt was routed to. Failover attempts appear here too. |
+| `usage` | Tokens for this task, summed over every model call it made. `input` excludes cached input. `cache_write` includes `cache_write_5m`, the part Claude wrote at its 5-minute cache rate; the rest is at the 1-hour rate. |
+| `usage_complete` | `false` when some paid work's final count never arrived: a call cut off by a guard, a cancel or a crash, a Codex turn without its log, or any Gemini run (thinking tokens aren't reported). `usage` and `cost_usd` then count what was reported, a lower bound; they never drop work that was reported. |
+| `cost_usd` | API-equivalent USD for `usage`, each model at its own price, or `null` when a model that used tokens has no price. Never 0 for unpriced work. |
+| `provider_cost_usd` | Claude Code's own `total_cost_usd`, for cross-checking; `null` for other runtimes. On a resumed session it covers the whole session, not this task. |
+| `models` | `usage`, `usage_complete` and `cost_usd` per model. `model` is the model the provider says answered (Claude Code may use more than one in a task; Codex's from its log); `routed_as` is the Nectra model id the attempt was routed to. Failover attempts appear here too. |
 | `attempts` | Each model tried, in order, with its `error_class` and `error`. |
 | `route` | The last routing decision in full. |
+| `warnings` | Problems that didn't change the outcome, such as a session record that couldn't be written. |
+
+Every run that gets past argument parsing and config loading ends with exactly
+one `result`, whatever fails after that: an unwritable state directory, a full
+disk or a bug in Nectra (`harness_error`). Provider diagnostics on stderr and
+every `error` string have credentials masked as `[redacted]`: values of Nectra's
+own variables whose names hold `KEY`, `TOKEN`, `SECRET`, `PASSW`, `CREDENTIAL` or
+`AUTH`, the `env` values in `--mcp-config`, and token-shaped words (`sk-...`,
+`ghp_...`, `Bearer ...`, JWTs).
 
 ### Error classes and exit codes
 
@@ -106,26 +118,50 @@ and always come with a result event.
 
 ## Usage and cost
 
-Usage is the providers' own token counts, not estimates:
+Usage is the providers' own token counts, never estimates, per model call:
 
-- **Claude Code:** each API call's `message_start` and final `message_delta` usage,
-  one entry per message id. Claude's `result.modelUsage` is not used because on a
-  resumed session it totals the whole session, not the task (seen on 2.1.304).
-- **Codex:** `turn.completed.usage`; `cached_input_tokens` is moved out of
-  `input_tokens` into `cache_read`.
-- **Gemini:** `result.stats.models` (`input`, `cached`, `output_tokens`). Read from
-  Gemini CLI's source, not yet verified against a live run. Thinking tokens may not
-  be included.
+- **Claude Code:** each message's usage from the stream (`message_start`, then
+  the final `message_delta`), one entry per message id. Counters only grow, so a
+  repeated or late snapshot of a message never lowers it, and each stream (the
+  main agent, or a subagent under its `parent_tool_use_id`) tracks its own open
+  message. A subagent's whole `assistant` messages count too, for calls whose raw
+  stream isn't forwarded. Cache writes keep their TTL split
+  (`cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`);
+  without the split a write is taken as 1-hour, Claude Code's default and the
+  dearer rate. Claude's `result.modelUsage` and `total_cost_usd` are not used for
+  `usage`: on a resumed session they total the whole session (seen on 2.1.304).
+- **Codex:** its own log of the thread (`$CODEX_HOME/sessions/**/rollout-*-<thread>.jsonl`),
+  which records the thread's running total after every model call. Each call is
+  the growth since the last one, and a resumed thread starts from the total
+  already in the log, so history is never counted again. `turn.completed.usage`
+  is the thread's running total too (Codex 0.162.1), so it is used only for a new
+  thread with no log (`--no-session`, which runs Codex `--ephemeral`); a resumed
+  turn without its log is reported as `usage_complete: false`. Cached input is
+  moved out of `input` into `cache_read`.
+- **Gemini:** `result.stats.models` (`input`, `cached`, `output_tokens`), read
+  from Gemini CLI's source, not yet verified against a live run. Thinking tokens
+  aren't in these stats, so Gemini usage is always `usage_complete: false`.
 
 Prices are `eval/chat-savings/prices.json` (the same table as `nectra usage`), in
-USD per million tokens for input, cache read, cache write and output. Models
-without a price (currently fable, gpt-6.x and Gemini) give `cost_usd: null` and
+USD per million tokens, for the model that answered, never the model it was
+routed as: an unpriced model inside a priced run makes `cost_usd` `null`. Claude
+models have a 1-hour (`cache_write`) and a 5-minute (`cache_write_5m`) write
+rate. Models without a price (currently fable, gpt-6.x, gpt-5.6-terra and Gemini)
 can't be routed to under `--max-cost-usd`.
 
-`--max-cost-usd` is checked on every usage update: per API call for Claude (at the
-call's start, then as output streams), once per turn for Codex and Gemini, so a
-Codex or Gemini task is only stopped at its end. When a guard stops a task, the
-call in flight counts the output it had streamed.
+`--max-cost-usd` is checked whenever usage arrives, and the call in flight
+counts what it has reported:
+
+- **Claude:** at the start of every model call (its input and cache counts) and
+  at its end. A call's output is only reported at its end, so the overshoot is at
+  most one call's output.
+- **Codex:** after every model call, at the next event Codex prints once the
+  call is in its log. A Codex call can't be stopped part way, and with
+  `--no-session` (no log) the check happens only after the whole turn.
+- **Gemini:** only after the whole turn.
+
+So the guard is a ceiling for Claude, and for Codex and Gemini a threshold that
+can be overshot by one call (Codex) or one turn (Codex without a log, Gemini).
 
 ## Failover
 
@@ -138,7 +174,8 @@ pinned with `--model`, never moves to another model.
 ## Resume
 
 A result's `session_id` names a record of the model and the provider session
-(`<state-dir>/runs/<id>.json`). `nectra run --events jsonl --resume <id> "fix the
+(`<state-dir>/runs/<id>.json`, written whole through a rename; on Unix the folder
+is 0700 and the file 0600). `nectra run --events jsonl --resume <id> "fix the
 review findings"` continues that provider session: Claude with `--resume`, Codex
 with `codex exec resume`. The agent keeps what it read and ran, the prompt cache
 is warm, and only the new prompt is sent. The follow-up's `usage` counts only its
@@ -150,13 +187,19 @@ started in: Claude keeps sessions per project directory.
 With `--mcp-config FILE`, exactly the servers in FILE are given to the agent:
 
 - **Claude:** `--mcp-config=FILE --strict-mcp-config`.
-- **Codex:** each stdio server as `--config mcp_servers.NAME={command, args, env_vars}`,
-  with `env` values passed in the child's environment, never on the command line.
-  The servers in the user's own `~/.codex/config.toml` are switched off for the
-  launch (`mcp_servers.NAME.enabled=false`). Servers bundled by Codex plugins can't
-  be switched off this way and stay on. A server Codex can't take as written (not
-  stdio, a name outside `[A-Za-z0-9_-]`, or an env value that differs from the same
-  variable in Nectra's own environment) keeps the task off Codex.
+- **Codex:** Codex has no strict mode and loads servers from its user config,
+  trusted project configs (`.codex/config.toml`) and plugins. So for each task
+  Nectra turns plugins and apps off (`features.plugins=false`,
+  `features.apps=false`), asks `codex mcp list --json` in the task's directory which
+  servers are still on and turns each of those off by name, and adds FILE's
+  servers as `--config mcp_servers.NAME={command, args, env_vars}`, with `env`
+  values passed in the child's environment, never on the command line. Then it
+  asks `codex mcp list` again with all of that: unless exactly FILE's servers are
+  on, Codex models aren't routed to and the reason goes to stderr. Codex also
+  isn't used when FILE has a server it can't take as written (not stdio, a name
+  outside `[A-Za-z0-9_-]`), or when one variable has two values, either between
+  two servers or against Nectra's own environment: Codex passes variables by name
+  from one environment, so a server would get another's credential.
 - **Gemini:** not supported yet. Gemini CLI has no launch-time server option (a
   per-launch settings file through `GEMINI_CLI_SYSTEM_SETTINGS_PATH` is the likely
   route). With `--mcp-config`, Gemini models aren't routed to, so a task never runs
@@ -166,7 +209,8 @@ Ollama is never used headless: it runs no tools and reports no usage.
 
 ## Credentials and the environment
 
-Nectra reads no credential and logs none. Each provider CLI inherits Nectra's whole
+Nectra reads no credential and masks the ones it can recognise in what it
+passes on (see [result](#result)). Each provider CLI inherits Nectra's whole
 environment unchanged, so it finds its own:
 
 | Runtime | Variables it reads |
@@ -209,7 +253,9 @@ A change to the flags above, any event's fields, or the exit codes:
    renamed, a meaning changed). Adding a field or an error class is compatible.
 2. Update this file and add a `CHANGELOG.md` entry under the release.
 3. `cargo test --test headless` (fake providers) on Windows and Linux;
-   `python scripts/headless_demo.py` against real providers.
+   `python scripts/headless_demo.py --provider anthropic` and `--provider openai`
+   against real providers: it checks usage against each provider's own session
+   log and cost against Claude Code's `total_cost_usd`.
 4. Tag `vX.Y.Z`. The release workflow builds `nectra-x86_64-unknown-linux-gnu.tar.gz`
    with a `.sha256`, and the archive carries `config/models.toml` and
    `config/nectra.toml`. `nectra --version` prints `nectra X.Y.Z` on its first line.

@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 use std::{
     fs,
-    io::Read,
+    io::{Read, Write},
     path::Path,
     process::{Command, Output},
     time::{Duration, Instant},
@@ -14,14 +14,30 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 7] = [
+    let scenarios: [(&str, fn()); 14] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
+        ("deadline while stdin stays open", deadline_covers_stdin),
         ("rate-limit failover", failover),
         ("typed routing failure", no_model),
         ("--mode/--provider and --no-session", per_task_flags),
         ("--mcp-config", mcp_config),
+        ("Codex resume counts only the new turn", codex_resume),
+        ("interrupted paid Codex turn", interrupted_codex_turn),
+        (
+            "persistence failure still ends in one result",
+            persistence_failure,
+        ),
+        (
+            "project and plugin MCP servers can't leak into Codex",
+            codex_mcp_isolation,
+        ),
+        (
+            "conflicting MCP credentials keep the task off Codex",
+            conflicting_credentials,
+        ),
+        ("credentials are redacted", redaction),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -37,6 +53,9 @@ fn main() {
 /// Prints `lines` as provider events; behaviour is chosen by words in the prompt.
 fn fake(log: &Path) {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "mcp") {
+        return fake_mcp_list(&args);
+    }
     let mut prompt = String::new();
     std::io::stdin().read_to_string(&mut prompt).unwrap();
     let codex = args.first().is_some_and(|a| a == "exec");
@@ -57,24 +76,30 @@ fn fake(log: &Path) {
         }
         std::process::exit(1);
     }
+    if prompt.contains("leak") {
+        eprintln!("debug: retrying with key {SECRET}");
+        let error = format!("401 invalid x-api-key {SECRET}");
+        if codex {
+            say(json!({"type":"turn.failed","error":{"message":error}}));
+        } else {
+            say(json!({"type":"result","is_error":true,"errors":[error]}));
+        }
+        std::process::exit(1);
+    }
     if codex {
-        say(json!({"type":"thread.started","thread_id":"thread-1"}));
-        say(json!({"type":"item.started","item":{"id":"i0","type":"command_execution"}}));
-        say(json!({"type":"item.completed","item":{"id":"i0","type":"command_execution"}}));
-        say(
-            json!({"type":"item.completed","item":{"id":"i1","type":"agent_message","text":"done by codex"}}),
-        );
-        say(
-            json!({"type":"turn.completed","usage":{"input_tokens":1000,"cached_input_tokens":800,"output_tokens":50}}),
-        );
-        return;
+        return fake_codex(&args, &prompt);
     }
     let start = |id: &str, input: u64, cache_read: u64, cache_write: u64| {
+        // With the cache TTL split, as Claude Code 2.1.304 streams it.
         json!({"type":"stream_event","parent_tool_use_id":null,"event":{"type":"message_start","message":{
             "id":id,"model":"claude-haiku-5-5","usage":{"input_tokens":input,"cache_read_input_tokens":cache_read,
-            "cache_creation_input_tokens":cache_write,"output_tokens":1}}}})
+            "cache_creation_input_tokens":cache_write,"output_tokens":1,"cache_creation":{
+            "ephemeral_5m_input_tokens":cache_write / 4,"ephemeral_1h_input_tokens":cache_write - cache_write / 4}}}}})
     };
-    let delta = |output: u64| json!({"type":"stream_event","parent_tool_use_id":null,"event":{"type":"message_delta","usage":{"output_tokens":output}}});
+    let delta = |output: u64| {
+        json!({"type":"stream_event","parent_tool_use_id":null,"event":{"type":"message_delta",
+        "delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":output}}})
+    };
     let text = |t: &str| json!({"type":"stream_event","parent_tool_use_id":null,"event":{"type":"content_block_delta","delta":{"type":"text_delta","text":t}}});
     say(json!({"type":"system","subtype":"init"}));
     if prompt.contains("expensive") {
@@ -90,6 +115,8 @@ fn fake(log: &Path) {
     );
     say(delta(100));
     say(json!({"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}));
+    // A replayed start must not reset what m1 counted.
+    say(start("m1", 2, 1000, 2000));
     say(start("m2", 3, 3000, 500));
     say(text("all "));
     say(text("done"));
@@ -98,6 +125,107 @@ fn fake(log: &Path) {
         json!({"type":"result","subtype":"success","is_error":false,"result":"all done",
         "modelUsage":{"claude-haiku-5-5":{"inputTokens":99999}}}),
     );
+}
+
+const SECRET: &str = "sk-ant-api03-fakefakefakefakefake";
+
+/// Codex 0.162.1's shape: its log (rollout) gets the thread's running total
+/// after every model call, and `turn.completed` repeats the thread's total,
+/// history included.
+fn fake_codex(args: &[String], prompt: &str) {
+    let say = |v: Value| println!("{v}");
+    // `exec resume <opts> -- <thread> -`
+    let thread = match args.iter().any(|a| a == "resume") {
+        true => args[args.iter().position(|a| a == "--").unwrap() + 1].clone(),
+        false => "019a0000-0000-7000-8000-000000000001".to_string(),
+    };
+    let rollout = (!args.iter().any(|a| a == "--ephemeral")).then(|| {
+        let dir = Path::new(&std::env::var("CODEX_HOME").unwrap()).join("sessions/2026/10/20");
+        fs::create_dir_all(&dir).unwrap();
+        dir.join(format!("rollout-2026-10-20T08-00-00-{thread}.jsonl"))
+    });
+    // The thread's running total so far: the last one logged.
+    let mut total = rollout
+        .as_ref()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .and_then(|t| {
+            t.lines()
+                .last()
+                .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        })
+        .map(|e| e["payload"]["info"]["total_token_usage"].clone())
+        .unwrap_or(json!({"input_tokens":0,"cached_input_tokens":0,"output_tokens":0}));
+    let mut call = |input: u64, cached: u64, output: u64| {
+        for (k, v) in [
+            ("input_tokens", input),
+            ("cached_input_tokens", cached),
+            ("output_tokens", output),
+        ] {
+            total[k] = json!(total[k].as_u64().unwrap() + v);
+        }
+        if let Some(path) = &rollout {
+            let mut f = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .unwrap();
+            let context = json!({"type":"turn_context","payload":{"type":"turn_context","model":"gpt-5.6-luna"}});
+            let count = json!({"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":total}}});
+            writeln!(f, "{context}\n{count}").unwrap();
+        }
+        total.clone()
+    };
+    say(json!({"type":"thread.started","thread_id":thread}));
+    say(json!({"type":"item.started","item":{"id":"i0","type":"command_execution"}}));
+    call(600, 500, 30);
+    say(json!({"type":"item.completed","item":{"id":"i0","type":"command_execution"}}));
+    if prompt.contains("die") {
+        // Killed mid-turn: the next call is never logged, no turn.completed.
+        std::process::exit(1);
+    }
+    let total = call(400, 300, 20);
+    say(
+        json!({"type":"item.completed","item":{"id":"i1","type":"agent_message","text":"done by codex"}}),
+    );
+    say(json!({"type":"turn.completed","usage":total}));
+}
+
+/// `codex mcp list --json`: the servers in NECTRA_FAKE_CODEX_MCP (from any
+/// config layer, or a plugin), with `--config` overrides applied as Codex does.
+fn fake_mcp_list(args: &[String]) {
+    let mut servers: Vec<Value> =
+        serde_json::from_str(&std::env::var("NECTRA_FAKE_CODEX_MCP").unwrap_or("[]".into()))
+            .unwrap();
+    for pair in args.windows(2).filter(|w| w[0] == "--config") {
+        let setting = pair[1].as_str();
+        if setting == "features.plugins=false" {
+            servers.retain(|s| s["plugin"] != true);
+        } else if let Some(name) = setting
+            .strip_prefix("mcp_servers.")
+            .and_then(|s| s.strip_suffix(".enabled=false"))
+        {
+            let name = name.trim_matches('"');
+            match servers.iter_mut().find(|s| s["name"] == name) {
+                // A server that ignores the override, which Nectra must notice.
+                Some(s) if s["sticky"] != true => s["enabled"] = json!(false),
+                Some(_) => {}
+                None => {
+                    eprintln!("Error: invalid transport in `mcp_servers.{name}`");
+                    std::process::exit(1);
+                }
+            }
+        } else if let Some((name, _)) = setting
+            .strip_prefix("mcp_servers.")
+            .and_then(|s| s.split_once('='))
+        {
+            servers.push(json!({ "name": name }));
+        }
+    }
+    let listed: Vec<Value> = servers
+        .iter()
+        .map(|s| json!({"name": s["name"], "enabled": s["enabled"] != false}))
+        .collect();
+    println!("{}", Value::from(listed));
 }
 
 struct Env {
@@ -132,18 +260,30 @@ impl Env {
         fs::create_dir(dir.path().join("work")).unwrap();
         Self { dir }
     }
-    fn run(&self, args: &[&str]) -> (Output, Vec<Value>) {
+    fn command(&self) -> Command {
         let root = self.dir.path();
-        let output = Command::new(env!("CARGO_BIN_EXE_nectra"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_nectra"));
+        command
             .arg("--config")
             .arg(root.join("config.toml"))
-            .args(["run", "--events", "jsonl", "--state-dir"])
-            .arg(root.join("state"))
-            .args(args)
             .current_dir(root.join("work"))
             .env("NECTRA_FAKE_LOG", root.join("log"))
+            .env("CODEX_HOME", root.join("codex"))
+            .env_remove("NECTRA_FAKE_CODEX_MCP")
             .env_remove("TYPESAFE_API_KEY")
-            .env_remove("PONS_MCP_TOKEN")
+            .env_remove("PONS_MCP_TOKEN");
+        command
+    }
+    fn run(&self, args: &[&str]) -> (Output, Vec<Value>) {
+        self.run_with(args, &[])
+    }
+    fn run_with(&self, args: &[&str], env: &[(&str, &str)]) -> (Output, Vec<Value>) {
+        let output = self
+            .command()
+            .args(["run", "--events", "jsonl", "--state-dir"])
+            .arg(self.dir.path().join("state"))
+            .args(args)
+            .envs(env.iter().copied())
             .output()
             .unwrap();
         let stdout = String::from_utf8(output.stdout.clone()).unwrap();
@@ -199,13 +339,17 @@ fn run_then_resume() {
     assert_eq!(r["text"], "all done");
     assert_eq!(r["model"], "haiku");
     // Summed per message, never the provider's cumulative modelUsage.
-    let usage = json!({"input":5,"cache_read":4000,"cache_write":2500,"output":120});
+    let usage =
+        json!({"input":5,"cache_read":4000,"cache_write":2500,"cache_write_5m":625,"output":120});
     assert_eq!(r["usage"], usage);
+    assert_eq!(r["usage_complete"], true);
+    assert_eq!(r["warnings"], json!([]));
     assert_eq!(r["models"][0]["model"], "claude-haiku-5-5");
     assert_eq!(r["models"][0]["routed_as"], "haiku");
     assert_eq!(r["models"][0]["usage"], usage);
-    // haiku: 0.10 input, 0.01 cache read, 0.20 cache write, 0.50 output per Mtok.
-    let cost = (5.0 * 0.10 + 4000.0 * 0.01 + 2500.0 * 0.20 + 120.0 * 0.50) / 1e6;
+    // haiku: 0.10 input, 0.01 cache read, 0.20 1-hour and 0.125 5-minute
+    // cache write, 0.50 output per Mtok.
+    let cost = (5.0 * 0.10 + 4000.0 * 0.01 + 1875.0 * 0.20 + 625.0 * 0.125 + 120.0 * 0.50) / 1e6;
     assert!((r["cost_usd"].as_f64().unwrap() - cost).abs() < 1e-12);
     assert_eq!(r["route"]["model"], "haiku");
     assert_eq!(r["exit_code"], 0);
@@ -308,7 +452,7 @@ fn per_task_flags() {
     assert_eq!(r["text"], "done by codex");
     assert_eq!(
         r["usage"],
-        json!({"input":200,"cache_read":800,"cache_write":0,"output":50})
+        json!({"input":200,"cache_read":800,"cache_write":0,"cache_write_5m":0,"output":50})
     );
     assert_eq!(r["session_id"], Value::Null);
     assert!(args(&env.launches()[0]).contains(&"--ephemeral".to_string()));
@@ -320,14 +464,10 @@ fn per_task_flags() {
 
 fn mcp_config() {
     let env = Env::new();
-    let file = env.dir.path().join("mcp.json");
-    fs::write(
-        &file,
-        json!({"mcpServers":{"pons":{"command":"pons-mcp","args":["--stdio"],"env":{"PONS_MCP_TOKEN":"t0ken"}}}})
-            .to_string(),
-    )
-    .unwrap();
-    let file = file.to_string_lossy().into_owned();
+    let file = mcp_file(
+        &env,
+        json!({"pons":{"command":"pons-mcp","args":["--stdio"],"env":{"PONS_MCP_TOKEN":"t0ken"}}}),
+    );
     let (out, _) = env.run(&[
         "--model",
         "haiku",
@@ -364,6 +504,232 @@ fn mcp_config() {
         codex["env"], "t0ken",
         "and reach the agent through its environment"
     );
+}
+
+fn deadline_covers_stdin() {
+    let env = Env::new();
+    let started = Instant::now();
+    let mut child = env
+        .command()
+        .args([
+            "run",
+            "--events",
+            "jsonl",
+            "--no-session",
+            "--model",
+            "haiku",
+        ])
+        .args(["--stdin", "--deadline", "2s"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    // The prompt's producer never closes stdin.
+    let _stdin = child.stdin.take();
+    let mut stdout = String::new();
+    child
+        .stdout
+        .take()
+        .unwrap()
+        .read_to_string(&mut stdout)
+        .unwrap();
+    let status = child.wait().unwrap();
+    assert!(started.elapsed() < Duration::from_secs(15));
+    assert_eq!(status.code(), Some(4));
+    let last: Value = serde_json::from_str(stdout.lines().last().unwrap()).unwrap();
+    assert_eq!(last["error_class"], "deadline");
+    assert!(env.launches().is_empty());
+}
+
+fn codex_resume() {
+    let env = Env::new();
+    let (out, events) = env.run(&["--model", "gpt-5.6-luna", "fix it"]);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let r = result(&events);
+    let turn = json!({"input":200,"cache_read":800,"cache_write":0,"cache_write_5m":0,"output":50});
+    assert_eq!(r["usage"], turn);
+    assert_eq!(r["usage_complete"], true);
+    assert_eq!(r["models"][0]["model"], "gpt-5.6-luna");
+    let session = r["session_id"].as_str().unwrap().to_string();
+    let (out, events) = env.run(&["--resume", &session, "and the tests"]);
+    assert_eq!(out.status.code(), Some(0));
+    let r = result(&events);
+    // Codex's turn.completed said 400 input / 1600 cached / 100 output: the
+    // thread's total. Only this turn's two calls count.
+    assert_eq!(
+        r["usage"],
+        turn,
+        "a resumed Codex turn counts only its own calls {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(r["usage_complete"], true);
+    // luna: 0.20 input, 0.02 cache read, 1.20 output per Mtok.
+    let cost = (200.0 * 0.20 + 800.0 * 0.02 + 50.0 * 1.20) / 1e6;
+    assert!((r["cost_usd"].as_f64().unwrap() - cost).abs() < 1e-12);
+    assert!(args(&env.launches()[1]).contains(&"resume".to_string()));
+}
+
+fn interrupted_codex_turn() {
+    let env = Env::new();
+    let (out, events) = env.run(&["--model", "gpt-5.6-luna", "die halfway"]);
+    assert_eq!(out.status.code(), Some(3));
+    let r = result(&events);
+    assert_eq!(r["error_class"], "agent_error");
+    // The call Codex logged before it died is real spend...
+    assert_eq!(r["usage"]["cache_read"], 500);
+    assert_eq!(r["usage"]["output"], 30);
+    assert!(r["cost_usd"].as_f64().unwrap() > 0.0);
+    // ...and the call in flight was never reported.
+    assert_eq!(r["usage_complete"], false);
+    assert_eq!(r["models"][0]["usage_complete"], false);
+}
+
+fn persistence_failure() {
+    let env = Env::new();
+    // The state directory can't be created: something else is in the way.
+    fs::write(env.dir.path().join("state"), "not a directory").unwrap();
+    let (out, events) = env.run(&["--model", "haiku", "fix the typo"]);
+    assert_eq!(out.status.code(), Some(0));
+    let r = result(&events);
+    assert_eq!(r["is_error"], false, "the task itself succeeded");
+    assert_eq!(r["text"], "all done");
+    assert_eq!(r["session_id"], Value::Null);
+    assert!(
+        r["warnings"][0]
+            .as_str()
+            .unwrap()
+            .contains("session not saved"),
+        "{r}"
+    );
+    assert_eq!(r["usage"]["output"], 120, "the usage is still reported");
+}
+
+fn mcp_file(env: &Env, servers: Value) -> String {
+    let file = env.dir.path().join("mcp.json");
+    fs::write(&file, json!({ "mcpServers": servers }).to_string()).unwrap();
+    file.to_string_lossy().into_owned()
+}
+
+fn codex_mcp_isolation() {
+    let env = Env::new();
+    let file = mcp_file(
+        &env,
+        json!({"pons":{"command":"pons-mcp","args":["--stdio"]}}),
+    );
+    let codex = [
+        "--model",
+        "gpt-5.6-luna",
+        "--no-session",
+        "--mcp-config",
+        &file,
+        "x",
+    ];
+    // A project-level server and a plugin's server, as `codex mcp list` shows them.
+    let layers = r#"[{"name":"leaky"},{"name":"cua","plugin":true}]"#;
+    let (out, _) = env.run_with(&codex, &[("NECTRA_FAKE_CODEX_MCP", layers)]);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = args(&env.launches()[0]).join(" ");
+    assert!(text.contains("features.plugins=false"), "{text}");
+    assert!(
+        text.contains(r#"mcp_servers."leaky".enabled=false"#),
+        "{text}"
+    );
+    assert!(text.contains("mcp_servers.pons="), "{text}");
+
+    // A server Codex keeps loading despite the override: Codex can't be held
+    // to the file, so the task doesn't run there.
+    let stuck = r#"[{"name":"stuck","sticky":true}]"#;
+    let (out, events) = env.run_with(&codex, &[("NECTRA_FAKE_CODEX_MCP", stuck)]);
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(result(&events)["error_class"], "no_model");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("Codex models skipped") && stderr.contains("stuck"),
+        "{stderr}"
+    );
+    assert_eq!(env.launches().len(), 1);
+    // Claude's --strict-mcp-config holds whatever Codex has.
+    let claude = [
+        "--model",
+        "haiku",
+        "--no-session",
+        "--mcp-config",
+        &file,
+        "x",
+    ];
+    let (out, _) = env.run_with(&claude, &[("NECTRA_FAKE_CODEX_MCP", stuck)]);
+    assert_eq!(out.status.code(), Some(0));
+}
+
+fn conflicting_credentials() {
+    let env = Env::new();
+    let file = mcp_file(
+        &env,
+        json!({
+            "a":{"command":"a-mcp","env":{"SHARED_TOKEN":"value-for-server-a"}},
+            "b":{"command":"b-mcp","env":{"SHARED_TOKEN":"value-for-server-b"}},
+        }),
+    );
+    let (out, events) = env.run(&[
+        "--model",
+        "gpt-5.6-luna",
+        "--no-session",
+        "--mcp-config",
+        &file,
+        "x",
+    ]);
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(result(&events)["error_class"], "no_model");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("SHARED_TOKEN"), "{stderr}");
+    assert!(
+        !stderr.contains("value-for-server"),
+        "values are never printed"
+    );
+    assert!(env.launches().is_empty());
+    // Claude starts each server with its own env from the file.
+    let (out, _) = env.run(&[
+        "--model",
+        "haiku",
+        "--no-session",
+        "--mcp-config",
+        &file,
+        "x",
+    ]);
+    assert_eq!(out.status.code(), Some(0));
+}
+
+fn redaction() {
+    let env = Env::new();
+    for model in ["haiku", "gpt-5.6-luna"] {
+        let (out, events) = env.run(&["--model", model, "--no-session", "leak it"]);
+        assert_eq!(out.status.code(), Some(3));
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            !stdout.contains(SECRET) && !stderr.contains(SECRET),
+            "{stdout}\n{stderr}"
+        );
+        assert!(
+            stderr.contains("debug: retrying with key [redacted]"),
+            "{stderr}"
+        );
+        if model != "haiku" {
+            // Codex's own error message is passed on, masked.
+            let error = result(&events)["error"].as_str().unwrap().to_string();
+            assert!(error.contains("x-api-key [redacted]"), "{error}");
+        }
+    }
 }
 
 #[cfg(unix)]
