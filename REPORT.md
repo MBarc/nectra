@@ -163,7 +163,7 @@ every cache entry at the 1-hour TTL here (`cache_write_5m: 0`).
 ### Tests after the review
 
 - Windows: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` clean;
-  `cargo test` all green (101 unit, 14 headless e2e scenarios, every other suite).
+  `cargo test` all green (100 unit tests, 14 headless e2e scenarios, every other suite).
 - Linux (builder, `~/nectra-headless`): fmt and clippy clean; all 15 headless scenarios
   pass, including SIGTERM and the 0700/0600 session-record check. Two failures there are
   not this branch's and show up on unchanged master too: `native_terminal`
