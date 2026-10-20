@@ -13,8 +13,8 @@ lines (schema `v: 1`): `route` per attempt, `text`, `tool` start/end, and exactl
 |---|---|
 | N1 event stream | Done: route/text/tool/result, provider-neutral, `v` on every line. |
 | N2 typed failures | Done: `model_unavailable, auth, rate_limited, harness_error, no_model` + `agent_error, cost_limit, deadline, cancelled`. Exit 1 Nectra, 3 agent, 4 guard, 130 cancelled. |
-| N3 `--mcp-config` | Claude: `--mcp-config=FILE --strict-mcp-config`. Codex: `-c mcp_servers.NAME=…`, env values via the child env (never argv), user's config.toml servers disabled. Gemini: not mapped; Gemini models are excluded when `--mcp-config` is set (documented). |
-| N4 `--no-mcp-share` | Done (no sharing; Nectra never links skills on `run`). Codex plugin-bundled servers can't be disabled at launch (documented). |
+| N3 `--mcp-config` | Claude: `--mcp-config=FILE --strict-mcp-config`. Codex: plugins/apps off, every other server `codex mcp list` reports disabled, FILE's servers added (env values via the child env, never argv), then verified with `codex mcp list`; otherwise Codex is excluded. Gemini: not mapped; Gemini models are excluded when `--mcp-config` is set (documented). |
+| N4 `--no-mcp-share` | Done (no sharing; Nectra never links skills on `run`). |
 | N5 non-interactive | Done: never a pane, login or prompt; env passed through unchanged; per-runtime variable table in the docs. |
 | N6 `--no-session` / `--state-dir` | Done: `--no-session` writes nothing (test asserts no state dir), Claude `--no-session-persistence`, Codex `--ephemeral`. |
 | N7 release | Checklist + CHANGELOG in docs; release archives now ship `config/models.toml` and `config/nectra.toml` (workflow change). **No release published.** |
@@ -108,6 +108,70 @@ def greet(name):
 ALL CHECKS PASSED
 ```
 
+## Astra review (round 1)
+
+All eleven numbered findings and the TOP 3 were accepted by the coordinator and fixed
+in 9fd4525. Each has a test; "unit" is `src/headless.rs`/`src/redact.rs`, "e2e" is
+`tests/headless.rs` (fake Claude/Codex).
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| 1 | Codex resume double-counts (turn.completed is the thread total) | Confirmed in Michael's own Codex 0.162.1 logs: `total_token_usage` keeps growing across resumed turns. Usage now comes from Codex's rollout, one entry per model call (growth of the running total); a resumed thread's existing total is the baseline. `turn.completed` is used only for a new thread without a log (`--no-session`). | unit `resumed_codex_thread_counts_only_its_own_calls` (real numbers from a resumed rollout), e2e "Codex resume counts only the new turn" |
+| 2 | Failed/interrupted work reported as zero-cost | Calls the provider did report always count (Codex's log keeps calls made before a crash). Work whose final count never arrived is flagged: `usage_complete: false` (top level and per model). Rejected-before-work attempts stay complete at 0. | unit `interrupted_codex_turn_keeps_logged_calls_and_is_flagged`, `interrupted_claude_call_counts_its_spend_and_is_flagged`; e2e "interrupted paid Codex turn"; live run 3 (cost stop) reports `usage_complete: false` |
+| 3 | Claude cache-write TTL ignored | `cache_creation.ephemeral_5m/1h` kept; new `usage.cache_write_5m`; `cache_write_5m` prices (1.25× input) added to prices.json; 1-hour stays `cache_write` (2× input). Unsplit writes are taken as 1-hour (dearer, Claude Code's default). | unit `claude_cache_writes_are_priced_by_their_ttl`; e2e expects 625 of 2500 at the 5-minute rate |
+| 4 | Unpriced model inherits the routed model's price | Removed the fallback: each call is priced as the model that answered (Claude's message model, Codex's `turn_context` model). An unpriced model with tokens makes `cost_usd: null`. | unit `a_model_without_a_price_is_never_given_another_ones` |
+| 5 | Persistence errors skip the result | The run is one closure under `catch_unwind`; any error becomes a `harness_error` result, a panic too. A session record that can't be written is a `warnings` entry (the task's own outcome stands, `session_id: null`). | e2e "persistence failure still ends in one result" |
+| 6 | Codex explicit MCP not strict (project layers) | Reproduced with real Codex 0.162.1: a trusted project's `.codex/config.toml` server is listed and loaded. Now: plugins and apps off, every server `codex mcp list` reports in the task's directory disabled, FILE's added, then `codex mcp list` must show exactly FILE's servers or Codex is excluded (reason on stderr). | e2e "project and plugin MCP servers can't leak into Codex" (incl. a server that ignores the override → Codex excluded, Claude still runs) |
+| 7 | Explicit MCP servers share credentials | One variable with two values, between servers or against Nectra's env, excludes Codex (it forwards variables by name from one environment). Claude gets each server's own env from FILE. | e2e "conflicting MCP credentials keep the task off Codex" |
+| 8 | Claude replay/interleaving | Per-field running maximum per message id (a replayed `message_start` can't lower counts); the open message is tracked per stream (`parent_tool_use_id`); whole `assistant` messages also count, for subagent calls without raw events. | unit `replayed_and_interleaved_claude_messages_count_once_each`; the e2e fake replays a `message_start` |
+| 9 | Gemini output excludes thinking | Gemini usage is always `usage_complete: false`, documented. | unit `codex_cached_input_is_not_counted_twice_and_models_stay_apart` |
+| 10 | Deadline/signals start after stdin and routing | Headless reads its own prompt; stdin and routing run on a worker thread the main thread waits on, bounded by the deadline and cancel. | e2e "deadline while stdin stays open" (stdin never closed → `deadline`, exit 4, nothing launched) |
+| 11 | Session records not private | Folder created 0700, record written through a 0600 temp file and renamed into place. | Linux run (below) |
+| — | Credentials in diagnostics/errors | Provider stderr is forwarded line by line through `redact`; every `error` string too. Masks credential-named env values, `--mcp-config` env values, `sk-`/`ghp_`/`github_pat_`/`xox?-`/`AIza` tokens, `Bearer …`, JWTs. | unit `credentials_are_masked_and_prose_is_not`; e2e "credentials are redacted" (Claude stderr, Codex error) |
+| — | Codex cost guard is after the fact | Now checked after every Codex model call (from its log), stated plainly in the docs: a Codex call can't be stopped part way, and without a log (`--no-session`) the check is at turn end. | e2e "interrupted paid Codex turn" reads the log mid-turn |
+
+### Independent check against the providers' own accounting
+
+`scripts/headless_demo.py` now compares each task's `usage` with the provider's own
+session log (Claude Code: `~/.claude/projects/<slug>/<session>.jsonl`, unique assistant
+message ids; Codex: its rollout) and `cost_usd` with Claude Code's `total_cost_usd`
+(new result field `provider_cost_usd`). Live, Windows, Claude Code 2.1.304,
+`python scripts/headless_demo.py --provider anthropic`:
+
+```
+=== 1. routed headless run
+--- exit 0; schema ok; model haiku; usage {'cache_read': 131826, 'cache_write': 22130, 'cache_write_5m': 0, 'input': 8, 'output': 437}; cost_usd 0.00596356
+--- independent check, run 1: Nectra {'cache_read': 131826, 'cache_write': 22130, 'cache_write_5m': 0, 'input': 8, 'output': 437}
+    provider log {'cache_write': 22130, 'cache_write_5m': 0, 'input': 8, 'output': 437, 'cache_read': 131826}
+    cost: Nectra 0.00596356, Claude Code 0.00596356
+=== 2. --resume follow-up
+--- exit 0; schema ok; model haiku; usage {'cache_read': 77689, 'cache_write': 335, 'cache_write_5m': 0, 'input': 4, 'output': 188}; cost_usd 0.00093829
+--- independent check, --resume: Nectra {'cache_read': 77689, 'cache_write': 335, 'cache_write_5m': 0, 'input': 4, 'output': 188}
+    provider log {'cache_write': 335, 'cache_write_5m': 0, 'input': 4, 'output': 188, 'cache_read': 77689}
+    session cost: Nectra 0.00690185, Claude Code 0.00690185
+=== 3. cost guard stop
+--- exit 4; schema ok; model haiku; usage {'cache_read': 19263, 'cache_write': 18921, 'cache_write_5m': 0, 'input': 2, 'output': 14}; cost_usd 0.00398403
+    (usage_complete: false — the call was cut off before its output count)
+ALL CHECKS PASSED
+```
+
+Usage equals Claude Code's own log exactly on the fresh and the resumed task, and the
+cost equals Claude Code's own `total_cost_usd`; on the resumed session Claude's figure is
+the whole session's, and it equals Nectra's two tasks added together. Claude Code wrote
+every cache entry at the 1-hour TTL here (`cache_write_5m: 0`).
+
+### Tests after the review
+
+- Windows: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` clean;
+  `cargo test` all green (101 unit, 14 headless e2e scenarios, every other suite).
+- Linux (builder, `~/nectra-headless`): fmt and clippy clean; all 15 headless scenarios
+  pass, including SIGTERM and the 0700/0600 session-record check. Two failures there are
+  not this branch's and show up on unchanged master too: `native_terminal`
+  `cancelling_native_work_does_not_save_a_fake_answer` (fails every time on Linux), and
+  `tests/chat.rs`, where a different test fails in about one run in four (master: 2 of 8
+  runs, each time a different test; these tests use a mock backend and none of the code
+  changed here).
+
 ## Open issues
 
 - **Gemini:** `--mcp-config` not mapped (Gemini models excluded instead); usage parsing
@@ -117,13 +181,16 @@ ALL CHECKS PASSED
   gpt-5.6-luna, gpt-6-astra only. fable, gpt-6.x-sol/luna and gpt-5.6-terra report
   `cost_usd: null` and are skipped under `--max-cost-usd`. Adding their list prices is a
   data change, not code.
-- **Cost guard granularity:** Claude is checked per API call (the call that crosses the
-  limit is billed: run 3 stopped at $0.0040 against a $0.0001 cap); Codex/Gemini only at
-  turn end.
-- **Claude subagents:** usage from Task-tool subagents is counted only if Claude Code
-  streams their `message_start`/`message_delta` events; not verified.
-- **Codex plugin MCP servers** stay on under `--mcp-config` (only config.toml servers
-  can be disabled with `-c`).
+- **Cost guard granularity:** Claude is checked at the start and end of every API call
+  (the call that crosses the limit is billed: run 3 stopped at $0.0040 against a $0.0001
+  cap); Codex after every model call (from its log); Codex with `--no-session` and Gemini
+  only at turn end.
+- **Live Codex cross-check not run:** Codex was at its usage limit (until 10:37 today), so
+  the Codex half of the independent check (`python scripts/headless_demo.py --provider
+  openai`) hasn't run against a real Codex. The rollout format and the resume numbers in
+  the tests are taken from real Codex 0.162.1 logs on this desktop.
+- **Claude subagents:** counted from their streamed events and their whole `assistant`
+  messages (merged by message id); not exercised against a real subagent run.
 - **Linux live run:** the real-provider demo ran on Windows only; builder has no provider
   logins. The Linux path is covered by the fake-provider suite including SIGTERM.
 - PonsOS can drop `--mcp-config`/`--strict-mcp-config` from `extra_args` once it passes

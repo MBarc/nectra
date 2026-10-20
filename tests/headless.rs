@@ -354,6 +354,14 @@ fn run_then_resume() {
     assert_eq!(r["route"]["model"], "haiku");
     assert_eq!(r["exit_code"], 0);
     let session = r["session_id"].as_str().unwrap().to_string();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let runs = env.dir.path().join("state/runs");
+        let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&runs), 0o700, "session records are private");
+        assert_eq!(mode(&runs.join(format!("{session}.json"))), 0o600);
+    }
     let first = args(&env.launches()[0]);
     let i = first.iter().position(|a| a == "--session-id").unwrap();
     let provider_session = first[i + 1].clone();
