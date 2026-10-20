@@ -297,12 +297,21 @@ def analyse(obs, prev, registry_text):
                 continue
             added = sorted(now - before) if before else []
             close = difflib.get_close_matches(flag, added, n=2, cutoff=0.6) if flag.startswith("-") else []
-            if len(close) == 1 and not SAFETY.search(flag):
-                out.append({"kind": "flag", "fix": True, "old": flag, "new": close[0],
+            # Another subcommand of the same CLI that still lists it shares the literal.
+            still = [k for k, fl in check.FLAGS.items() if k != cmd and k[0] == cmd[0] and flag in fl
+                     and re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])", obs["help"].get(" ".join(k), ""))]
+            if len(close) == 1 and not SAFETY.search(flag) and not SAFETY.search(close[0]) and not still:
+                out.append({"kind": "flag", "fix": True, "runtime": cmd[0], "old": flag, "new": close[0],
                             "detail": f"`{key}` renamed {flag} to {close[0]}"})
+                continue
+            if SAFETY.search(flag) or (len(close) == 1 and SAFETY.search(close[0])):
+                why = ("it controls a provider safety check" if SAFETY.search(flag)
+                       else f"its likely replacement {close[0]} controls a provider safety check")
+            elif len(close) == 1:
+                why = f"probably now {close[0]}, but `{' '.join(still[0])}` still lists it"
             else:
-                why = "it controls a provider safety check" if SAFETY.search(flag) else "no single new flag replaces it"
-                out.append({"kind": "flag", "detail": f"`{key}` no longer lists {flag} ({why})"})
+                why = "no single new flag replaces it"
+            out.append({"kind": "flag", "detail": f"`{key}` no longer lists {flag} ({why})"})
     for rt, events in obs["streams"].items():
         if not events:
             out.append({"kind": "stream", "detail": f"{rt} printed no stream-json events: {obs.get('stream_tail', {}).get(rt, '')}"})
@@ -375,22 +384,33 @@ def git(*args, cwd=ROOT):
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
-def rename_flag(root, old, new):
-    """Replace the flag literal in Nectra's sources and in check.py's flag list."""
-    touched = []
+RUNTIME_LABEL = re.compile(r'"(claude|codex|gemini)"')
+
+
+def rename_plan(root, runtime, old, new):
+    """New text per file with `old` renamed where `runtime`'s command is built, and the
+    occurrences no runtime clearly owns.
+
+    An occurrence belongs to the runtime named by the nearest preceding "claude",
+    "codex" or "gemini" literal within 40 lines (a match arm, a FLAGS key). Other
+    runtimes' occurrences stay as they are; an unowned one makes the rename unsafe."""
     paths = [os.path.join(d, f) for d, _, fs in os.walk(os.path.join(root, "src")) for f in fs if f.endswith(".rs")]
+    plan, unclear = {}, []
     for path in paths + [os.path.join(root, "scripts", "compat", "check.py")]:
         text = open(path, encoding="utf-8").read()
-        if f'"{old}"' in text:
-            with open(path, "w", encoding="utf-8", newline="") as fh:
-                fh.write(text.replace(f'"{old}"', f'"{new}"'))
-            touched.append(os.path.relpath(path, root).replace("\\", "/"))
-    return touched
-
-
-def sources_with(root, literal):
-    paths = [os.path.join(d, f) for d, _, fs in os.walk(os.path.join(root, "src")) for f in fs if f.endswith(".rs")]
-    return [p for p in paths if f'"{literal}"' in open(p, encoding="utf-8").read()]
+        literal, out, last = f'"{old}"', [], 0
+        for m in re.finditer(re.escape(literal), text):
+            before = text[:m.start()].split("\n")
+            owners = RUNTIME_LABEL.findall("\n".join(before[-40:]))
+            line = len(before)
+            if not owners:
+                unclear.append(f"{os.path.relpath(path, root)}:{line}")
+            elif owners[-1] == runtime:
+                out += [text[last:m.start()], f'"{new}"']
+                last = m.end()
+        if last:
+            plan[path] = "".join(out) + text[last:]
+    return plan, unclear
 
 
 def make_branch(repo, base, fixes, test_cmd, target_dir):
@@ -408,7 +428,13 @@ def make_branch(repo, base, fixes, test_cmd, target_dir):
         touched = []
         for f in fixes:
             if f["kind"] == "flag":
-                touched += rename_flag(wt, f["old"], f["new"])
+                plan, unclear = rename_plan(wt, f["runtime"], f["old"], f["new"])
+                if unclear:
+                    raise ValueError(f"{f['old']} has occurrences no provider owns on {base}: {unclear}")
+                for path, text in plan.items():
+                    with open(path, "w", encoding="utf-8", newline="") as fh:
+                        fh.write(text)
+                    touched.append(os.path.relpath(path, wt).replace("\\", "/"))
         reg = os.path.join(wt, "config", "models.toml")
         text = open(reg, encoding="utf-8").read()
         new = edit_registry(text, [f for f in fixes if f["kind"].startswith("model-")])
@@ -644,11 +670,15 @@ def run(args):
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
         rep["check"] = p.stdout + p.stderr
         findings += [{"kind": "check", "detail": l[7:]} for l in rep["check"].splitlines() if l.startswith("[FAIL]")]
-    # A rename is only mechanical if Nectra passes the old flag as a literal.
+    # A rename is only mechanical where Nectra builds that provider's command with the literal.
     for f in fixes:
-        if f["kind"] == "flag" and not sources_with(args.repo, f["old"]):
+        if f["kind"] != "flag":
+            continue
+        plan, unclear = rename_plan(args.repo, f["runtime"], f["old"], f["new"])
+        if unclear or not [p for p in plan if p.endswith(".rs")]:
             f.pop("fix")
-            f["detail"] += ", but Nectra's sources don't pass it literally"
+            f["detail"] += (f", but {f['old']} also appears where no provider owns it: {', '.join(unclear)}" if unclear
+                            else f", but Nectra's {f['runtime']} code doesn't pass it literally")
     fixes = [f for f in fixes if f.get("fix")]
     bundled_fixes = [f for f in fixes if f["kind"] == "flag" or edit_registry(bundled, [f]) != bundled]
     if bundled_fixes:

@@ -86,7 +86,7 @@ class Sandbox(unittest.TestCase):
             shutil.copy(os.path.join(adapt.ROOT, rel), os.path.join(self.repo, rel))
         os.makedirs(os.path.join(self.repo, "src", "executor"))
         with open(os.path.join(self.repo, "src", "executor", "process.rs"), "w") as f:
-            f.write('const ARGS: &[&str] = &["exec", "--ephemeral"];\n')
+            f.write('let args: &[&str] = match rt { "codex" => &["exec", "--ephemeral"], _ => &[] };\n')
         git(self.repo, "init", "-q", "-b", "master")
         git(self.repo, "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A")
         git(self.repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base")
@@ -325,6 +325,42 @@ class AstraReview(Sandbox):
         self.assertLess(time.time() - start, 40)
         self.assertTrue(self.state_json()["retrain"]["needed"])
         self.assertIn("timed out", self.latest_report())
+
+    # 5: renames are safe on both ends and scoped to one provider
+    def analyse_help(self, key, old, new):
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        prev = fx.pop("previous_state")
+        fx["help"][key] = fx["help"][key].replace(f"  {old}  something", f"  {new}  something")
+        return [f for f in adapt.analyse(fx, prev, REGISTRY) if f["kind"] == "flag" and old in f["detail"]]
+
+    def test_a_rename_into_a_safety_flag_is_an_issue(self):
+        found = self.analyse_help("codex exec --help", "--sandbox", "--sandbox-bypass")
+        self.assertEqual(len(found), 1)
+        self.assertNotIn("fix", found[0])
+        self.assertIn("safety", found[0]["detail"])
+
+    def test_a_flag_another_subcommand_still_lists_is_not_renamed(self):
+        found = self.analyse_help("codex exec --help", "--json", "--jsonl")
+        self.assertEqual(len(found), 1)
+        self.assertNotIn("fix", found[0])
+        self.assertIn("codex exec resume --help", found[0]["detail"])
+
+    def test_rename_touches_only_the_affected_providers_code(self):
+        src = os.path.join(self.repo, "src", "executor", "two.rs")
+        with open(src, "w") as f:
+            f.write('match rt {\n    "codex" => args.push("--ephemeral"),\n    "claude" => args.push("--ephemeral"),\n}\n')
+        plan, unclear = adapt.rename_plan(self.repo, "codex", "--ephemeral", "--ephemeral-session")
+        self.assertEqual(unclear, [])
+        self.assertIn('"codex" => args.push("--ephemeral-session")', plan[src])
+        self.assertIn('"claude" => args.push("--ephemeral")', plan[src])
+        self.assertIn(os.path.join(self.repo, "scripts", "compat", "check.py"), plan)
+
+    def test_an_occurrence_no_provider_owns_blocks_the_rename(self):
+        with open(os.path.join(self.repo, "src", "executor", "shared.rs"), "w") as f:
+            f.write('const ALL: &[&str] = &["--ephemeral"];\n')
+        plan, unclear = adapt.rename_plan(self.repo, "codex", "--ephemeral", "--ephemeral-session")
+        self.assertEqual(len(unclear), 1)
+        self.assertIn("shared.rs:1", unclear[0])
 
 
 if __name__ == "__main__":
