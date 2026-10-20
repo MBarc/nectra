@@ -91,26 +91,49 @@ The same fixture runs in the unit tests against a throwaway repo. There they als
 
 Astra (gpt-6-astra) reviewed the branch in `astra-compat-review-1.md`, and the coordinator accepted all ten findings. Each fix is its own commit, written test-first. The new tests are in the `AstraReview` class of `scripts/compat/test_adapt.py`.
 
+Astra's re-review then found rows 1–5 and 8 only partly fixed. The text below describes what those commits did, not what the code guarantees now; see [Astra re-review](#astra-re-review) for that.
+
 | # | Finding | Fix | Commit |
 |---|---|---|---|
-| 1 | Concurrent runs can overwrite each other or a user's edit | `adapt.lock` is held for the whole run with an OS lock (`msvcrt`/`flock`), which the OS releases if the process dies. A second run exits 2 with a clear message. Writes go through unique temp files (`mkstemp` + `os.replace`). The installed registry is written only if it still matches what the run read at the start; otherwise the user's edit wins and the run reports it. | `7914b4f` |
-| 2 | Failed or empty discovery can retire every model | `parse_codex_catalog` requires exit 0 and a non-empty, well-formed list. A catalog that would retire every enabled OpenAI model is not trusted. Claude, Gemini and Ollama failures become `discovery` issues. Failed discovery never adds or retires anything. | `f940d02` |
-| 3 | Failing branch tests don't protect the installed registry | The installed `models.toml` changes only when the fix branch exists and passed. Tests failing, a branch or worktree error, or no recorded result all block the change, and the report says why. | `947ed65` |
-| 4 | Retraining can hang, or be lost on a failure or interruption | The pending flag, with reason and fingerprint, is saved before the registry changes and before the tool starts. The first-run baseline is saved before any change. The tool runs with `--retrain-timeout` (default 12 h; the whole process tree is killed). A launch error is caught, and every failure keeps the flag pending. The scheduler limits were raised to 14 h. | `3a49a64` |
-| 5 | The rename safety check skips the new name, and renames are unscoped | Both names are checked against the safety list. A literal is renamed only where its nearest `"claude"`/`"codex"`/`"gemini"` label is the affected CLI. An occurrence no provider owns, or a flag another subcommand still lists, makes it an issue. | `0d02d47` |
+| 1 | Concurrent runs can overwrite each other or a user's edit | `adapt.lock` is held for the whole run with an OS lock (`msvcrt`/`flock`), which the OS releases if the process dies. A second run exits 2 with a clear message. Writes go through unique temp files (`mkstemp` + `os.replace`). The installed registry was compared with what the run read at the start, but the comparison and the write were separate steps, so a late edit could still be lost (re-review #1). | `7914b4f` |
+| 2 | Failed or empty discovery can retire every model | `parse_codex_catalog` requires exit 0 and a non-empty list with string slugs (visibility was not checked until re-review #2). A catalog that would retire every enabled OpenAI model is not trusted. Claude, Gemini and Ollama failures become `discovery` issues. Failed discovery never adds or retires anything. | `f940d02` |
+| 3 | Failing branch tests don't protect the installed registry | Tests failing, a branch or worktree error, or no recorded result block the installed change, and the report says why. A change with no branch, or with a branch that had nothing to change, still went through untested until re-review #3. | `947ed65` |
+| 4 | Retraining can hang, or be lost on a failure or interruption | The pending flag, with reason and fingerprint, is saved before the registry changes and before the tool starts. The first-run baseline is saved before any change. The tool runs with `--retrain-timeout` (default 12 h). On Windows the timeout could still overrun while a child outlived its parent, until re-review #4. A launch error is caught, and every failure keeps the flag pending. The scheduler limits were raised to 14 h. | `3a49a64` |
+| 5 | The rename safety check skips the new name, and renames are unscoped | Both names are checked against the safety list. A literal was renamed only where its nearest `"claude"`/`"codex"`/`"gemini"` label was the affected CLI. That heuristic missed shared code, and re-review #5 replaced it. | `0d02d47` |
 | 6 | Probe commands don't follow a generated rename | `stream_cmd` moved into `check.py`, beside `FLAGS`, so the generated rename updates it. A test runs the branch's `check.py`. | `387464d` |
 | 7 | Backups and reports are overwritten | Each change gets its own `models.toml.bak-<timestamp>`, and each run its own `report-<timestamp>.md`, both created exclusively. `report-latest.md` is a copy of the newest, and the toast points at it. | `094838c` |
-| 8 | An existing branch loses its result; errors don't fail the run | An existing branch's result is read from its commit message. Worktree, commit and edit errors, or a missing result, set exit 1. A half-made branch is deleted, so it can't later look like a result. | `4fd2543` |
+| 8 | An existing branch loses its result; errors don't fail the run | An existing branch's result is read from its commit message. Worktree, commit and edit errors, or a missing result, set exit 1. A half-made branch is deleted, except on the `git worktree add` failure path, fixed in re-review #8. | `4fd2543` |
 | 9 | `disable_model` silently misses valid TOML | The parser locates the model's table. Indentation, single quotes, trailing comments and `[[ model ]]` are all handled. The result is re-parsed and must differ in exactly that field; otherwise it raises, and the run reports it. | `0b03894` |
 | 10 | `providers = []` turns into all providers; the fingerprint ignores selection | `choose_providers`: `""` or `[]` means none. The fingerprint follows `src/models.rs` (selected providers, Gemini only when selected, configured Ollama models when `ollama` is selected) and ignores role order. A version field re-baselines once, without a spurious retrain. | `2247e36` |
 | + | The brief also asked for budgets | `--max-probes` (default 3) caps new-model probes per run. `--test-timeout` (default 1 h) bounds the fix branch's tests, and a timeout counts as failed. | `4d99df8` |
 
 Not changed: Astra's low-priority notes on stream checks (fields only, not types) and on `tests/setup.rs` coverage. They are listed under Open issues.
 
+## Astra re-review
+
+Astra re-reviewed the fixes in `astra-compat-review-2.md` (verdict HOLD). It marked #6, #7, #9 and #10 fixed, the other six partly fixed, and found four new problems. The coordinator accepted all of them. Each fix is its own commit, written test-first. The tests are in the `AstraReReview` class.
+
+| # | Astra found | What the code now guarantees | Commit |
+|---|---|---|---|
+| 1 | The registry comparison and the write were separate, so an edit in between was lost. Different state dirs took different locks. | The write is a compare-and-swap. The file is moved to its backup name and the moved text compared, then the new text moved in with a rename that fails if a file has appeared. An edit at any point before that last move is kept and reported. A lock beside the registry (`models.toml.lock`) is shared by runs with any state dir. **Limits:** an editor holding the file open and writing after the move writes into the backup. For a few milliseconds the registry file is absent. | `aa874b5` |
+| 2 | `visibility: {}` was accepted. The all-retirement guard could be bypassed by combining the bundled and installed analyses. | Every catalog entry needs a string slug and, if present, a string visibility, or the whole catalog is rejected. Retirements that would leave a provider with no enabled model **in either registry** are all withheld, with a `discovery` issue. | `c09c57f` |
+| 3 | No branch, or a branch with nothing to change, let an installed change through untested. | The installed change is written only when its **exact text** passed the tests. That is either the fix branch's registry, compared byte for byte, or the new text tested on its own at the base in a temporary worktree. | `cae1c24` |
+| 4 | A child that outlived its launcher held the pipe; on Windows a 0.25 s timeout took 3.1 s. | Commands start suspended in their own Windows job object (a session on Linux). The job is killed on a timeout and when the command ends, so children that outlive their parent are killed too. Output goes to temporary files, not pipes. check.py's CLI calls use the same runner. Tested: a child holding the output no longer delays the return, and is dead afterwards. **Limit:** on Linux, a child that calls `setsid` itself escapes. | `87338d4` |
+| 5 | The nearest-label heuristic left the shared permissions filter on `--sandbox`. | No ownership heuristic remains. A rename replaces every occurrence of the flag in `src/`, `tests/` and check.py, shared code included. It is proposed only for a flag that no other CLI is known to use (in `FLAGS`, this run's help or the last run's). Otherwise it is an issue. For Astra's `--sandbox` example, the plan covers the filter, the read-only launch, the resume handling and the tests. | `f30e500` |
+| 8 | A `worktree add` failure returned before cleanup; cleanup failures were ignored. | Every path, that one included, runs the same cleanup: remove the worktree (falling back to deleting the folder), prune, and delete a branch that never got its commit. Whatever can't be removed is named in the report under "Cleanup failed", and the run exits 1. | `7202e5a` |
+| new-1 | Retirement guard bypass across registries. | Fixed with #2. | `c09c57f` |
+| new-2 | Cached "passed" results ignored `--base` and `--test-cmd`. | The branch hash covers the fixes, the base commit and the test command. An existing branch's result counts only if its commit sits directly on that base. | `739c337` |
+| new-3 | A retirement of a model the installed registry leaves out blocked all its other changes. | Such a retirement is skipped for that registry. `disable_model` stays strict for a model that is present. | `c067943` |
+| new-4 | A refused write still left its retrain pending. | The flag is still saved before the write. If the write is refused, the fingerprint and retrain state go back to what they were. **Limit:** a run killed between saving the flag and writing still retrains once, which is the safe direction. | `9ace50b` |
+
+The docs had the same overstatements, now corrected in `docs/compat.md` and the spec. They now describe the compare-and-swap and its limits, the exact-text validation, how timeouts work, and the exit codes, including **2 when another run holds a lock**. With exit 2, the scheduled task now shows no notification. It used to show one pointing at a stale report.
+
+Cost to know: on this PC the installed registry differs from the bundled one (the 5 disabled entries), so any change to it now runs the test suite a second time against that text.
+
 ## Test evidence
 
-Results after the Astra fixes:
-- `python scripts/compat/test_adapt.py`: **41 tests, OK.** That is 12 original tests and 29 for the review.
+Results after the Astra re-review fixes (target/ rebuilt from scratch, then deleted again):
+- `python scripts/compat/test_adapt.py`: **57 tests, OK.** That is 12 original, 29 for the first review (two rename tests rewritten for the new rule) and 16 for the re-review.
 - `cargo fmt --all --check`: clean.
 - `cargo clippy --all-targets --locked -- -D warnings`: clean.
 - `cargo test --all-targets --locked -- --test-threads=1`: **175 passed, 0 failed, 1 ignored**, across 11 suites (lib 88, chat 30, native_terminal 6, …).
@@ -127,4 +150,4 @@ Results after the Astra fixes:
   - Stream checks test field presence, not types or success status. `check.py --live` covers the end-to-end answer.
   - Claude alias parsing still depends on the `--model` help wording. A change there now shows up as a `discovery` issue, not as silent loss.
   - `tests/setup.rs` doesn't yet test a selected provider with both enabled and disabled entries.
-- **Live runs since the review:** none against Michael's installed registry, as instructed. Every Astra fix was exercised on fixtures and temporary copies.
+- **Live runs since the review:** none against Michael's installed registry, as instructed. Every Astra fix, from both rounds, was exercised on fixtures and temporary copies. The only real CLI calls were `--version` smoke tests of the new process runner.

@@ -16,11 +16,11 @@ python scripts/compat/adapt.py --live --nectra target/release/nectra
 | Finds | Then |
 |---|---|
 | A CLI changed version | Records it in the report as a note. |
-| A flag Nectra passes is gone, and exactly one similar flag is new | Treats it as a **rename**. It replaces the literal in `src/**.rs` and in check.py's flag list on a branch. |
-| A flag is gone without a clear replacement, or it is a safety flag (`dangerous`, `bypass`, `skip`) | Writes an **issue**. Safety flags are never renamed for you. |
+| A flag Nectra passes is gone, and exactly one similar flag is new | Treats it as a **rename**. On a branch, it replaces every occurrence in `src/`, `tests/` and check.py, shared code such as the permissions filter included. |
+| A flag is gone without a clear replacement, either name is a safety flag (`dangerous`, `bypass`, `skip`), or another CLI also uses the old flag | Writes an **issue**. Safety flags are never renamed for you, and a flag two CLIs share can't be renamed for one of them. |
 | A stream-json event Nectra reads lost a field, or never arrives | Writes an **issue**. Parser changes are never mechanical. |
 | A model the account can use is not in the registry | Adds it with **`enabled = false`** and `prefers = []`, scores copied from the closest model. Review the scores, then enable it. |
-| A registry model is gone from the Codex account catalog | Sets it to `enabled = false`. |
+| A registry model is gone from the Codex account catalog | Sets it to `enabled = false`, unless that would leave OpenAI with no enabled model in the bundled or the installed registry. Then it is an issue. |
 | A Gemini registry model the CLI no longer mentions | Writes an issue. The CLI bundle is not authoritative. |
 | Ollama models pulled but not configured, or the reverse | Records it in the report as a note. `[ollama]` lives in your config. |
 | The enabled models, their roles, `ROLES` or `TaskType` changed | Calls `tools/laya/retrain`, or records "retrain needed". |
@@ -28,13 +28,29 @@ python scripts/compat/adapt.py --live --nectra target/release/nectra
 Mechanical fixes go on a **local branch `compat/auto-<hash>`**, made from `master` in a
 temporary worktree. The run tests it there (`cargo test --all-targets -- --test-threads=1`),
 then commits and removes the worktree. Your checkout is never switched. Nothing is
-merged or pushed. The same set of fixes never makes a second branch.
+merged or pushed. The hash covers the fixes, the base commit and the test command, so
+an earlier branch's result is reused only for the same change tested the same way.
+A branch that never got its commit is deleted, and anything that cannot be cleaned up
+is named in the report.
 
 The run also updates the installed registry (`%APPDATA%\nectra\models.toml`, or
-`~/.config/nectra/models.toml`), which shadows the bundled one. Before writing, it
-copies the file to its own `models.toml.bak-<time>` (one per change, never
-overwritten), and the report includes the diff.
-Because new models arrive disabled, routing only changes when a model is retired.
+`~/.config/nectra/models.toml`), which shadows the bundled one:
+- Only a change whose **exact text passed the tests** is written. That is the fix
+  branch's registry when it is identical. Otherwise the run tests the new text on
+  its own, on the base, in another temporary worktree. On this PC the installed copy
+  differs from the bundled one, so expect that second test run.
+- The write is a compare-and-swap. The file is moved to its own
+  `models.toml.bak-<time>` (one per change, never overwritten) and the moved text
+  compared with what the run read at its start. The new text is then moved in only
+  if no file has appeared meanwhile. If you edit the registry at any point before
+  that last move, your edit stays and the run reports a conflict. The remaining gap:
+  an editor that keeps the file open and writes after the move writes into the backup.
+  For a few milliseconds during the swap, the registry file is absent.
+- A lock beside it (`models.toml.lock`) keeps apart runs that use different state
+  directories.
+
+The report includes the diff. Because new models arrive disabled, routing only
+changes when a model is retired.
 
 ## Where models come from
 
@@ -52,14 +68,22 @@ the next run, so a CLI release that names many new models stays cheap.
 
 Discovery has to succeed before it can change anything:
 - A Codex catalog counts only if `codex debug models` exited 0 and listed at least
-  one model.
-- A catalog that would retire every enabled OpenAI model is not trusted.
+  one model, every entry with a string `slug` and, if present, a string `visibility`.
+- A catalog that would retire every enabled OpenAI model, in either registry, is not
+  trusted.
 - A Claude help text with no aliases, a missing Gemini bundle, or an unreachable
   Ollama with configured models each become a `discovery` issue. None of them can
   retire anything.
 
 The fix branch's tests time out after `--test-timeout` (default 1 hour), and then
 count as failed.
+
+Every command the run starts (CLI calls, tests, the retrain tool) is bounded the
+same way. On Windows it runs in its own job object, which keeps hold of children
+even after their parent exits. On a timeout, and when the command ends, the job is
+killed, so nothing it started keeps running. On Linux the same is done with a
+session; a child that starts its own session escapes it. Output goes to temporary
+files rather than pipes, so a leftover child cannot stall the run.
 
 ## State and reports
 
@@ -72,8 +96,13 @@ count as failed.
   retrain status.
 - `target/`: the build directory for fix branches, so rebuilds are incremental.
 
-The exit code is 1 when something needs a person: an issue, or failing tests on the
-fix branch. Otherwise it is 0.
+Exit codes:
+- `0`: nothing needs you.
+- `1`: something needs a person. That is an issue, failing tests, a registry change
+  that was blocked or hit a conflict, or a cleanup that failed.
+- `2`: another run holds the state directory's `adapt.lock` or the registry's
+  `models.toml.lock`. Nothing was done. The scheduled task shows no notification for
+  this.
 
 ## Laya retraining
 
@@ -86,13 +115,17 @@ and the next run tries again:
 - a tool that cannot start;
 - any other exit code;
 - a run longer than `--retrain-timeout`. The default is 12 hours, because training is
-  slow. A tool that only queues a job can return at once.
+  slow.
 
-On a timeout, the tool's whole process tree is killed. The pending flag, with its
-reason and fingerprint, is saved to `state.json` before the registry changes and
-before the tool starts. An interrupted run therefore never loses it. The scheduled
-task and the systemd unit allow 14 hours: room for the fix-branch tests plus a full
-retrain.
+Processes the tool leaves behind are killed when it exits, as for every command
+above. A tool that only queues a job must hand it to something outside the run,
+such as a scheduled task or a systemd unit, and return.
+
+The pending flag, with its reason and fingerprint, is saved to `state.json` before
+the registry changes and before the tool starts, so an interrupted run never loses
+it. If the registry write is then refused because the file changed, the flag goes
+back to what it was. The scheduled task and the systemd unit allow 14 hours: room
+for the fix-branch tests plus a full retrain.
 
 ## Schedule it
 

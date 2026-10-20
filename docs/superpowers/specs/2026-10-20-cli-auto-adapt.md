@@ -21,7 +21,10 @@ and `config/models.toml` hard-codes Michael's model ids.
    - `version`: a CLI changed version (informational).
    - `flag`: a flag Nectra passes is gone. If the same run's help text shows exactly
      one new flag close to it (difflib >= 0.6) that was not there last run, it is a
-     **rename**, which is mechanical. Otherwise it is an issue.
+     **rename**, which is mechanical. It is not when either name is a safety flag,
+     when another subcommand of the same CLI still lists the flag, or when another
+     CLI is known to use it. Otherwise it is an issue. A rename changes every
+     occurrence in `src/`, `tests/` and check.py, shared code included.
    - `stream`: an event Nectra reads (`src/executor/conversation.rs`) is missing a
      field, or its type disappeared. This is an issue, because a parser change is never
      mechanical.
@@ -31,13 +34,16 @@ and `config/models.toml` hard-codes Michael's model ids.
 3. **Fix**: mechanical findings become edits on a local branch `compat/auto-<hash>`,
    created in a temporary `git worktree` from `master`. The test command
    (`cargo test`) runs there, the result is committed, and the worktree is removed.
-   The branch is kept and is never merged or pushed. If a branch with the same
-   hash already exists, the step is skipped.
+   The branch is kept and is never merged or pushed. The hash covers the fixes, the
+   base commit and the test command. If that branch already exists, with its commit
+   directly on the base, its recorded result is reused.
 4. **Installed registry**: the same registry edits go to the installed
    `%APPDATA%\nectra\models.toml` (Linux: `~/.config/nectra/models.toml`), which
-   shadows the bundled one. Before writing, the run saves a backup to
-   `models.toml.bak-<time>` (one per change), puts a unified diff in the report, and checks that the
-   new text parses as a valid registry (unique ids, same structure).
+   shadows the bundled one. Only text that passed the tests is written: the fix
+   branch's registry when identical, else the new text tested on the base. The write
+   is a compare-and-swap through the backup `models.toml.bak-<time>` (one per change),
+   under a lock beside the registry. A unified diff goes in the report, and the new
+   text must parse as a valid registry (unique ids, same structure).
 5. **Retrain**: the Laya fingerprint covers the enabled models and their `prefers`,
    the `ROLES` table in `src/policy.rs` and `TaskType` in `src/classifier.rs`. If it
    changed since the last run, or a previous retrain is still pending, the run calls
@@ -79,6 +85,8 @@ Owned by the Laya worker. Nectra's adapt loop relies only on these points:
   `NECTRA_RETRAIN_FINGERPRINT`.
 - Exit code 0 means the retrain is done or queued, and clears `retrain.needed`. Any
   other exit code keeps it pending, and it is retried next run.
+- It is bounded by `--retrain-timeout` (default 12 h). Processes it leaves running are
+  killed when it exits, so queued work must go to something outside the run.
 
 ## Constraints kept
 

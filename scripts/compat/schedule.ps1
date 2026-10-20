@@ -43,7 +43,8 @@ $listed = [regex]::Match($config, 'providers\s*=\s*\[([^\]]*)\]').Groups[1].Valu
 $providers = ($listed | Where-Object { $_ -in "anthropic", "openai", "google" }) -join ","
 if (-not $providers) { "No provider CLIs selected; nothing to check." | Out-File $log; exit 0 }
 & $Python (Join-Path $PSScriptRoot "adapt.py") --nectra $Nectra --providers $providers --live *> $log
-if ($LASTEXITCODE -ne 0) {
+# 2: another run holds the lock and did nothing, so there is nothing to show.
+if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) {
     $issues = Select-String -Path $log -Pattern '^- \*\*' | Select-Object -First 3 | ForEach-Object { $_.Line }
     $failed = (@($issues) + "Report: $logs\report-latest.md") -join "`n"
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
