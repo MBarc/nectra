@@ -222,7 +222,6 @@ struct Rollout {
     /// The last running total read; on a resumed thread, at first the history's.
     total: Usage,
     model: Option<String>,
-    counted: bool,
     /// The running total before this attempt is known: zero on a new thread,
     /// read from the log before a resumed one starts. Without it nothing is
     /// counted from the log, which would include the thread's history.
@@ -239,8 +238,8 @@ struct Ledger {
     /// agent, or a subagent under its tool use id) is in.
     claude: HashMap<String, usize>,
     streams: HashMap<String, usize>,
-    /// Codex and Gemini, this attempt: the agent did paid work, and the
-    /// provider's final count of it.
+    /// This attempt: the agent may have done paid work, and the provider's
+    /// final word on it (Claude's result, Codex's or Gemini's count).
     worked: bool,
     reported: Option<Usage>,
     resumed: bool,
@@ -257,9 +256,12 @@ impl Ledger {
         self.reported = None;
         self.resumed = thread.is_some();
         self.rollout = Rollout::default();
+        self.rollout.based = thread.is_none();
         if d.runtime == "codex" && logged {
             self.rollout.thread = Some(thread.unwrap_or_default().to_string());
-            self.rollout.based = thread.is_none() || self.read_rollout(d, false);
+            if thread.is_some() {
+                self.rollout.based = self.read_rollout(d, false);
+            }
         }
     }
     fn call(&mut self, d: &Decision, model: &str, tokens: Usage, complete: bool) -> usize {
@@ -281,7 +283,8 @@ impl Ledger {
                     "thread.started" if self.rollout.thread.as_deref() == Some("") => {
                         self.rollout.thread = event["thread_id"].as_str().map(String::from);
                     }
-                    "item.started" | "item.completed" => self.worked = true,
+                    // A started turn has called the model.
+                    "turn.started" | "item.started" | "item.completed" => self.worked = true,
                     "turn.completed" => self.reported = Some(codex_usage(&event["usage"])),
                     _ => {}
                 }
@@ -354,10 +357,13 @@ impl Ledger {
                 }
             }
             Some("result") => {
+                self.reported = Some(Usage::default());
                 if let Some(cost) = event["total_cost_usd"].as_f64() {
                     *self.provider_cost.get_or_insert(0.0) += cost;
                 }
             }
+            // Once the session has started, a request may be in flight.
+            Some("system") => self.worked = true,
             // Whole messages, which also cover calls whose raw stream isn't
             // forwarded (a subagent's); final once they carry a stop reason.
             Some("assistant") => {
@@ -422,10 +428,7 @@ impl Ledger {
                 found.push((r.model.clone().unwrap_or_else(|| d.model.clone()), call));
             }
         }
-        if !found.is_empty() {
-            self.rollout.counted = true;
-            self.worked = true;
-        }
+        self.worked |= !found.is_empty();
         for (model, call) in found {
             self.call(d, &model, call, true);
         }
@@ -435,21 +438,22 @@ impl Ledger {
     /// work whose count never arrived.
     fn finish(&mut self, d: &Decision) {
         match d.runtime.as_str() {
-            "claude" => return,
             "codex" => {
                 self.rollout.looked = None;
                 self.read_rollout(d, true);
-                // Without a log, `turn.completed` is exact on a new thread only.
-                if let Some(u) = self.reported {
-                    if !self.rollout.counted && !self.resumed {
-                        self.call(d, &d.model, u, true);
+                // `turn.completed` has the thread's running total. From a known
+                // baseline, what the log hasn't shown of it (its tail, or all of
+                // it without a log) is the rest of this turn.
+                if let Some(u) = self.reported.filter(|_| self.rollout.based) {
+                    let rest = u.since(self.rollout.total);
+                    if rest != Usage::default() {
+                        let model = self.rollout.model.clone();
+                        self.call(d, &model.unwrap_or_else(|| d.model.clone()), rest, true);
                     }
-                }
-                // The log has every finished call; a stopped turn's last may be missing.
-                if self.reported.is_some() && (self.rollout.counted || !self.resumed) {
                     return;
                 }
             }
+            // Claude's result, and Gemini's stats, are the provider's final word.
             _ => {
                 if self.reported.is_some() {
                     return;
@@ -1276,6 +1280,55 @@ mod tests {
         )
         .unwrap();
         assert_eq!(usage::codex_rollout_in(dir.path(), other), None);
+    }
+
+    #[test]
+    fn a_codex_log_missing_its_tail_is_completed_from_the_turns_total() {
+        let d = decision("codex", "gpt-5.6-luna");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rollout-x-thread-4.jsonl");
+        // Only the first of the turn's two calls made it into the log.
+        std::fs::write(&path, rollout(&[counted(1000, 800, 50)])).unwrap();
+        let mut l = Ledger::default();
+        l.begin(&d, None, true);
+        l.observe(&d, &json!({"type":"thread.started","thread_id":"thread-4"}));
+        l.rollout.path = Some(path);
+        l.observe(&d, &json!({"type":"turn.started"}));
+        l.observe(&d, &json!({"type":"turn.completed","usage":{"input_tokens":2500,"cached_input_tokens":1800,"output_tokens":90}}));
+        l.finish(&d);
+        let (t, complete) = total(&l);
+        assert_eq!((t.input, t.cache_read, t.output), (700, 1800, 90));
+        assert!(complete, "the turn's own total accounts for every call");
+    }
+
+    #[test]
+    fn a_run_cut_off_before_any_count_is_never_called_free() {
+        // Codex: the turn started (the model was called), then the process died.
+        let d = decision("codex", "gpt-5.6-luna");
+        let mut l = Ledger::default();
+        l.begin(&d, None, true);
+        for e in [
+            json!({"type":"thread.started","thread_id":"019a0000-0000-7000-8000-00000000beef"}),
+            json!({"type":"turn.started"}),
+        ] {
+            l.observe(&d, &e);
+        }
+        l.finish(&d);
+        assert!(!total(&l).1, "Codex");
+        // Claude: the session started, then nothing more arrived.
+        let d = decision("claude", "haiku");
+        let mut l = Ledger::default();
+        l.begin(&d, None, true);
+        l.observe(&d, &json!({"type":"system","subtype":"init"}));
+        l.finish(&d);
+        assert!(!total(&l).1, "Claude");
+        // Claude's final result is its word that nothing else ran.
+        let mut l = Ledger::default();
+        l.begin(&d, None, true);
+        l.observe(&d, &json!({"type":"system","subtype":"init"}));
+        l.observe(&d, &json!({"type":"result","is_error":true}));
+        l.finish(&d);
+        assert_eq!(total(&l), (Usage::default(), true));
     }
 
     #[test]

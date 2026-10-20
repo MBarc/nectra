@@ -183,6 +183,7 @@ fn fake_codex(args: &[String], prompt: &str) {
         total.clone()
     };
     say(json!({"type":"thread.started","thread_id":thread}));
+    say(json!({"type":"turn.started"}));
     say(json!({"type":"item.started","item":{"id":"i0","type":"command_execution"}}));
     call(600, 500, 30);
     say(json!({"type":"item.completed","item":{"id":"i0","type":"command_execution"}}));
