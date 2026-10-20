@@ -52,9 +52,10 @@ Results:
   - The first attempt was based on `master` and failed `tests/setup.rs`, which led to the test fix above.
   - The kept branch is based on this branch, so it merges cleanly only after this branch does.
 - **Installed registry updated:** 5 disabled entries were appended. The backup is `%APPDATA%\nectra\models.toml.bak-2026-10-20`, and the full diff is in `%LOCALAPPDATA%\nectra\compat\report-2026-10-20.md`. Routing is unchanged, because every new entry is disabled.
+  - Correction (Astra #3): this write came from the first run, whose fix branch had **failed** its tests. The code at the time did not gate installed changes on the branch. A rerun produced the same entries with tests passing, so the result stands. Today's code would have left the installed registry alone until then.
 - **Laya:** the fingerprint `0a3b39ec6523f5fe` is recorded. Nothing enabled changed, so no retrain.
 - **Issues raised:** Gemini signed out (stream and check.py). Correct.
-- **Cost:** 3 raw turns (haiku, gpt-5.6-luna, gemini-flash, which failed on auth), 1 probe (fable) and check.py's 4 live turns, each with the prompt "6 times 7". The rerun made no model calls, because the probe was cached.
+- **Cost:** 3 raw turns (haiku, gpt-5.6-luna, gemini-flash, which failed on auth), 1 probe (fable) and check.py's 4 live turns, each with the prompt "6 times 7". The rerun made no model calls, but only because it ran without `--live`. A scheduled `--live` run always makes the baseline turns: 6 for Claude and Codex, or 8 with Gemini. On top of those come at most `--max-probes` (default 3) new-model probes. Only the probes are cached.
 
 ## Simulated breaking release, end to end
 
@@ -71,7 +72,7 @@ Running it through `main()` against the **real repo with real `cargo test`** (sc
 - **Mechanical:** the rename, `fable` and `gpt-7-nova` added disabled, and luna disabled.
   - Branch `compat/auto-141188f6` touched `src/executor/conversation.rs`, `scripts/compat/check.py` and `config/models.toml`.
 - **Issues:** the safety flag is gone ("it controls a provider safety check", so it was not renamed), and the Claude `result` event lost `['result']`.
-- **Branch tests FAILED,** and the run exited 1: `tests/chat.rs::mode_best_escapes_a_sticky_cheap_model` pins `gpt-5.6-luna`. That is the loop working as intended: a retirement that breaks behaviour is flagged for a person instead of passing as safe.
+- **Branch tests FAILED,** and the run exited 1: `tests/chat.rs::mode_best_escapes_a_sticky_cheap_model` pins `gpt-5.6-luna`. The failure was flagged for a person. But at the time, the installed registry would still have taken the change if this drill had pointed at it. Since Astra #3, a failing branch blocks the installed update, and a test covers that.
 - I deleted the drill branch afterwards, because its fake rename would break real Codex.
 
 The same fixture runs in the unit tests against a throwaway repo. There they also check:
@@ -84,12 +85,32 @@ The same fixture runs in the unit tests against a throwaway repo. There they als
 - **Tool absent:** luna has the `simple-coding` role, so disabling it changes the fingerprint. The state gets `retrain.needed = true` with luna in the reason, and the report says "tools/laya/retrain is absent".
 - **Tool appears later:** the next run calls `tools/laya/retrain.py`, the tool receives the reason in `NECTRA_RETRAIN_REASON`, and `needed` is cleared. A third run with nothing changed does not call it again.
 - **Tool fails** (exit 3): it stays pending.
+- **Since the Astra review,** it also stays pending when the tool can't start (`WinError 193`), when it hangs past `--retrain-timeout`, when a run is interrupted before the registry write, and when one is interrupted after the write but before the tool runs (the next run then retrains).
+
+## Astra review
+
+Astra (gpt-6-astra) reviewed the branch in `astra-compat-review-1.md`, and the coordinator accepted all ten findings. Each fix is its own commit, written test-first. The new tests are in the `AstraReview` class of `scripts/compat/test_adapt.py`.
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| 1 | Concurrent runs can overwrite each other or a user's edit | `adapt.lock` is held for the whole run with an OS lock (`msvcrt`/`flock`), which the OS releases if the process dies. A second run exits 2 with a clear message. Writes go through unique temp files (`mkstemp` + `os.replace`). The installed registry is written only if it still matches what the run read at the start; otherwise the user's edit wins and the run reports it. | `7914b4f` |
+| 2 | Failed or empty discovery can retire every model | `parse_codex_catalog` requires exit 0 and a non-empty, well-formed list. A catalog that would retire every enabled OpenAI model is not trusted. Claude, Gemini and Ollama failures become `discovery` issues. Failed discovery never adds or retires anything. | `f940d02` |
+| 3 | Failing branch tests don't protect the installed registry | The installed `models.toml` changes only when the fix branch exists and passed. Tests failing, a branch or worktree error, or no recorded result all block the change, and the report says why. | `947ed65` |
+| 4 | Retraining can hang, or be lost on a failure or interruption | The pending flag, with reason and fingerprint, is saved before the registry changes and before the tool starts. The first-run baseline is saved before any change. The tool runs with `--retrain-timeout` (default 12 h; the whole process tree is killed). A launch error is caught, and every failure keeps the flag pending. The scheduler limits were raised to 14 h. | `3a49a64` |
+| 5 | The rename safety check skips the new name, and renames are unscoped | Both names are checked against the safety list. A literal is renamed only where its nearest `"claude"`/`"codex"`/`"gemini"` label is the affected CLI. An occurrence no provider owns, or a flag another subcommand still lists, makes it an issue. | `0d02d47` |
+| 6 | Probe commands don't follow a generated rename | `stream_cmd` moved into `check.py`, beside `FLAGS`, so the generated rename updates it. A test runs the branch's `check.py`. | `387464d` |
+| 7 | Backups and reports are overwritten | Each change gets its own `models.toml.bak-<timestamp>`, and each run its own `report-<timestamp>.md`, both created exclusively. `report-latest.md` is a copy of the newest, and the toast points at it. | `094838c` |
+| 8 | An existing branch loses its result; errors don't fail the run | An existing branch's result is read from its commit message. Worktree, commit and edit errors, or a missing result, set exit 1. A half-made branch is deleted, so it can't later look like a result. | `4fd2543` |
+| 9 | `disable_model` silently misses valid TOML | The parser locates the model's table. Indentation, single quotes, trailing comments and `[[ model ]]` are all handled. The result is re-parsed and must differ in exactly that field; otherwise it raises, and the run reports it. | `0b03894` |
+| 10 | `providers = []` turns into all providers; the fingerprint ignores selection | `choose_providers`: `""` or `[]` means none. The fingerprint follows `src/models.rs` (selected providers, Gemini only when selected, configured Ollama models when `ollama` is selected) and ignores role order. A version field re-baselines once, without a spurious retrain. | `2247e36` |
+| + | The brief also asked for budgets | `--max-probes` (default 3) caps new-model probes per run. `--test-timeout` (default 1 h) bounds the fix branch's tests, and a timeout counts as failed. | `4d99df8` |
+
+Not changed: Astra's low-priority notes on stream checks (fields only, not types) and on `tests/setup.rs` coverage. They are listed under Open issues.
 
 ## Test evidence
 
-- `python scripts/compat/test_adapt.py`: 12 tests, OK.
-- The cargo gate is in the next section.
-
+Results after the Astra fixes:
+- `python scripts/compat/test_adapt.py`: **41 tests, OK.** That is 12 original tests and 29 for the review.
 - `cargo fmt --all --check`: clean.
 - `cargo clippy --all-targets --locked -- -D warnings`: clean.
 - `cargo test --all-targets --locked -- --test-threads=1`: **175 passed, 0 failed, 1 ignored**, across 11 suites (lib 88, chat 30, native_terminal 6, …).
@@ -102,3 +123,8 @@ The same fixture runs in the unit tests against a throwaway repo. There they als
 - **There is no Linux host for the timer.** The units are written and documented but not installed: lumina is off-limits, per Michael's correction.
 - **The `tools/laya/retrain` contract** (no arguments, environment variables, exit code) needs the Laya worker to match it.
 - **The Stream-format check covers only the fields Nectra reads** today (`conversation.rs`). Hook payload changes are caught only end to end, by check.py's terminal-view turns.
+- **Left from Astra's low-priority notes:**
+  - Stream checks test field presence, not types or success status. `check.py --live` covers the end-to-end answer.
+  - Claude alias parsing still depends on the `--model` help wording. A change there now shows up as a `discovery` issue, not as silent loss.
+  - `tests/setup.rs` doesn't yet test a selected provider with both enabled and disabled entries.
+- **Live runs since the review:** none against Michael's installed registry, as instructed. Every Astra fix was exercised on fixtures and temporary copies.
