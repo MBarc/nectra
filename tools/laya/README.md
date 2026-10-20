@@ -30,13 +30,18 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
    rubric and styles. Unchanged criteria reuse the data; `--regenerate`
    forces new data.
 2. **Training records.** Builds the exact questions `src/laya.rs` asks (bare
-   labels, short instructions).
-   - **Role options:** a third of the examples are shown only the roles that
+   labels, short instructions). Each question is one encoder pass in
+   training, so on CPU the item count is the budget.
+   - **Task** (the gated question) is asked on every example; **difficulty**
+     and **role** on every other one.
+   - **Role options:** a third of the role records offer only the roles that
      models in `--registry` claim (`prefers`), because that is the list Nectra
      offers.
-   - **Follow-ups:** one in four examples adds two records: a follow-up
+   - **Follow-ups:** one in eight examples adds two records: a follow-up
      (`new_task` false, same task) and an unrelated next message (`new_task`
      true).
+
+   About 9.9k items per epoch from ~4k examples.
 3. **Train.** Runs `laya-train` (full fine-tune, RLCD loss) from the
    `multilingual` (mmBERT-base) Laya checkpoint. With `--host`, it runs on
    that Linux machine over ssh in a tmux session `laya-<run>`. Retrain polls
@@ -68,7 +73,7 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--regenerate` | off | Rebuild data even if the criteria are unchanged. |
 | `--per-batch N`, `--parallel N` | 40, 4 | Data size (100 batches) and concurrent generator calls. |
 | `--host USER@HOST` | local | Train over ssh on a Linux host. |
-| `--threads N` | CPU count here | `OMP_NUM_THREADS` on the training host. |
+| `--threads N` | 8 | `OMP_NUM_THREADS` on the training host. On builder (16 vCPU Opteron 6272, 8 FPUs) 8 threads ran 16 s/step, 16 threads 36 s, 4 threads 22 s. |
 | `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
 | `--base`, `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | multilingual, 3, 8, 8, auto, 0, off | Training knobs. |
 | `--fp32` | off | Keep the embedding table fp32 (the default int8 table halves the size). |

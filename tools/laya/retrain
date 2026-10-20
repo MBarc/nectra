@@ -216,38 +216,45 @@ def to_laya_items(data, criteria, claimed):
     roles = [k for k, _ in criteria["roles"]]
     subset = [r for r in roles if r in claimed]
 
-    def questions(role_options=None, new_task=False):
+    def questions(*names, role_options=None):
         qs = {
             "task": {"type": "choice", "instructions": q["task"], "criteria": {t: "" for t in tasks}},
             "difficulty": {"type": "score", "instructions": q["difficulty"], "criteria": q["difficulty_levels"]},
+            "new_task": {"type": "noul", "instructions": q["new_task"], "criteria": {"true": "", "false": ""}},
+            "role": {"type": "choice", "instructions": q["role"], "criteria": {r: "" for r in role_options or []}},
         }
-        if new_task:
-            qs["new_task"] = {"type": "noul", "instructions": q["new_task"], "criteria": {"true": "", "false": ""}}
-        if role_options:
-            qs["role"] = {"type": "choice", "instructions": q["role"], "criteria": {r: "" for r in role_options}}
-        return qs
+        return {n: qs[n] for n in names}
 
+    # Each question is one encoder pass in training, so on a CPU host the item
+    # count is the budget: the gated task question goes on every example,
+    # difficulty and role (easier, unscored) on every other one.
     rng = random.Random(1)
     out = []
     for i, d in enumerate(data):
-        options = roles
-        # Nectra offers only the roles your models claim; train on that list too.
-        if len(subset) > 1 and subset != roles and d["role"] in subset and i % 3 == 0:
-            options = subset
-        expected = {"task": d["task"], "difficulty": d["difficulty"], "role": d["role"]}
-        out.append({"state": d["prompt"], "questions": questions(options), "expected": expected})
-        # One in four examples also teaches follow-ups and topic changes.
-        if i % 4 == 0 and d["followup"]:
+        if i % 2:
+            out.append({"state": d["prompt"], "questions": questions("task"), "expected": {"task": d["task"]}})
+        else:
+            options = roles
+            # Nectra offers only the roles your models claim; train on that list too.
+            if len(subset) > 1 and subset != roles and d["role"] in subset and (i // 2) % 3 == 0:
+                options = subset
+            out.append({
+                "state": d["prompt"],
+                "questions": questions("task", "difficulty", "role", role_options=options),
+                "expected": {"task": d["task"], "difficulty": d["difficulty"], "role": d["role"]},
+            })
+        # One in eight examples also teaches follow-ups and topic changes.
+        if i % 8 == 0 and d["followup"]:
             out.append({
                 "state": {"previous_message": d["prompt"], "current_message": d["followup"]},
-                "questions": questions(new_task=True),
-                "expected": {"task": d["task"], "difficulty": d["difficulty"], "new_task": False},
+                "questions": questions("task", "new_task"),
+                "expected": {"task": d["task"], "new_task": False},
             })
             other = rng.choice([o for o in data if o["task"] != d["task"]])
             out.append({
                 "state": {"previous_message": d["prompt"], "current_message": other["prompt"]},
-                "questions": questions(new_task=True),
-                "expected": {"task": other["task"], "difficulty": other["difficulty"], "new_task": True},
+                "questions": questions("task", "new_task"),
+                "expected": {"task": other["task"], "new_task": True},
             })
     rng.shuffle(out)
     return out
@@ -399,7 +406,8 @@ def main(argv=None):
     p.add_argument("--per-batch", type=int, default=40, help="prompts per (label, style) batch; 100 batches")
     p.add_argument("--parallel", type=int, default=4, help="concurrent generator calls")
     p.add_argument("--host", default=None, help="train over ssh on USER@HOST (Linux; set up on first use) instead of locally")
-    p.add_argument("--threads", type=int, default=os.cpu_count(), help="CPU threads on the training host")
+    p.add_argument("--threads", type=int, default=8,
+                   help="OMP threads on the training host (8 beat 16 and 4 on builder's 16-vCPU Opteron)")
     p.add_argument("--python", default=sys.executable, help="local python with laya installed (local training)")
     p.add_argument("--laya-src", default=None, help="local laya checkout at the pinned rev (local export)")
     p.add_argument("--base", default="multilingual", help="Laya base checkpoint (default: multilingual = mmBERT-base)")

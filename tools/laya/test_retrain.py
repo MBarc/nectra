@@ -18,22 +18,27 @@ data = [
 items = retrain.to_laya_items(data, criteria, claimed={"coding", "planning", "general"})
 singles = [x for x in items if isinstance(x["state"], str)]
 pairs = [x for x in items if isinstance(x["state"], dict)]
-assert len(singles) == 12 and len(pairs) == 6, (len(singles), len(pairs))
+assert len(singles) == 12 and len(pairs) == 4, (len(singles), len(pairs))
+# Every example asks the task; difficulty and role ride on every other one.
+full = [x for x in singles if "role" in x["questions"]]
+assert len(full) == 6 and all(set(x["questions"]) == {"task", "difficulty", "role"} for x in full)
+assert all(set(x["questions"]) == set(x["expected"]) == {"task"} for x in singles if x not in full)
 q = singles[0]["questions"]
 # The exact questions src/laya.rs asks: bare labels, criteria order.
 assert q["task"]["instructions"] == "What task is this?"
 assert list(q["task"]["criteria"]) == [k for k, _ in criteria["tasks"]]
 assert set(q["task"]["criteria"].values()) == {""}
 assert q["difficulty"]["criteria"] == ["easy", "moderate", "hard"]
-role_lists = {tuple(x["questions"]["role"]["criteria"]) for x in singles}
+role_lists = {tuple(x["questions"]["role"]["criteria"]) for x in full}
 assert ("coding", "planning", "general") in role_lists and len(role_lists) == 2, role_lists
-assert all(x["expected"]["role"] in x["questions"]["role"]["criteria"] for x in singles)
+assert all(x["expected"]["role"] in x["questions"]["role"]["criteria"] for x in full)
 follow = [x for x in pairs if x["expected"]["new_task"] is False]
 new = [x for x in pairs if x["expected"]["new_task"] is True]
-assert len(follow) == len(new) == 3
+assert len(follow) == len(new) == 2
+assert all(set(x["questions"]) == set(x["expected"]) == {"task", "new_task"} for x in pairs)
 for x in follow:  # a follow-up keeps the previous message's task
     prev = next(d for d in data if d["prompt"] == x["state"]["previous_message"])
-    assert x["expected"]["task"] == prev["task"] and "role" not in x["questions"]
+    assert x["expected"]["task"] == prev["task"]
 for x in new:  # a new message is labelled as itself
     cur = next(d for d in data if d["prompt"] == x["state"]["current_message"])
     assert x["expected"]["task"] == cur["task"] != next(
