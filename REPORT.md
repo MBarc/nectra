@@ -111,7 +111,8 @@ ALL CHECKS PASSED
 ## Astra review (round 1)
 
 All eleven numbered findings and the TOP 3 were accepted by the coordinator and fixed
-in 9fd4525. Each has a test; "unit" is `src/headless.rs`/`src/redact.rs`, "e2e" is
+in 9fd4525. Astra's second review found several of these fixes incomplete; where a row
+here differs from [round 3](#astra-review-round-3), round 3 is what the code does now. Each has a test; "unit" is `src/headless.rs`/`src/redact.rs`, "e2e" is
 `tests/headless.rs` (fake Claude/Codex).
 
 | # | Finding | Fix | Test |
@@ -172,6 +173,44 @@ every cache entry at the 1-hour TTL here (`cache_write_5m: 0`).
   runs, each time a different test; these tests use a mock backend and none of the code
   changed here).
 
+## Astra review (round 3)
+
+Astra's re-review (`astra-headless-review-2.md`, verdict HOLD) marked 1–6 and 9 partly
+fixed and found N1–N8. The coordinator accepted all of them. One commit per item,
+test first ("unit" = `src/*.rs` tests, "e2e" = `tests/headless.rs`).
+
+| # | Finding | Fix | Test | Commit |
+|---|---|---|---|---|
+| N1 | Codex's model never read: the kind is the rollout entry's `type`, not the payload's | Read `entry.type == "turn_context"`, `payload.model`. Fixtures now use the shape of a real Codex 0.162.1 rollout (checked on this desktop). The demo checks Nectra's model against the rollout's. | unit `resumed_codex_thread_counts_only_its_own_calls` (answering model differs from the routed one) | e167e58, 3523deb |
+| N2 / 1 | A missing or late resume baseline counts history | `based` is set only when the resumed thread's log was read before the turn; otherwise nothing is counted from the log and the turn is `usage_complete: false`. Rollout lookup matches `…-<thread>.jsonl` and thread/revert's `…-<thread>_<n>.jsonl`, requires `session_meta.id` to be the thread, and takes the newest. | unit `a_resumed_codex_thread_without_its_baseline_never_counts_history`, `the_active_rollout_of_a_thread_is_found_by_its_id` | 39905a9 |
+| N3 / 2 | `usage_complete` doesn't prove completeness | Codex: `turn.started` counts as work; from a known baseline, what `turn.completed`'s thread total has beyond the log is counted as the rest of the turn (so a missing tail is counted, not dropped). Claude: a run that sent `system` and never its `result` is incomplete. A refusal safe to send elsewhere (no activity: usage limit, sign-in, unavailable model) is complete at 0; this was seen live, a Codex usage-limit refusal now reports `usage_complete: true`, $0. | unit `a_codex_log_missing_its_tail_is_completed_from_the_turns_total`, `a_run_cut_off_before_any_count_is_never_called_free` | 4f3dd24, 5b16431 |
+| 9 | Gemini result without stats looked complete | No per-model stats ⇒ an incomplete entry. | unit `a_gemini_result_without_stats_is_not_complete` | fdcf0f8 |
+| 3 | A write without its TTL priced as 1-hour | `cost_usd` is `null` for it (and per model); the cost guard holds it at the dearer 1-hour rate. Live Claude Code 2.1.304 sends the split, so live costs stay exact. | unit `a_claude_cache_write_without_its_ttl_has_no_price` | 319c971 |
+| 4 | Any `claude-*` name took its family's price | Full names resolve only through `prices.json` `_aliases` (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`); `claude-opus-4-8` etc. have no price, in `nectra usage` too. | unit `only_listed_model_versions_get_a_price` | 027223a |
+| N6 | Codex `--no-session` skips the cost guard | The guard is checked again with each attempt's final count; over the limit is `cost_limit` (exit 4). | e2e "Codex without a log still meets the cost guard" | 05afd6f |
+| N4 / 6 | MCP probes don't see the launch's arguments or environment | Probes get the servers' environment and Codex `extra_args` `--enable`/`--disable`; any other Codex extra argument (`--cd`, …) excludes Codex under `--mcp-config`. (`--config`, `--profile`, `--model` are already refused in `extra_args` by config validation.) | e2e "MCP is checked against Codex's own extra arguments" (`--enable plugins` re-adds a plugin server ⇒ excluded; `--cd` ⇒ excluded) | 3e7b218 |
+| N5 | Probes ignore deadline and cancel | `executor::output_until`: own process group/job, killed at the deadline or a cancel; `--mcp-config` loading also runs under `bounded()`, and its deadline/cancel keep their error classes. | e2e "a hung `codex mcp list` meets the deadline" | 9404f1e |
+| N7 / 5 | Interrupt-handler setup could exit without a result | Setup and the run go through one `settle()` boundary: setup error, run error or panic ⇒ `harness_error`. | unit `setup_failures_errors_and_panics_all_become_one_outcome` | 50d5a04 |
+| N8 | Credentials reach stdout through Codex `error` events; short secrets; split at flush | `emit()` masks every string of every event. Credential-named values masked from 4 characters (except `true`/`false`/`none`/`null`/`auto`), other `--mcp-config` env values from 8. Diagnostics are flushed through the last line end, or the last space of a line over 64 KiB (all but its last 4 KiB without one). | e2e "credentials are redacted" (Codex `error` event, a 5-character key); unit `a_stream_is_only_cut_between_words`, `credentials_are_masked_and_prose_is_not` | 8e8ee78 |
+
+Live after round 3 (Windows, Claude Code 2.1.304, `python scripts/headless_demo.py
+--provider anthropic`): ALL CHECKS PASSED. Run 1 usage {input 8, cache_read 133908,
+cache_write 23736, output 387} equals Claude Code's log, cost $0.00628058 equals its
+`total_cost_usd`; the `--resume` follow-up equals its log too, and the session cost
+$0.00745435 equals Claude Code's; the cost-guard run ends `cost_limit` with
+`usage_complete: false`. Codex is still at its usage limit (until 3:38 PM today), so the
+Codex half stays open.
+
+What is still not guaranteed, by design: a credential Nectra doesn't know and that has
+no token shape isn't masked; `--max-cost-usd` can overshoot by one Codex call or by one
+turn of Codex without a log or of Gemini; a resumed Codex turn whose log can't be read
+is reported incomplete rather than counted.
+
+Tests after round 3: Windows `cargo fmt --check`, `cargo clippy --all-targets -- -D
+warnings` clean, `cargo test` all green (109 unit tests, 17 headless e2e scenarios, every
+other suite). Linux (builder, `~/nectra-headless`): fmt and clippy clean, 109 unit tests
+and all 18 headless scenarios pass, SIGTERM and the 0700/0600 record check included.
+
 ## Open issues
 
 - **Gemini:** `--mcp-config` not mapped (Gemini models excluded instead); usage parsing
@@ -182,13 +221,15 @@ every cache entry at the 1-hour TTL here (`cache_write_5m: 0`).
   `cost_usd: null` and are skipped under `--max-cost-usd`. Adding their list prices is a
   data change, not code.
 - **Cost guard granularity:** Claude is checked at the start and end of every API call
-  (the call that crosses the limit is billed: run 3 stopped at $0.0040 against a $0.0001
+  (the call that crosses the limit is billed: run 3 stopped at $0.0039 against a $0.0001
   cap); Codex after every model call (from its log); Codex with `--no-session` and Gemini
-  only at turn end.
-- **Live Codex cross-check not run:** Codex was at its usage limit (until 10:37 today), so
-  the Codex half of the independent check (`python scripts/headless_demo.py --provider
-  openai`) hasn't run against a real Codex. The rollout format and the resume numbers in
-  the tests are taken from real Codex 0.162.1 logs on this desktop.
+  only at the end of the turn, which then ends `cost_limit` if it went over.
+- **Live Codex cross-check not run:** Codex was at its usage limit again (until 3:38 PM
+  today), so the Codex half of the independent check (`python scripts/headless_demo.py
+  --provider openai`, which now also checks the answering model) hasn't run against a
+  real Codex. The rollout format and the resume numbers in the tests are taken from real
+  Codex 0.162.1 logs on this desktop; round 2 showed fixtures alone can hide a schema
+  mistake (N1), so this run matters.
 - **Claude subagents:** counted from their streamed events and their whole `assistant`
   messages (merged by message id); not exercised against a real subagent run.
 - **Linux live run:** the real-provider demo ran on Windows only; builder has no provider

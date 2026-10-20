@@ -79,9 +79,9 @@ Names are the provider's: Claude's tool name, Codex's item type
 | `text` | The final answer, `null` on failure. |
 | `session_id` | Pass to `--resume`. `null` with `--no-session`, when the runtime can't resume (Gemini), or when the session record couldn't be saved (see `warnings`). A task stopped by a guard still gets one. |
 | `model`, `provider` | The model that ran last. |
-| `usage` | Tokens for this task, summed over every model call it made. `input` excludes cached input. `cache_write` includes `cache_write_5m`, the part Claude wrote at its 5-minute cache rate; the rest is at the 1-hour rate. |
-| `usage_complete` | `false` when some paid work's final count never arrived: a call cut off by a guard, a cancel or a crash, a Codex turn without its log, or any Gemini run (thinking tokens aren't reported). `usage` and `cost_usd` then count what was reported, a lower bound; they never drop work that was reported. |
-| `cost_usd` | API-equivalent USD for `usage`, each model at its own price, or `null` when a model that used tokens has no price. Never 0 for unpriced work. |
+| `usage` | Tokens for this task, summed over every model call it made. `input` excludes cached input. `cache_write` includes `cache_write_5m`, the part Claude wrote at its 5-minute cache rate; the rest is at the 1-hour rate when Claude says so (see `cost_usd`). |
+| `usage_complete` | `true` only when the provider's final word accounts for every attempt: Claude's `result`, Codex's `turn.completed` total from a known starting point, or a refusal before any work (a usage limit, a sign-in, an unavailable model). `false` when an attempt started and that word never came (a guard, a cancel, a crash), for a resumed Codex thread whose log couldn't be read before the turn, and for any Gemini run (thinking tokens aren't reported). `usage` and `cost_usd` then count what was reported, a lower bound; they never drop work that was reported. |
+| `cost_usd` | API-equivalent USD for `usage`, each model at its own price, or `null` when a model that used tokens has no price, or Claude wrote to the cache without saying at which TTL. Never 0 for unpriced work. |
 | `provider_cost_usd` | Claude Code's own `total_cost_usd`, for cross-checking; `null` for other runtimes. On a resumed session it covers the whole session, not this task. |
 | `models` | `usage`, `usage_complete` and `cost_usd` per model. `model` is the model the provider says answered (Claude Code may use more than one in a task; Codex's from its log); `routed_as` is the Nectra model id the attempt was routed to. Failover attempts appear here too. |
 | `attempts` | Each model tried, in order, with its `error_class` and `error`. |
@@ -89,12 +89,15 @@ Names are the provider's: Claude's tool name, Codex's item type
 | `warnings` | Problems that didn't change the outcome, such as a session record that couldn't be written. |
 
 Every run that gets past argument parsing and config loading ends with exactly
-one `result`, whatever fails after that: an unwritable state directory, a full
-disk or a bug in Nectra (`harness_error`). Provider diagnostics on stderr and
-every `error` string have credentials masked as `[redacted]`: values of Nectra's
-own variables whose names hold `KEY`, `TOKEN`, `SECRET`, `PASSW`, `CREDENTIAL` or
-`AUTH`, the `env` values in `--mcp-config`, and token-shaped words (`sk-...`,
-`ghp_...`, `Bearer ...`, JWTs).
+one `result`, whatever fails after that: the interrupt handler can't be set up,
+an unwritable state directory, a full disk or a bug in Nectra (`harness_error`).
+Every string in every event on stdout, and provider diagnostics on stderr, have
+credentials masked as `[redacted]`: values of 4 characters or more of variables
+whose names hold `KEY`, `TOKEN`, `SECRET`, `PASSW`, `CREDENTIAL` or `AUTH` (Nectra's
+own, and `--mcp-config` `env`), except `true`, `false`, `none`, `null` and `auto`;
+any other `--mcp-config` `env` value of 8 characters or more; and token-shaped
+words (`sk-...`, `ghp_...`, `Bearer ...`, JWTs). A credential Nectra doesn't know
+and that has no token shape isn't masked.
 
 ### Error classes and exit codes
 
@@ -126,25 +129,32 @@ Usage is the providers' own token counts, never estimates, per model call:
   main agent, or a subagent under its `parent_tool_use_id`) tracks its own open
   message. A subagent's whole `assistant` messages count too, for calls whose raw
   stream isn't forwarded. Cache writes keep their TTL split
-  (`cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`);
-  without the split a write is taken as 1-hour, Claude Code's default and the
-  dearer rate. Claude's `result.modelUsage` and `total_cost_usd` are not used for
-  `usage`: on a resumed session they total the whole session (seen on 2.1.304).
-- **Codex:** its own log of the thread (`$CODEX_HOME/sessions/**/rollout-*-<thread>.jsonl`),
-  which records the thread's running total after every model call. Each call is
-  the growth since the last one, and a resumed thread starts from the total
-  already in the log, so history is never counted again. `turn.completed.usage`
-  is the thread's running total too (Codex 0.162.1), so it is used only for a new
-  thread with no log (`--no-session`, which runs Codex `--ephemeral`); a resumed
-  turn without its log is reported as `usage_complete: false`. Cached input is
-  moved out of `input` into `cache_read`.
+  (`cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`); a
+  write outside the split has no known rate, so `cost_usd` is `null` (the cost
+  guard holds it at the dearer 1-hour rate). Claude's `result.modelUsage` and
+  `total_cost_usd` are not used for `usage`: on a resumed session they total the
+  whole session (seen on 2.1.304).
+- **Codex:** its own log of the thread (`$CODEX_HOME/sessions/**/rollout-*-<thread>.jsonl`,
+  or `..._<n>.jsonl` after `thread/revert`; the newest whose first line names the
+  thread), which records the thread's running total after every model call, and
+  the model in each `turn_context` entry. Each call is the growth since the last
+  one. A resumed thread starts from the total already in the log, read before
+  the turn starts; if it can't be read then, nothing is counted from the log
+  (it would include history) and the turn is `usage_complete: false`.
+  `turn.completed.usage` is the thread's running total too (Codex 0.162.1): from
+  a known starting point, whatever of it the log hasn't shown is counted as the
+  rest of the turn, which is all of it without a log (`--no-session`, which runs
+  Codex `--ephemeral`; the model is then the one Nectra asked for). Cached input
+  is moved out of `input` into `cache_read`.
 - **Gemini:** `result.stats.models` (`input`, `cached`, `output_tokens`), read
   from Gemini CLI's source, not yet verified against a live run. Thinking tokens
   aren't in these stats, so Gemini usage is always `usage_complete: false`.
 
 Prices are `eval/chat-savings/prices.json` (the same table as `nectra usage`), in
 USD per million tokens, for the model that answered, never the model it was
-routed as: an unpriced model inside a priced run makes `cost_usd` `null`. Claude
+routed as: an unpriced model inside a priced run makes `cost_usd` `null`. A full
+name a provider reports (`claude-haiku-5-5`) has a price only when the table's
+`_aliases` lists it; another version of the same family has none. Claude
 models have a 1-hour (`cache_write`) and a 5-minute (`cache_write_5m`) write
 rate. Models without a price (currently fable, gpt-6.x, gpt-5.6-terra and Gemini)
 can't be routed to under `--max-cost-usd`.
@@ -160,8 +170,11 @@ counts what it has reported:
   `--no-session` (no log) the check happens only after the whole turn.
 - **Gemini:** only after the whole turn.
 
-So the guard is a ceiling for Claude, and for Codex and Gemini a threshold that
-can be overshot by one call (Codex) or one turn (Codex without a log, Gemini).
+Once each attempt ends, the guard is checked again with the attempt's final
+count, so a turn whose usage is first known at its end (Codex without a log,
+Gemini) and went past the limit ends as `cost_limit`, not as a success. So the
+guard is a ceiling for Claude, and for Codex and Gemini a threshold that can be
+overshot by one call (Codex) or one turn (Codex without a log, Gemini).
 
 ## Failover
 
@@ -195,11 +208,16 @@ With `--mcp-config FILE`, exactly the servers in FILE are given to the agent:
   servers as `--config mcp_servers.NAME={command, args, env_vars}`, with `env`
   values passed in the child's environment, never on the command line. Then it
   asks `codex mcp list` again with all of that: unless exactly FILE's servers are
-  on, Codex models aren't routed to and the reason goes to stderr. Codex also
-  isn't used when FILE has a server it can't take as written (not stdio, a name
-  outside `[A-Za-z0-9_-]`), or when one variable has two values, either between
-  two servers or against Nectra's own environment: Codex passes variables by name
-  from one environment, so a server would get another's credential.
+  on, Codex models aren't routed to and the reason goes to stderr. Both questions
+  are asked as the launch will run: with the servers' environment and the Codex
+  `extra_args` that switch features (`--enable`, `--disable`); any other extra
+  argument that could change which servers load (`--cd`, say) keeps the task off
+  Codex. They count against `--deadline` and stop on a cancel, and anything they
+  leave running is killed with them. Codex also isn't used when FILE has a server
+  it can't take as written (not stdio, a name outside `[A-Za-z0-9_-]`), or when one
+  variable has two values, either between two servers or against Nectra's own
+  environment: Codex passes variables by name from one environment, so a server
+  would get another's credential.
 - **Gemini:** not supported yet. Gemini CLI has no launch-time server option (a
   per-launch settings file through `GEMINI_CLI_SYSTEM_SETTINGS_PATH` is the likely
   route). With `--mcp-config`, Gemini models aren't routed to, so a task never runs
