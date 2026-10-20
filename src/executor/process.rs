@@ -178,6 +178,52 @@ impl Drop for OwnedChild {
     }
 }
 
+/// `command`'s output, like [`Command::output`], but in its own process group
+/// (job on Windows) that is killed whole at `until` or a cancel.
+pub fn output_until(
+    command: &mut Command,
+    until: Option<Instant>,
+    cancel: &CancellationToken,
+) -> Result<std::process::Output> {
+    use std::{io::Read, process::Stdio};
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut owned = OwnedChild::spawn(command)?;
+    let read = |pipe: Option<Box<dyn Read + Send>>| {
+        thread::spawn(move || {
+            let mut bytes = vec![];
+            if let Some(mut pipe) = pipe {
+                let _ = pipe.read_to_end(&mut bytes);
+            }
+            bytes
+        })
+    };
+    let stdout = read(owned.child.stdout.take().map(|p| Box::new(p) as _));
+    let stderr = read(owned.child.stderr.take().map(|p| Box::new(p) as _));
+    let status = loop {
+        if let Some(status) = owned.child.try_wait()? {
+            break status;
+        }
+        if cancel.is_cancelled() {
+            anyhow::bail!("cancelled");
+        }
+        if until.is_some_and(|u| Instant::now() >= u) {
+            return Err(super::DeadlineExceeded.into());
+        }
+        thread::sleep(Duration::from_millis(20));
+    };
+    // Whatever it left running would hold the pipes open.
+    owned.stop();
+    let done = Instant::now() + Duration::from_secs(2);
+    Ok(std::process::Output {
+        status,
+        stdout: join_until(stdout, done)?,
+        stderr: join_until(stderr, done)?,
+    })
+}
+
 pub(super) fn join_until<T>(handle: thread::JoinHandle<T>, deadline: Instant) -> Result<T> {
     while !handle.is_finished() && Instant::now() < deadline {
         thread::sleep(Duration::from_millis(10));

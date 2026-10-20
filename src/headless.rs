@@ -787,7 +787,19 @@ pub fn run(
                     cfg.inner.codex.command.as_str(),
                     cfg.inner.codex.extra_args.as_slice(),
                 ));
-            match crate::mcp::Explicit::load(path, codex) {
+            let explicit = {
+                let (path, codex) = (
+                    path.clone(),
+                    codex.map(|(c, e)| (c.to_string(), e.to_vec())),
+                );
+                let token = cancel.clone();
+                // The probes are bounded themselves; this also covers reading FILE.
+                bounded(until, cancel, move || {
+                    let codex = codex.as_ref().map(|(c, e)| (c.as_str(), e.as_slice()));
+                    crate::mcp::Explicit::load(&path, codex, until, &token)
+                })
+            };
+            match explicit {
                 Ok(explicit) => {
                     if let (Some(_), Some(why)) = (codex, explicit.codex_excluded()) {
                         eprintln!(
@@ -797,7 +809,7 @@ pub fn run(
                     }
                     cfg.mcp_config = Some(explicit);
                 }
-                Err(e) => return fail("harness_error", e),
+                Err(e) => return fail(early(&e), e),
             }
         }
         let state = match (&args.state_dir, args.no_session) {

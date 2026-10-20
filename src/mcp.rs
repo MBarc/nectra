@@ -259,8 +259,13 @@ pub struct Explicit {
 }
 impl Explicit {
     /// `codex` is the Codex command and its extra arguments, asked which
-    /// servers it would load here.
-    pub fn load(path: &Path, codex: Option<(&str, &[String])>) -> Result<Self> {
+    /// servers it would load here; by `until`, or until a cancel.
+    pub fn load(
+        path: &Path,
+        codex: Option<(&str, &[String])>,
+        until: Option<std::time::Instant>,
+        cancel: &crate::executor::CancellationToken,
+    ) -> Result<Self> {
         let text =
             fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         let value: Value =
@@ -275,9 +280,15 @@ impl Explicit {
                 .flat_map(|s| s.env.into_iter()),
         );
         let codex = match codex {
-            Some((command, extras)) => codex_explicit(servers, command, extras),
+            Some((command, extras)) => codex_explicit(servers, command, extras, until, cancel),
             None => Err("no Codex model is enabled".into()),
         };
+        if cancel.is_cancelled() {
+            anyhow::bail!("cancelled");
+        }
+        if until.is_some_and(|u| std::time::Instant::now() >= u) {
+            return Err(crate::executor::DeadlineExceeded.into());
+        }
         Ok(Self {
             path: std::path::absolute(path)?,
             codex,
@@ -317,6 +328,8 @@ fn codex_explicit(
     servers: &serde_json::Map<String, Value>,
     command: &str,
     extras: &[String],
+    until: Option<std::time::Instant>,
+    cancel: &crate::executor::CancellationToken,
 ) -> std::result::Result<Launch, String> {
     // The launch passes `extras` before these arguments. Feature switches
     // reach `codex mcp list` too; anything else that could change which
@@ -386,10 +399,8 @@ fn codex_explicit(
             .args(&probe)
             .args(args)
             .envs(&env);
-        let out = command
-            .stdin(std::process::Stdio::null())
-            .output()
-            .map_err(|e| format!("running codex mcp list: {e}"))?;
+        let out = crate::executor::output_until(&mut command, until, cancel)
+            .map_err(|e| format!("running codex mcp list: {e:#}"))?;
         if !out.status.success() {
             return Err(format!(
                 "codex mcp list failed: {}",

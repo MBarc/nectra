@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 16] = [
+    let scenarios: [(&str, fn()); 17] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -46,6 +46,7 @@ fn main() {
             "MCP is checked against Codex's own extra arguments",
             codex_mcp_with_extra_args,
         ),
+        ("a hung `codex mcp list` meets the deadline", hung_mcp_probe),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -212,6 +213,9 @@ fn fake_codex(args: &[String], prompt: &str) {
 /// `codex mcp list --json`: the servers in NECTRA_FAKE_CODEX_MCP (from any
 /// config layer, or a plugin), with `--config` overrides applied as Codex does.
 fn fake_mcp_list(args: &[String]) {
+    if std::env::var("NECTRA_FAKE_CODEX_MCP_HANG").is_ok() {
+        std::thread::sleep(Duration::from_secs(60));
+    }
     let mut servers: Vec<Value> =
         serde_json::from_str(&std::env::var("NECTRA_FAKE_CODEX_MCP").unwrap_or("[]".into()))
             .unwrap();
@@ -762,6 +766,30 @@ fn codex_mcp_with_extra_args() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("--cd"), "{stderr}");
     assert!(env.launches().is_empty());
+}
+
+fn hung_mcp_probe() {
+    let env = Env::new();
+    let file = mcp_file(&env, json!({"pons":{"command":"pons-mcp"}}));
+    let started = Instant::now();
+    let (out, events) = env.run_with(
+        &[
+            "--no-session",
+            "--deadline",
+            "2s",
+            "--mcp-config",
+            &file,
+            "x",
+        ],
+        &[("NECTRA_FAKE_CODEX_MCP_HANG", "1")],
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(15),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(result(&events)["error_class"], "deadline");
+    assert_eq!(out.status.code(), Some(4));
 }
 
 fn conflicting_credentials() {
