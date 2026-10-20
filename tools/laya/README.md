@@ -1,0 +1,100 @@
+# tools/laya: retraining the local classifier
+
+`tools/laya/retrain` rebuilds the model behind `nectra classifier laya` in one
+command. Run it when the task or role criteria change, the model registry's
+roles change, or a provider CLI or model change calls for it. It never
+publishes anything. A model reaches `--out` only if it beats the bar.
+
+```sh
+cargo build --release
+python tools/laya/retrain --host michael@192.168.5.31 --ort /path/to/onnxruntime.dll --out ~/laya-model
+```
+
+Training needs Python, the generator CLI and ssh. No GPU is required.
+
+## What it does
+
+1. **Data.** Reads `eval/laya/criteria.json` (the ten task labels and the six
+   routing roles, which a Rust test keeps identical to `src/jev.rs`,
+   `src/policy.rs` and `src/laya.rs`) and `eval/laya/RUBRIC.md`.
+   - **Writing:** the generator writes 40 messages for each of 100 (label,
+     style) batches.
+   - **Filtering:** duplicates and near-duplicates of the test sets are dropped
+     (token Jaccard >= 0.8).
+   - **Relabelling:** a second, blind generator call labels every message
+     (task, difficulty 0-2, role).
+   - **Disagreements:** messages whose blind label differs from the label they
+     were written for are dropped as ambiguous.
+
+   The result is cached in `<work>/data-<hash>.json`, keyed on criteria,
+   rubric and styles. Unchanged criteria reuse the data; `--regenerate`
+   forces new data.
+2. **Training records.** Builds the exact questions `src/laya.rs` asks (bare
+   labels, short instructions).
+   - **Role options:** a third of the examples are shown only the roles that
+     models in `--registry` claim (`prefers`), because that is the list Nectra
+     offers.
+   - **Follow-ups:** one in four examples adds two records: a follow-up
+     (`new_task` false, same task) and an unrelated next message (`new_task`
+     true).
+3. **Train.** Runs `laya-train` (full fine-tune, RLCD loss) from the
+   `multilingual` (mmBERT-base) Laya checkpoint. With `--host`, it runs on
+   that Linux machine over ssh in a tmux session `laya-<run>`. Retrain polls
+   it, so a dropped connection doesn't kill training. On first use the host
+   gets `~/nectra-laya` with a laya checkout at the commit `Cargo.toml` pins,
+   plus a CPU torch venv. Without `--host` it trains locally with `--python`;
+   use `--adamw8bit` on a 6 GB GPU.
+4. **Export.** Uses laya's `export_onnx.py` (fp32, external weights).
+5. **Evaluate through Nectra.** Writes a throwaway config with
+   `backend = "laya"` and `model_dir` set to the export. It checks with
+   `nectra route` that the model, not the keyword fallback, answered. Then it
+   runs `nectra eval` on `eval/laya/fresh-test.json` (the bar) and
+   `eval/laya/old60-rubric.json` (reported only). Latency is wall time per
+   message with process start and model load subtracted.
+6. **Emit or refuse.** It copies the model to `--out` only if fresh-set
+   accuracy is above `--bar` and latency is at most `--max-ms`.
+
+## Interface (stable; other tools call this)
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `--out DIR` | `<work>/model` | Where a passing model is written. It replaces the directory's contents and is a valid `classifier.model_dir`. |
+| `--work DIR` | `tools/laya/work` (git-ignored) | Data cache and `runs/<id>/` (train.jsonl, report.json). |
+| `--registry PATH` | `config/models.toml` | Registry whose claimed roles shape the role options. |
+| `--generator CMD` | `claude -p --model sonnet` | Any command that reads a prompt on stdin and prints the answer on stdout. Writes and labels the data. |
+| `--regenerate` | off | Rebuild data even if the criteria are unchanged. |
+| `--per-batch N`, `--parallel N` | 40, 4 | Data size (100 batches) and concurrent generator calls. |
+| `--host USER@HOST` | local | Train over ssh on a Linux host. |
+| `--threads N` | CPU count here | `OMP_NUM_THREADS` on the training host. |
+| `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
+| `--base`, `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | multilingual, 3, 8, 8, auto, 0, off | Training knobs. |
+| `--model DIR` | none | Skip data and training. Evaluate an already-exported model and emit it if it passes. |
+| `--nectra PATH` | `target/release/nectra[.exe]` | The Nectra binary that runs the evaluation. |
+| `--ort PATH` | `$ORT_DYLIB_PATH` | ONNX Runtime 1.31 library, copied next to the model for evaluation. |
+| `--bar F` | 0.95 | Fresh-set accuracy the model must exceed. |
+| `--max-ms F` | 300 | Slowest acceptable ms per message. |
+| `--data-only` | off | Stop after building the training records. |
+
+**Exit codes:** `0` model emitted (or `--data-only` done), `2` trained but
+below the bar (nothing emitted), `1` error.
+
+**`report.json`** goes in `runs/<id>/` and, when emitted, also in `--out`. It
+holds:
+- `run`, `laya_rev`, `bar`, `max_ms`, `examples`, `train_items`,
+  `claimed_roles`;
+- `eval` by corpus, each with `passed`, `total`, `accuracy`,
+  `ms_per_message`, a `confusion` map (`"expected -> actual": count`) and
+  `failures`;
+- `emitted` (the path or null), or `error`.
+
+**Installing an emitted model** is up to the caller. Point
+`[classifier] model_dir` at `--out` (with the ONNX Runtime library inside),
+or publish it as a new release, update the hashes in `src/laya.rs`, and let
+`nectra classifier laya` download it. Publishing is Michael's call.
+
+## The test set is fixed
+
+`eval/laya/fresh-test.json` gates every run and is never trained on: the
+generator never sees it, and near-duplicates of it are filtered out of
+generated data. Don't edit its labels to make a model pass. See
+`eval/laya/fresh-test.README.md`.
