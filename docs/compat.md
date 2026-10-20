@@ -30,22 +30,30 @@ temporary worktree. The run tests it there (`cargo test --all-targets -- --test-
 then commits and removes the worktree. Your checkout is never switched. Nothing is
 merged or pushed. The hash covers the fixes, the base commit and the test command, so
 an earlier branch's result is reused only for the same change tested the same way.
-A branch that never got its commit is deleted, and anything that cannot be cleaned up
-is named in the report.
+A branch that never got its commit is deleted. A worktree that cannot be removed, a
+branch that cannot be deleted and a failed `git worktree prune` are named in the
+report, and the run exits 1.
 
 The run also updates the installed registry (`%APPDATA%\nectra\models.toml`, or
 `~/.config/nectra/models.toml`), which shadows the bundled one:
 - Only a change whose **exact text passed the tests** is written. That is the fix
-  branch's registry when it is identical. Otherwise the run tests the new text on
+  branch's registry when it is identical, compared as exact text with nothing stripped
+  (line endings are normalised to `\n` when the run reads the file, and written back
+  that way). Otherwise the run tests the new text on
   its own, on the base, in another temporary worktree. On this PC the installed copy
   differs from the bundled one, so expect that second test run.
-- The write is a compare-and-swap. The file is moved to its own
+- The write is a compare-and-swap. The new text is first written in full to a
+  temporary file beside the registry. Then the registry is moved to its own
   `models.toml.bak-<time>` (one per change, never overwritten) and the moved text
-  compared with what the run read at its start. The new text is then moved in only
-  if no file has appeared meanwhile. If you edit the registry at any point before
-  that last move, your edit stays and the run reports a conflict. The remaining gap:
-  an editor that keeps the file open and writes after the move writes into the backup.
-  For a few milliseconds during the swap, the registry file is absent.
+  compared with what the run read at its start. The new text is moved in only if no
+  file has appeared meanwhile. If you edit the registry at any point before that last
+  move, your edit stays and the run reports a conflict. An editor that keeps the file
+  open and writes after the move writes into the backup instead.
+- Between the two moves the registry file is absent, normally for milliseconds, and
+  Nectra cannot load it then. If the last move fails, the original is moved back. If
+  the run is killed in between, `models.toml.swap` names the backup, and the next run
+  moves it back before doing anything else and says so in its report. Until that next
+  run, the registry stays missing.
 - A lock beside it (`models.toml.lock`) keeps apart runs that use different state
   directories.
 
@@ -68,7 +76,9 @@ the next run, so a CLI release that names many new models stays cheap.
 
 Discovery has to succeed before it can change anything:
 - A Codex catalog counts only if `codex debug models` exited 0 and listed at least
-  one model, every entry with a string `slug` and, if present, a string `visibility`.
+  one model, and every entry has a string `slug` and, if present, a string
+  `visibility`. Each entry is checked as listed, and a slug listed twice rejects the
+  whole catalog.
 - A catalog that would retire every enabled OpenAI model, in either registry, is not
   trusted.
 - A Claude help text with no aliases, a missing Gemini bundle, or an unreachable
@@ -78,12 +88,15 @@ Discovery has to succeed before it can change anything:
 The fix branch's tests time out after `--test-timeout` (default 1 hour), and then
 count as failed.
 
-Every command the run starts (CLI calls, tests, the retrain tool) is bounded the
-same way. On Windows it runs in its own job object, which keeps hold of children
-even after their parent exits. On a timeout, and when the command ends, the job is
-killed, so nothing it started keeps running. On Linux the same is done with a
-session; a child that starts its own session escapes it. Output goes to temporary
-files rather than pipes, so a leftover child cannot stall the run.
+Every command the run starts is bounded the same way: CLI calls (120 s; 300 s for a model turn, 60 s for the
+Codex catalog), tests, the retrain tool, git (600 s) and the `check.py` run (1 h). On
+Windows each runs in its own job object, which keeps hold of children even after
+their parent exits. On a timeout, and when the command ends, the job is killed, so
+nothing it started keeps running. If Windows refuses to create or assign the job, the
+command is killed before it starts and counts as failed to start; it is never run
+uncontained. On Linux the same is done with a session; a child that starts its own
+session escapes it. Output goes to temporary files rather than pipes, so a leftover
+child cannot stall the run. Ollama discovery is an HTTP request with a 3 s timeout.
 
 ## State and reports
 

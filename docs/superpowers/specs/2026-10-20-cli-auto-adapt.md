@@ -41,7 +41,9 @@ and `config/models.toml` hard-codes Michael's model ids.
    `%APPDATA%\nectra\models.toml` (Linux: `~/.config/nectra/models.toml`), which
    shadows the bundled one. Only text that passed the tests is written: the fix
    branch's registry when identical, else the new text tested on the base. The write
-   is a compare-and-swap through the backup `models.toml.bak-<time>` (one per change),
+   is a compare-and-swap through the backup `models.toml.bak-<time>` (one per change,
+   the new text written out first; `models.toml.swap` lets the next run restore a swap
+   that was killed),
    under a lock beside the registry. A unified diff goes in the report, and the new
    text must parse as a valid registry (unique ids, same structure).
 5. **Retrain**: the Laya fingerprint covers the enabled models and their `prefers`,

@@ -130,10 +130,27 @@ The docs had the same overstatements, now corrected in `docs/compat.md` and the 
 
 Cost to know: on this PC the installed registry differs from the bundled one (the 5 disabled entries), so any change to it now runs the test suite a second time against that text.
 
+Astra's third review (`astra-compat-review-3.md`, verdict HOLD) showed that parts of the table above still claimed too much: rows 1 ("a few milliseconds"), 2 ("every catalog entry"), 3 ("byte for byte"), 4 (containment when the job could not be made) and 8 (prune failures). See the next section for what the code guarantees now.
+
+## Astra round 3
+
+Astra marked #1, #5, #6, #7, #9, #10 and new-1 to new-4 fixed, #2, #3, #4 and #8 partly fixed, and found one new high-severity problem. The coordinator accepted all of them. Each fix is its own commit, written test-first. The tests are in the `AstraRound3` class.
+
+| # | Astra found | What the code now guarantees | Commit |
+|---|---|---|---|
+| N1 | The original was moved aside before the replacement was written. A failed `mkstemp`, write or final rename, or a kill in between, left the registry missing for good. | The new text is written in full before the original moves, and a failure there leaves the registry untouched. If the final move fails, the original is moved back. A journal (`models.toml.swap`) names the backup while the registry is moved aside, and the next run, under the registry lock, moves it back first and says so in its report. **Limit:** after a kill, the registry stays missing until that next run, and Nectra can't load it meanwhile. | `185c598` |
+| 2 | Validation ran after the dict was built, so a duplicate slug could hide a malformed entry. | Every entry is checked as listed, before the dict is built. A slug listed twice rejects the whole catalog. | `534cb76` |
+| 3 | The branch comparison stripped whitespace. | The fix branch's `config/models.toml` is compared with the proposed text exactly, nothing stripped. Any difference, whitespace included, means the text is tested on its own. Line endings are normalised to `\n` when the run reads the installed file, and it writes `\n`. | `1ed8a78` |
+| 4 | If Windows refused the job object, the command ran uncontained, and the timeout could miss its children. | If the job can't be created or assigned, the suspended process is killed before it runs, and the call fails with an error. CLI calls report it, tests count as failed, and the retrain stays pending. | `4154249` |
+| 8 | A failed `git worktree prune` was discarded. | It is reported under "Cleanup failed", and the run exits 1. | `83923e0` |
+| docs | Git and the `check.py` run used unbounded `subprocess.run`. | All git calls are bounded at 600 s and the `check.py` run at 1 h, through the same runner. No `subprocess.run` remains in adapt.py or check.py. | `4c4ec79` |
+
+The docs (`docs/compat.md`, the spec) now say the same, including the registry being absent between the moves and what happens after a kill.
+
 ## Test evidence
 
-Results after the Astra re-review fixes (target/ rebuilt from scratch, then deleted again):
-- `python scripts/compat/test_adapt.py`: **57 tests, OK.** That is 12 original, 29 for the first review (two rename tests rewritten for the new rule) and 16 for the re-review.
+Results after the Astra round 3 fixes (target/ rebuilt from scratch, then deleted again):
+- `python scripts/compat/test_adapt.py`: **67 tests, OK.** That is 12 original, 29 for the first review (two rename tests rewritten for the new rule), 16 for the re-review and 10 for round 3.
 - `cargo fmt --all --check`: clean.
 - `cargo clippy --all-targets --locked -- -D warnings`: clean.
 - `cargo test --all-targets --locked -- --test-threads=1`: **175 passed, 0 failed, 1 ignored**, across 11 suites (lib 88, chat 30, native_terminal 6, …).
