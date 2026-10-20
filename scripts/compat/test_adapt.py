@@ -743,5 +743,15 @@ class AstraReReview(Sandbox):
             adapt.disable_model(without_luna, "gpt-5.6-luna")
 
 
+    # New 4: a write that was refused does not leave a retrain behind
+    def test_a_refused_write_does_not_ask_for_a_retrain(self):
+        installed = os.path.join(self.user, "models.toml")
+        comment = self.script(f"open({installed!r}, 'a').write('# just a comment\\n')")
+        self.assertEqual(self.run_main(test_cmd=comment), 1)
+        self.assertIn("changed while this run was working", self.latest_report())
+        self.assertFalse(self.state_json().get("retrain", {}).get("needed"))
+        self.assertIn("not needed", self.latest_report())
+
+
 if __name__ == "__main__":
     unittest.main()

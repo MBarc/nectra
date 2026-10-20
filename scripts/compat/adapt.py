@@ -874,8 +874,13 @@ def run(args, installed, configured_ollama, selected):
                 rep["installed_blocked"] = "the new installed registry did not pass the tests" + (
                     f" ({t['error']})" if t.get("error") else "")
         if not rep.get("installed_blocked"):
+            before = {k: state.get(k) for k in ("fingerprint", "retrain")}
             mark_retrain(state, fp(proposed), "; ".join(f["detail"] for f in reg), save)
             update_installed(installed, fixes, rep, routing)
+            if "installed" not in rep:  # refused: the change it announced never happened
+                for k, v in before.items():
+                    state.pop(k, None) if v is None else state.update({k: v})
+                save()
 
     after = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
     mark_retrain(state, fp(after), "models, roles, task types or provider selection changed", save)
