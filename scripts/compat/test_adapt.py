@@ -807,5 +807,15 @@ class AstraRound3(Sandbox):
         self.assertFalse(os.path.exists(backup))
 
 
+    # 2: every entry is validated, before duplicates can collapse
+    def test_a_catalog_with_a_duplicate_or_bad_entry_is_rejected(self):
+        for models in ('[{"slug": "gpt-5.6-sol", "visibility": {}}, {"slug": "gpt-5.6-sol", "visibility": "list"}]',
+                       '[{"slug": "gpt-5.6-sol", "visibility": "list"}, {"slug": "gpt-5.6-sol", "visibility": "list"}]',
+                       '[{"slug": "a"}, "b"]'):
+            catalog, error = adapt.parse_codex_catalog(0, '{"models": %s}' % models)
+            self.assertIsNone(catalog, models)
+            self.assertTrue(error)
+
+
 if __name__ == "__main__":
     unittest.main()

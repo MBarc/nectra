@@ -74,12 +74,15 @@ def parse_codex_catalog(code, out):
         return None, f"`codex debug models` exited {code}: {check.last_lines(out, 2)[:200]}"
     try:
         models = json.JSONDecoder().raw_decode(out, out.index("{"))[0]["models"]
-        catalog = {m["slug"]: m.get("visibility", "list") for m in models}
+        entries = [(m["slug"], m.get("visibility", "list")) for m in models]
     except (ValueError, KeyError, TypeError, AttributeError):
         return None, f"`codex debug models` printed no readable catalog: {check.last_lines(out, 2)[:200]}"
-    if not catalog or not all(isinstance(k, str) and k and isinstance(v, str) for k, v in catalog.items()):
+    # Every entry, before a dict could let a later duplicate hide a bad one.
+    slugs = [k for k, _ in entries]
+    if not entries or len(set(slugs)) != len(slugs) or not all(
+            isinstance(k, str) and k and isinstance(v, str) for k, v in entries):
         return None, "`codex debug models` returned an empty or malformed catalog"
-    return catalog, None
+    return dict(entries), None
 
 
 def codex_catalog():
