@@ -480,6 +480,32 @@ class AstraReview(Sandbox):
         self.run_main(fixture=quiet)
         self.assertTrue(self.state_json()["retrain"]["needed"])
 
+    # Budgets: probes per run, and the fix branch's test step
+    def test_new_model_probes_are_capped_per_run(self):
+        from unittest import mock
+        aliases = ", ".join(f"'new{i}'" for i in range(6))
+        calls = []
+
+        def fake_run(cmd, timeout=120, cwd=None, **kw):
+            calls.append(cmd)
+            if cmd[1:] == ["--help"]:
+                return 0, f"  --model <model>  an alias (e.g. {aliases})\n  -n, --name\n"
+            return 0, '{"type": "result", "subtype": "success", "result": "42"}'
+        with mock.patch.object(adapt.check, "run", side_effect=fake_run):
+            obs = adapt.observe(["anthropic"], REGISTRY, {}, True, self.tmp, max_probes=2)
+        self.assertEqual(len(obs["probes"]), 2)
+        self.assertEqual(len([c for c in calls if c[0] == "claude" and "-p" in c and "haiku" not in c]), 2)
+        found = adapt.analyse(obs, {}, REGISTRY)
+        self.assertEqual(len([f for f in found if f["kind"] == "model-candidate"]), 4)
+
+    def test_branch_tests_that_hang_time_out_and_count_as_failed(self):
+        start = time.time()
+        code = self.run_main(test_cmd=self.script("import time; time.sleep(60)"), extra=["--test-timeout", "3"])
+        self.assertLess(time.time() - start, 45)
+        self.assertEqual(code, 1)
+        self.assertIn("timed out after 3s", self.latest_report())
+        self.assertEqual(self.installed(), REGISTRY)
+
 
 if __name__ == "__main__":
     unittest.main()

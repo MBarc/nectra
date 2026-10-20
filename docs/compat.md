@@ -47,6 +47,19 @@ Because new models arrive disabled, routing only changes when a model is retired
 
 A model is probed only if the provider's cheapest model answered in the same run, so a
 signed-out CLI never marks models unavailable. A failed probe is retried after a week.
+At most `--max-probes` (default 3) new models are probed per run. The rest wait for
+the next run, so a CLI release that names many new models stays cheap.
+
+Discovery has to succeed before it can change anything:
+- A Codex catalog counts only if `codex debug models` exited 0 and listed at least
+  one model.
+- A catalog that would retire every enabled OpenAI model is not trusted.
+- A Claude help text with no aliases, a missing Gemini bundle, or an unreachable
+  Ollama with configured models each become a `discovery` issue. None of them can
+  retire anything.
+
+The fix branch's tests time out after `--test-timeout` (default 1 hour), and then
+count as failed.
 
 ## State and reports
 

@@ -109,7 +109,7 @@ def stream_events(text):
     return events
 
 
-def observe(providers, registry_text, state, live, work):
+def observe(providers, registry_text, state, live, work, max_probes=3):
     obs = {"versions": {}, "help": {}, "help_code": {}, "models": {}, "streams": {}, "stream_tail": {}, "probes": {},
            "ollama": None}
     for p in providers:
@@ -155,6 +155,8 @@ def observe(providers, registry_text, state, live, work):
                 # A failed probe is retried after a week, in case access was granted.
                 if mid in known or (old and (old["ok"] or (datetime.date.today() - datetime.date.fromisoformat(old["date"])).days < 7)):
                     continue
+                if len(obs["probes"]) >= max_probes:
+                    break  # the rest wait for the next run, so one burst of new ids stays cheap
                 code, out = check.run(stream_cmd(RUNTIME[p], mid), timeout=300, cwd=work)
                 obs["probes"][key] = {"ok": code == 0 and "42" in out, "date": TODAY,
                                       "detail": check.last_lines(out, 2)[:300]}
@@ -443,7 +445,7 @@ def rename_plan(root, runtime, old, new):
     return plan, unclear
 
 
-def make_branch(repo, base, fixes, test_cmd, target_dir):
+def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
     """Apply the fixes on compat/auto-<hash> in a throwaway worktree. Returns a summary dict."""
     digest = hashlib.sha256(json.dumps([f["detail"] for f in fixes], sort_keys=True).encode()).hexdigest()[:8]
     branch = f"compat/auto-{digest}"
@@ -480,10 +482,11 @@ def make_branch(repo, base, fixes, test_cmd, target_dir):
             git("branch", "-D", branch, cwd=repo)
             return {"branch": branch, "skipped": "nothing to change on " + base, "unchanged": True}
         env = {**os.environ, "CARGO_TARGET_DIR": target_dir} if target_dir else None
-        t = subprocess.run(test_cmd, shell=True, cwd=wt, capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", env=env)
-        passed = t.returncode == 0
-        tail = check.last_lines(t.stdout + t.stderr, 6)
+        try:
+            code, out = run_bounded(test_cmd, timeout, shell=True, cwd=wt, env=env)
+            passed, tail = code == 0, check.last_lines(out, 6)
+        except subprocess.TimeoutExpired:
+            passed, tail = False, f"tests timed out after {timeout:g}s"
         msg = ("Compat: adapt to provider CLI changes\n\n" + "\n".join(f"- {f['detail']}" for f in fixes)
                + f"\n\nTests ({test_cmd}): {'passed' if passed else 'FAILED'}\nMade by scripts/compat/adapt.py; review before merging.\n")
         code, out = git("add", "-A", cwd=wt)
@@ -672,6 +675,8 @@ def main(argv=None):
     ap.add_argument("--fixture", help="observation JSON to use instead of the real CLIs (tests, drills)")
     # Training is slow; the retrain tool may train in place or just queue a job.
     ap.add_argument("--retrain-timeout", type=float, default=12 * 3600, help="seconds (default 12 h)")
+    ap.add_argument("--test-timeout", type=float, default=3600, help="seconds for the fix branch's tests (default 1 h)")
+    ap.add_argument("--max-probes", type=int, default=3, help="new-model probe turns per run (default 3)")
     args = ap.parse_args(argv)
     os.makedirs(args.state_dir, exist_ok=True)
     lock = acquire_lock(args.state_dir)
@@ -718,7 +723,7 @@ def run(args):
         os.makedirs(work, exist_ok=True)
         if not os.path.isdir(os.path.join(work, ".git")):
             subprocess.run(["git", "init", "-q", work], check=False)
-        obs, prev = observe(providers, bundled, state, args.live, work), state
+        obs, prev = observe(providers, bundled, state, args.live, work, args.max_probes), state
     obs.setdefault("ollama_configured", configured_ollama)
 
     findings = analyse(obs, prev, bundled)
@@ -756,7 +761,7 @@ def run(args):
     bundled_fixes = [f for f in fixes if changes_bundled(f)]
     if bundled_fixes:
         rep["branch"] = make_branch(args.repo, args.base, bundled_fixes, args.test_cmd,
-                                    args.target_dir or os.path.join(args.state_dir, "target"))
+                                    args.target_dir or os.path.join(args.state_dir, "target"), args.test_timeout)
     # The installed registry routes for real, so it only takes changes the branch's tests passed.
     b = rep.get("branch")
     if b and not b.get("unchanged") and not (b.get("tests_passed") and not b.get("error")):
