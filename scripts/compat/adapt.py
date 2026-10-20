@@ -454,21 +454,41 @@ def run_tests(wt, test_cmd, target_dir, timeout):
         return False, f"tests timed out after {timeout:g}s"
 
 
+def cleanup(repo, wt, branch=None):
+    """Remove the temporary worktree `wt`, and `branch` if given. Returns what could not be."""
+    problems = []
+    if os.path.exists(wt):
+        code, out = git("worktree", "remove", "--force", wt, cwd=repo)
+        if code:
+            shutil.rmtree(wt, ignore_errors=True)  # a half-made checkout git doesn't know
+        if os.path.exists(wt):
+            problems.append(f"worktree {wt}: {out}")
+    git("worktree", "prune", cwd=repo)
+    if branch and git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", cwd=repo)[0] == 0:
+        code, out = git("branch", "-D", branch, cwd=repo)
+        if code:
+            problems.append(f"branch {branch}: {out}")
+    return problems
+
+
 def test_registry(repo, base, text, test_cmd, target_dir, timeout):
     """Run the tests on `base` with `text` as its registry, in a throwaway worktree: the
     check an installed change gets when no fix branch tested exactly that text."""
     wt = tempfile.mkdtemp(prefix="nectra-compat-check-")
     os.rmdir(wt)
-    code, out = git("worktree", "add", "-q", "--detach", wt, base, cwd=repo)
-    if code:
-        return {"error": f"git worktree add: {out}"}
+    result = {}
     try:
+        code, out = git("worktree", "add", "-q", "--detach", wt, base, cwd=repo)
+        if code:
+            result["error"] = f"git worktree add: {out}"
+            return result
         with open(os.path.join(wt, "config", "models.toml"), "w", encoding="utf-8", newline="") as fh:
             fh.write(text)
-        passed, tail = run_tests(wt, test_cmd, target_dir, timeout)
-        return {"tests_passed": passed, "test_tail": tail}
+        result["tests_passed"], result["test_tail"] = run_tests(wt, test_cmd, target_dir, timeout)
+        return result
     finally:
-        git("worktree", "remove", "--force", wt, cwd=repo)
+        if problems := cleanup(repo, wt):
+            result["cleanup"] = problems
 
 
 def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
@@ -481,11 +501,12 @@ def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
         return {"branch": branch, "existing": True, "tests_passed": m.group(1) == "passed" if m else None}
     wt = tempfile.mkdtemp(prefix="nectra-compat-fix-")
     os.rmdir(wt)
-    code, out = git("worktree", "add", "-q", "-b", branch, wt, base, cwd=repo)
-    if code:
-        return {"branch": branch, "error": f"git worktree add: {out}"}
-    committed = False
+    committed, result = False, {"branch": branch}
     try:
+        code, out = git("worktree", "add", "-q", "-b", branch, wt, base, cwd=repo)
+        if code:  # the branch may exist already, pointing at the base
+            result["error"] = f"git worktree add: {out}"
+            return result
         touched = []
         for f in fixes:
             if f["kind"] == "flag":
@@ -501,9 +522,8 @@ def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
                 fh.write(new)
             touched.append("config/models.toml")
         if not touched:
-            git("worktree", "remove", "--force", wt, cwd=repo)
-            git("branch", "-D", branch, cwd=repo)
-            return {"branch": branch, "skipped": "nothing to change on " + base, "unchanged": True}
+            result.update(skipped="nothing to change on " + base, unchanged=True)
+            return result
         passed, tail = run_tests(wt, test_cmd, target_dir, timeout)
         msg = ("Compat: adapt to provider CLI changes\n\n" + "\n".join(f"- {f['detail']}" for f in fixes)
                + f"\n\nTests ({test_cmd}): {'passed' if passed else 'FAILED'}\nMade by scripts/compat/adapt.py; review before merging.\n")
@@ -511,15 +531,16 @@ def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
         if not code:
             code, out = git("commit", "-q", "-m", msg, cwd=wt)
         committed = not code
-        return {"branch": branch, "files": sorted(set(touched)), "tests_passed": passed, "test_tail": tail,
-                **({"error": f"git commit: {out}"} if code else {})}
+        result.update(files=sorted(set(touched)), tests_passed=passed, test_tail=tail,
+                      **({"error": f"git commit: {out}"} if code else {}))
+        return result
     except Exception as e:  # a half-made fix must not crash the run or look like a result
-        return {"branch": branch, "error": f"{type(e).__name__}: {e}"}
+        result["error"] = f"{type(e).__name__}: {e}"
+        return result
     finally:
-        git("worktree", "remove", "--force", wt, cwd=repo)
-        if not committed:
-            # Without its commit the branch would read as "made earlier, no result" forever.
-            git("branch", "-D", branch, cwd=repo)
+        # Without its commit the branch would read as "made earlier" on the next run.
+        if problems := cleanup(repo, wt, None if committed else branch):
+            result["cleanup"] = problems
 
 
 def update_installed(path, fixes, report, expected):
@@ -666,6 +687,9 @@ def write_report(path, findings, rep):
             else f"{result}; files {', '.join(b['files'])}")]
         if b.get("test_tail"):
             lines += ["", "```", b["test_tail"], "```"]
+    for what in ("branch", "installed_tests"):
+        if (rep.get(what) or {}).get("cleanup"):
+            lines += ["", "Cleanup failed; remove these by hand: " + "; ".join(rep[what]["cleanup"])]
     if rep.get("installed_tests"):
         t = rep["installed_tests"]
         lines += ["", f"Tests {'passed' if t.get('tests_passed') else 'FAILED'} with the new installed registry on "
@@ -861,7 +885,8 @@ def run(args, installed, configured_ollama, selected):
     print(f"Report: {report}")
     b = rep.get("branch") or {}
     branch_failed = b and not b.get("unchanged") and (b.get("error") or not b.get("tests_passed"))
-    return 1 if issues or rep.get("installed_conflict") or rep.get("installed_blocked") or branch_failed else 0
+    leftovers = b.get("cleanup") or (rep.get("installed_tests") or {}).get("cleanup")
+    return 1 if issues or rep.get("installed_conflict") or rep.get("installed_blocked") or branch_failed or leftovers else 0
 
 
 if __name__ == "__main__":

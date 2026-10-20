@@ -137,6 +137,12 @@ class Sandbox(unittest.TestCase):
     def state_json(self):
         return json.load(open(os.path.join(self.state, "state.json"), encoding="utf-8"))
 
+    def clean_fixture(self):
+        """Only a new Codex model: no other issue that would set the exit status anyway."""
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        catalog = {**fx["models"]["openai"]["catalog"], "gpt-5.6-luna": "list"}
+        return self.fixture(help={}, streams={}, versions={}, models={"openai": {"catalog": catalog}})
+
     def branches(self):
         return [b.strip(" *") for b in git(self.repo, "branch", "--format=%(refname:short)").split()]
 
@@ -407,12 +413,6 @@ class AstraReview(Sandbox):
         self.assertEqual(latest, open(os.path.join(self.state, self.reports()[-1]), encoding="utf-8").read())
 
     # 8: branch outcomes always reach the exit status
-    def clean_fixture(self):
-        """Only a new Codex model: no other issue that would set the exit status anyway."""
-        fx = json.load(open(FIXTURE, encoding="utf-8"))
-        catalog = {**fx["models"]["openai"]["catalog"], "gpt-5.6-luna": "list"}
-        return self.fixture(help={}, streams={}, versions={}, models={"openai": {"catalog": catalog}})
-
     def test_an_existing_branch_keeps_its_failed_test_result(self):
         clean = self.clean_fixture()
         self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)"), fixture=clean), 1)
@@ -668,6 +668,38 @@ class AstraReReview(Sandbox):
         self.assertLess(time.time() - start, 2.5)
         self.assertEqual(code, -1)
         self.assert_killed(mark)
+
+
+    # 8: a failed checkout leaves no branch behind, and failed cleanup is reported
+    def failing_checkout(self, fail_branch_delete=False):
+        """adapt.git where `worktree add -b` creates the branch, then fails to check it out."""
+        real = adapt.git
+
+        def fake(*args, cwd=adapt.ROOT):
+            if args[:2] == ("worktree", "add") and "-b" in args:
+                i = args.index("-b")
+                real("branch", args[i + 1], args[i + 3], cwd=cwd)
+                return 128, "fatal: simulated checkout failure"
+            if fail_branch_delete and args[:2] == ("branch", "-D"):
+                return 1, "error: simulated delete failure"
+            return real(*args, cwd=cwd)
+        return fake
+
+    def test_a_failed_checkout_leaves_no_branch(self):
+        from unittest import mock
+        with mock.patch.object(adapt, "git", side_effect=self.failing_checkout()):
+            self.assertEqual(self.run_main(fixture=self.clean_fixture()), 1)
+        self.assertEqual([b for b in self.branches() if b.startswith("compat/auto-")], [])
+        self.assertIn("simulated checkout failure", self.latest_report())
+        # The next run makes the branch for real instead of trusting a leftover.
+        self.assertEqual(self.run_main(fixture=self.clean_fixture()), 0)
+
+    def test_a_failed_cleanup_is_reported_and_fails_the_run(self):
+        from unittest import mock
+        with mock.patch.object(adapt, "git", side_effect=self.failing_checkout(fail_branch_delete=True)):
+            self.assertEqual(self.run_main(fixture=self.clean_fixture()), 1)
+        self.assertIn("Cleanup failed", self.latest_report())
+        self.assertIn("simulated delete failure", self.latest_report())
 
 
 if __name__ == "__main__":
