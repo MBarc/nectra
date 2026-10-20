@@ -104,7 +104,7 @@ def stream_events(text):
 
 
 def observe(providers, registry_text, state, live, work):
-    obs = {"versions": {}, "help": {}, "models": {}, "streams": {}, "probes": {}, "ollama": None}
+    obs = {"versions": {}, "help": {}, "models": {}, "streams": {}, "stream_tail": {}, "probes": {}, "ollama": None}
     for p in providers:
         cli = check.CLI[p]
         code, out = check.run([cli, "--version"])
@@ -129,12 +129,17 @@ def observe(providers, registry_text, state, live, work):
             rt = RUNTIME[p]
             out = check.run(stream_cmd(rt, check.CHEAP[p]), timeout=300, cwd=work)[1]
             obs["streams"][rt] = stream_events(out)
-        # Lists that aren't account-specific are verified once per new id, cheaply.
+            obs["stream_tail"][rt] = check.last_lines(out, 2)[:300]
+        # Lists that aren't account-specific are verified once per new id, cheaply, and
+        # only when the provider answered at all: a signed-out CLI proves nothing.
         known = registry_ids(registry_text)
         for p in ("anthropic", "google"):
+            if p not in providers or '"42' not in json.dumps(obs["streams"].get(RUNTIME[p], [])):
+                continue
             for mid in obs["models"].get(p, {}).get("listed", []):
-                key = f"{p}/{mid}"
-                if mid in known or key in state.get("probes", {}):
+                key, old = f"{p}/{mid}", state.get("probes", {}).get(f"{p}/{mid}")
+                # A failed probe is retried after a week, in case access was granted.
+                if mid in known or (old and (old["ok"] or (datetime.date.today() - datetime.date.fromisoformat(old["date"])).days < 7)):
                     continue
                 code, out = check.run(stream_cmd(RUNTIME[p], mid), timeout=300, cwd=work)
                 obs["probes"][key] = {"ok": code == 0 and "42" in out, "date": TODAY,
@@ -230,7 +235,7 @@ def analyse(obs, prev, registry_text):
                 out.append({"kind": "flag", "detail": f"`{key}` no longer lists {flag} ({why})"})
     for rt, events in obs["streams"].items():
         if not events:
-            out.append({"kind": "stream", "detail": f"{rt} printed no stream-json events"})
+            out.append({"kind": "stream", "detail": f"{rt} printed no stream-json events: {obs.get('stream_tail', {}).get(rt, '')}"})
             continue
         for kind, paths in STREAM_NEEDS[rt].items():
             matching = [e for e in events if e.get("type") == kind]
@@ -469,7 +474,8 @@ def main(argv=None):
     ap.add_argument("--nectra", help="also run check.py against this binary")
     ap.add_argument("--repo", default=ROOT)
     ap.add_argument("--base", default="master")
-    ap.add_argument("--test-cmd", default="cargo test --all-targets --quiet")
+    # One thread: the ConPTY terminal tests flake when run alongside each other.
+    ap.add_argument("--test-cmd", default="cargo test --all-targets --quiet -- --test-threads=1")
     ap.add_argument("--target-dir", help="CARGO_TARGET_DIR for the fix branch (default: <state>/target)")
     ap.add_argument("--state-dir", default=state_dir)
     ap.add_argument("--config", default=user_config, help="installed config.toml; 'none' skips the installed registry")
