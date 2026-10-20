@@ -50,7 +50,7 @@ pub struct Tokens {
     pub output: u64,
 }
 impl Tokens {
-    fn add(&mut self, o: Tokens) {
+    pub fn add(&mut self, o: Tokens) {
         self.input += o.input;
         self.cache_read += o.cache_read;
         self.cache_write += o.cache_write;

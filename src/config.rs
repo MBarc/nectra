@@ -102,6 +102,8 @@ pub struct Config {
     /// Home whose MCP servers are shared between the CLIs at launch; set by the
     /// binary, so library callers and tests never read the user's configs.
     pub mcp_home: Option<PathBuf>,
+    /// `nectra run --mcp-config`: exactly these servers, in place of sharing.
+    pub mcp_config: Option<crate::mcp::Explicit>,
     pub path: PathBuf,
     pub inner: ConfigFile,
     pub embedded: bool,
@@ -128,6 +130,7 @@ impl Config {
             skip_permissions: false,
             read_only: false,
             mcp_home: None,
+            mcp_config: None,
             inner: toml::from_str(DEFAULT_CONFIG)?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -152,6 +155,7 @@ impl Config {
             skip_permissions: false,
             read_only: false,
             mcp_home: None,
+            mcp_config: None,
             inner: toml::from_str(DEFAULT_CONFIG).context("parsing embedded config")?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -167,6 +171,7 @@ impl Config {
             skip_permissions: false,
             read_only: false,
             mcp_home: None,
+            mcp_config: None,
             inner: toml::from_str(&text).context("parsing config")?,
             path: path.to_path_buf(),
             embedded: false,

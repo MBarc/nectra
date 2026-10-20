@@ -126,8 +126,10 @@ pub enum Commands {
         #[arg(trailing_var_arg = true)]
         prompt: Vec<String>,
     },
-    /// Route and execute a task.
+    /// Route and execute a task; `--events jsonl` runs it unattended (docs/headless.md).
     Run {
+        #[command(flatten)]
+        headless: crate::headless::Args,
         #[arg(trailing_var_arg = true)]
         prompt: Vec<String>,
     },

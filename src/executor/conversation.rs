@@ -24,6 +24,19 @@ impl std::fmt::Display for AuthenticationRequired {
 }
 impl std::error::Error for AuthenticationRequired {}
 
+/// The turn ran past the deadline it was given and was stopped.
+#[derive(Debug)]
+pub struct DeadlineExceeded;
+impl std::fmt::Display for DeadlineExceeded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "provider exceeded the turn deadline")
+    }
+}
+impl std::error::Error for DeadlineExceeded {}
+
+/// Sees every provider event, with the text it displays; an error stops the turn.
+pub type Observer<'a> = &'a mut dyn FnMut(&Value, Option<&str>) -> Result<()>;
+
 pub fn conversation(
     d: &Decision,
     prompt: &str,
@@ -67,6 +80,30 @@ pub fn conversation_with_session(
     output: &mut dyn Write,
     cancel: &super::CancellationToken,
     session: Option<&mut super::ProviderSession>,
+) -> Result<String> {
+    conversation_observed(
+        d,
+        prompt,
+        cfg,
+        output,
+        cancel,
+        session,
+        None,
+        &mut |_, _| Ok(()),
+    )
+}
+
+/// `conversation_with_session` with a deadline and an observer of the raw events.
+#[allow(clippy::too_many_arguments)]
+pub fn conversation_observed(
+    d: &Decision,
+    prompt: &str,
+    cfg: &Config,
+    output: &mut dyn Write,
+    cancel: &super::CancellationToken,
+    session: Option<&mut super::ProviderSession>,
+    timeout: Option<Duration>,
+    observe: Observer,
 ) -> Result<String> {
     if cancel.is_cancelled() {
         bail!("Turn cancelled; partial output was not saved or replayed.");
@@ -118,13 +155,23 @@ pub fn conversation_with_session(
     // The thread id is kept even when the turn fails: it spent tokens, and
     // `nectra usage` finds them through it.
     let mut thread = None;
-    let reply = run_command(d, prompt, &mut command, output, cancel, None, &mut thread);
+    let reply = run_command(
+        d,
+        prompt,
+        &mut command,
+        output,
+        cancel,
+        timeout,
+        &mut thread,
+        observe,
+    );
     if let (Some(session), Some(thread)) = (session, thread) {
         session.id.get_or_insert(thread);
     }
     reply
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn run_command(
     d: &Decision,
     prompt: &str,
@@ -133,6 +180,7 @@ pub(super) fn run_command(
     cancel: &super::CancellationToken,
     timeout: Option<Duration>,
     thread: &mut Option<String>,
+    observe: Observer,
 ) -> Result<String> {
     if cancel.is_cancelled() {
         bail!("Turn cancelled; partial output was not saved or replayed.");
@@ -191,11 +239,10 @@ pub(super) fn run_command(
     let mut exit_time = None;
     let mut completion_time = None;
     let mut shutdown_time = None;
-    let mut stream_bytes = 0usize;
     let streamed = (|| -> Result<()> {
         loop {
             if timeout.is_some_and(|limit| started.elapsed() >= limit) {
-                bail!("isolated provider exceeded the turn deadline");
+                return Err(DeadlineExceeded.into());
             }
             if cancel.is_cancelled() {
                 bail!("Turn cancelled; partial output was not saved or replayed.");
@@ -223,10 +270,6 @@ pub(super) fn run_command(
                 Err(mpsc::RecvTimeoutError::Timeout) => continue,
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             };
-            stream_bytes = stream_bytes.saturating_add(line.len());
-            if timeout.is_some() && stream_bytes > MAX_EVENT_BYTES {
-                bail!("isolated provider exceeded the total 8 MiB stream budget");
-            }
             if line.iter().all(u8::is_ascii_whitespace) {
                 continue;
             }
@@ -235,7 +278,9 @@ pub(super) fn run_command(
             if let Some(phase) = crate::activity::event_phase(&d.runtime, &event) {
                 crate::activity::set_phase(phase);
             }
-            if let Some(text) = state.event(&d.runtime, &event)? {
+            let text = state.event(&d.runtime, &event);
+            observe(&event, text.as_ref().ok().and_then(Option::as_deref))?;
+            if let Some(text) = text? {
                 write!(output, "{text}")?;
                 output.flush()?;
             }

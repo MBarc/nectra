@@ -6,6 +6,7 @@ pub mod cli;
 pub mod config;
 pub mod debate;
 pub mod executor;
+pub mod headless;
 pub mod jev;
 pub mod limits;
 pub mod mcp;

@@ -204,19 +204,7 @@ pub fn launch(runtime: &str, home: &Path) -> (Vec<OsString>, Vec<(String, String
                 {
                     continue;
                 }
-                let strings = |v: Vec<String>| {
-                    toml::Value::Array(v.into_iter().map(toml::Value::String).collect())
-                };
-                args.push("--config".into());
-                args.push(
-                    format!(
-                        "mcp_servers.{name}={{command={},args={},env_vars={}}}",
-                        toml::Value::String(server.command.clone()),
-                        strings(server.args.clone()),
-                        strings(server.env.keys().cloned().collect()),
-                    )
-                    .into(),
-                );
+                args.extend(["--config".into(), codex_server(name, &server)]);
                 env.extend(server.env.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
         }
@@ -226,14 +214,114 @@ pub fn launch(runtime: &str, home: &Path) -> (Vec<OsString>, Vec<(String, String
 }
 
 /// [`launch`] for this decision: nothing for a read-only launch, whose tools
-/// are what keeps it read-only, or when no home was given.
+/// are what keeps it read-only, or when no home was given. An explicit
+/// `--mcp-config` replaces sharing.
 pub fn for_launch(
     runtime: &str,
     cfg: &crate::config::Config,
 ) -> (Vec<OsString>, Vec<(String, String)>) {
+    if cfg.read_only {
+        return (vec![], vec![]);
+    }
+    if let Some(explicit) = &cfg.mcp_config {
+        return explicit.launch(runtime);
+    }
     match &cfg.mcp_home {
-        Some(home) if !cfg.read_only => launch(runtime, home),
+        Some(home) => launch(runtime, home),
         _ => (vec![], vec![]),
+    }
+}
+
+/// Codex takes a server at launch as `--config mcp_servers.NAME={...}`, with
+/// env values passed by name only (`env_vars`) so they stay off the command line.
+fn codex_server(name: &str, server: &Server) -> OsString {
+    let strings =
+        |v: Vec<String>| toml::Value::Array(v.into_iter().map(toml::Value::String).collect());
+    format!(
+        "mcp_servers.{name}={{command={},args={},env_vars={}}}",
+        toml::Value::String(server.command.clone()),
+        strings(server.args.clone()),
+        strings(server.env.keys().cloned().collect()),
+    )
+    .into()
+}
+
+/// `--mcp-config FILE`: exactly these servers (standard `mcpServers` JSON), for
+/// whichever runtime the task routes to.
+#[derive(Debug, Clone)]
+pub struct Explicit {
+    path: PathBuf,
+    /// None when Codex can't take every server as written.
+    codex: Option<Vec<(String, Server)>>,
+    /// Servers in the user's own Codex config, switched off for the launch.
+    codex_own: Vec<String>,
+}
+impl Explicit {
+    pub fn load(path: &Path, home: Option<&Path>) -> Result<Self> {
+        let text =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let value: Value =
+            serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        let servers = value["mcpServers"]
+            .as_object()
+            .with_context(|| format!("{} has no mcpServers object", path.display()))?;
+        let codex = servers
+            .iter()
+            .map(|(name, v)| {
+                let server = expand_server(v, false).as_ref().and_then(local)?;
+                let clash = server
+                    .env
+                    .iter()
+                    .any(|(k, v)| std::env::var(k).is_ok_and(|own| &own != v));
+                let named = name
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "_-".contains(c));
+                (named && !clash).then(|| (name.clone(), server))
+            })
+            .collect();
+        let codex_own = match home {
+            Some(home) => scan(home)?.names.remove("codex").unwrap_or_default(),
+            None => vec![],
+        };
+        Ok(Self {
+            path: std::path::absolute(path)?,
+            codex,
+            codex_own,
+        })
+    }
+    /// Whether a launch on `runtime` gets every server. Gemini has no
+    /// launch-time server option, and Ollama runs no tools.
+    pub fn supports(&self, runtime: &str) -> bool {
+        match runtime {
+            "claude" => true,
+            "codex" => self.codex.is_some(),
+            _ => false,
+        }
+    }
+    fn launch(&self, runtime: &str) -> (Vec<OsString>, Vec<(String, String)>) {
+        let (mut args, mut env) = (vec![], vec![]);
+        match runtime {
+            "claude" => {
+                let mut flag = OsString::from("--mcp-config=");
+                flag.push(&self.path);
+                args.extend([flag, "--strict-mcp-config".into()]);
+            }
+            "codex" => {
+                // Codex has no strict mode: switch its own servers off instead.
+                // ponytail: servers bundled by Codex plugins can't be switched
+                // off this way and stay on.
+                for name in &self.codex_own {
+                    args.push("--config".into());
+                    args.push(format!("mcp_servers.{name}.enabled=false").into());
+                }
+                for (name, server) in self.codex.iter().flatten() {
+                    args.extend(["--config".into(), codex_server(name, server)]);
+                    env.extend(server.env.iter().map(|(k, v)| (k.clone(), v.clone())));
+                }
+            }
+            _ => {}
+        }
+        (args, env)
     }
 }
 

@@ -212,7 +212,7 @@ Registry: {}",
     }
     let (words, route_only) = match &cli.command {
         Some(Commands::Route { prompt }) => (prompt, true),
-        Some(Commands::Run { prompt }) => (prompt, false),
+        Some(Commands::Run { prompt, .. }) => (prompt, false),
         Some(Commands::Debate { prompt, .. }) => (prompt, false),
         _ => (&cli.prompt, false),
     };
@@ -236,6 +236,11 @@ Registry: {}",
             &prompt,
             session.as_deref(),
         );
+    }
+    if let Some(Commands::Run { headless, .. }) = &cli.command {
+        if headless.events.is_some() && !cli.dry_run {
+            return nectra::headless::run(&cli, &cfg, &registry, &prompt, headless);
+        }
     }
     let decision = router::route(
         &prompt,
