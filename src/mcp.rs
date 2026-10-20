@@ -258,8 +258,9 @@ pub struct Explicit {
     codex: std::result::Result<Launch, String>,
 }
 impl Explicit {
-    /// `codex` is the Codex command, asked which servers it would load here.
-    pub fn load(path: &Path, codex: Option<&str>) -> Result<Self> {
+    /// `codex` is the Codex command and its extra arguments, asked which
+    /// servers it would load here.
+    pub fn load(path: &Path, codex: Option<(&str, &[String])>) -> Result<Self> {
         let text =
             fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         let value: Value =
@@ -273,12 +274,13 @@ impl Explicit {
                 .filter_map(|v| local(&expand_server(v, false)?))
                 .flat_map(|s| s.env.into_iter()),
         );
+        let codex = match codex {
+            Some((command, extras)) => codex_explicit(servers, command, extras),
+            None => Err("no Codex model is enabled".into()),
+        };
         Ok(Self {
             path: std::path::absolute(path)?,
-            codex: match codex {
-                Some(command) => codex_explicit(servers, command),
-                None => Err("no Codex model is enabled".into()),
-            },
+            codex,
         })
     }
     /// Why Codex can't take FILE exactly, if it can't.
@@ -309,11 +311,44 @@ impl Explicit {
 
 /// Codex has no strict mode and loads servers from its user, project and plugin
 /// config layers. So plugins and apps go off, every other server Codex reports
-/// goes off by name, and `codex mcp list` must then show exactly FILE's servers.
+/// goes off by name, and `codex mcp list` must then show exactly FILE's servers,
+/// asked with the launch's own extra arguments and environment.
 fn codex_explicit(
     servers: &serde_json::Map<String, Value>,
     command: &str,
+    extras: &[String],
 ) -> std::result::Result<Launch, String> {
+    // The launch passes `extras` before these arguments. Feature switches
+    // reach `codex mcp list` too; anything else that could change which
+    // servers Codex loads (another directory, say) can't be checked there.
+    let mut probe: Vec<OsString> = vec![];
+    let mut rest = extras.iter();
+    while let Some(arg) = rest.next() {
+        let flag = arg.split('=').next().unwrap_or(arg);
+        let value = !arg.contains('=');
+        match flag {
+            "--enable" | "--disable" => {
+                probe.push(arg.into());
+                if value {
+                    probe.extend(rest.next().map(OsString::from));
+                }
+            }
+            "--sandbox" | "-s" | "--ask-for-approval" | "-a" | "--color" => {
+                if value {
+                    rest.next();
+                }
+            }
+            "--skip-git-repo-check"
+            | "--full-auto"
+            | "--yolo"
+            | "--dangerously-bypass-approvals-and-sandbox" => {}
+            _ => {
+                return Err(format!(
+                    "Codex's extra argument {arg} could change which servers it loads"
+                ))
+            }
+        }
+    }
     let mut args: Vec<OsString> = vec![];
     for setting in ["features.plugins=false", "features.apps=false"] {
         args.extend(["--config".into(), setting.into()]);
@@ -345,10 +380,13 @@ fn codex_explicit(
         args.extend(["--config".into(), codex_server(name, &server)]);
     }
     let list = |args: &[OsString]| -> std::result::Result<Vec<(String, bool)>, String> {
-        let out = crate::executor::launch(command)
-            .map_err(|e| format!("{e:#}"))?
+        let mut command = crate::executor::launch(command).map_err(|e| format!("{e:#}"))?;
+        command
             .args(["mcp", "list", "--json"])
+            .args(&probe)
             .args(args)
+            .envs(&env);
+        let out = command
             .stdin(std::process::Stdio::null())
             .output()
             .map_err(|e| format!("running codex mcp list: {e}"))?;

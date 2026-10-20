@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 15] = [
+    let scenarios: [(&str, fn()); 16] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -41,6 +41,10 @@ fn main() {
         (
             "Codex without a log still meets the cost guard",
             cost_guard_without_codex_log,
+        ),
+        (
+            "MCP is checked against Codex's own extra arguments",
+            codex_mcp_with_extra_args,
         ),
     ];
     for (name, scenario) in scenarios {
@@ -211,10 +215,17 @@ fn fake_mcp_list(args: &[String]) {
     let mut servers: Vec<Value> =
         serde_json::from_str(&std::env::var("NECTRA_FAKE_CODEX_MCP").unwrap_or("[]".into()))
             .unwrap();
+    // As if `--enable plugins` were applied after every --config.
+    if !args
+        .windows(2)
+        .any(|w| w[0] == "--enable" && w[1] == "plugins")
+    {
+        servers
+            .retain(|s| s["plugin"] != true || !args.iter().any(|a| a == "features.plugins=false"));
+    }
     for pair in args.windows(2).filter(|w| w[0] == "--config") {
         let setting = pair[1].as_str();
-        if setting == "features.plugins=false" {
-            servers.retain(|s| s["plugin"] != true);
+        if setting.starts_with("features.") {
         } else if let Some(name) = setting
             .strip_prefix("mcp_servers.")
             .and_then(|s| s.strip_suffix(".enabled=false"))
@@ -709,6 +720,48 @@ fn codex_mcp_isolation() {
     ];
     let (out, _) = env.run_with(&claude, &[("NECTRA_FAKE_CODEX_MCP", stuck)]);
     assert_eq!(out.status.code(), Some(0));
+}
+
+fn codex_mcp_with_extra_args() {
+    let set_extras = |env: &Env, extras: &str| {
+        let config = env.dir.path().join("config.toml");
+        let text = fs::read_to_string(&config).unwrap();
+        fs::write(&config, format!("{text}extra_args = {extras}\n")).unwrap();
+    };
+    let env = Env::new();
+    let file = mcp_file(&env, json!({"pons":{"command":"pons-mcp"}}));
+    let codex = [
+        "--model",
+        "gpt-5.6-luna",
+        "--no-session",
+        "--mcp-config",
+        &file,
+        "x",
+    ];
+    // Codex's extra arguments turn plugins back on: the check must see that.
+    set_extras(&env, r#"["--enable", "plugins"]"#);
+    let plugin = r#"[{"name":"cua","plugin":true,"sticky":true}]"#;
+    let (out, events) = env.run_with(&codex, &[("NECTRA_FAKE_CODEX_MCP", plugin)]);
+    assert_eq!(result(&events)["error_class"], "no_model");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("cua"), "{stderr}");
+    // Another working directory can't be checked here, so Codex isn't used.
+    let env = Env::new();
+    let file = mcp_file(&env, json!({"pons":{"command":"pons-mcp"}}));
+    let codex = [
+        "--model",
+        "gpt-5.6-luna",
+        "--no-session",
+        "--mcp-config",
+        &file,
+        "x",
+    ];
+    set_extras(&env, r#"["--cd", "elsewhere"]"#);
+    let (out, events) = env.run(&codex);
+    assert_eq!(result(&events)["error_class"], "no_model");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("--cd"), "{stderr}");
+    assert!(env.launches().is_empty());
 }
 
 fn conflicting_credentials() {

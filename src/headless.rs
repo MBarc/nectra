@@ -783,7 +783,10 @@ pub fn run(
                 .models
                 .iter()
                 .any(|m| m.runtime.as_str() == "codex")
-                .then_some(cfg.inner.codex.command.as_str());
+                .then_some((
+                    cfg.inner.codex.command.as_str(),
+                    cfg.inner.codex.extra_args.as_slice(),
+                ));
             match crate::mcp::Explicit::load(path, codex) {
                 Ok(explicit) => {
                     if let (Some(_), Some(why)) = (codex, explicit.codex_excluded()) {
