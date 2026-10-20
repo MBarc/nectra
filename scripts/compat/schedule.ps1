@@ -45,7 +45,7 @@ if (-not $providers) { "No provider CLIs selected; nothing to check." | Out-File
 & $Python (Join-Path $PSScriptRoot "adapt.py") --nectra $Nectra --providers $providers --live *> $log
 if ($LASTEXITCODE -ne 0) {
     $issues = Select-String -Path $log -Pattern '^- \*\*' | Select-Object -First 3 | ForEach-Object { $_.Line }
-    $failed = (@($issues) + "Report: $logs\report-$('{0:yyyy-MM-dd}' -f (Get-Date)).md") -join "`n"
+    $failed = (@($issues) + "Report: $logs\report-latest.md") -join "`n"
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
     $toast = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
     $text = $toast.GetElementsByTagName("text")

@@ -180,6 +180,19 @@ def acquire_lock(state_dir):
     return fh
 
 
+def new_file(base, ext):
+    """Create `<base><stamp><ext>` exclusively, never reusing a name. Returns its path."""
+    stamp = datetime.datetime.now().strftime("%Y-%m-%dT%H%M%S.%f")  # sorts by time
+    for n in range(1, 1000):
+        path = f"{base}{stamp}{'' if n == 1 else f'-{n}'}{ext}"
+        try:
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return path
+        except FileExistsError:
+            continue
+    raise RuntimeError(f"no free name for {base}{stamp}{ext}")
+
+
 def atomic_write(path, text):
     """Write via a uniquely named temporary file beside `path`, then replace it."""
     fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=os.path.dirname(path) or ".")
@@ -470,9 +483,9 @@ def update_installed(path, fixes, report, expected):
     if open(path, encoding="utf-8").read() != expected:
         report["installed_conflict"] = f"{path} changed while this run was working; it was left as it is"
         return None
-    backup = f"{path}.bak-{TODAY}"
-    if not os.path.exists(backup):
-        shutil.copy2(path, backup)
+    # One backup per change, holding exactly what this run replaced.
+    backup = new_file(f"{path}.bak-", "")
+    shutil.copy2(path, backup)
     diff = "".join(difflib.unified_diff(expected.splitlines(True), new.splitlines(True), path, path + " (new)"))
     atomic_write(path, new)
     report["installed"] = {"path": path, "backup": backup, "diff": diff}
@@ -573,8 +586,7 @@ def write_report(path, findings, rep):
     r = rep["retrain"]
     lines += ["", "## Laya retrain", "", f"{r['status']}" + (f": {r['reason']}" if r.get("reason") else "")
               + (f" ({r['tool']}" + (f", exit {r['exit']}" if "exit" in r else "") + ")" if r.get("tool") else "")]
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
+    atomic_write(path, "\n".join(lines) + "\n")
     return issues
 
 
@@ -699,8 +711,9 @@ def run(args):
                  help_flags={k: sorted(flags_in(v)) for k, v in obs["help"].items()} or prev.get("help_flags", {}),
                  probes={**state.get("probes", {}), **obs["probes"]}, last_run=TODAY)
     save()
-    report = os.path.join(args.state_dir, f"report-{TODAY}.md")
+    report = new_file(os.path.join(args.state_dir, "report-"), ".md")
     issues = write_report(report, findings, rep)
+    shutil.copyfile(report, os.path.join(args.state_dir, "report-latest.md"))
     print(open(report, encoding="utf-8").read())
     print(f"Report: {report}")
     return 1 if issues or rep.get("installed_conflict") or rep.get("installed_blocked") or (rep.get("branch") or {}).get("tests_passed") is False else 0

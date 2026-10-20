@@ -36,14 +36,14 @@ and `config/models.toml` hard-codes Michael's model ids.
 4. **Installed registry**: the same registry edits go to the installed
    `%APPDATA%\nectra\models.toml` (Linux: `~/.config/nectra/models.toml`), which
    shadows the bundled one. Before writing, the run saves a backup to
-   `models.toml.bak-<date>`, puts a unified diff in the report, and checks that the
+   `models.toml.bak-<time>` (one per change), puts a unified diff in the report, and checks that the
    new text parses as a valid registry (unique ids, same structure).
 5. **Retrain**: the Laya fingerprint covers the enabled models and their `prefers`,
    the `ROLES` table in `src/policy.rs` and `TaskType` in `src/classifier.rs`. If it
    changed since the last run, or a previous retrain is still pending, the run calls
    `tools/laya/retrain`. If that tool is absent or fails, the state file records
    `retrain: {needed: true, reason, since}`.
-6. **Report**: `report-<date>.md` in the state directory lists the findings, branch,
+6. **Report**: `report-<time>.md` (one per run) in the state directory lists the findings, branch,
    test result, registry diff, retrain status and the issue text for each
    non-mechanical finding.
 

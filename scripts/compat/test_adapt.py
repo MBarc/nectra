@@ -165,12 +165,14 @@ class EndToEnd(Sandbox):
         ids = {m["id"]: m for m in tomllib.loads(open(installed, encoding="utf-8").read())["model"]}
         self.assertIn("fable", ids)
         self.assertFalse(ids["gpt-5.6-luna"]["enabled"])
-        self.assertEqual(open(installed + ".bak-" + adapt.TODAY, encoding="utf-8").read(), REGISTRY)
+        backups = [f for f in os.listdir(self.user) if f.startswith("models.toml.bak-")]
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(open(os.path.join(self.user, backups[0]), encoding="utf-8").read(), REGISTRY)
         # luna had the simple-coding role, so Laya needs retraining; the tool is absent.
         st = self.state_json()
         self.assertTrue(st["retrain"]["needed"])
         self.assertIn("gpt-5.6-luna", st["retrain"]["reason"])
-        report = open(os.path.join(self.state, f"report-{adapt.TODAY}.md"), encoding="utf-8").read()
+        report = self.latest_report()
         self.assertIn("tools/laya/retrain is absent", report)
         self.assertIn("--dangerously-skip-permissions", report)
         # A second run makes no duplicate branch and no duplicate registry entries.
@@ -206,8 +208,7 @@ class EndToEnd(Sandbox):
     def test_failing_tests_are_reported(self):
         code = self.run_main(test_cmd=f'"{sys.executable}" -c "raise SystemExit(1)"')
         self.assertEqual(code, 1)
-        report = open(os.path.join(self.state, f"report-{adapt.TODAY}.md"), encoding="utf-8").read()
-        self.assertIn("tests FAILED", report)
+        self.assertIn("tests FAILED", self.latest_report())
 
 
 class AstraReview(Sandbox):
@@ -373,6 +374,24 @@ class AstraReview(Sandbox):
         self.assertNotIn("--ephemeral", codex)
         self.assertIn("--no-session-persistence", ns["stream_cmd"]("claude", "haiku"))
         self.assertIs(adapt.check.stream_cmd, adapt.stream_cmd)
+
+    # 7: every run keeps its own backup and report
+    def test_each_run_keeps_its_own_backup_and_report(self):
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        one = self.fixture(models={"openai": {"catalog": {**fx["models"]["openai"]["catalog"], "gpt-5.6-luna": "list"}}})
+        two = self.fixture(models={"openai": {"catalog": {**fx["models"]["openai"]["catalog"], "gpt-5.6-luna": "list",
+                                                          "gpt-7-terra": "list"}}})
+        self.run_main(fixture=one)
+        after_one = self.installed()
+        self.run_main(fixture=two)
+        self.run_main(fixture=two)  # nothing new: still its own report
+        backups = sorted(f for f in os.listdir(self.user) if f.startswith("models.toml.bak-"))
+        self.assertEqual(len(backups), 2)
+        texts = {open(os.path.join(self.user, b), encoding="utf-8").read() for b in backups}
+        self.assertEqual(texts, {REGISTRY, after_one})
+        self.assertEqual(len(self.reports()), 3)
+        latest = open(os.path.join(self.state, "report-latest.md"), encoding="utf-8").read()
+        self.assertEqual(latest, open(os.path.join(self.state, self.reports()[-1]), encoding="utf-8").read())
 
 
 if __name__ == "__main__":

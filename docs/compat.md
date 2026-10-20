@@ -32,7 +32,8 @@ merged or pushed. The same set of fixes never makes a second branch.
 
 The run also updates the installed registry (`%APPDATA%\nectra\models.toml`, or
 `~/.config/nectra/models.toml`), which shadows the bundled one. Before writing, it
-copies the file to `models.toml.bak-<date>`, and the report includes the diff.
+copies the file to its own `models.toml.bak-<time>` (one per change, never
+overwritten), and the report includes the diff.
 Because new models arrive disabled, routing only changes when a model is retired.
 
 ## Where models come from
@@ -53,7 +54,8 @@ signed-out CLI never marks models unavailable. A failed probe is retried after a
 
 - `state.json`: last versions, help flags, probe results, the Laya fingerprint and
   `retrain: {needed, reason, since}`.
-- `report-<date>.md`: findings, branch and test result, registry diff, issues and
+- `report-<time>.md` (one per run, never overwritten; `report-latest.md` is a copy of the
+  newest): findings, branch and test result, registry diff, issues and
   retrain status.
 - `target/`: the build directory for fix branches, so rebuilds are incremental.
 
