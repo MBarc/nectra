@@ -44,7 +44,10 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
    gets `~/nectra-laya` with a laya checkout at the commit `Cargo.toml` pins,
    plus a CPU torch venv. Without `--host` it trains locally with `--python`;
    use `--adamw8bit` on a 6 GB GPU.
-4. **Export.** Uses laya's `export_onnx.py` (fp32, external weights).
+4. **Export.** Uses laya's `export_onnx.py` (fp32, external weights). Then
+   `int8_embeddings.py` stores the token-embedding table as int8 with
+   per-row scales (1.29 GB -> 0.70 GB). Matrix multiplies stay fp32.
+   `--fp32` skips this step.
 5. **Evaluate through Nectra.** Writes a throwaway config with
    `backend = "laya"` and `model_dir` set to the export. It checks with
    `nectra route` that the model, not the keyword fallback, answered. Then it
@@ -68,6 +71,7 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--threads N` | CPU count here | `OMP_NUM_THREADS` on the training host. |
 | `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
 | `--base`, `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | multilingual, 3, 8, 8, auto, 0, off | Training knobs. |
+| `--fp32` | off | Keep the embedding table fp32 (the default int8 table halves the size). |
 | `--model DIR` | none | Skip data and training. Evaluate an already-exported model and emit it if it passes. |
 | `--nectra PATH` | `target/release/nectra[.exe]` | The Nectra binary that runs the evaluation. |
 | `--ort PATH` | `$ORT_DYLIB_PATH` | ONNX Runtime 1.31 library, copied next to the model for evaluation. |

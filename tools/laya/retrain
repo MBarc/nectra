@@ -409,6 +409,7 @@ def main(argv=None):
     p.add_argument("--device", default="auto")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--adamw8bit", action="store_true", help="8-bit AdamW (bitsandbytes) for 6 GB GPUs")
+    p.add_argument("--fp32", action="store_true", help="keep the embedding table fp32 (default: int8, half the size)")
     p.add_argument("--model", default=None, help="skip data and training; evaluate (and emit) this exported model dir")
     p.add_argument("--nectra", default=None, help="nectra binary (default: target/release/nectra[.exe])")
     p.add_argument("--ort", default=os.environ.get("ORT_DYLIB_PATH"), help="ONNX Runtime library for evaluation (default: $ORT_DYLIB_PATH)")
@@ -445,6 +446,9 @@ def main(argv=None):
             if not Path(args.nectra).exists():
                 raise RuntimeError(f"build nectra first (cargo build --release) or pass --nectra; {args.nectra} missing")
             model_dir = train_remote(args, items_path, run_dir, run_id) if args.host else train_local(args, items_path, run_dir)
+            if not args.fp32:
+                run([sys.executable, Path(__file__).parent / "int8_embeddings.py", model_dir, run_dir / "int8"])
+                model_dir = run_dir / "int8"
         summary["eval"] = evaluate(args, model_dir, run_dir)
     except (RuntimeError, subprocess.CalledProcessError, OSError) as e:
         log(f"error: {e}")
