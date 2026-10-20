@@ -82,10 +82,10 @@ Register it from the checkout that should receive the `compat/auto-*` branches. 
 checks the providers your `nectra config` selects. When something needs you, a
 notification names the issue and the report.
 
-### Linux (systemd user timer), for example the lumina VM
+### Linux (systemd user timer)
 
-The CLIs must be installed and signed in as your user. As of 2026-10-20, lumina has none
-of them, nor cargo, so set those up first.
+On the Linux machine you use, the CLIs and cargo must be installed, and the CLIs
+signed in as your user.
 
 ```sh
 git clone <nectra> ~/nectra && cd ~/nectra && cargo build --release
