@@ -416,6 +416,41 @@ class AstraReview(Sandbox):
     def test_a_branch_error_fails_the_run(self):
         self.assertEqual(self.run_main(fixture=self.clean_fixture(), extra=["--config", "none", "--base", "nope"]), 1)
 
+    # 9: disable_model handles real TOML and proves it worked
+    def test_disable_model_understands_valid_toml_spellings(self):
+        luna = 'id = "gpt-5.6-luna"\nprovider = "openai"\nruntime = "codex"\nenabled = true\n'
+        self.assertIn(luna, REGISTRY)
+        for spelling in ('id = "gpt-5.6-luna" # my model\nprovider = "openai"\nruntime = "codex"\nenabled = true # on\n',
+                         "  id = 'gpt-5.6-luna'\n  provider = 'openai'\n  runtime = 'codex'\n  enabled=true\n",
+                         'id="gpt-5.6-luna"\nprovider = "openai"\nruntime = "codex"\nenabled = true\n'):
+            text = REGISTRY.replace(luna, spelling).replace("[[model]]\nid = \"haiku\"", "[[ model ]]  # small\nid = \"haiku\"")
+            new = adapt.disable_model(text, "gpt-5.6-luna")
+            before = {m["id"]: m for m in adapt.registry_models(text)}
+            after = {m["id"]: m for m in adapt.registry_models(new)}
+            self.assertFalse(after["gpt-5.6-luna"]["enabled"], spelling)
+            before["gpt-5.6-luna"]["enabled"] = False
+            self.assertEqual(after, before, spelling)
+            self.assertEqual(new.count("#"), text.count("#"), spelling)
+
+    def test_disable_model_fails_loudly_when_it_cannot(self):
+        inline = 'model = [{id = "gpt-5.6-luna", provider = "openai", runtime = "codex", enabled = true, capabilities = {}}]\n'
+        quoted = REGISTRY.replace('id = "gpt-5.6-luna"\nprovider = "openai"\nruntime = "codex"\nenabled = true',
+                                  'id = "gpt-5.6-luna"\nprovider = "openai"\nruntime = "codex"\n"enabled" = true')
+        for text in (inline, quoted):
+            with self.assertRaises(ValueError):
+                adapt.disable_model(text, "gpt-5.6-luna")
+        with self.assertRaises(ValueError):
+            adapt.disable_model(REGISTRY, "no-such-model")
+        self.assertEqual(adapt.disable_model(adapt.disable_model(REGISTRY, "gpt-5.6-luna"), "gpt-5.6-luna"),
+                         adapt.disable_model(REGISTRY, "gpt-5.6-luna"))
+
+    def test_a_registry_it_cannot_edit_is_reported_not_crashed_on(self):
+        with open(os.path.join(self.user, "models.toml"), "w", encoding="utf-8") as f:
+            f.write(REGISTRY.replace('runtime = "codex"\nenabled = true\neffort = "medium"',
+                                     'runtime = "codex"\n"enabled" = true\neffort = "medium"'))
+        self.assertEqual(self.run_main(), 1)
+        self.assertIn("Installed registry not updated", self.latest_report())
+
 
 if __name__ == "__main__":
     unittest.main()

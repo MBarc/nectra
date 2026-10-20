@@ -255,12 +255,34 @@ def add_model(text, mid, provider, source):
     return text.rstrip("\n") + "\n" + block
 
 
+MODEL_HEADER = re.compile(r"(?m)^[ \t]*\[\[[ \t]*model[ \t]*\]\][ \t]*(?:#.*)?$")
+
+
 def disable_model(text, mid):
-    parts = re.split(r"(?m)^(?=\[\[model\]\])", text)
-    for i, part in enumerate(parts):
-        if re.search(rf'(?m)^id\s*=\s*"{re.escape(mid)}"\s*$', part):
-            parts[i] = re.sub(r"(?m)^enabled\s*=\s*true\b", "enabled = false", part, count=1)
-    return "".join(parts)
+    """Set `enabled = false` for `mid`, editing only that line, so comments and layout
+    stay. The parser locates the model; the result is re-parsed and must differ from the
+    original in exactly that one field, or this raises."""
+    models = registry_models(text)
+    index = next((i for i, m in enumerate(models) if m["id"] == mid), None)
+    if index is None:
+        raise ValueError(f"cannot disable {mid}: it is not in the registry")
+    if not models[index]["enabled"]:
+        return text
+    heads = list(MODEL_HEADER.finditer(text))
+    new = text
+    if len(heads) == len(models):
+        start = heads[index].end()
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        block = text[start:end]
+        sub = re.search(r"(?m)^[ \t]*\[", block)  # the model's own keys end at its first sub-table
+        cut = sub.start() if sub else len(block)
+        own = re.sub(r"(?m)^([ \t]*enabled[ \t]*=[ \t]*)true\b", r"\1false", block[:cut], count=1)
+        new = text[:start] + own + block[cut:] + text[end:]
+    expected = [dict(m) for m in models]
+    expected[index]["enabled"] = False
+    if new == text or registry_models(new) != expected:
+        raise ValueError(f"cannot disable {mid}: its `enabled` line is not in a form this script edits safely")
+    return new
 
 
 def edit_registry(text, fixes):
@@ -700,7 +722,12 @@ def run(args):
             f["detail"] += (f", but {f['old']} also appears where no provider owns it: {', '.join(unclear)}" if unclear
                             else f", but Nectra's {f['runtime']} code doesn't pass it literally")
     fixes = [f for f in fixes if f.get("fix")]
-    bundled_fixes = [f for f in fixes if f["kind"] == "flag" or edit_registry(bundled, [f]) != bundled]
+    def changes_bundled(f):
+        try:
+            return f["kind"] == "flag" or edit_registry(bundled, [f]) != bundled
+        except ValueError:
+            return True  # make_branch hits the same error and reports it
+    bundled_fixes = [f for f in fixes if changes_bundled(f)]
     if bundled_fixes:
         rep["branch"] = make_branch(args.repo, args.base, bundled_fixes, args.test_cmd,
                                     args.target_dir or os.path.join(args.state_dir, "target"))
@@ -711,10 +738,13 @@ def run(args):
         rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
     else:
         reg = [f for f in fixes if f["kind"].startswith("model-")]
-        if reg and installed and os.path.exists(installed):
-            mark_retrain(state, fingerprint(edit_registry(routing, reg), args.repo),
-                         "; ".join(f["detail"] for f in reg), save)
-        update_installed(installed, fixes, rep, routing)
+        try:
+            if reg and installed and os.path.exists(installed):
+                mark_retrain(state, fingerprint(edit_registry(routing, reg), args.repo),
+                             "; ".join(f["detail"] for f in reg), save)
+            update_installed(installed, fixes, rep, routing)
+        except ValueError as e:
+            rep["installed_blocked"] = f"{installed} could not be edited safely ({e})"
 
     after = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
     mark_retrain(state, fingerprint(after, args.repo), "models, roles or task types changed", save)
