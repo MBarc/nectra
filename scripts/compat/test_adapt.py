@@ -393,6 +393,29 @@ class AstraReview(Sandbox):
         latest = open(os.path.join(self.state, "report-latest.md"), encoding="utf-8").read()
         self.assertEqual(latest, open(os.path.join(self.state, self.reports()[-1]), encoding="utf-8").read())
 
+    # 8: branch outcomes always reach the exit status
+    def clean_fixture(self):
+        """Only a new Codex model: no other issue that would set the exit status anyway."""
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        catalog = {**fx["models"]["openai"]["catalog"], "gpt-5.6-luna": "list"}
+        return self.fixture(help={}, streams={}, versions={}, models={"openai": {"catalog": catalog}})
+
+    def test_an_existing_branch_keeps_its_failed_test_result(self):
+        clean = self.clean_fixture()
+        self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)"), fixture=clean), 1)
+        self.assertEqual(self.run_main(fixture=clean), 1)
+        self.assertIn("tests FAILED", self.latest_report())
+        self.assertEqual(self.installed(), REGISTRY)
+
+    def test_an_existing_branch_keeps_its_passed_test_result(self):
+        clean = self.clean_fixture()
+        self.assertEqual(self.run_main(fixture=clean), 0)
+        self.assertEqual(self.run_main(fixture=clean), 0)
+        self.assertIn("tests passed", self.latest_report())
+
+    def test_a_branch_error_fails_the_run(self):
+        self.assertEqual(self.run_main(fixture=self.clean_fixture(), extra=["--config", "none", "--base", "nope"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

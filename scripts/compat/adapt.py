@@ -426,12 +426,15 @@ def make_branch(repo, base, fixes, test_cmd, target_dir):
     digest = hashlib.sha256(json.dumps([f["detail"] for f in fixes], sort_keys=True).encode()).hexdigest()[:8]
     branch = f"compat/auto-{digest}"
     if git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", cwd=repo)[0] == 0:
-        return {"branch": branch, "skipped": "branch already exists"}
+        # An earlier run made it; its commit message records how its tests went.
+        m = re.search(r"^Tests \(.*\): (passed|FAILED)$", git("log", "-1", "--format=%B", branch, cwd=repo)[1], re.M)
+        return {"branch": branch, "existing": True, "tests_passed": m.group(1) == "passed" if m else None}
     wt = tempfile.mkdtemp(prefix="nectra-compat-fix-")
     os.rmdir(wt)
     code, out = git("worktree", "add", "-q", "-b", branch, wt, base, cwd=repo)
     if code:
-        return {"branch": branch, "error": out}
+        return {"branch": branch, "error": f"git worktree add: {out}"}
+    committed = False
     try:
         touched = []
         for f in fixes:
@@ -461,12 +464,19 @@ def make_branch(repo, base, fixes, test_cmd, target_dir):
         tail = check.last_lines(t.stdout + t.stderr, 6)
         msg = ("Compat: adapt to provider CLI changes\n\n" + "\n".join(f"- {f['detail']}" for f in fixes)
                + f"\n\nTests ({test_cmd}): {'passed' if passed else 'FAILED'}\nMade by scripts/compat/adapt.py; review before merging.\n")
-        git("add", "-A", cwd=wt)
-        code, out = git("commit", "-q", "-m", msg, cwd=wt)
+        code, out = git("add", "-A", cwd=wt)
+        if not code:
+            code, out = git("commit", "-q", "-m", msg, cwd=wt)
+        committed = not code
         return {"branch": branch, "files": sorted(set(touched)), "tests_passed": passed, "test_tail": tail,
-                **({"error": out} if code else {})}
+                **({"error": f"git commit: {out}"} if code else {})}
+    except Exception as e:  # a half-made fix must not crash the run or look like a result
+        return {"branch": branch, "error": f"{type(e).__name__}: {e}"}
     finally:
         git("worktree", "remove", "--force", wt, cwd=repo)
+        if not committed:
+            # Without its commit the branch would read as "made earlier, no result" forever.
+            git("branch", "-D", branch, cwd=repo)
 
 
 def update_installed(path, fixes, report, expected):
@@ -568,8 +578,11 @@ def write_report(path, findings, rep):
     lines += ["", "## Mechanical fixes", ""] + ([f"- {f['detail']}" for f in fixes] or ["None."])
     if rep.get("branch"):
         b = rep["branch"]
-        lines += ["", f"Branch `{b['branch']}`: " + (b.get("skipped") or b.get("error") or
-                  f"tests {'passed' if b['tests_passed'] else 'FAILED'}; files {', '.join(b['files'])}")]
+        result = {True: "tests passed", False: "tests FAILED", None: "no test result"}[b.get("tests_passed")]
+        lines += ["", f"Branch `{b['branch']}`: " + (
+            f"error: {b['error']}" if b.get("error") else b["skipped"] if b.get("skipped")
+            else f"made by an earlier run; {result}" if b.get("existing")
+            else f"{result}; files {', '.join(b['files'])}")]
         if b.get("test_tail"):
             lines += ["", "```", b["test_tail"], "```"]
     if rep.get("installed_blocked"):
@@ -694,7 +707,7 @@ def run(args):
     # The installed registry routes for real, so it only takes changes the branch's tests passed.
     b = rep.get("branch")
     if b and not b.get("unchanged") and not (b.get("tests_passed") and not b.get("error")):
-        why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else b.get("skipped") or "no test result")
+        why = b.get("error") or ("its tests failed" if b.get("tests_passed") is False else "no test result")
         rep["installed_blocked"] = f"the fix branch `{b['branch']}` did not pass ({why})"
     else:
         reg = [f for f in fixes if f["kind"].startswith("model-")]
@@ -716,7 +729,9 @@ def run(args):
     shutil.copyfile(report, os.path.join(args.state_dir, "report-latest.md"))
     print(open(report, encoding="utf-8").read())
     print(f"Report: {report}")
-    return 1 if issues or rep.get("installed_conflict") or rep.get("installed_blocked") or (rep.get("branch") or {}).get("tests_passed") is False else 0
+    b = rep.get("branch") or {}
+    branch_failed = b and not b.get("unchanged") and (b.get("error") or not b.get("tests_passed"))
+    return 1 if issues or rep.get("installed_conflict") or rep.get("installed_blocked") or branch_failed else 0
 
 
 if __name__ == "__main__":
