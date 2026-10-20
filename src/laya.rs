@@ -4,7 +4,7 @@
 use crate::{
     classifier::TaskType,
     config::Config,
-    jev::{Answer, Role},
+    jev::{Answer, Role, TASK_CRITERIA},
 };
 use ::laya::{LayaEngine, LayaOptions, Question, QuestionSet};
 use anyhow::{bail, Context, Result};
@@ -65,19 +65,15 @@ const RUNTIME: Option<(&str, &str, &str)> = Some((
 )))]
 const RUNTIME: Option<(&str, &str, &str)> = None;
 
-/// The labels the model was trained on, in training order.
-const TASKS: [&str; 10] = [
-    "code_generation",
-    "debugging",
-    "refactoring",
-    "code_review",
-    "architecture",
-    "research",
-    "writing",
-    "planning",
-    "data_analysis",
-    "general",
-];
+/// The questions exactly as the model was trained on them: bare labels, no
+/// descriptions, which keeps the input (and so the latency) small. Task options
+/// are `jev::TASK_CRITERIA` in order and role options `policy::ROLES`;
+/// `eval/laya/criteria.json` is the training copy.
+const TASK_Q: &str = "What task is this?";
+const DIFFICULTY_Q: &str = "How hard is it?";
+const DIFFICULTY_LEVELS: [&str; 3] = ["easy", "moderate", "hard"];
+const ROLE_Q: &str = "Which model should handle it?";
+const NEW_TASK_Q: &str = "Is current_message a new task?";
 
 pub fn model_dir(cfg: &Config) -> Option<PathBuf> {
     cfg.inner
@@ -127,25 +123,19 @@ pub(crate) fn ask(
     let mut questions = QuestionSet::new()
         .with(
             "task",
-            Question::choice("What task is this?", TASKS.map(|t| (t, "")))?,
+            Question::choice(TASK_Q, TASK_CRITERIA.map(|(t, _)| (t, "")))?,
         )?
         .with(
             "difficulty",
-            Question::score("How hard is it?", ["easy", "moderate", "hard"])?,
+            Question::score(DIFFICULTY_Q, DIFFICULTY_LEVELS)?,
         )?;
     if previous.is_some() {
-        questions = questions.with(
-            "new_task",
-            Question::noul("Is current_message a new task?", "", ""),
-        )?;
+        questions = questions.with("new_task", Question::noul(NEW_TASK_Q, "", ""))?;
     }
     if roles.len() > 1 {
         questions = questions.with(
             "role",
-            Question::choice(
-                "Which model should handle it?",
-                roles.iter().map(|(name, _)| (*name, "")),
-            )?,
+            Question::choice(ROLE_Q, roles.iter().map(|(name, _)| (*name, "")))?,
         )?;
     }
     let result = engine(cfg)?.predict(state, &questions)?;
@@ -241,8 +231,36 @@ fn hex(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
     #[test]
+    fn criteria_file_matches_the_code() {
+        // tools/laya/retrain trains on eval/laya/criteria.json; the model only
+        // answers what it was trained on, so the file must match what we ask.
+        let c: serde_json::Value =
+            serde_json::from_str(include_str!("../eval/laya/criteria.json")).unwrap();
+        let pairs = |v: &serde_json::Value| -> Vec<(String, String)> {
+            serde_json::from_value(v.clone()).unwrap()
+        };
+        let owned = |v: &[(&str, &str)]| -> Vec<(String, String)> {
+            v.iter()
+                .map(|(a, b)| (a.to_string(), b.to_string()))
+                .collect()
+        };
+        let msg = "update eval/laya/criteria.json and retrain (tools/laya/retrain)";
+        assert_eq!(
+            pairs(&c["tasks"]),
+            owned(&crate::jev::TASK_CRITERIA),
+            "{msg}"
+        );
+        assert_eq!(pairs(&c["roles"]), owned(&crate::policy::ROLES), "{msg}");
+        let q = &c["questions"];
+        assert_eq!(q["task"], TASK_Q, "{msg}");
+        assert_eq!(q["difficulty"], DIFFICULTY_Q, "{msg}");
+        assert_eq!(q["difficulty_levels"], json!(DIFFICULTY_LEVELS), "{msg}");
+        assert_eq!(q["role"], ROLE_Q, "{msg}");
+        assert_eq!(q["new_task"], NEW_TASK_Q, "{msg}");
+    }
+    #[test]
     fn task_labels_are_nectras() {
-        for t in TASKS {
+        for (t, _) in TASK_CRITERIA {
             assert!(serde_json::from_value::<TaskType>(json!(t)).is_ok(), "{t}");
         }
     }

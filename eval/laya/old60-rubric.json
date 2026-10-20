@@ -1,0 +1,242 @@
+[
+  {
+    "prompt": "my docker container exits with code 137 right after startup",
+    "task": "debugging"
+  },
+  {
+    "prompt": "why does this promise never resolve when the fetch times out",
+    "task": "debugging"
+  },
+  {
+    "prompt": "the build is green locally but CI keeps blowing up on the linker step",
+    "task": "debugging"
+  },
+  {
+    "prompt": "users report the page goes blank after login on safari only",
+    "task": "debugging"
+  },
+  {
+    "prompt": "add a --dry-run flag to the cli",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "make me a python script that renames all my photos by date taken",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "build a rest endpoint that paginates the orders table",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "port the image resizer from javascript to rust",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "this 900 line file is unreadable, split it into sensible modules",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "get rid of the duplicated validation logic across the three handlers",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "rename userId to accountId everywhere without breaking the api",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "look over my PR before I merge it",
+    "task": "code_review"
+  },
+  {
+    "prompt": "is there anything sketchy about how this handles passwords",
+    "task": "code_review"
+  },
+  {
+    "prompt": "would a senior engineer approve this diff",
+    "task": "code_review"
+  },
+  {
+    "prompt": "should we split the monolith into services or keep one deployable",
+    "task": "architecture"
+  },
+  {
+    "prompt": "how should the sync engine handle offline edits from two devices",
+    "task": "architecture"
+  },
+  {
+    "prompt": "pick a database layout for a multi-tenant SaaS with per-customer data isolation",
+    "task": "architecture"
+  },
+  {
+    "prompt": "what do people say about the Bambu P2S versus the Prusa Core One",
+    "task": "research"
+  },
+  {
+    "prompt": "find out which ESP32 boards have the lowest deep sleep current",
+    "task": "research"
+  },
+  {
+    "prompt": "what's the current state of EU rules on AI generated content labels",
+    "task": "research"
+  },
+  {
+    "prompt": "who makes the cheapest reliable 10gbe switch right now",
+    "task": "research"
+  },
+  {
+    "prompt": "write a short bio for my github profile",
+    "task": "writing"
+  },
+  {
+    "prompt": "turn these bullet points into a friendly email to the team",
+    "task": "writing"
+  },
+  {
+    "prompt": "draft the opening chapter of a mystery set in a lighthouse",
+    "task": "writing"
+  },
+  {
+    "prompt": "polish the wording of my cover letter",
+    "task": "writing"
+  },
+  {
+    "prompt": "lay out the steps to move my homelab from docker compose to proxmox",
+    "task": "planning"
+  },
+  {
+    "prompt": "what order should I tackle these six features in for the beta",
+    "task": "planning"
+  },
+  {
+    "prompt": "map out a weekend project to build a garden irrigation controller",
+    "task": "planning"
+  },
+  {
+    "prompt": "here's a csv of my electricity usage, when am I using the most power",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "compute the median response time per endpoint from these logs",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "is the drop in signups last month statistically meaningful",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "chart my claude spend by week and tell me what changed",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "hey, how's it going",
+    "task": "general"
+  },
+  {
+    "prompt": "which model am I talking to?",
+    "task": "general"
+  },
+  {
+    "prompt": "what's 15% of 240",
+    "task": "general"
+  },
+  {
+    "prompt": "thanks, that worked",
+    "task": "general"
+  },
+  {
+    "prompt": "explain what a mutex is like I'm five",
+    "task": "general"
+  },
+  {
+    "prompt": "use opus and plan out how you would build a shed",
+    "task": "planning"
+  },
+  {
+    "prompt": "Draft a plan for building a led strip that has EMF sensors all along it, to capture ghosts walking down a hallway",
+    "task": "planning"
+  },
+  {
+    "prompt": "whatever you think, start a design doc",
+    "task": "writing"
+  },
+  {
+    "prompt": "the deploy crashed after the last merge",
+    "task": "debugging"
+  },
+  {
+    "prompt": "tidy this file without changing behaviour",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "should we use a queue or direct calls between services",
+    "task": "architecture"
+  },
+  {
+    "prompt": "check this endpoint for auth holes",
+    "task": "code_review"
+  },
+  {
+    "prompt": "implement pagination on the users endpoint",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "chart the signup conversion over the quarter",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "look into what caused the outage",
+    "task": "debugging"
+  },
+  {
+    "prompt": "rewrite this paragraph to be less formal",
+    "task": "writing"
+  },
+  {
+    "prompt": "lay out the milestones for Q3",
+    "task": "planning"
+  },
+  {
+    "prompt": "what time zone is UTC+9",
+    "task": "general"
+  },
+  {
+    "prompt": "build a bookshelf for the hallway",
+    "task": "planning"
+  },
+  {
+    "prompt": "my unit test fails after upgrading serde",
+    "task": "debugging"
+  },
+  {
+    "prompt": "walk me through how oauth refresh works",
+    "task": "general"
+  },
+  {
+    "prompt": "the numbers in the report do not add up",
+    "task": "debugging"
+  },
+  {
+    "prompt": "pull the top ten accounts by revenue",
+    "task": "data_analysis"
+  },
+  {
+    "prompt": "put together a proposal for the board",
+    "task": "writing"
+  },
+  {
+    "prompt": "find out whether anyone has solved this already",
+    "task": "research"
+  },
+  {
+    "prompt": "make this loop faster without breaking it",
+    "task": "refactoring"
+  },
+  {
+    "prompt": "add a retry with backoff to the http client",
+    "task": "code_generation"
+  },
+  {
+    "prompt": "sanity check my threat model for the upload flow",
+    "task": "code_review"
+  }
+]

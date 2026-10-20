@@ -174,6 +174,51 @@ pub fn save_key(config_path: &Path, key: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// The task types and the plain descriptions Jev chooses between. The local
+/// model is trained on the same list (`eval/laya/criteria.json`).
+pub const TASK_CRITERIA: [(&str, &str); 10] = [
+    (
+        "code_generation",
+        "Write new code, features, scripts, endpoints, tests or flags",
+    ),
+    (
+        "debugging",
+        "Find and fix why something is broken, failing, crashing or behaving wrongly",
+    ),
+    (
+        "refactoring",
+        "Restructure, rename or clean up existing code without changing behaviour",
+    ),
+    (
+        "code_review",
+        "Review, audit or critique existing code, a diff or a PR for quality or security",
+    ),
+    (
+        "architecture",
+        "Design system structure, components, data models or big technical trade-offs",
+    ),
+    (
+        "research",
+        "Find out facts, compare products or look up the current state of something",
+    ),
+    (
+        "writing",
+        "Produce or polish prose: emails, bios, stories, docs, letters",
+    ),
+    (
+        "planning",
+        "Lay out steps, order of work or a project plan for building or doing something",
+    ),
+    (
+        "data_analysis",
+        "Analyse data, logs, CSVs, statistics or metrics to find patterns",
+    ),
+    (
+        "general",
+        "Chit-chat, thanks, trivial questions, simple explanations or questions about the assistant itself",
+    ),
+];
+
 pub(crate) struct Answer {
     pub task: TaskType,
     pub confidence: f64,
@@ -205,18 +250,7 @@ fn ask(
             "task": {
                 "type": "choice",
                 "instructions": format!("Which kind of task does {subject} ask an AI assistant to do?"),
-                "criteria": {
-                    "code_generation": "Write new code, features, scripts, endpoints, tests or flags",
-                    "debugging": "Find and fix why something is broken, failing, crashing or behaving wrongly",
-                    "refactoring": "Restructure, rename or clean up existing code without changing behaviour",
-                    "code_review": "Review, audit or critique existing code, a diff or a PR for quality or security",
-                    "architecture": "Design system structure, components, data models or big technical trade-offs",
-                    "research": "Find out facts, compare products or look up the current state of something",
-                    "writing": "Produce or polish prose: emails, bios, stories, docs, letters",
-                    "planning": "Lay out steps, order of work or a project plan for building or doing something",
-                    "data_analysis": "Analyse data, logs, CSVs, statistics or metrics to find patterns",
-                    "general": "Chit-chat, thanks, trivial questions, simple explanations or questions about the assistant itself"
-                }
+                "criteria": TASK_CRITERIA.iter().map(|(name, about)| (name.to_string(), json!(about))).collect::<serde_json::Map<_, _>>()
             },
             "difficulty": {
                 "type": "score",

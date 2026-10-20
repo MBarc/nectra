@@ -1,0 +1,30 @@
+{
+  "_comment": "Mirrors src/jev.rs TASK_CRITERIA, src/policy.rs ROLES and the question wording in src/laya.rs; a Rust test fails when they drift. tools/laya/retrain reads this file.",
+  "questions": {
+    "task": "What task is this?",
+    "difficulty": "How hard is it?",
+    "difficulty_levels": ["easy", "moderate", "hard"],
+    "role": "Which model should handle it?",
+    "new_task": "Is current_message a new task?"
+  },
+  "tasks": [
+    ["code_generation", "Write new code, features, scripts, endpoints, tests or flags"],
+    ["debugging", "Find and fix why something is broken, failing, crashing or behaving wrongly"],
+    ["refactoring", "Restructure, rename or clean up existing code without changing behaviour"],
+    ["code_review", "Review, audit or critique existing code, a diff or a PR for quality or security"],
+    ["architecture", "Design system structure, components, data models or big technical trade-offs"],
+    ["research", "Find out facts, compare products or look up the current state of something"],
+    ["writing", "Produce or polish prose: emails, bios, stories, docs, letters"],
+    ["planning", "Lay out steps, order of work or a project plan for building or doing something"],
+    ["data_analysis", "Analyse data, logs, CSVs, statistics or metrics to find patterns"],
+    ["general", "Chit-chat, thanks, trivial questions, simple explanations or questions about the assistant itself"]
+  ],
+  "roles": [
+    ["simple", "Trivial non-coding work: thanks, chit-chat, a quick fact, a short rewrite"],
+    ["simple-coding", "A small, contained code change: rename, add a flag, a short script"],
+    ["coding", "Regular software work: features, debugging, tests, code review, data analysis"],
+    ["planning", "Plans, architecture and design decisions"],
+    ["general", "Writing, research and explanations"],
+    ["demanding", "Hard, multi-step or high-stakes work that needs the strongest model"]
+  ]
+}
