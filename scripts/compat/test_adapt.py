@@ -75,8 +75,8 @@ class BreakingRelease(unittest.TestCase):
         self.assertEqual(len(self.detail("version")), 2)
 
 
-class EndToEnd(unittest.TestCase):
-    """The fixture through main(): branch with tests, installed registry, retrain."""
+class Sandbox(unittest.TestCase):
+    """A throwaway repo, user config dir and state dir."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -101,18 +101,49 @@ class EndToEnd(unittest.TestCase):
         subprocess.run(["git", "worktree", "prune"], cwd=self.repo)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def run_main(self, test_cmd=OK):
+    def run_main(self, test_cmd=OK, fixture=FIXTURE, extra=()):
         env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
         os.environ.update(env)
-        return adapt.main(["--fixture", FIXTURE, "--repo", self.repo, "--state-dir", self.state,
+        return adapt.main(["--fixture", fixture, "--repo", self.repo, "--state-dir", self.state,
                            "--config", os.path.join(self.user, "config.toml"), "--test-cmd", test_cmd,
-                           "--providers", "anthropic,openai"])
+                           "--providers", "anthropic,openai", *extra])
+
+    def installed(self):
+        return open(os.path.join(self.user, "models.toml"), encoding="utf-8").read()
+
+    def fixture(self, **changes):
+        """A copy of the breaking-release fixture with top-level keys replaced."""
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        fx.update(changes)
+        path = os.path.join(self.tmp, f"fixture-{len(os.listdir(self.tmp))}.json")
+        json.dump(fx, open(path, "w", encoding="utf-8"))
+        return path
+
+    def script(self, code):
+        """A shell command running this Python code, for --test-cmd."""
+        path = os.path.join(self.tmp, f"script-{len(os.listdir(self.tmp))}.py")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(code + "\n")
+        return f'"{sys.executable}" "{path}"'
+
+    def latest_report(self):
+        newest = max((os.path.join(self.state, f) for f in os.listdir(self.state) if f.startswith("report-")),
+                     key=os.path.getmtime)
+        return open(newest, encoding="utf-8").read()
+
+    def reports(self):
+        return sorted(f for f in os.listdir(self.state) if f.startswith("report-") and f != "report-latest.md")
 
     def state_json(self):
         return json.load(open(os.path.join(self.state, "state.json"), encoding="utf-8"))
 
     def branches(self):
         return [b.strip(" *") for b in git(self.repo, "branch", "--format=%(refname:short)").split()]
+
+
+
+class EndToEnd(Sandbox):
+    """The fixture through main(): branch with tests, installed registry, retrain."""
 
     def test_breaking_release_end_to_end_without_retrain_tool(self):
         code = self.run_main()
@@ -177,6 +208,35 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(code, 1)
         report = open(os.path.join(self.state, f"report-{adapt.TODAY}.md"), encoding="utf-8").read()
         self.assertIn("tests FAILED", report)
+
+
+class AstraReview(Sandbox):
+    """The risky paths from the Astra review (astra-compat-review-1.md)."""
+
+    # 1: concurrency
+    def test_a_second_run_fails_fast_while_the_lock_is_held(self):
+        os.makedirs(self.state)
+        holder = subprocess.Popen([sys.executable, "-c", f"import sys; sys.path.insert(0, {HERE!r}); import adapt; "
+                                   f"l = adapt.acquire_lock({self.state!r}); print('held' if l else 'no', flush=True); sys.stdin.read()"],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(holder.stdout.readline().strip(), "held")
+            self.assertEqual(self.run_main(), 2)
+            self.assertFalse(os.path.exists(os.path.join(self.state, "state.json")))
+        finally:
+            holder.stdin.close()
+            holder.wait()
+        self.assertEqual(self.run_main(), 1)  # lock released with the process
+
+    def test_a_registry_edited_during_the_run_is_not_overwritten(self):
+        installed = os.path.join(self.user, "models.toml")
+        # The "tests" stand in for Michael editing the registry while the branch builds.
+        self.assertEqual(self.run_main(test_cmd=self.script(f"open({installed!r}, 'a').write('# my edit\\n')")), 1)
+        text = self.installed()
+        self.assertIn("# my edit", text)
+        self.assertNotIn('id = "fable"', text)
+        self.assertIn("changed while this run was working", self.latest_report())
+        self.assertEqual([f for f in os.listdir(self.user) if f.endswith(".tmp")], [])
 
 
 if __name__ == "__main__":

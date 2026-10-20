@@ -147,6 +147,38 @@ def observe(providers, registry_text, state, live, work):
     return obs
 
 
+# ---- files --------------------------------------------------------------------------
+def acquire_lock(state_dir):
+    """Hold <state>/adapt.lock for the run. The OS drops it when the process dies, so a
+    crashed run never blocks the next one. Returns the open file, or None if held."""
+    fh = open(os.path.join(state_dir, "adapt.lock"), "a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.close()
+        return None
+    return fh
+
+
+def atomic_write(path, text):
+    """Write via a uniquely named temporary file beside `path`, then replace it."""
+    fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=os.path.dirname(path) or ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
 # ---- registry -----------------------------------------------------------------------
 def registry_models(text):
     return tomllib.loads(text).get("model", [])
@@ -358,23 +390,25 @@ def make_branch(repo, base, fixes, test_cmd, target_dir):
         git("worktree", "remove", "--force", wt, cwd=repo)
 
 
-def update_installed(path, fixes, report):
-    """Apply registry fixes to the installed models.toml; backup and diff first."""
+def update_installed(path, fixes, report, expected):
+    """Apply registry fixes to the installed models.toml; backup and diff first.
+
+    `expected` is the text this run read at its start. If the file no longer matches,
+    someone edited it meanwhile: their edit wins and this write is abandoned."""
     reg = [f for f in fixes if f["kind"].startswith("model-")]
     if not reg or not path or not os.path.exists(path):
         return None
-    text = open(path, encoding="utf-8").read()
-    new = edit_registry(text, reg)
-    if new == text:
+    new = edit_registry(expected, reg)
+    if new == expected:
+        return None
+    if open(path, encoding="utf-8").read() != expected:
+        report["installed_conflict"] = f"{path} changed while this run was working; it was left as it is"
         return None
     backup = f"{path}.bak-{TODAY}"
     if not os.path.exists(backup):
         shutil.copy2(path, backup)
-    diff = "".join(difflib.unified_diff(text.splitlines(True), new.splitlines(True), path, path + " (new)"))
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="") as fh:
-        fh.write(new)
-    os.replace(tmp, path)
+    diff = "".join(difflib.unified_diff(expected.splitlines(True), new.splitlines(True), path, path + " (new)"))
+    atomic_write(path, new)
     report["installed"] = {"path": path, "backup": backup, "diff": diff}
     return diff
 
@@ -442,6 +476,8 @@ def write_report(path, findings, rep):
                   f"tests {'passed' if b['tests_passed'] else 'FAILED'}; files {', '.join(b['files'])}")]
         if b.get("test_tail"):
             lines += ["", "```", b["test_tail"], "```"]
+    if rep.get("installed_conflict"):
+        lines += ["", f"Installed registry not updated: {rep['installed_conflict']}."]
     if rep.get("installed"):
         i = rep["installed"]
         lines += ["", f"Installed registry `{i['path']}` updated; backup `{i['backup']}`.", "", "```diff", i["diff"].rstrip(), "```"]
@@ -482,6 +518,18 @@ def main(argv=None):
     ap.add_argument("--fixture", help="observation JSON to use instead of the real CLIs (tests, drills)")
     args = ap.parse_args(argv)
     os.makedirs(args.state_dir, exist_ok=True)
+    lock = acquire_lock(args.state_dir)
+    if lock is None:
+        print(f"Another adapt.py run holds {os.path.join(args.state_dir, 'adapt.lock')}; "
+              "it releases when that run ends.", file=sys.stderr)
+        return 2
+    try:
+        return run(args)
+    finally:
+        lock.close()
+
+
+def run(args):
     state_path = os.path.join(args.state_dir, "state.json")
     state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
     installed, configured_ollama, selected = None, [], None
@@ -533,7 +581,7 @@ def main(argv=None):
     if bundled_fixes:
         rep["branch"] = make_branch(args.repo, args.base, bundled_fixes, args.test_cmd,
                                     args.target_dir or os.path.join(args.state_dir, "target"))
-    update_installed(installed, fixes, rep)
+    update_installed(installed, fixes, rep, routing)
 
     # The first run has nothing to compare with, so it compares with the registry before its own edits.
     state.setdefault("fingerprint", fingerprint(routing, args.repo))
@@ -545,15 +593,12 @@ def main(argv=None):
     state.update(versions={k: v for k, v in obs["versions"].items() if v} or prev.get("versions", {}),
                  help_flags={k: sorted(flags_in(v)) for k, v in obs["help"].items()} or prev.get("help_flags", {}),
                  probes={**state.get("probes", {}), **obs["probes"]}, last_run=TODAY)
-    tmp = state_path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(state, fh, indent=1)
-    os.replace(tmp, state_path)
+    atomic_write(state_path, json.dumps(state, indent=1))
     report = os.path.join(args.state_dir, f"report-{TODAY}.md")
     issues = write_report(report, findings, rep)
     print(open(report, encoding="utf-8").read())
     print(f"Report: {report}")
-    return 1 if issues or (rep.get("branch") or {}).get("tests_passed") is False else 0
+    return 1 if issues or rep.get("installed_conflict") or (rep.get("branch") or {}).get("tests_passed") is False else 0
 
 
 if __name__ == "__main__":
