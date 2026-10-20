@@ -753,5 +753,59 @@ class AstraReReview(Sandbox):
         self.assertIn("not needed", self.latest_report())
 
 
+
+class AstraRound3(Sandbox):
+    """The gaps from Astra's third review (astra-compat-review-3.md)."""
+
+    def path(self):
+        return os.path.join(self.user, "models.toml")
+
+    def backups(self):
+        return [f for f in os.listdir(self.user) if ".bak-" in f]
+
+    # New 1: a swap that fails or is interrupted never leaves the registry missing
+    def test_a_replacement_that_cannot_be_written_leaves_the_registry_in_place(self):
+        from unittest import mock
+        real = tempfile.mkstemp
+
+        def refuse_beside_registry(*a, **kw):
+            if os.path.samefile(kw.get("dir") or ".", self.user):
+                raise OSError(28, "No space left on device")
+            return real(*a, **kw)
+        with mock.patch.object(adapt.tempfile, "mkstemp", side_effect=refuse_beside_registry):
+            self.assertEqual(self.run_main(), 1)
+        self.assertEqual(self.installed(), REGISTRY)
+        self.assertIn("No space left on device", self.latest_report())
+        self.assertEqual(self.backups(), [])
+
+    def test_a_failed_final_move_puts_the_original_back(self):
+        from unittest import mock
+        real = adapt.rename_noreplace
+
+        def refuse(src, dst):
+            if src.endswith(".tmp"):
+                raise PermissionError(13, "Access is denied")
+            return real(src, dst)
+        with mock.patch.object(adapt, "rename_noreplace", side_effect=refuse):
+            self.assertEqual(self.run_main(), 1)
+        self.assertEqual(self.installed(), REGISTRY)
+        self.assertIn("Access is denied", self.latest_report())
+        self.assertEqual(self.backups(), [])
+        self.assertEqual([f for f in os.listdir(self.user) if f.endswith((".tmp", ".swap"))], [])
+
+    def test_an_interrupted_swap_is_repaired_by_the_next_run(self):
+        # What a run killed mid-swap leaves: the original moved to its backup, the
+        # journal naming it, and no registry.
+        backup = adapt.new_file(self.path() + ".bak-", "")
+        os.replace(self.path(), backup)
+        with open(self.path() + ".swap", "w", encoding="utf-8") as f:
+            f.write(backup)
+        self.run_main(fixture=self.clean_fixture())
+        self.assertIn("put back", self.latest_report())
+        self.assertIn('id = "gpt-5.6-luna"', self.installed())
+        self.assertFalse(os.path.exists(self.path() + ".swap"))
+        self.assertFalse(os.path.exists(backup))
+
+
 if __name__ == "__main__":
     unittest.main()

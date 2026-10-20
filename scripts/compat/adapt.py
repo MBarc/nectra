@@ -218,6 +218,36 @@ def rename_noreplace(src, dst):
         os.unlink(src)
 
 
+def rename_back(backup, path, what):
+    """Move `backup` back to `path` unless a file has appeared there. Text for the report."""
+    try:
+        rename_noreplace(backup, path)
+        return ""
+    except OSError:
+        return f"; {what} is in {backup}"
+
+
+SWAP = ".swap"  # beside the registry: names its backup while the registry is moved aside
+
+
+def recover_swap(path):
+    """Finish what a run killed mid-swap left: the registry missing, its original in the
+    backup the journal names. Returns a line for the report, or None."""
+    journal = path + SWAP if path else None
+    if not journal or not os.path.exists(journal):
+        return None
+    backup = open(journal, encoding="utf-8").read()
+    note = None
+    if not os.path.exists(path) and os.path.exists(backup):
+        rename_noreplace(backup, path)
+        note = f"an earlier run was stopped while replacing {path}; the original was put back from {backup}"
+    elif os.path.exists(backup) and not os.path.getsize(backup):
+        os.remove(backup)  # reserved, never filled: the earlier run stopped before moving anything
+    if os.path.exists(path):
+        os.remove(journal)
+    return note
+
+
 # Cargo and training jobs start children; the timeout must hold for all of them.
 run_bounded = check.run_bounded
 
@@ -567,30 +597,45 @@ def update_installed(path, fixes, report, expected):
     if open(path, encoding="utf-8").read() != expected:
         report["installed_conflict"] = conflict
         return None
-    # One backup per change, holding exactly what this run replaced.
-    backup = new_file(f"{path}.bak-", "")
+    # The new text is written in full before the original moves, and a journal names the
+    # backup while the registry is moved aside, so a killed run is repaired by the next.
+    tmp = journal = None
     try:
-        os.replace(path, backup)
-    except OSError as e:  # e.g. an editor holding it open without sharing deletes
-        os.remove(backup)
-        report["installed_conflict"] = f"{path} could not be moved aside ({e}); it was left as it is"
+        fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=os.path.dirname(path))
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+            fh.write(new)
+        backup = new_file(f"{path}.bak-", "")  # one per change, holding exactly what this run replaced
+        journal = path + SWAP
+        atomic_write(journal, backup)
+    except OSError as e:
+        for f in (tmp, journal):
+            if f and os.path.exists(f):
+                os.remove(f)
+        report["installed_conflict"] = f"the new {path} could not be written ({e}); it was left as it is"
         return None
-    if open(backup, encoding="utf-8").read() != expected:
+    try:
         try:
-            rename_noreplace(backup, path)
-        except OSError:
-            conflict += f"; the edited version is in {backup}"
-        report["installed_conflict"] = conflict
-        return None
-    fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=os.path.dirname(path))
-    with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-        fh.write(new)
-    try:
-        rename_noreplace(tmp, path)
-    except OSError:
-        os.remove(tmp)
-        report["installed_conflict"] = f"{conflict}; the version it would have replaced is in {backup}"
-        return None
+            os.replace(path, backup)
+        except OSError as e:  # e.g. an editor holding it open without sharing deletes
+            os.remove(backup)
+            report["installed_conflict"] = f"{path} could not be moved aside ({e}); it was left as it is"
+            return None
+        if open(backup, encoding="utf-8").read() != expected:
+            report["installed_conflict"] = conflict + rename_back(backup, path, "the edited version")
+            return None
+        try:
+            rename_noreplace(tmp, path)
+        except OSError as e:
+            if os.path.exists(path):
+                report["installed_conflict"] = f"{conflict}; the version it would have replaced is in {backup}"
+            else:
+                report["installed_conflict"] = f"{path} could not be replaced ({e})" + rename_back(backup, path, "the original")
+            return None
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        if os.path.exists(path):
+            os.remove(journal)
     diff = "".join(difflib.unified_diff(expected.splitlines(True), new.splitlines(True), path, path + " (new)"))
     report["installed"] = {"path": path, "backup": backup, "diff": diff}
     return diff
@@ -703,6 +748,8 @@ def write_report(path, findings, rep):
                   f"`{t['base']}`" + (f": {t['error']}" if t.get("error") else ".")]
         if t.get("test_tail"):
             lines += ["", "```", t["test_tail"], "```"]
+    if rep.get("recovered"):
+        lines += ["", f"Installed registry repaired: {rep['recovered']}."]
     if rep.get("installed_blocked"):
         lines += ["", f"Installed registry not updated: {rep['installed_blocked']}."]
     if rep.get("installed_conflict"):
@@ -788,6 +835,7 @@ def run(args, installed, configured_ollama, selected):
         atomic_write(state_path, json.dumps(state, indent=1))
     providers = choose_providers(args.providers, selected)
     bundled = open(os.path.join(args.repo, "config", "models.toml"), encoding="utf-8").read()
+    recovered = recover_swap(installed)
     routing = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
     def fp(text):
         return fingerprint(text, args.repo, selected, configured_ollama)
@@ -829,6 +877,8 @@ def run(args, installed, configured_ollama, selected):
            "models": {p: sorted(m.get("catalog") or m.get("listed") or []) for p, m in obs["models"].items()}}
     if obs.get("ollama") is not None:
         rep["models"]["ollama"] = obs["ollama"]
+    if recovered:
+        rep["recovered"] = recovered
     if args.nectra:
         p = subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "check.py"), "--nectra", args.nectra,
                             "--providers", ",".join(providers)] + (["--live"] if args.live else []),
