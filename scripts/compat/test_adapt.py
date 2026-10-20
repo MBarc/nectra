@@ -217,8 +217,8 @@ class AstraReview(Sandbox):
     # 1: concurrency
     def test_a_second_run_fails_fast_while_the_lock_is_held(self):
         os.makedirs(self.state)
-        holder = subprocess.Popen([sys.executable, "-c", f"import sys; sys.path.insert(0, {HERE!r}); import adapt; "
-                                   f"l = adapt.acquire_lock({self.state!r}); print('held' if l else 'no', flush=True); sys.stdin.read()"],
+        holder = subprocess.Popen([sys.executable, "-c", f"import os, sys; sys.path.insert(0, {HERE!r}); import adapt; "
+                                   f"l = adapt.acquire_lock(os.path.join({self.state!r}, 'adapt.lock')); print('held' if l else 'no', flush=True); sys.stdin.read()"],
                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         try:
             self.assertEqual(holder.stdout.readline().strip(), "held")
@@ -505,6 +505,63 @@ class AstraReview(Sandbox):
         self.assertEqual(code, 1)
         self.assertIn("timed out after 3s", self.latest_report())
         self.assertEqual(self.installed(), REGISTRY)
+
+
+class AstraReReview(Sandbox):
+    """The gaps from Astra's re-review (astra-compat-review-2.md)."""
+
+    def hold_lock(self, path):
+        holder = subprocess.Popen([sys.executable, "-c", f"import sys; sys.path.insert(0, {HERE!r}); import adapt; "
+                                   f"l = adapt.acquire_lock({path!r}); print('held' if l else 'no', flush=True); sys.stdin.read()"],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.assertEqual(holder.stdout.readline().strip(), "held")
+        return holder
+
+    def no_leftovers(self):
+        self.assertEqual([f for f in os.listdir(self.user) if f.endswith(".tmp")], [])
+
+    # 1: the registry write is a compare-and-swap, and its lock is the registry's own
+    def test_an_edit_just_before_the_swap_is_kept(self):
+        from unittest import mock
+        installed, real = os.path.join(self.user, "models.toml"), adapt.new_file
+
+        def edit_then_reserve(base, ext):
+            if ".bak-" in base:  # after the comparison, before the file is moved aside
+                open(installed, "a", encoding="utf-8").write("# my late edit\n")
+            return real(base, ext)
+        with mock.patch.object(adapt, "new_file", side_effect=edit_then_reserve):
+            self.assertEqual(self.run_main(), 1)
+        self.assertIn("# my late edit", self.installed())
+        self.assertNotIn('id = "fable"', self.installed())
+        self.assertIn("changed while this run was working", self.latest_report())
+        self.assertEqual([f for f in os.listdir(self.user) if ".bak-" in f], [])
+        self.no_leftovers()
+
+    def test_a_file_rewritten_during_the_swap_is_kept(self):
+        from unittest import mock
+        installed, real = os.path.join(self.user, "models.toml"), adapt.rename_noreplace
+
+        def rewrite_then_move(src, dst):
+            if dst == installed and src.endswith(".tmp"):
+                open(installed, "w", encoding="utf-8").write("# theirs\n")
+            return real(src, dst)
+        with mock.patch.object(adapt, "rename_noreplace", side_effect=rewrite_then_move):
+            self.assertEqual(self.run_main(), 1)
+        self.assertEqual(self.installed(), "# theirs\n")
+        self.assertIn("changed while this run was working", self.latest_report())
+        backups = [f for f in os.listdir(self.user) if ".bak-" in f]
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(open(os.path.join(self.user, backups[0]), encoding="utf-8").read(), REGISTRY)
+        self.no_leftovers()
+
+    def test_runs_with_different_state_dirs_share_the_registry_lock(self):
+        holder = self.hold_lock(os.path.join(self.user, "models.toml.lock"))
+        try:
+            self.assertEqual(self.run_main(), 2)
+            self.assertEqual(self.installed(), REGISTRY)
+        finally:
+            holder.stdin.close()
+            holder.wait()
 
 
 if __name__ == "__main__":

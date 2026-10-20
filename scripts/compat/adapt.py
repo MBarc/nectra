@@ -164,10 +164,10 @@ def observe(providers, registry_text, state, live, work, max_probes=3):
 
 
 # ---- files --------------------------------------------------------------------------
-def acquire_lock(state_dir):
-    """Hold <state>/adapt.lock for the run. The OS drops it when the process dies, so a
+def acquire_lock(path):
+    """Hold the lock file `path` for the run. The OS drops it when the process dies, so a
     crashed run never blocks the next one. Returns the open file, or None if held."""
-    fh = open(os.path.join(state_dir, "adapt.lock"), "a+")
+    fh = open(path, "a+")
     try:
         if os.name == "nt":
             import msvcrt
@@ -206,6 +206,16 @@ def atomic_write(path, text):
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
+
+
+def rename_noreplace(src, dst):
+    """Move `src` to `dst`, failing if `dst` exists. os.rename already refuses on
+    Windows; elsewhere a hard link does, then the source name goes."""
+    if os.name == "nt":
+        os.rename(src, dst)
+    else:
+        os.link(src, dst)
+        os.unlink(src)
 
 
 def run_bounded(cmd, timeout, **kw):
@@ -507,22 +517,45 @@ def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
 def update_installed(path, fixes, report, expected):
     """Apply registry fixes to the installed models.toml; backup and diff first.
 
-    `expected` is the text this run read at its start. If the file no longer matches,
-    someone edited it meanwhile: their edit wins and this write is abandoned."""
+    `expected` is the text this run read at its start. The write is a compare-and-swap:
+    the file is moved aside to its backup name and the moved text compared, then the
+    new text is moved in only if no file has appeared at `path` meanwhile. An edit at any
+    point before that last move is kept and the write abandoned."""
     reg = [f for f in fixes if f["kind"].startswith("model-")]
     if not reg or not path or not os.path.exists(path):
         return None
     new = edit_registry(expected, reg)
     if new == expected:
         return None
+    conflict = f"{path} changed while this run was working; it was left as it is"
     if open(path, encoding="utf-8").read() != expected:
-        report["installed_conflict"] = f"{path} changed while this run was working; it was left as it is"
+        report["installed_conflict"] = conflict
         return None
     # One backup per change, holding exactly what this run replaced.
     backup = new_file(f"{path}.bak-", "")
-    shutil.copy2(path, backup)
+    try:
+        os.replace(path, backup)
+    except OSError as e:  # e.g. an editor holding it open without sharing deletes
+        os.remove(backup)
+        report["installed_conflict"] = f"{path} could not be moved aside ({e}); it was left as it is"
+        return None
+    if open(backup, encoding="utf-8").read() != expected:
+        try:
+            rename_noreplace(backup, path)
+        except OSError:
+            conflict += f"; the edited version is in {backup}"
+        report["installed_conflict"] = conflict
+        return None
+    fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=os.path.dirname(path))
+    with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+        fh.write(new)
+    try:
+        rename_noreplace(tmp, path)
+    except OSError:
+        os.remove(tmp)
+        report["installed_conflict"] = f"{conflict}; the version it would have replaced is in {backup}"
+        return None
     diff = "".join(difflib.unified_diff(expected.splitlines(True), new.splitlines(True), path, path + " (new)"))
-    atomic_write(path, new)
     report["installed"] = {"path": path, "backup": backup, "diff": diff}
     return diff
 
@@ -679,29 +712,35 @@ def main(argv=None):
     ap.add_argument("--max-probes", type=int, default=3, help="new-model probe turns per run (default 3)")
     args = ap.parse_args(argv)
     os.makedirs(args.state_dir, exist_ok=True)
-    lock = acquire_lock(args.state_dir)
-    if lock is None:
-        print(f"Another adapt.py run holds {os.path.join(args.state_dir, 'adapt.lock')}; "
-              "it releases when that run ends.", file=sys.stderr)
-        return 2
-    try:
-        return run(args)
-    finally:
-        lock.close()
-
-
-def run(args):
-    state_path = os.path.join(args.state_dir, "state.json")
-    state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
-
-    def save():
-        atomic_write(state_path, json.dumps(state, indent=1))
     installed, configured_ollama, selected = None, [], None
     if args.config != "none" and os.path.exists(args.config):
         cfg = tomllib.loads(open(args.config, encoding="utf-8").read())
         installed = os.path.join(os.path.dirname(args.config), cfg.get("registry", "models.toml"))
         configured_ollama = [m["name"] for m in cfg.get("ollama", {}).get("models", [])]
         selected = cfg.get("providers")
+    # The state lock keeps runs sharing a state dir apart; the lock beside the installed
+    # registry keeps apart runs with different state dirs that would write the same file.
+    locks = [os.path.join(args.state_dir, "adapt.lock")] + ([installed + ".lock"] if installed else [])
+    held = []
+    try:
+        for path in locks:
+            lock = acquire_lock(path)
+            if lock is None:
+                print(f"Another adapt.py run holds {path}; it releases when that run ends.", file=sys.stderr)
+                return 2
+            held.append(lock)
+        return run(args, installed, configured_ollama, selected)
+    finally:
+        for lock in held:
+            lock.close()
+
+
+def run(args, installed, configured_ollama, selected):
+    state_path = os.path.join(args.state_dir, "state.json")
+    state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
+
+    def save():
+        atomic_write(state_path, json.dumps(state, indent=1))
     providers = choose_providers(args.providers, selected)
     bundled = open(os.path.join(args.repo, "config", "models.toml"), encoding="utf-8").read()
     routing = open(installed, encoding="utf-8").read() if installed and os.path.exists(installed) else bundled
