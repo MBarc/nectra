@@ -79,6 +79,17 @@ def contract(nectra, providers, cfg):
 QUESTION = "What is 6 times 7? Reply with just the number."
 
 
+def stream_cmd(runtime, model):
+    """One raw stream-json turn, as adapt.py runs it to check formats and probe models.
+    It lives here, by FLAGS, so adapt.py's generated flag renames update it as well."""
+    return {
+        "claude": ["claude", "-p", "--model", model, "--output-format", "stream-json", "--verbose",
+                   "--no-session-persistence", QUESTION],
+        "codex": ["codex", "exec", "--model", model, "--json", "--ephemeral", "--sandbox", "read-only", QUESTION],
+        "gemini": ["gemini", "-m", model, "-o", "stream-json", "-p", QUESTION],
+    }[runtime]
+
+
 def live_stream(nectra, cfg, work, provider):
     model = CHEAP[provider]
     # In the trusted work folder: Codex refuses to run elsewhere outside a git repo.

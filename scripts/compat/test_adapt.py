@@ -362,6 +362,18 @@ class AstraReview(Sandbox):
         self.assertEqual(len(unclear), 1)
         self.assertIn("shared.rs:1", unclear[0])
 
+    # 6: the loop's own probe commands follow a generated rename
+    def test_the_fix_branch_also_renames_the_probe_commands(self):
+        self.run_main()
+        branch = [b for b in self.branches() if b.startswith("compat/auto-")][0]
+        ns = {"__file__": os.path.join(self.repo, "scripts", "compat", "check.py"), "__name__": "branch_check"}
+        exec(git(self.repo, "show", f"{branch}:scripts/compat/check.py"), ns)
+        codex = ns["stream_cmd"]("codex", "gpt-6-luna")
+        self.assertIn("--ephemeral-session", codex)
+        self.assertNotIn("--ephemeral", codex)
+        self.assertIn("--no-session-persistence", ns["stream_cmd"]("claude", "haiku"))
+        self.assertIs(adapt.check.stream_cmd, adapt.stream_cmd)
+
 
 if __name__ == "__main__":
     unittest.main()

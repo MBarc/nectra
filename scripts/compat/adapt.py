@@ -33,13 +33,8 @@ STREAM_NEEDS = {
 RUNTIME = {"anthropic": "claude", "openai": "codex", "google": "gemini"}
 
 
-def stream_cmd(runtime, model):
-    return {
-        "claude": ["claude", "-p", "--model", model, "--output-format", "stream-json", "--verbose",
-                   "--no-session-persistence", QUESTION],
-        "codex": ["codex", "exec", "--model", model, "--json", "--ephemeral", "--sandbox", "read-only", QUESTION],
-        "gemini": ["gemini", "-m", model, "-o", "stream-json", "-p", QUESTION],
-    }[runtime]
+# In check.py, beside FLAGS, so a generated flag rename updates the probes too.
+stream_cmd = check.stream_cmd
 
 
 # ---- observe ------------------------------------------------------------------------
