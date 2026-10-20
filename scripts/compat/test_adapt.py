@@ -415,8 +415,11 @@ class AstraReview(Sandbox):
     # 8: branch outcomes always reach the exit status
     def test_an_existing_branch_keeps_its_failed_test_result(self):
         clean = self.clean_fixture()
-        self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)"), fixture=clean), 1)
-        self.assertEqual(self.run_main(fixture=clean), 1)
+        once = os.path.join(self.tmp, "failed-once").replace("\\", "/")
+        # Fails the first time only: the second run must answer from the branch, not rerun.
+        flaky = self.script(f"import os, sys; sys.exit(0 if os.path.exists('{once}') else open('{once}', 'w') and 1)")
+        self.assertEqual(self.run_main(test_cmd=flaky, fixture=clean), 1)
+        self.assertEqual(self.run_main(test_cmd=flaky, fixture=clean), 1)
         self.assertIn("tests FAILED", self.latest_report())
         self.assertEqual(self.installed(), REGISTRY)
 
@@ -700,6 +703,29 @@ class AstraReReview(Sandbox):
             self.assertEqual(self.run_main(fixture=self.clean_fixture()), 1)
         self.assertIn("Cleanup failed", self.latest_report())
         self.assertIn("simulated delete failure", self.latest_report())
+
+
+    # New 2: a cached branch result counts only for the same base commit and test command
+    def auto_branches(self):
+        return [b for b in self.branches() if b.startswith("compat/auto-")]
+
+    def test_a_stricter_test_command_is_not_answered_from_the_cache(self):
+        clean = self.clean_fixture()
+        self.assertEqual(self.run_main(fixture=clean), 0)
+        self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)"), fixture=clean), 1)
+        self.assertIn("tests FAILED", self.latest_report())
+        self.assertEqual(len(self.auto_branches()), 2)
+
+    def test_a_new_base_commit_is_tested_again(self):
+        clean = self.clean_fixture()
+        self.assertEqual(self.run_main(fixture=clean), 0)
+        with open(os.path.join(self.repo, "README"), "w") as f:
+            f.write("moved on\n")
+        git(self.repo, "add", "README")
+        git(self.repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "later")
+        self.assertEqual(self.run_main(test_cmd=self.script("raise SystemExit(1)"), fixture=clean), 1)
+        self.assertIn("tests FAILED", self.latest_report())
+        self.assertEqual(len(self.auto_branches()), 2)
 
 
 if __name__ == "__main__":

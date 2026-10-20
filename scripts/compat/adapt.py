@@ -493,17 +493,23 @@ def test_registry(repo, base, text, test_cmd, target_dir, timeout):
 
 def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
     """Apply the fixes on compat/auto-<hash> in a throwaway worktree. Returns a summary dict."""
-    digest = hashlib.sha256(json.dumps([f["detail"] for f in fixes], sort_keys=True).encode()).hexdigest()[:8]
-    branch = f"compat/auto-{digest}"
+    code, base_sha = git("rev-parse", "--verify", "--quiet", base + "^{commit}", cwd=repo)
+    if code:
+        return {"branch": "(not made)", "error": f"base {base} is not a commit"}
+    # The name covers the fixes, the exact base commit and the test command, so an earlier
+    # result is reused only for the same change tested the same way.
+    key = json.dumps({"fixes": [f["detail"] for f in fixes], "base": base_sha, "test": test_cmd}, sort_keys=True)
+    branch = f"compat/auto-{hashlib.sha256(key.encode()).hexdigest()[:8]}"
     if git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", cwd=repo)[0] == 0:
-        # An earlier run made it; its commit message records how its tests went.
+        # An earlier run made it; its commit, made on the base, records how its tests went.
         m = re.search(r"^Tests \(.*\): (passed|FAILED)$", git("log", "-1", "--format=%B", branch, cwd=repo)[1], re.M)
-        return {"branch": branch, "existing": True, "tests_passed": m.group(1) == "passed" if m else None}
+        on_base = git("rev-parse", f"{branch}^", cwd=repo) == (0, base_sha)
+        return {"branch": branch, "existing": True, "tests_passed": m.group(1) == "passed" if m and on_base else None}
     wt = tempfile.mkdtemp(prefix="nectra-compat-fix-")
     os.rmdir(wt)
     committed, result = False, {"branch": branch}
     try:
-        code, out = git("worktree", "add", "-q", "-b", branch, wt, base, cwd=repo)
+        code, out = git("worktree", "add", "-q", "-b", branch, wt, base_sha, cwd=repo)
         if code:  # the branch may exist already, pointing at the base
             result["error"] = f"git worktree add: {out}"
             return result
