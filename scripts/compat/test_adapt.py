@@ -346,22 +346,35 @@ class AstraReview(Sandbox):
         self.assertNotIn("fix", found[0])
         self.assertIn("codex exec resume --help", found[0]["detail"])
 
-    def test_rename_touches_only_the_affected_providers_code(self):
+    def test_a_rename_updates_shared_code_deliberately(self):
+        # Astra's case: a permissions filter shared by every runtime, nearest to a "gemini"
+        # literal, and Codex's own launch code. All of it must move together.
         src = os.path.join(self.repo, "src", "executor", "two.rs")
         with open(src, "w") as f:
-            f.write('match rt {\n    "codex" => args.push("--ephemeral"),\n    "claude" => args.push("--ephemeral"),\n}\n')
-        plan, unclear = adapt.rename_plan(self.repo, "codex", "--ephemeral", "--ephemeral-session")
-        self.assertEqual(unclear, [])
-        self.assertIn('"codex" => args.push("--ephemeral-session")', plan[src])
-        self.assertIn('"claude" => args.push("--ephemeral")', plan[src])
+            f.write('let rt = match d.runtime { "gemini" => &cfg.gemini, _ => &cfg.codex };\n'
+                    'if ["--ephemeral", "--permission-mode"].contains(&flag) { continue; }\n'
+                    'match rt { "codex" => args.push("--ephemeral"), _ => {} }\n'
+                    '// "--ephemeral=1" is the same flag\n')
+        plan = adapt.rename_plan(self.repo, "--ephemeral", "--ephemeral-session")
+        self.assertNotIn('"--ephemeral"', plan[src])
+        self.assertEqual(plan[src].count("--ephemeral-session"), 3)
         self.assertIn(os.path.join(self.repo, "scripts", "compat", "check.py"), plan)
 
-    def test_an_occurrence_no_provider_owns_blocks_the_rename(self):
-        with open(os.path.join(self.repo, "src", "executor", "shared.rs"), "w") as f:
-            f.write('const ALL: &[&str] = &["--ephemeral"];\n')
-        plan, unclear = adapt.rename_plan(self.repo, "codex", "--ephemeral", "--ephemeral-session")
-        self.assertEqual(len(unclear), 1)
-        self.assertIn("shared.rs:1", unclear[0])
+    def test_a_flag_another_cli_uses_is_not_renamed(self):
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        prev = fx.pop("previous_state")
+        fx["help"]["claude --help"] += "  --ephemeral  something\n"
+        found = [f for f in adapt.analyse(fx, prev, REGISTRY) if f["kind"] == "flag" and "--ephemeral" in f["detail"]]
+        self.assertEqual(len(found), 1)
+        self.assertNotIn("fix", found[0])
+        self.assertIn("claude", found[0]["detail"])
+        # What the previous run saw counts too, for a CLI not checked this time.
+        fx = json.load(open(FIXTURE, encoding="utf-8"))
+        prev = fx.pop("previous_state")
+        del fx["help"]["claude --help"]
+        prev["help_flags"]["claude --help"].append("--ephemeral")
+        found = [f for f in adapt.analyse(fx, prev, REGISTRY) if f["kind"] == "flag" and "--ephemeral" in f["detail"]]
+        self.assertNotIn("fix", found[0])
 
     # 6: the loop's own probe commands follow a generated rename
     def test_the_fix_branch_also_renames_the_probe_commands(self):

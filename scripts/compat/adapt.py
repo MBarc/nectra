@@ -337,13 +337,20 @@ def analyse(obs, prev, registry_text):
             # Another subcommand of the same CLI that still lists it shares the literal.
             still = [k for k, fl in check.FLAGS.items() if k != cmd and k[0] == cmd[0] and flag in fl
                      and re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])", obs["help"].get(" ".join(k), ""))]
-            if len(close) == 1 and not SAFETY.search(flag) and not SAFETY.search(close[0]) and not still:
+            # A rename changes every occurrence in Nectra, shared code included, so it is only
+            # mechanical for a flag no other CLI is known to use: now, last run, or in FLAGS.
+            others = sorted({k[0] for k, fl in check.FLAGS.items() if k[0] != cmd[0] and flag in fl}
+                            | {k.split()[0] for k, text in obs["help"].items() if k.split()[0] != cmd[0] and flag in flags_in(text)}
+                            | {k.split()[0] for k, fl in prev.get("help_flags", {}).items() if k.split()[0] != cmd[0] and flag in fl})
+            if len(close) == 1 and not SAFETY.search(flag) and not SAFETY.search(close[0]) and not still and not others:
                 out.append({"kind": "flag", "fix": True, "runtime": cmd[0], "old": flag, "new": close[0],
                             "detail": f"`{key}` renamed {flag} to {close[0]}"})
                 continue
             if SAFETY.search(flag) or (len(close) == 1 and SAFETY.search(close[0])):
                 why = ("it controls a provider safety check" if SAFETY.search(flag)
                        else f"its likely replacement {close[0]} controls a provider safety check")
+            elif len(close) == 1 and others:
+                why = f"probably now {close[0]}, but {', '.join(others)} also uses {flag}, and Nectra's code may share it"
             elif len(close) == 1:
                 why = f"probably now {close[0]}, but `{' '.join(still[0])}` still lists it"
             else:
@@ -421,33 +428,21 @@ def git(*args, cwd=ROOT):
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
-RUNTIME_LABEL = re.compile(r'"(claude|codex|gemini)"')
-
-
-def rename_plan(root, runtime, old, new):
-    """New text per file with `old` renamed where `runtime`'s command is built, and the
-    occurrences no runtime clearly owns.
-
-    An occurrence belongs to the runtime named by the nearest preceding "claude",
-    "codex" or "gemini" literal within 40 lines (a match arm, a FLAGS key). Other
-    runtimes' occurrences stay as they are; an unowned one makes the rename unsafe."""
-    paths = [os.path.join(d, f) for d, _, fs in os.walk(os.path.join(root, "src")) for f in fs if f.endswith(".rs")]
-    plan, unclear = {}, []
+def rename_plan(root, old, new):
+    """New text per file, with every occurrence of the flag `old` renamed to `new`: in the
+    Rust sources and tests, shared code such as the permissions filter included, and in
+    check.py. analyse() proposes a rename only for a flag no other CLI uses, so every
+    occurrence is that CLI's."""
+    word = re.compile(rf"(?<![\w-]){re.escape(old)}(?![\w-])")
+    paths = [os.path.join(d, f) for top in ("src", "tests") for d, _, fs in os.walk(os.path.join(root, top))
+             for f in fs if f.endswith(".rs")]
+    plan = {}
     for path in paths + [os.path.join(root, "scripts", "compat", "check.py")]:
         text = open(path, encoding="utf-8").read()
-        literal, out, last = f'"{old}"', [], 0
-        for m in re.finditer(re.escape(literal), text):
-            before = text[:m.start()].split("\n")
-            owners = RUNTIME_LABEL.findall("\n".join(before[-40:]))
-            line = len(before)
-            if not owners:
-                unclear.append(f"{os.path.relpath(path, root)}:{line}")
-            elif owners[-1] == runtime:
-                out += [text[last:m.start()], f'"{new}"']
-                last = m.end()
-        if last:
-            plan[path] = "".join(out) + text[last:]
-    return plan, unclear
+        renamed = word.sub(lambda m: new, text)
+        if renamed != text:
+            plan[path] = renamed
+    return plan
 
 
 def run_tests(wt, test_cmd, target_dir, timeout):
@@ -494,10 +489,7 @@ def make_branch(repo, base, fixes, test_cmd, target_dir, timeout=3600):
         touched = []
         for f in fixes:
             if f["kind"] == "flag":
-                plan, unclear = rename_plan(wt, f["runtime"], f["old"], f["new"])
-                if unclear:
-                    raise ValueError(f"{f['old']} has occurrences no provider owns on {base}: {unclear}")
-                for path, text in plan.items():
+                for path, text in rename_plan(wt, f["old"], f["new"]).items():
                     with open(path, "w", encoding="utf-8", newline="") as fh:
                         fh.write(text)
                     touched.append(os.path.relpath(path, wt).replace("\\", "/"))
@@ -816,11 +808,11 @@ def run(args, installed, configured_ollama, selected):
     for f in fixes:
         if f["kind"] != "flag":
             continue
-        plan, unclear = rename_plan(args.repo, f["runtime"], f["old"], f["new"])
-        if unclear or not [p for p in plan if p.endswith(".rs")]:
+        literal = re.compile(rf'"{re.escape(f["old"])}(?![\w-])')
+        if not [p for p in rename_plan(args.repo, f["old"], f["new"])
+                if p.endswith(".rs") and literal.search(open(p, encoding="utf-8").read())]:
             f.pop("fix")
-            f["detail"] += (f", but {f['old']} also appears where no provider owns it: {', '.join(unclear)}" if unclear
-                            else f", but Nectra's {f['runtime']} code doesn't pass it literally")
+            f["detail"] += ", but Nectra's code doesn't pass it literally"
     fixes = [f for f in fixes if f.get("fix")]
     def changes_bundled(f):
         try:
