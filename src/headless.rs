@@ -400,7 +400,7 @@ impl Ledger {
                 continue;
             };
             let p = &entry["payload"];
-            if p["type"] == "turn_context" {
+            if entry["type"] == "turn_context" {
                 r.model = p["model"].as_str().map(String::from).or(r.model.take());
             }
             let total = &p["info"]["total_token_usage"];
@@ -1164,8 +1164,9 @@ mod tests {
         let d = decision("codex", "gpt-5.6-luna");
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("rollout-x-thread-1.jsonl");
-        let context =
-            json!({"type":"turn_context","payload":{"type":"turn_context","model":"gpt-5.6-luna"}});
+        // As Codex 0.162.1 writes it: the kind is the entry's, not the payload's.
+        // The answering model differs from the routed one, which must not be used.
+        let context = json!({"type":"turn_context","payload":{"turn_id":"t","model":"gpt-5.6-sol"}});
         // Turn 1 as Codex 0.162.1 logged it: running totals after each call.
         std::fs::write(
             &path,
@@ -1207,6 +1208,7 @@ mod tests {
         );
         assert!(complete);
         assert_eq!(l.calls.len(), 2, "one entry per model call");
+        assert_eq!(l.models()[0].0.model, "gpt-5.6-sol", "the model that answered");
     }
 
     #[test]

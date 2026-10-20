@@ -169,7 +169,7 @@ fn fake_codex(args: &[String], prompt: &str) {
                 .append(true)
                 .open(path)
                 .unwrap();
-            let context = json!({"type":"turn_context","payload":{"type":"turn_context","model":"gpt-5.6-luna"}});
+            let context = json!({"type":"turn_context","payload":{"turn_id":"t","model":"gpt-5.6-luna"}});
             let count = json!({"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":total}}});
             writeln!(f, "{context}\n{count}").unwrap();
         }
