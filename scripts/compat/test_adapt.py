@@ -728,5 +728,20 @@ class AstraReReview(Sandbox):
         self.assertEqual(len(self.auto_branches()), 2)
 
 
+    # New 3: a model the installed registry leaves out does not block its other changes
+    def test_a_retirement_of_an_omitted_model_does_not_block_other_changes(self):
+        start = REGISTRY.index('[[model]]\nid = "gpt-5.6-luna"')
+        without_luna = REGISTRY[:start] + REGISTRY[REGISTRY.index("[[model]]", start + 1):]
+        with open(os.path.join(self.user, "models.toml"), "w", encoding="utf-8") as f:
+            f.write(without_luna)
+        self.run_main()
+        self.assertNotIn("could not be edited safely", self.latest_report())
+        ids = {m["id"] for m in adapt.registry_models(self.installed())}
+        self.assertIn("gpt-7-nova", ids)
+        self.assertNotIn("gpt-5.6-luna", ids)
+        with self.assertRaises(ValueError):  # a direct call stays strict
+            adapt.disable_model(without_luna, "gpt-5.6-luna")
+
+
 if __name__ == "__main__":
     unittest.main()

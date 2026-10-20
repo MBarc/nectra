@@ -296,7 +296,8 @@ def edit_registry(text, fixes):
     for f in fixes:
         if f["kind"] == "model-new" and f["id"] not in registry_ids(text):
             text = add_model(text, f["id"], f["provider"], f["source"])
-        elif f["kind"] == "model-retired":
+        elif f["kind"] == "model-retired" and f["id"] in registry_ids(text):
+            # A registry may leave a model out on purpose; one it has must be disabled for real.
             text = disable_model(text, f["id"])
     validate_registry(text)
     return text
