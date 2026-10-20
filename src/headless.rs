@@ -292,8 +292,8 @@ impl Ledger {
             }
             "gemini" => match kind {
                 "result" => {
-                    let mut total = Usage::default();
-                    for (model, u) in event["stats"]["models"].as_object().into_iter().flatten() {
+                    let models = event["stats"]["models"].as_object();
+                    for (model, u) in models.into_iter().flatten() {
                         let n = |k: &str| u[k].as_u64().unwrap_or(0);
                         let t = Usage {
                             input: n("input"),
@@ -301,11 +301,14 @@ impl Ledger {
                             output: n("output_tokens"),
                             ..Usage::default()
                         };
-                        total.add(t);
                         // Gemini's stream stats leave out thinking tokens.
                         self.call(d, model, t, false);
                     }
-                    self.reported = Some(total);
+                    // A result without per-model stats is no count at all.
+                    match models.is_some_and(|m| !m.is_empty()) {
+                        true => self.reported = Some(Usage::default()),
+                        false => self.worked = true,
+                    }
                 }
                 "init" => {}
                 _ => self.worked = true,
@@ -1404,6 +1407,16 @@ mod tests {
         assert!(!models[1].2, "Gemini leaves out thinking tokens");
         // Gemini has no price: the total is not claimed as complete.
         assert!(!l.cost().1);
+    }
+
+    #[test]
+    fn a_gemini_result_without_stats_is_not_complete() {
+        let d = decision("gemini", "gemini-x");
+        let mut l = Ledger::default();
+        l.begin(&d, None, false);
+        l.observe(&d, &json!({"type":"result","status":"success","stats":{}}));
+        l.finish(&d);
+        assert!(!total(&l).1);
     }
 
     #[test]
