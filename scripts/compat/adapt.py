@@ -77,7 +77,7 @@ def parse_codex_catalog(code, out):
         catalog = {m["slug"]: m.get("visibility", "list") for m in models}
     except (ValueError, KeyError, TypeError, AttributeError):
         return None, f"`codex debug models` printed no readable catalog: {check.last_lines(out, 2)[:200]}"
-    if not catalog or not all(isinstance(k, str) and k for k in catalog):
+    if not catalog or not all(isinstance(k, str) and k and isinstance(v, str) for k, v in catalog.items()):
         return None, "`codex debug models` returned an empty or malformed catalog"
     return catalog, None
 
@@ -295,6 +295,16 @@ def disable_model(text, mid):
     if new == text or registry_models(new) != expected:
         raise ValueError(f"cannot disable {mid}: its `enabled` line is not in a form this script edits safely")
     return new
+
+
+def emptied(text, fixes):
+    """Providers with enabled models in `text` that `fixes` would retire them all from."""
+    retired = {f["id"] for f in fixes if f["kind"] == "model-retired" and f.get("fix")}
+    enabled = {}
+    for m in registry_models(text):
+        if m["enabled"]:
+            enabled.setdefault(m["provider"], set()).add(m["id"])
+    return sorted(p for p, ids in enabled.items() if ids <= retired)
 
 
 def edit_registry(text, fixes):
@@ -770,7 +780,15 @@ def run(args, installed, configured_ollama, selected):
     if routing != bundled:
         seen = {f["detail"] for f in findings}
         findings += [f for f in analyse({**obs, "streams": {}, "help": {}, "versions": {}}, prev, routing)
-                     if f["detail"] not in seen and f["kind"].startswith("model-")]
+                     if f["detail"] not in seen and (f["kind"].startswith("model-") or f["kind"] == "discovery")]
+    # Retiring every enabled model of a provider means the discovery is suspect, whichever
+    # registry it would empty, so none of that provider's retirements are applied.
+    for p in sorted({p for text in {bundled, routing} for p in emptied(text, findings)}):
+        for f in findings:
+            if f["kind"] == "model-retired" and f.get("provider") == p:
+                f.pop("fix", None)
+        findings.append({"kind": "discovery", "detail": f"retiring {p}'s missing models would leave {p} with no "
+                         "enabled model in a registry; not trusting the discovery to do that"})
     fixes = [f for f in findings if f.get("fix")]
     rep = {"versions": obs["versions"],
            "models": {p: sorted(m.get("catalog") or m.get("listed") or []) for p, m in obs["models"].items()}}

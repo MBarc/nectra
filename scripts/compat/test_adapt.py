@@ -564,5 +564,27 @@ class AstraReReview(Sandbox):
             holder.wait()
 
 
+    # 2: the whole catalog is validated, and the all-retirement guard sees every registry
+    def test_a_catalog_with_malformed_visibility_is_rejected(self):
+        for vis in ("{}", "7", "null", "[\"list\"]"):
+            out = '{"models": [{"slug": "gpt-5.6-sol", "visibility": %s}]}' % vis
+            catalog, error = adapt.parse_codex_catalog(0, out)
+            self.assertIsNone(catalog, vis)
+            self.assertTrue(error)
+        self.assertEqual(adapt.parse_codex_catalog(0, '{"models": [{"slug": "a"}, {"slug": "b", "visibility": "hide"}]}'),
+                         ({"a": "list", "b": "hide"}, None))
+
+    def test_retiring_every_enabled_model_of_the_installed_registry_is_refused(self):
+        only_luna = REGISTRY
+        for mid in ("gpt-5.6-sol", "gpt-6-astra"):
+            only_luna = adapt.disable_model(only_luna, mid)
+        with open(os.path.join(self.user, "models.toml"), "w", encoding="utf-8") as f:
+            f.write(only_luna)
+        self.assertEqual(self.run_main(), 1)
+        luna = {m["id"]: m for m in adapt.registry_models(self.installed())}["gpt-5.6-luna"]
+        self.assertTrue(luna["enabled"])
+        self.assertIn("would leave openai with no enabled model", self.latest_report())
+
+
 if __name__ == "__main__":
     unittest.main()
