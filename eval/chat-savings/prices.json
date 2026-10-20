@@ -1,5 +1,6 @@
 {
-  "_note": "USD per million tokens. Third-party sources, checked 2026-10-16; confirm on the providers' pricing pages. Claude cache_write is the 1-hour rate (2x input), cache_write_5m the 5-minute rate (1.25x input). Haiku 5.5 cache rates assume Anthropic's usual multipliers (read 0.1x, 1h write 2x input).",
+  "_note": "USD per million tokens. Third-party sources, checked 2026-10-16; confirm on the providers' pricing pages. Claude cache_write is the 1-hour rate (2x input), cache_write_5m the 5-minute rate (1.25x input). Haiku 5.5 cache rates assume Anthropic's usual multipliers (read 0.1x, 1h write 2x input). _aliases maps the full model names providers report to these ids; other versions are unpriced.",
+  "_aliases": {"claude-opus-5-5": "opus", "claude-sonnet-5-5": "sonnet", "claude-haiku-5-5": "haiku"},
   "opus":         {"input": 4.00, "cache_read": 0.20, "cache_write": 8.00, "cache_write_5m": 5.00, "output": 20.00},
   "sonnet":       {"input": 2.00, "cache_read": 0.20, "cache_write": 4.00, "cache_write_5m": 2.50, "output": 10.00},
   "haiku":        {"input": 0.10, "cache_read": 0.01, "cache_write": 0.20, "cache_write_5m": 0.125, "output": 0.50},

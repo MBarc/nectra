@@ -25,7 +25,8 @@ const PRICES: &str = include_str!("../eval/chat-savings/prices.json");
 
 /// USD per million tokens (input, cache read, cache write, output) for the
 /// models in `eval/chat-savings/prices.json`. Claude Code logs full names
-/// (`claude-opus-5-5`), which resolve to their short ids.
+/// (`claude-opus-5-5`); those listed under `_aliases` resolve to their short
+/// ids, and any other version has no price.
 pub fn price(model: &str) -> Option<[f64; 4]> {
     let n = |k: &str| price_of(model, k);
     Some([
@@ -41,11 +42,8 @@ pub fn price_cache_write_5m(model: &str) -> Option<f64> {
     price_of(model, "cache_write_5m").or_else(|| price_of(model, "cache_write"))
 }
 fn price_of(model: &str, key: &str) -> Option<f64> {
-    let id = ["opus", "sonnet", "haiku"]
-        .into_iter()
-        .find(|s| model.starts_with("claude-") && model.contains(s))
-        .unwrap_or(model);
     let prices: Value = serde_json::from_str(PRICES).ok()?;
+    let id = prices["_aliases"][model].as_str().unwrap_or(model);
     prices[id][key].as_f64()
 }
 
@@ -566,6 +564,16 @@ pub fn render(report: &Report, baseline: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_listed_model_versions_get_a_price() {
+        assert_eq!(price("claude-haiku-5-5"), price("haiku"));
+        assert!(price("claude-opus-5-5").is_some());
+        // Another version of a family isn't assumed to cost the same.
+        assert_eq!(price("claude-opus-4-8"), None);
+        assert_eq!(price("claude-haiku-9-9-preview"), None);
+        assert_eq!(price("_aliases"), None);
+    }
 
     #[test]
     fn totals_come_from_each_providers_own_log() {
