@@ -304,6 +304,7 @@ nectra route "write tests for the parser"       # decide only: prints the JSON d
 nectra --dry-run --mode fast "rename userId"    # same, with a routing mode
 nectra run "write tests for the parser"         # decide and run once, then exit
 nectra --model sonnet run "review this diff"    # skip the decision
+nectra run --events jsonl "fix the failing test" # unattended: JSON events, exact usage and cost
 cat task.txt | nectra route --stdin             # long or multiline prompts
 nectra eval eval/tasks.json                     # score the classifier against a corpus
 ```
@@ -317,7 +318,7 @@ lines or start with a dash.
 |---|---|
 | `nectra` or `nectra chat` | One conversation, routed message by message. `-c` continues the latest chat here; `--session FILE` or `--resume FILE`. |
 | `route [PROMPT]` | Prints the routing decision as JSON. Never launches a model. |
-| `run [PROMPT]` | Routes and runs once. The provider CLI's exit code is passed through. |
+| `run [PROMPT]` | Routes and runs once. The provider CLI's exit code is passed through. With `--events jsonl` it runs unattended and reports versioned JSON events with typed errors, exact usage and cost, `--resume`, and cost and deadline stops: see [docs/headless.md](docs/headless.md). |
 | `models` | The model registry, with each model's provider, effort and declared roles. |
 | `eval CORPUS` | Classifier accuracy against a JSON list of `{ "prompt", "task" }`. Uses Jev when a key is set. |
 | `usage [--days N] [--json]` | Tokens per model across your Nectra chats, from Claude Code's and Codex's own logs. |

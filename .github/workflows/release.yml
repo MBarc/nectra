@@ -41,15 +41,15 @@ jobs:
         run: |
           mkdir dist
           cp README.md LICENSE dist/
-          cp -r docs dist/
+          cp -r docs config dist/
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             cp "target/${{ matrix.target }}/release/nectra.exe" dist/
             cp scripts/uninstall-nectra.ps1 dist/
-            (cd dist && 7z a "../nectra-${{ matrix.target }}.zip" nectra.exe README.md LICENSE docs uninstall-nectra.ps1)
+            (cd dist && 7z a "../nectra-${{ matrix.target }}.zip" nectra.exe README.md LICENSE docs config uninstall-nectra.ps1)
           else
             cp "target/${{ matrix.target }}/release/nectra" dist/
             cp scripts/uninstall-nectra.sh dist/
-            tar -C dist -czf "nectra-${{ matrix.target }}.tar.gz" nectra README.md LICENSE docs uninstall-nectra.sh
+            tar -C dist -czf "nectra-${{ matrix.target }}.tar.gz" nectra README.md LICENSE docs config uninstall-nectra.sh
           fi
       - shell: python
         run: |

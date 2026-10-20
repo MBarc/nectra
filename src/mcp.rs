@@ -204,7 +204,7 @@ pub fn launch(runtime: &str, home: &Path) -> (Vec<OsString>, Vec<(String, String
                 {
                     continue;
                 }
-                args.extend(["--config".into(), codex_server(name, &server)]);
+                args.extend(["--config".into(), codex_server(name, server)]);
                 env.extend(server.env.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
         }
