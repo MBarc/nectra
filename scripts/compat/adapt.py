@@ -226,8 +226,10 @@ def rename_back(backup, path, what):
     try:
         rename_noreplace(backup, path)
         return ""
-    except OSError:
-        return f"; {what} is in {backup}"
+    except OSError as e:
+        # The journal stays while the registry is absent, so the next run tries again.
+        return f"; putting it back failed too ({e}), so {what} is in {backup}" + (
+            "" if os.path.exists(path) else f" and the next run will try to put it back (journal {path}{SWAP})")
 
 
 SWAP = ".swap"  # beside the registry: names its backup while the registry is moved aside
@@ -643,12 +645,13 @@ def update_installed(path, fixes, report, expected):
             os.remove(backup)
             report["installed_conflict"] = f"{path} could not be moved aside ({e}); it was left as it is"
             return None
-        if open(backup, encoding="utf-8").read() != expected:
-            report["installed_conflict"] = conflict + rename_back(backup, path, "the edited version")
-            return None
+        # From here the registry is absent: every failure tries to put the original back.
         try:
+            if open(backup, encoding="utf-8").read() != expected:
+                report["installed_conflict"] = conflict + rename_back(backup, path, "the edited version")
+                return None
             rename_noreplace(tmp, path)
-        except OSError as e:
+        except Exception as e:
             if os.path.exists(path):
                 report["installed_conflict"] = f"{conflict}; the version it would have replaced is in {backup}"
             else:
