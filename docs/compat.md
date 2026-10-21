@@ -50,10 +50,13 @@ The run also updates the installed registry (`%APPDATA%\nectra\models.toml`, or
   move, your edit stays and the run reports a conflict. An editor that keeps the file
   open and writes after the move writes into the backup instead.
 - Between the two moves the registry file is absent, normally for milliseconds, and
-  Nectra cannot load it then. If the last move fails, the original is moved back. If
-  the run is killed in between, `models.toml.swap` names the backup, and the next run
-  moves it back before doing anything else and says so in its report. Until that next
-  run, the registry stays missing.
+  Nectra cannot load it then. If anything fails in that gap (reading the backup, or the
+  last move), the run **attempts** to move the original back and reports the error.
+  That attempt can fail too. Then the original stays in its `models.toml.bak-<time>`,
+  the report names it, and `models.toml.swap` is kept. The journal is also what is left
+  if the run is killed in the gap. The next run reads it and attempts the same restore
+  before doing anything else, saying so in its report. Until a restore succeeds, the
+  registry stays missing.
 - A lock beside it (`models.toml.lock`) keeps apart runs that use different state
   directories.
 
@@ -89,7 +92,8 @@ The fix branch's tests time out after `--test-timeout` (default 1 hour), and the
 count as failed.
 
 Every command the run starts is bounded the same way: CLI calls (120 s; 300 s for a model turn, 60 s for the
-Codex catalog), tests, the retrain tool, git (600 s) and the `check.py` run (1 h). On
+Codex catalog), tests, the retrain tool, adapt.py's git calls (600 s), check.py's
+`git init` (120 s, as a CLI call) and the `check.py` run (1 h). On
 Windows each runs in its own job object, which keeps hold of children even after
 their parent exits. On a timeout, and when the command ends, the job is killed, so
 nothing it started keeps running. If Windows refuses to create or assign the job, the
@@ -112,7 +116,9 @@ child cannot stall the run. Ollama discovery is an HTTP request with a 3 s timeo
 Exit codes:
 - `0`: nothing needs you.
 - `1`: something needs a person. That is an issue, failing tests, a registry change
-  that was blocked or hit a conflict, or a cleanup that failed.
+  that was blocked, hit a conflict or could not be completed, a cleanup that failed, or
+  a `check.py` that failed, timed out, could not start or exited nonzero (its output is
+  kept in the report as the diagnostic).
 - `2`: another run holds the state directory's `adapt.lock` or the registry's
   `models.toml.lock`. Nothing was done. The scheduled task shows no notification for
   this.
