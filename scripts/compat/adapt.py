@@ -78,9 +78,9 @@ def parse_codex_catalog(code, out):
     except (ValueError, KeyError, TypeError, AttributeError):
         return None, f"`codex debug models` printed no readable catalog: {check.last_lines(out, 2)[:200]}"
     # Every entry, before a dict could let a later duplicate hide a bad one.
-    slugs = [k for k, _ in entries]
-    if not entries or len(set(slugs)) != len(slugs) or not all(
-            isinstance(k, str) and k and isinstance(v, str) for k, v in entries):
+    # Types first: set() would crash on an unhashable slug.
+    if not entries or not all(isinstance(k, str) and k and isinstance(v, str) for k, v in entries) \
+            or len({k for k, _ in entries}) != len(entries):
         return None, "`codex debug models` returned an empty or malformed catalog"
     return dict(entries), None
 
