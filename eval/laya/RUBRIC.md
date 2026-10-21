@@ -29,9 +29,19 @@ cases those lines leave open. It is what labelers and adjudicators use for
 2. **Something is broken -> `debugging`.** A reported failure, error, wrong
    number or crash wins over review, research or analysis, including "look into
    what caused the outage" and "why are these logs full of 500s".
+   The words "review", "check" or "look at" don't change this: "can u review
+   this binary search, it returns -1 on arrays w/ duplicates" is `debugging`.
+   A denied failure ("nothing is broken", "tests pass, but...") is not a
+   failure, so this rule doesn't apply.
 3. **New behaviour -> `code_generation`; same behaviour -> `refactoring`.**
    Adding a feature while touching existing code is `code_generation`.
    Performance work on working code ("make this loop faster") is `refactoring`.
+   Tests for existing code are new code: `code_generation`, even when nothing
+   is broken. A port to another language, platform or tool (bash -> PowerShell,
+   VBA -> Apps Script, an Excel formula -> a Python function) is
+   `code_generation` even when the behaviour must stay the same. `refactoring`
+   reshapes code within its own language (callbacks -> async/await, nested IFs
+   -> a cleaner formula).
 4. **Judgement without a failure -> `code_review`.** "Is this safe", "would you
    merge this", "check my threat model / migration / Dockerfile".
 5. **Design vs. sequence.** What the parts are and how they connect ->
@@ -39,7 +49,12 @@ cases those lines leave open. It is what labelers and adjudicators use for
    builds ("build a bookshelf", "plan a shed") are `planning`, never
    `code_generation`.
 6. **Outside facts vs. own data.** Looking things up -> `research`. Computing
-   from data the user supplies or points at -> `data_analysis`.
+   from data the user supplies or points at -> `data_analysis`. Laws, rules,
+   licences, compliance and "is X still used / what is current" questions are
+   `research`, not `general`. Their answers depend on place or date and have to
+   be looked up ("am I allowed to fly a drone over my neighbour's garden in the
+   UK"). `general`'s quick facts are stable trivia: capitals, unit
+   conversions.
 7. **Prose about software is still prose.** A design doc, README, changelog or
    proposal is `writing` unless the message asks to make the design decisions
    themselves (then `architecture`).
@@ -49,7 +64,11 @@ cases those lines leave open. It is what labelers and adjudicators use for
 9. **Explicit model requests are ignored.** "use opus and plan a shed" is
    labelled as "plan a shed".
 
-## Process for the fresh test set
+The examples in rules 2, 3 and 6 that follow the original text were added on
+2026-10-20. They came from adjudicating confusable pairs on `dev.json` only,
+and were frozen before any model saw `fresh-test-2.json`.
+
+## Process for the fresh test sets
 
 - Prompts were written for this set only, by three writers with different
   briefs (see `fresh-test.README.md`), and are never used for training or model
