@@ -222,9 +222,17 @@ not run against the old code; E's check can only catch the race on Unix.
 | C (P1) | Forced stderr cut split a known secret; stdout deltas masked one by one; MCP secrets of servers with `cwd`/restrictions not collected | `redact::ready` never cuts inside a known credential or a prefix of one at the end, nor inside a character, and a forced cut keeps max(longest credential − 1, 4 KiB). Reply deltas go through `redact::Stream` (held back at a partial word, flushed before tool events and at the attempt's end). `--mcp-config` collects every server's `env`. Spec's "never cut mid-word" replaced with what holds. | unit `a_credential_is_never_cut_in_two` (73,728-byte line, `48213` across byte 69,632), `a_reply_in_pieces_is_masked_whole`, `every_server_claude_is_handed_has_its_credentials_masked`; e2e "credentials are redacted" (a key split across two Claude deltas) | 8a3feba |
 | D (P2) | `settle()` dropped `TurnCancellation` before the result was emitted | `settle` borrows the owner; `run()` drops it after the result event. | unit `the_cancellation_owner_outlives_the_run` | e2d9958 |
 | E (P2) | `bounded()` returned without the MCP probe worker, so `process::exit` could beat probe cleanup | `bounded()` gives its work a stop token; on deadline or cancel it cancels it and waits up to a grace period (3 s for `--mcp-config`, 0 for stdin and routing, which own no process) for the worker to kill and reap the probe. | e2e "a hung `codex mcp list` meets the deadline" now also checks the probe's PID is gone when Nectra exits | de1453a |
-| F (P2) + nits | Claude guard called a ceiling; overshoot said to be output only; REPORT rows N6/N4 and spec H8 overstated | docs/headless.md and spec H4: a threshold checked when usage arrives, overshoot of one Claude call includes its input and cache, unpriced usage doesn't count. N6 row: only a successful attempt becomes `cost_limit`. N4 row and spec H8: sandbox/approval/colour arguments are skipped, not excluding. | docs only | ROUND4_DOCS |
+| F (P2) + nits | Claude guard called a ceiling; overshoot said to be output only; REPORT rows N6/N4 and spec H8 overstated | docs/headless.md and spec H4: a threshold checked when usage arrives, overshoot of one Claude call includes its input and cache, unpriced usage doesn't count. N6 row: only a successful attempt becomes `cost_limit`. N4 row and spec H8: sandbox/approval/colour arguments are skipped, not excluding. | docs only | ed6b8dd |
 
-ROUND4_TESTS
+Tests after round 4: Windows `cargo fmt --check` and `cargo clippy --all-targets -- -D
+warnings` clean, `cargo test` all green (115 unit tests, 17 headless e2e scenarios, every
+other suite). Linux (builder, `~/nectra-headless`): fmt and clippy clean, 115 unit tests
+and all 18 headless scenarios pass, SIGTERM included. On Linux `native_terminal`
+fails the same way on this branch and on 461f61f (3 runs each):
+`cancelling_native_work_does_not_save_a_fake_answer` every time,
+`undersized_resize_keeps_provider_work_alive` in some runs. `tests/chat.rs` failed one of
+two runs, a different test each time, as before. The live Codex check is still open (see
+below).
 
 Tests after round 3: Windows `cargo fmt --check`, `cargo clippy --all-targets -- -D
 warnings` clean, `cargo test` all green (109 unit tests, 17 headless e2e scenarios, every
