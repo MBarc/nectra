@@ -104,7 +104,10 @@ pub fn ready(pending: &[u8], eof: bool, boundary: fn(u8) -> bool) -> usize {
     if eof {
         return pending.len();
     }
-    let secrets = secrets();
+    cut(pending, boundary, &secrets())
+}
+
+fn cut(pending: &[u8], boundary: fn(u8) -> bool, secrets: &[String]) -> usize {
     let after = |b: &dyn Fn(u8) -> bool| pending.iter().rposition(|&c| b(c)).map(|i| i + 1);
     let keep = secrets.first().map_or(0, |s| s.len().saturating_sub(1));
     // A forced cut backs off to a character's start; bytes that aren't UTF-8
@@ -118,7 +121,9 @@ pub fn ready(pending: &[u8], eof: bool, boundary: fn(u8) -> bool) -> usize {
     let mut cut = match after(&boundary) {
         Some(end) => end,
         None if pending.len() <= 65536 => 0,
-        None => after(&SPACE).unwrap_or_else(|| forced(pending.len() - keep.max(4096))),
+        None => {
+            after(&SPACE).unwrap_or_else(|| forced(pending.len().saturating_sub(keep.max(4096))))
+        }
     };
     // Back to the start of a credential the cut would split, or of what the
     // pending bytes end in that may yet be one, and to before a trailing
@@ -204,6 +209,12 @@ mod tests {
         assert_eq!(ready(&[0x80, b'a'], false, LINE), 0);
         assert_eq!(ready(&[0x80; 70_000], false, LINE), 0);
         assert_eq!(ready(&[0x80, b'\n', 0x80], false, LINE), 2);
+    }
+
+    #[test]
+    fn a_credential_longer_than_the_stream_never_breaks_the_cut() {
+        let long = ["x".repeat(100_000)];
+        assert_eq!(cut(&[b'a'; 70_000], LINE, &long), 0);
     }
 
     #[test]

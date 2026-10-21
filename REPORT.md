@@ -253,6 +253,20 @@ clean, `cargo test` all green (117 unit tests, 17 headless scenarios, every othe
 Linux (builder): fmt and clippy clean, 117 unit tests and all 18 headless scenarios pass,
 SIGTERM included.
 
+## Astra review (round 6)
+
+Astra's fifth review (of a179ba6, verdict HOLD) marked round 5's three findings fixed and
+found one regression, which the coordinator confirmed. The test was written first and seen
+failing ("attempt to subtract with overflow").
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| 1 (P2, regression) | A forced cut subtracted max(longest credential − 1, 4 KiB) from the pending length unsaturated, so a registered credential longer than over 64 KiB of stderr with no space underflowed and failed the turn | `saturating_sub` again, as in round 4. The other subtractions on these paths are guarded (`len() >= 6` for `Bearer`, credentials are at least 4 bytes, the call index follows a push). `ready` now passes the credentials to an inner `cut`, so the test needn't register a 100 KB credential for every other test. | unit `a_credential_longer_than_the_stream_never_breaks_the_cut` |
+
+Tests after round 6: Windows `cargo fmt`, `cargo clippy --all-targets -- -D warnings`
+clean, `cargo test` all green (118 unit tests, every other suite). Not rerun on Linux:
+the change is platform-independent arithmetic in one function.
+
 Tests after round 3: Windows `cargo fmt --check`, `cargo clippy --all-targets -- -D
 warnings` clean, `cargo test` all green (109 unit tests, 17 headless e2e scenarios, every
 other suite). Linux (builder, `~/nectra-headless`): fmt and clippy clean, 109 unit tests
