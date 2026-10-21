@@ -731,16 +731,16 @@ type Outcome = std::result::Result<String, (&'static str, String)>;
 
 /// Whatever fails once the arguments are parsed, the caller still gets its
 /// one result: a failed `setup`, an error or a panic in `run` is Nectra's own
-/// failure.
-fn settle<T>(setup: Result<T>, run: impl FnOnce(&T) -> Result<Outcome>) -> Outcome {
-    let error = |e: anyhow::Error| Err(("harness_error", redact::redact(&format!("{e:#}"))));
+/// failure. `setup` stays the caller's, to outlive the result it emits.
+fn settle<T>(setup: &Result<T>, run: impl FnOnce(&T) -> Result<Outcome>) -> Outcome {
+    let error = |e: &anyhow::Error| Err(("harness_error", redact::redact(&format!("{e:#}"))));
     let setup = match setup {
         Ok(setup) => setup,
         Err(e) => return error(e),
     };
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&setup))) {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(setup))) {
         Ok(Ok(outcome)) => outcome,
-        Ok(Err(e)) => error(e),
+        Ok(Err(e)) => error(&e),
         Err(_) => Err(("harness_error", "Nectra panicked; this is a bug".into())),
     }
 }
@@ -1051,7 +1051,7 @@ pub fn run(
             return fail(class, e);
         }
     };
-    let outcome = settle(turn, |_| run());
+    let outcome = settle(&turn, |_| run());
     let (class, text, error) = match outcome {
         Ok(text) => (None, Some(text), None),
         Err((class, error)) => (Some(class), None, Some(error)),
@@ -1098,6 +1098,8 @@ pub fn run(
             "exit_code": code,
         }),
     )?;
+    // Until the result is out, a Ctrl+C cancels rather than exits.
+    drop(turn);
     Ok(code)
 }
 
@@ -1641,7 +1643,7 @@ mod tests {
     #[test]
     fn setup_failures_errors_and_panics_all_become_one_outcome() {
         let failed: Result<()> = Err(anyhow::anyhow!("installing interrupt handler: denied"));
-        let outcome = settle(failed, |_| unreachable!("the run never starts"));
+        let outcome = settle(&failed, |_| unreachable!("the run never starts"));
         assert_eq!(
             outcome,
             Err((
@@ -1650,16 +1652,33 @@ mod tests {
             ))
         );
         assert_eq!(
-            settle(Ok(()), |_| Err(anyhow::anyhow!("disk full"))),
+            settle(&Ok(()), |_| Err(anyhow::anyhow!("disk full"))),
             Err(("harness_error", "disk full".into()))
         );
         assert_eq!(
-            settle(Ok(()), |_| -> Result<Outcome> { panic!("bug") })
+            settle(&Ok(()), |_| -> Result<Outcome> { panic!("bug") })
                 .unwrap_err()
                 .0,
             "harness_error"
         );
-        assert_eq!(settle(Ok(()), |_| Ok(Ok("done".into()))), Ok("done".into()));
+        assert_eq!(settle(&Ok(()), |_| Ok(Ok("done".into()))), Ok("done".into()));
+    }
+
+    #[test]
+    fn the_cancellation_owner_outlives_the_run() {
+        // Dropping it would let a Ctrl+C exit before the result is written.
+        struct Owner<'a>(&'a std::cell::Cell<bool>);
+        impl Drop for Owner<'_> {
+            fn drop(&mut self) {
+                self.0.set(true);
+            }
+        }
+        let dropped = std::cell::Cell::new(false);
+        let owner = Ok(Owner(&dropped));
+        assert_eq!(settle(&owner, |_| Ok(Ok("done".into()))), Ok("done".into()));
+        assert!(!dropped.get(), "still installed while the result is emitted");
+        drop(owner);
+        assert!(dropped.get());
     }
 
     #[test]
