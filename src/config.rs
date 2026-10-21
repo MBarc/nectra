@@ -88,7 +88,7 @@ impl Default for ClassifierConfig {
             demanding_above: 0.6,
             model_dir: None,
             allow_unpinned_model: false,
-            laya_timeout_ms: 300,
+            laya_timeout_ms: 1000,
         }
     }
 }

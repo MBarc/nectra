@@ -125,14 +125,15 @@ work, using
 
 What Nectra does about latency now:
 
-- **Deadline.** Each message gets `classifier.laya_timeout_ms` (default 300,
-  the bar). A late answer is dropped, the message is classified by keywords,
-  and the reason ("laya unavailable: no answer within 300 ms") is shown by
-  `route`. With the deadline, the 300 ms bar holds for every message.
-- **Accuracy cost.** On this loaded desktop the deadline cost dev.json 4
-  points: 91.0% at 300 ms against 95.1% without a deadline. Users who prefer
-  accuracy can set `laya_timeout_ms = 1000`, which bounds the worst case
-  near 0.5 s.
+- **Deadline.** Each message gets `classifier.laya_timeout_ms`, default
+  1000. A late answer is dropped and the message is classified by keywords.
+  `route` shows the reason ("laya unavailable: no answer within 1000 ms").
+- **Why the default is 1000 ms.** It favours accuracy over about 0.5 s of
+  routing latency, since a model turn takes seconds anyway. No measured
+  message came near 1000 ms.
+- **The low-latency option** is `laya_timeout_ms = 300`, the bar. It makes
+  300 ms hold for every message, at a cost: on this loaded desktop dev.json
+  scored 91.0% at 300 ms against 95.1% without a deadline.
 - **Warm-up.** `nectra chat` starts loading at launch on a background thread
   and runs one throwaway message to pay ONNX Runtime's first-run cost.
   Messages that arrive in the first ~4.5 s use keywords instead of waiting.

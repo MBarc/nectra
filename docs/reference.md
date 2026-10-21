@@ -331,14 +331,16 @@ never leave the machine.
 backend = "laya"
 # model_dir = "D:/models/laya"      # where the model lives (default: per-user data dir)
 # allow_unpinned_model = false      # true loads your own retrained model; warns on every load
-laya_timeout_ms = 300               # per message; slower answers fall back to keywords
+laya_timeout_ms = 1000              # per message; slower answers fall back to keywords
 ```
 
 - **Chat** loads the model in the background at start, which takes about
   4.5 s. Until the model is ready, messages are classified by keywords.
-- **On a busy machine** some messages miss the 300 ms deadline and fall back
-  to keywords; `route` shows which. Raise `laya_timeout_ms` to 1000 to trade
-  latency for accuracy.
+- **Latency:** most messages take under 0.35 s; `route` shows when one fell
+  back to keywords.
+- **For lower latency,** set `laya_timeout_ms = 300`. On a busy machine about
+  1 message in 9 then falls back to keywords, which costs about 4 points of
+  accuracy.
 - **A failed load** is remembered until Nectra restarts.
 - **Accuracy:** 97.7% on a 1031-prompt held-out set (95% CI 96.6-98.4%). See
   `tools/laya/MODEL_CARD.md`.

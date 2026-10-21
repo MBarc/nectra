@@ -95,11 +95,14 @@ measured 104 ms per message on an idle desktop. Run 4 has not been measured
 idle.
 
 **The deadline.** Each message gets `classifier.laya_timeout_ms` (default
-300). A message the model hasn't answered by then is classified by keywords,
-and `route` shows "laya unavailable: no answer within 300 ms". On the loaded
-desktop that applied to about 1 message in 9. It cost dev.json 4 points
-(91.0% with the deadline, 95.1% without). Setting `laya_timeout_ms = 1000`
-keeps the model's accuracy at a worst case of about half a second.
+1000). A message the model hasn't answered by then is classified by keywords,
+and `route` shows "laya unavailable: no answer within 1000 ms".
+
+- **Why 1000 ms.** No message measured near it (maximum 543 ms), so the model
+  keeps its accuracy, and a model turn takes seconds anyway.
+- **The low-latency option** is `laya_timeout_ms = 300`, the bar. On the
+  loaded desktop, about 1 message in 9 missed a 300 ms deadline, and dev.json
+  dropped 4 points (91.0% against 95.1%).
 
 **Warm-up.** `nectra chat` loads the model in the background when it starts,
 and answers one throwaway message to pay ONNX Runtime's first-run cost.
