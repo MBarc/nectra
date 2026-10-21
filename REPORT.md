@@ -234,6 +234,25 @@ fails the same way on this branch and on 461f61f (3 runs each):
 two runs, a different test each time, as before. The live Codex check is still open (see
 below).
 
+## Astra review (round 5)
+
+Astra's fourth review (`astra-nectra-headless-4.review.md`, of 03b2917, verdict HOLD)
+marked A, B, D, E and F fixed, and C partly fixed, with two regressions caused by C. The
+coordinator accepted all three. Each test was written first and seen failing (the
+non-UTF-8 test by panicking). All three fixes are in 8a9f421. This supersedes round 4's
+C row: the reply is no longer flushed before tool events.
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| 1 (P1) | A tool event (a subagent's included) flushed the reply, so `482` → tool → `13` showed a known secret in two pieces | The reply stream is held across tool events and flushed only when the attempt ends; a `text` event can come after a `tool` event that arrived mid-word. Docs and spec H11 say this instead of "masked as one text". | e2e "credentials are redacted" (the key split around a subagent's `tool_use`) |
+| 2 (P1, regression) | `Bearer ` went out alone, then its token unmasked | `redact::ready` never cuts right after a trailing `Bearer`, so its token goes out with it, in one delta or across deltas. | unit `a_bearer_token_is_masked_however_it_streams` (3 splits); e2e, both forms |
+| 3 (P2, regression) | Stderr that isn't UTF-8 (a leading 0x80, no line end) underflowed the cut and failed the turn | Only a forced cut backs off to a character start, and never below 0; other bytes are left to the lossy decoding. | unit `bytes_that_arent_utf_8_never_break_the_cut` |
+
+Tests after round 5: Windows `cargo fmt`, `cargo clippy --all-targets -- -D warnings`
+clean, `cargo test` all green (117 unit tests, 17 headless scenarios, every other suite).
+Linux (builder): fmt and clippy clean, 117 unit tests and all 18 headless scenarios pass,
+SIGTERM included.
+
 Tests after round 3: Windows `cargo fmt --check`, `cargo clippy --all-targets -- -D
 warnings` clean, `cargo test` all green (109 unit tests, 17 headless e2e scenarios, every
 other suite). Linux (builder, `~/nectra-headless`): fmt and clippy clean, 109 unit tests
