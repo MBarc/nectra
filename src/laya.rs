@@ -22,14 +22,30 @@ const RELEASE: &str = "https://github.com/MBarc/nectra/releases/download/laya-mo
 
 /// (path in the model directory, release asset, sha256)
 const MODEL_FILES: &[(&str, &str, &str)] = &[
-    ("model.onnx", "model.onnx", "TODO"),
-    ("model.onnx.data", "model.onnx.data", "TODO"),
-    ("rl_agent_config.json", "rl_agent_config.json", "TODO"),
-    ("tokenizer/tokenizer.json", "tokenizer.json", "TODO"),
+    (
+        "model.onnx",
+        "model.onnx",
+        "ccbfb5b0f5d284ace041eb579be5f5008181b8c92eae91f72a79771d7085d9ff",
+    ),
+    (
+        "model.onnx.data",
+        "model.onnx.data",
+        "21941c6610821126b30ad3cf83c01556e0131be6b35f05f7d9c98fc4cbe0d5d3",
+    ),
+    (
+        "rl_agent_config.json",
+        "rl_agent_config.json",
+        "0d19b2d11e67ded687edf10333f4d26421434662f835cec8b2e53f1b5acc58a3",
+    ),
+    (
+        "tokenizer/tokenizer.json",
+        "tokenizer.json",
+        "dbba919c6e5e492bc22beb80abb64e6fcc7e8744dc696e8388b8c977767afa4b",
+    ),
     (
         "tokenizer/tokenizer_config.json",
         "tokenizer_config.json",
-        "TODO",
+        "b85452b1f3cf89ef52e104452e6f68b1219af8c55e33d18e4a13027d4a548e0b",
     ),
     (
         "ONNXRUNTIME-LICENSE",
@@ -85,28 +101,55 @@ pub fn model_dir(cfg: &Config) -> Option<PathBuf> {
 
 /// Loaded once per process (a few seconds); a failure is remembered so every
 /// message falls back to keywords instead of retrying the load.
+/// The downloaded model is checked against its pins on every load. A
+/// configured `model_dir` is the user's own model (retrain evaluates its
+/// exports that way) and is loaded as is.
 fn engine(cfg: &Config) -> Result<&'static LayaEngine> {
     static ENGINE: OnceLock<std::result::Result<LayaEngine, String>> = OnceLock::new();
     ENGINE
-        .get_or_init(|| load(cfg).map_err(|e| format!("{e:#}")))
+        .get_or_init(|| {
+            model_dir(cfg)
+                .context("cannot find a data directory")
+                .and_then(|dir| load(&dir, cfg.inner.classifier.model_dir.is_none()))
+                .map_err(|e| format!("{e:#}"))
+        })
         .as_ref()
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-fn load(cfg: &Config) -> Result<LayaEngine> {
-    let (runtime, _, _) = RUNTIME.context("no local model runtime for this platform")?;
-    let dir = model_dir(cfg).context("cannot find a data directory")?;
+fn load(dir: &Path, pinned: bool) -> Result<LayaEngine> {
+    let pin = RUNTIME.context("no local model runtime for this platform")?;
+    let (runtime, _, _) = pin;
     if !dir.join(runtime).is_file() || !dir.join("model.onnx").is_file() {
         bail!("local model not downloaded; run `nectra classifier laya`");
     }
-    // ort reads this when it first loads the runtime library.
-    if std::env::var_os("ORT_DYLIB_PATH").is_none() {
-        std::env::set_var("ORT_DYLIB_PATH", dir.join(runtime));
-    }
-    Ok(LayaEngine::create(LayaOptions {
-        model_directory: Some(dir),
-        ..Default::default()
-    })?)
+    let check = |&&(path, _, sha256): &&(&str, &str, &str)| -> Result<()> {
+        if hash_file(&dir.join(path)).ok().as_deref() != Some(sha256) {
+            bail!("{path} does not match its pinned hash; run `nectra classifier laya` again");
+        }
+        Ok(())
+    };
+    // Everything ONNX Runtime parses or runs is checked before it loads. The
+    // raw weights, most of the ~3 s of hashing, are checked while it loads,
+    // and the engine is dropped if they don't match.
+    let (weights, rest): (Vec<_>, Vec<_>) = MODEL_FILES
+        .iter()
+        .chain([&pin])
+        .filter(|_| pinned)
+        .partition(|(path, _, _)| *path == "model.onnx.data");
+    rest.iter().try_for_each(check)?;
+    // ort reads this when it first loads the runtime library: always the one
+    // checked above, never another found through the environment.
+    std::env::set_var("ORT_DYLIB_PATH", dir.join(runtime));
+    std::thread::scope(|s| {
+        let weights = s.spawn(|| weights.iter().try_for_each(check));
+        let engine = LayaEngine::create(LayaOptions {
+            model_directory: Some(dir.to_path_buf()),
+            ..Default::default()
+        });
+        weights.join().expect("hashing panicked")?;
+        Ok(engine?)
+    })
 }
 
 /// The same questions as Jev's, in the short form the model was trained on.
@@ -115,6 +158,15 @@ pub(crate) fn ask(
     previous: Option<&str>,
     roles: &[Role],
     cfg: &Config,
+) -> Result<Answer> {
+    ask_with(engine(cfg)?, prompt, previous, roles)
+}
+
+fn ask_with(
+    engine: &LayaEngine,
+    prompt: &str,
+    previous: Option<&str>,
+    roles: &[Role],
 ) -> Result<Answer> {
     let state = match previous {
         Some(prev) => json!({ "previous_message": prev, "current_message": prompt }),
@@ -138,7 +190,7 @@ pub(crate) fn ask(
             Question::choice(ROLE_Q, roles.iter().map(|(name, _)| (*name, "")))?,
         )?;
     }
-    let result = engine(cfg)?.predict(state, &questions)?;
+    let result = engine.predict(state, &questions)?;
     let task = result.get("task").context("no task answer")?;
     let choice = task.as_choice().context("task answer is not a choice")?;
     let score = result
@@ -165,10 +217,15 @@ pub(crate) fn ask(
 /// Downloads any missing or changed model file, checks every hash, and makes
 /// sure the model loads and answers.
 pub fn download(cfg: &Config, output: &mut dyn Write) -> Result<PathBuf> {
+    let dir = model_dir(cfg).context("cannot find a data directory")?;
+    download_from(RELEASE, &dir, output)?;
+    Ok(dir)
+}
+
+fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<Answer> {
     let runtime = RUNTIME.context(
         "the local model needs ONNX Runtime, which has no official build for this platform",
     )?;
-    let dir = model_dir(cfg).context("cannot find a data directory")?;
     fs::create_dir_all(dir.join("tokenizer"))?;
     let client = reqwest::blocking::Client::builder().timeout(None).build()?;
     for &(path, asset, sha256) in MODEL_FILES.iter().chain([&runtime]) {
@@ -177,11 +234,16 @@ pub fn download(cfg: &Config, output: &mut dyn Write) -> Result<PathBuf> {
             continue;
         }
         writeln!(output, "Downloading {asset}...")?;
-        fetch(&client, &format!("{RELEASE}/{asset}"), &target, sha256)
+        fetch(&client, &format!("{release}/{asset}"), &target, sha256)
             .with_context(|| format!("downloading {asset}"))?;
     }
     let started = std::time::Instant::now();
-    let answer = ask("write a hello world script in python", None, &[], cfg)?;
+    let answer = ask_with(
+        &load(dir, true)?,
+        "write a hello world script in python",
+        None,
+        &[],
+    )?;
     writeln!(
         output,
         "Local model ready in {} ({} in {} ms).",
@@ -189,7 +251,7 @@ pub fn download(cfg: &Config, output: &mut dyn Write) -> Result<PathBuf> {
         answer.task,
         started.elapsed().as_millis()
     )?;
-    Ok(dir)
+    Ok(answer)
 }
 
 fn fetch(client: &reqwest::blocking::Client, url: &str, target: &Path, sha256: &str) -> Result<()> {
@@ -263,6 +325,144 @@ mod tests {
         for (t, _) in TASK_CRITERIA {
             assert!(serde_json::from_value::<TaskType>(json!(t)).is_ok(), "{t}");
         }
+    }
+    /// Serves `dir` over HTTP/1.1 on localhost, one request per connection,
+    /// as a stand-in for the GitHub release.
+    fn serve(dir: PathBuf) -> String {
+        use std::io::BufRead;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut reader = std::io::BufReader::new(stream.try_clone().unwrap());
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                while reader.read_line(&mut String::new()).unwrap() > 2 {}
+                let name = line.split(' ').nth(1).unwrap().trim_start_matches('/');
+                match fs::File::open(dir.join(name)) {
+                    Ok(mut file) => {
+                        let len = file.metadata().unwrap().len();
+                        write!(
+                            stream,
+                            "HTTP/1.1 200 OK
+Content-Length: {len}
+Connection: close
+
+"
+                        )
+                        .unwrap();
+                        let _ = std::io::copy(&mut file, &mut stream);
+                    }
+                    Err(_) => write!(
+                        stream,
+                        "HTTP/1.1 404 Not Found
+Content-Length: 0
+Connection: close
+
+"
+                    )
+                    .unwrap(),
+                }
+            }
+        });
+        url
+    }
+    #[test]
+    fn every_file_has_a_pinned_hash() {
+        for (path, _, sha256) in MODEL_FILES.iter().chain(RUNTIME.as_ref()) {
+            assert!(
+                sha256.len() == 64
+                    && sha256
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
+                "{path} has no pinned sha256: {sha256}"
+            );
+        }
+    }
+    #[test]
+    fn refuses_a_tampered_download() {
+        let served = tempfile::tempdir().unwrap();
+        fs::write(served.path().join("asset"), b"tampered").unwrap();
+        let url = serve(served.path().to_path_buf());
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("asset");
+        let client = reqwest::blocking::Client::new();
+        let err = fetch(
+            &client,
+            &format!("{url}/asset"),
+            &target,
+            &hex(&Sha256::digest(b"genuine")),
+        )
+        .unwrap_err();
+        assert!(format!("{err}").contains("checksum mismatch"), "{err}");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0, "nothing kept");
+        fetch(
+            &client,
+            &format!("{url}/asset"),
+            &target,
+            &hex(&Sha256::digest(b"tampered")),
+        )
+        .unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"tampered");
+    }
+    #[test]
+    fn refuses_to_load_a_changed_file() {
+        let dir = tempfile::tempdir().unwrap();
+        for (path, _, _) in MODEL_FILES.iter().chain(RUNTIME.as_ref()) {
+            let target = dir.path().join(path);
+            fs::create_dir_all(target.parent().unwrap()).unwrap();
+            fs::write(target, b"not the pinned file").unwrap();
+        }
+        let err = load(dir.path(), true).err().expect("must refuse");
+        assert!(format!("{err:#}").contains("pinned hash"), "{err:#}");
+    }
+    /// The whole fetch path against a local copy of the release:
+    /// `NECTRA_LAYA_ASSETS=<dir staged by scripts/release-laya.sh> cargo test --release -- --ignored fetches`
+    #[test]
+    #[ignore = "needs the release assets in NECTRA_LAYA_ASSETS"]
+    fn fetches_verifies_and_classifies() {
+        let assets = PathBuf::from(std::env::var_os("NECTRA_LAYA_ASSETS").unwrap());
+        let url = serve(assets.clone());
+        let dir = tempfile::tempdir().unwrap();
+        let mut output = Vec::new();
+        let answer = download_from(&url, dir.path(), &mut output).unwrap();
+        let output = String::from_utf8(output).unwrap();
+        println!("{output}");
+        assert_eq!(answer.task, TaskType::CodeGeneration, "{output}");
+        assert_eq!(output.matches("Downloading").count(), MODEL_FILES.len() + 1);
+
+        // A tampered asset on the server is refused and never lands.
+        let tampered = tempfile::tempdir().unwrap();
+        for entry in fs::read_dir(&assets).unwrap() {
+            let entry = entry.unwrap();
+            fs::copy(entry.path(), tampered.path().join(entry.file_name())).unwrap();
+        }
+        fs::write(tampered.path().join("tokenizer_config.json"), b"{}").unwrap();
+        let url = serve(tampered.path().to_path_buf());
+        let fresh = tempfile::tempdir().unwrap();
+        let err = download_from(&url, fresh.path(), &mut Vec::new())
+            .err()
+            .expect("must refuse");
+        assert!(format!("{err:#}").contains("checksum mismatch"), "{err:#}");
+        assert!(!fresh
+            .path()
+            .join("tokenizer/tokenizer_config.json")
+            .exists());
+
+        // So are weights changed on disk after the download, which are checked
+        // while the engine loads.
+        let started = std::time::Instant::now();
+        load(dir.path(), true).unwrap();
+        println!("verified load: {} ms", started.elapsed().as_millis());
+        fs::OpenOptions::new()
+            .append(true)
+            .open(dir.path().join("model.onnx.data"))
+            .unwrap()
+            .write_all(b"\0")
+            .unwrap();
+        let err = load(dir.path(), true).err().expect("must refuse");
+        assert!(format!("{err:#}").contains("model.onnx.data"), "{err:#}");
     }
     #[test]
     fn hashes_like_sha256sum() {
