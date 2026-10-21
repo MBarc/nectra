@@ -56,7 +56,11 @@ model-selection set. So `fresh-test.json` is now reported only, and
   - porting and writing tests (code_generation vs refactoring);
   - legal and "is X current" questions (research vs general).
 
-  The rubric was committed (7fa16a7) before fresh-test-2 was labelled.
+  The rubric was committed (7fa16a7) 107 s before fresh-test-2 (64ef5bc),
+  too little time to label 324 prompts twice, so git shows only that it was
+  committed first, not that it was frozen before labelling began. What
+  limits the damage: both labelers agreed with each other and with the
+  writers on all 324 prompts, so no tie-break changed a fresh-test-2 label.
 - **Fresh-test-2.** Two new blind labelers applied the frozen rubric. They
   agreed with each other and with the writers on all 324 prompts. The 13
   unsure notes are recorded in `fresh-test-2-adjudication.json`. Nothing was
@@ -65,3 +69,25 @@ model-selection set. So `fresh-test.json` is now reported only, and
   generator styles. `fresh-test-2.json` is only the retrain gate.
 - **Caveat.** Same as round one: writers, labelers and adjudicator were all
   language models.
+
+## fresh-test-3.json (2026-10-21, third round)
+
+fresh-test-2's 324 items give a 95% interval of 93.6-97.9% around 96.3%, too
+wide to say the model is above 95%. fresh-test-3 is a larger held-out set
+built to narrow it. It is evaluated once, by hand, and never used by
+`retrain` or for training.
+
+- **Built by** `tools/laya/heldout.py`, with Claude models only. Sonnet
+  writers got the same three briefs and only `RUBRIC.md`, frozen since
+  7fa16a7 and unchanged since.
+- **Near-duplicates dropped:** 42 near-duplicates (token Jaccard >= 0.8) of
+  the training prompts and follow-ups, of every earlier set, and of each
+  other. A recheck against all 19,253 training and eval texts found none at
+  >= 0.8 and 55 at >= 0.6.
+- **Labelled** by two blind labelers (Opus, Sonnet). They agreed on
+  1029/1031, and an Opus adjudicator settled the other 2 by the rubric
+  (`fresh-test-3-adjudication.json`). The adjudication shows no model output.
+- **Labels committed** in 5a66555 (15:56 local), before the only evaluation
+  (16:34). Its output is `fresh-test-3-result.json`.
+- **Do not train on, tune against, or re-select with this set.** A future
+  model needs a new set.

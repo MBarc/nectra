@@ -11,7 +11,8 @@ and checks every file against the sha256 pinned in `src/laya.rs`.
 
 **Model.** A full fine-tune of the Laya `multilingual` checkpoint (mmBERT-base)
 with `laya-train` (RLCD loss), laya at d74e8be. Exported to ONNX, fp32 except
-the token-embedding table, stored as int8 with per-row scales: 718 MB on disk.
+the token-embedding table, stored as int8 with per-row scales: 735 MB of model
+files (699 MB of weights), plus the ONNX Runtime library (17 MB on Windows).
 
 ## Training data
 
@@ -24,7 +25,11 @@ the token-embedding table, stored as int8 with per-row scales: 718 MB on disk.
   ask.
 - **Filtering.** A second, blind generator call labelled every message. Those
   whose blind label disagreed with the label they were written for were
-  dropped, as were near-duplicates of any test prompt (token Jaccard >= 0.8).
+  dropped, as were near-duplicates of a test prompt (token Jaccard >= 0.8).
+  For laya-model-1 that filter checked prompts only, not their follow-ups:
+  three training follow-ups match a `fresh-test.json` prompt verbatim ("Do you
+  remember what we talked about yesterday?"). None matches fresh-test-2,
+  fresh-test-3 or dev. `retrain` now filters follow-ups too.
 - **Size.** Round 1: 3967 examples. Round 2: 5144 examples -> 6430 records.
   laya-model-1 is run 4: round 2 for 2 epochs, starting from run 3, which
   trained on round 1.
@@ -39,20 +44,34 @@ the token-embedding table, stored as int8 with per-row scales: 718 MB on disk.
 - **Labels.** Two blind labelers per set (Claude Opus and Sonnet), agreeing on
   every prompt after adjudication.
 - **Freeze.** Rubric tie-breaks were decided on `dev.json` and committed
-  (7fa16a7) before `fresh-test-2.json` was labelled (64ef5bc). No model saw
-  fresh-test-2 before the gate evaluation.
-- **Gate.** fresh-test-2 is used only as the pass/fail gate (> 95%), never for
-  model selection.
+  (7fa16a7) 107 s before `fresh-test-2.json` (64ef5bc). That is too soon after
+  to show that the rubric was frozen before labelling began. Both labelers
+  agreed with the writers on all 324 prompts, so no tie-break decided a
+  label. No model saw fresh-test-2 before the gate evaluation.
+- **Rubric examples.** Two of `RUBRIC.md`'s examples are `dev.json` prompts
+  verbatim, and every generator and labeler reads the rubric, so the dev
+  numbers are not clean held-out figures. The test sets are unaffected.
+- **Gate.** fresh-test-2 is used only as the pass/fail gate (point estimate
+  > 95%), never for model selection.
+- **fresh-test-3.** A larger set, built after the gate under the same rubric,
+  with labels committed before its single evaluation. It is not used by
+  `retrain`.
 
 All numbers are through Nectra (`nectra eval`) with the shipped int8 ONNX
 model. Accuracy is deterministic.
 
-| set | role | accuracy |
-|---|---|---|
-| `fresh-test-2.json` (324) | gate, unseen | **312/324 (96.3%)** |
-| `dev.json` (324) | model selection | 308/324 (95.1%) |
-| `fresh-test.json` (323) | reported; failures of an earlier model were seen | 310/323 (96.0%) |
-| `old60-rubric.json` (60) | reported; used in earlier tuning | 56/60 (93.3%) |
+| set | role | accuracy | 95% Wilson CI |
+|---|---|---|---|
+| `fresh-test-3.json` (1031) | held out, evaluated once | **1007/1031 (97.7%)** | 96.6-98.4% |
+| `fresh-test-2.json` (324) | gate, unseen | **312/324 (96.3%)** | 93.6-97.9% |
+| `dev.json` (324) | model selection | 308/324 (95.1%) | |
+| `fresh-test.json` (323) | reported; failures of an earlier model were seen | 310/323 (96.0%) | |
+| `old60-rubric.json` (60) | reported; used in earlier tuning | 56/60 (93.3%) | |
+
+On fresh-test-3 the lower bound of the interval, 96.6%, clears 95%.
+Fresh-test-2 alone does not: its 312/324 is consistent with a true accuracy
+just under 95%. Recall per class on fresh-test-3 ranges from 94.4% (planning,
+101/107) to 100% (code_generation, 100/100).
 
 The keyword fallback scores 99/323 on `fresh-test.json`. Residual errors are
 boundary cases: a review word next to a failure, "works fine, but add X", and
@@ -61,15 +80,31 @@ short creative requests read as general. The full confusion is in
 
 ## Latency
 
-CPU only, per message, process start and model load excluded:
+CPU only (i5-9600K, 6 cores), per message.
 
-- **Idle desktop:** 104 ms.
-- **Gate evaluation:** 202 ms, on a loaded desktop.
+| measurement | result |
+|---|---|
+| Load, including the sha256 check of every file | 4.4 s (once per process) |
+| First message after load | 276 ms |
+| Steady state, 323 dev messages | median 173 ms, p95 338 ms, max 543 ms; 36 over 300 ms |
+| Gate evaluation, mean | 202 ms |
 
-The same graph measured 104 to 418 ms depending on machine load.
+The steady-state and gate figures were measured on a shared desktop at about
+40% CPU from other work. Run 3, with the same graph and different weights,
+measured 104 ms per message on an idle desktop. Run 4 has not been measured
+idle.
 
-**Loading.** Loading takes about 3.5 s once per process, including the sha256
-check of every file.
+**The deadline.** Each message gets `classifier.laya_timeout_ms` (default
+300). A message the model hasn't answered by then is classified by keywords,
+and `route` shows "laya unavailable: no answer within 300 ms". On the loaded
+desktop that applied to about 1 message in 9. It cost dev.json 4 points
+(91.0% with the deadline, 95.1% without). Setting `laya_timeout_ms = 1000`
+keeps the model's accuracy at a worst case of about half a second.
+
+**Warm-up.** `nectra chat` loads the model in the background when it starts,
+and answers one throwaway message to pay ONNX Runtime's first-run cost.
+Messages sent before it is ready use keywords. One-shot commands (`route`,
+`eval`) wait for the load on their first message.
 
 ## Intended use and limits
 
@@ -81,8 +116,13 @@ check of every file.
   language models applying a written rubric. Writers were asked for prompts
   with one clearly best label. Real traffic has more genuinely ambiguous
   messages, where accuracy will be lower.
-- **Fallback.** When the model is missing, fails to load or fails its hash
-  check, Nectra falls back to keyword classification. A wrong label costs a
+- **Fallback.** When the model is missing, still loading, fails to load,
+  fails its hash check or misses its deadline, Nectra falls back to keyword
+  classification. A failed load is remembered until Nectra restarts.
+- **Pinning.** Every file, including the ONNX Runtime library, must match the
+  hashes in `src/laya.rs`, wherever `classifier.model_dir` points. A model of
+  your own needs `classifier.allow_unpinned_model = true`, and Nectra prints a
+  warning naming every unpinned file when it loads one. A wrong label costs a
   less suitable model, not a failed request.
 - **Platforms.** Windows x64, Linux x64 and macOS arm64 (the ONNX Runtime 1.31.0
   CPU builds). There is no local model on other platforms.

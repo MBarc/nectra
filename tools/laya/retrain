@@ -34,6 +34,8 @@ GATE = "fresh-test-2.json"
 # Reported only. dev.json is for model selection (per-epoch confusion);
 # fresh-test.json was the first bar and has been seen; old60 was tuned on earlier.
 REPORTED = ["dev.json", "fresh-test.json", "old60-rubric.json"]
+# Held out from every run: evaluated once, by hand (eval/laya/fresh-test.README.md).
+HELD_OUT = ["fresh-test-3.json"]
 
 STYLES = [
     "terse lowercase messages typed into a terminal by developers, some with typos",
@@ -161,7 +163,7 @@ def make_data(args, criteria, work):
         return json.loads(path.read_text(encoding="utf-8"))
     guarded = [
         set(norm(c["prompt"]).split())
-        for f in [GATE] + REPORTED
+        for f in [GATE] + REPORTED + HELD_OUT
         for c in json.loads((LAYA / f).read_text(encoding="utf-8"))
     ]
     tasks = [k for k, _ in criteria["tasks"]]
@@ -181,7 +183,8 @@ def make_data(args, criteria, work):
         if n in seen:
             continue
         seen.add(n)
-        if near_duplicate(x["prompt"], guarded):
+        # Follow-ups are trained on as messages too.
+        if near_duplicate(x["prompt"], guarded) or near_duplicate(x.get("followup") or "", guarded):
             leaks += 1
             continue
         kept.append(x)
@@ -375,7 +378,9 @@ def nectra_eval(nectra, model_dir, corpus, work):
     cfg = work / "eval-config.toml"
     base = (REPO / "config" / "nectra.toml").read_text(encoding="utf-8")
     cfg.write_text(
-        f'{base}\n[classifier]\nbackend = "laya"\nmodel_dir = {json.dumps(str(model_dir))}\n',
+        f'{base}\n[classifier]\nbackend = "laya"\nmodel_dir = {json.dumps(str(model_dir))}\n'
+        # A retrained model is not the published one; no deadline, so accuracy is the model's alone.
+        f'allow_unpinned_model = true\nlaya_timeout_ms = 600000\n',
         encoding="utf-8",
     )
     shutil.copy(REPO / "config" / "models.toml", work / "models.toml")
@@ -507,27 +512,53 @@ def main(argv=None):
         return EXIT_ERROR
     fresh = summary["eval"][GATE]
     passed = fresh["accuracy"] > args.bar and fresh["ms_per_message"] <= args.max_ms
-    summary["emitted"] = str(out) if passed else None
-    (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    summary["emitted"] = None
     if not passed:
+        (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
         log(f"REFUSED: {fresh['accuracy']:.1%} at {fresh['ms_per_message']} ms/message does not beat "
             f"{args.bar:.0%} within {args.max_ms:.0f} ms; nothing emitted. Report: {run_dir / 'report.json'}")
         return EXIT_BELOW_BAR
-    partial = out.with_name(out.name + ".partial")  # a failed copy (disk full) must not leave half a model at out
-    shutil.rmtree(partial, ignore_errors=True)
     try:
-        shutil.copytree(model_dir, partial)
-        shutil.copy(run_dir / "report.json", partial / "report.json")
+        emit(model_dir, dict(summary, emitted=str(out)), out)
     except OSError as e:
-        shutil.rmtree(partial, ignore_errors=True)
-        log(f"error: passed, but could not emit {out}: {e}")
+        summary["error"] = f"passed, but could not emit {out}: {e}"
+        (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+        log(f"error: {summary['error']}")
         return EXIT_ERROR
-    if out.exists():
-        shutil.rmtree(out)
-    partial.rename(out)
+    # Only now: "emitted" means the model is at out.
+    summary["emitted"] = str(out)
+    (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     log(f"emitted {out} ({fresh['accuracy']:.1%}, {fresh['ms_per_message']} ms/message)")
     return EXIT_OK
 
+
+def recover(out):
+    """Finishes or undoes a swap that emit() was killed in the middle of."""
+    old = out.with_name(out.name + ".old")
+    if old.exists():
+        if out.exists():
+            shutil.rmtree(old)  # killed after the new model was in place
+        else:
+            old.rename(out)  # killed between the renames: put the old model back
+
+
+def emit(model_dir, report, out):
+    """Copies to out.partial, then swaps it in with two renames. At every
+    point out holds a whole model, or recover() puts one back."""
+    recover(out)
+    partial = out.with_name(out.name + ".partial")
+    shutil.rmtree(partial, ignore_errors=True)
+    try:
+        shutil.copytree(model_dir, partial)
+        (partial / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        shutil.rmtree(partial, ignore_errors=True)
+        raise
+    old = out.with_name(out.name + ".old")
+    if out.exists():
+        out.rename(old)  # fails on Windows while a running nectra has the model open; out is untouched
+    partial.rename(out)
+    shutil.rmtree(old, ignore_errors=True)
 
 if __name__ == "__main__":
     sys.exit(main())

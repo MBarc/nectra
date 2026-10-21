@@ -14,7 +14,11 @@ use std::{
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::OnceLock,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, OnceLock,
+    },
+    time::Duration,
 };
 
 /// Each retrained model gets a new release tag; its files are pinned below.
@@ -99,67 +103,128 @@ pub fn model_dir(cfg: &Config) -> Option<PathBuf> {
         .or_else(|| dirs::data_local_dir().map(|d| d.join("nectra").join("laya")))
 }
 
-/// Loaded once per process (a few seconds); a failure is remembered so every
-/// message falls back to keywords instead of retrying the load.
-/// The downloaded model is checked against its pins on every load. A
-/// configured `model_dir` is the user's own model (retrain evaluates its
-/// exports that way) and is loaded as is.
+type Pin = (&'static str, &'static str, &'static str);
+
+static ENGINE: OnceLock<std::result::Result<LayaEngine, String>> = OnceLock::new();
+static WARMING: AtomicBool = AtomicBool::new(false);
+
+/// Loaded once per process (about 4.5 s); a failure is remembered so every
+/// message falls back to keywords instead of retrying the load. The model's
+/// files must match their pins unless `allow_unpinned_model` says otherwise.
 fn engine(cfg: &Config) -> Result<&'static LayaEngine> {
-    static ENGINE: OnceLock<std::result::Result<LayaEngine, String>> = OnceLock::new();
     ENGINE
         .get_or_init(|| {
             model_dir(cfg)
                 .context("cannot find a data directory")
-                .and_then(|dir| load(&dir, cfg.inner.classifier.model_dir.is_none()))
+                .and_then(|dir| load(&dir, cfg.inner.classifier.allow_unpinned_model))
                 .map_err(|e| format!("{e:#}"))
         })
         .as_ref()
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-fn load(dir: &Path, pinned: bool) -> Result<LayaEngine> {
+/// Loads the model in the background, and answers one throwaway message so
+/// ONNX Runtime's first-run setup is paid too. Until it is ready, messages
+/// use keywords instead of waiting.
+pub fn warm(cfg: &Config) {
+    if cfg.inner.classifier.backend != crate::config::ClassifierBackend::Laya
+        || WARMING.swap(true, Ordering::SeqCst)
+    {
+        return;
+    }
+    let cfg = cfg.clone();
+    std::thread::spawn(move || {
+        if let Ok(engine) = engine(&cfg) {
+            let _ = ask_with(engine, "hello", None, &[]);
+        }
+    });
+}
+
+/// The pinned files in `files` that don't match their hash: an error, or with
+/// `allow_unpinned`, the list of them.
+fn check_pins(dir: &Path, files: &[&Pin], allow_unpinned: bool) -> Result<Vec<&'static str>> {
+    let mut unpinned = Vec::new();
+    for &&(path, _, sha256) in files {
+        if hash_file(&dir.join(path)).ok().as_deref() != Some(sha256) {
+            if !allow_unpinned {
+                bail!("{path} does not match its pinned hash; run `nectra classifier laya` again");
+            }
+            unpinned.push(path);
+        }
+    }
+    Ok(unpinned)
+}
+
+fn load(dir: &Path, allow_unpinned: bool) -> Result<LayaEngine> {
     let pin = RUNTIME.context("no local model runtime for this platform")?;
     let (runtime, _, _) = pin;
     if !dir.join(runtime).is_file() || !dir.join("model.onnx").is_file() {
         bail!("local model not downloaded; run `nectra classifier laya`");
     }
-    let check = |&&(path, _, sha256): &&(&str, &str, &str)| -> Result<()> {
-        if hash_file(&dir.join(path)).ok().as_deref() != Some(sha256) {
-            bail!("{path} does not match its pinned hash; run `nectra classifier laya` again");
-        }
-        Ok(())
-    };
     // Everything ONNX Runtime parses or runs is checked before it loads. The
-    // raw weights, most of the ~3 s of hashing, are checked while it loads,
-    // and the engine is dropped if they don't match.
-    let (weights, rest): (Vec<_>, Vec<_>) = MODEL_FILES
+    // raw weights, most of the hashing time, are checked while it loads, and
+    // the engine is dropped if they don't match.
+    let (weights, rest): (Vec<&Pin>, Vec<&Pin>) = MODEL_FILES
         .iter()
         .chain([&pin])
-        .filter(|_| pinned)
         .partition(|(path, _, _)| *path == "model.onnx.data");
-    rest.iter().try_for_each(check)?;
+    let mut unpinned = check_pins(dir, &rest, allow_unpinned)?;
     // ort reads this when it first loads the runtime library: always the one
     // checked above, never another found through the environment.
     std::env::set_var("ORT_DYLIB_PATH", dir.join(runtime));
-    std::thread::scope(|s| {
-        let weights = s.spawn(|| weights.iter().try_for_each(check));
+    let engine = std::thread::scope(|s| {
+        let weights = s.spawn(|| check_pins(dir, &weights, allow_unpinned));
         let engine = LayaEngine::create(LayaOptions {
             model_directory: Some(dir.to_path_buf()),
             ..Default::default()
         });
-        weights.join().expect("hashing panicked")?;
-        Ok(engine?)
-    })
+        unpinned.extend(weights.join().expect("hashing panicked")?);
+        anyhow::Ok(engine?)
+    })?;
+    if !unpinned.is_empty() {
+        eprintln!(
+            "Nectra: WARNING: loaded an UNPINNED local model from {} (classifier.allow_unpinned_model = true); not the published files: {}",
+            dir.display(),
+            unpinned.join(", ")
+        );
+    }
+    Ok(engine)
 }
 
-/// The same questions as Jev's, in the short form the model was trained on.
+/// Runs `f` on its own thread and gives up after `deadline`. A late answer
+/// is dropped; inference can't be interrupted, so the thread finishes alone.
+fn within<T: Send + 'static>(
+    deadline: Duration,
+    f: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || tx.send(f()));
+    rx.recv_timeout(deadline)
+        .map_err(|_| anyhow::anyhow!("no answer within {} ms", deadline.as_millis()))?
+}
+
+/// The same questions as Jev's, in the short form the model was trained on,
+/// answered within `laya_timeout_ms` or not at all. Without `warm` (one-shot
+/// commands such as `route` and `eval`) the first call waits for the load.
 pub(crate) fn ask(
     prompt: &str,
     previous: Option<&str>,
     roles: &[Role],
     cfg: &Config,
 ) -> Result<Answer> {
-    ask_with(engine(cfg)?, prompt, previous, roles)
+    let engine = match ENGINE.get() {
+        None if WARMING.load(Ordering::SeqCst) => bail!("local model still loading"),
+        _ => engine(cfg)?,
+    };
+    let (prompt, previous, roles) = (
+        prompt.to_string(),
+        previous.map(str::to_string),
+        roles.to_vec(),
+    );
+    within(
+        Duration::from_millis(cfg.inner.classifier.laya_timeout_ms),
+        move || ask_with(engine, &prompt, previous.as_deref(), &roles),
+    )
 }
 
 fn ask_with(
@@ -239,7 +304,7 @@ fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<An
     }
     let started = std::time::Instant::now();
     let answer = ask_with(
-        &load(dir, true)?,
+        &load(dir, false)?,
         "write a hello world script in python",
         None,
         &[],
@@ -408,14 +473,40 @@ Connection: close
     }
     #[test]
     fn refuses_to_load_a_changed_file() {
+        if RUNTIME.is_none() {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         for (path, _, _) in MODEL_FILES.iter().chain(RUNTIME.as_ref()) {
             let target = dir.path().join(path);
             fs::create_dir_all(target.parent().unwrap()).unwrap();
             fs::write(target, b"not the pinned file").unwrap();
         }
-        let err = load(dir.path(), true).err().expect("must refuse");
+        let err = load(dir.path(), false).err().expect("must refuse");
         assert!(format!("{err:#}").contains("pinned hash"), "{err:#}");
+        // Only an explicit opt-in loads unpinned files, and it names every one.
+        let all: Vec<_> = MODEL_FILES.iter().chain(RUNTIME.as_ref()).collect();
+        assert!(check_pins(dir.path(), &all, false).is_err());
+        let unpinned = check_pins(dir.path(), &all, true).unwrap();
+        assert_eq!(unpinned, all.iter().map(|f| f.0).collect::<Vec<_>>());
+        // A file that matches its pin is not reported.
+        let real = dir.path().join("only");
+        fs::write(&real, b"abc").unwrap();
+        let pin = (
+            "only",
+            "",
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        );
+        assert!(check_pins(dir.path(), &[&pin], false).unwrap().is_empty());
+    }
+    #[test]
+    fn gives_up_at_the_deadline() {
+        let slow = within(Duration::from_millis(50), || {
+            std::thread::sleep(Duration::from_millis(500));
+            Ok(1)
+        });
+        assert!(format!("{:#}", slow.unwrap_err()).contains("50 ms"));
+        assert_eq!(within(Duration::from_millis(500), || Ok(2)).unwrap(), 2);
     }
     /// The whole fetch path against a local copy of the release:
     /// `NECTRA_LAYA_ASSETS=<dir staged by scripts/release-laya.sh> cargo test --release -- --ignored fetches`
@@ -453,7 +544,7 @@ Connection: close
         // So are weights changed on disk after the download, which are checked
         // while the engine loads.
         let started = std::time::Instant::now();
-        load(dir.path(), true).unwrap();
+        load(dir.path(), false).unwrap();
         println!("verified load: {} ms", started.elapsed().as_millis());
         fs::OpenOptions::new()
             .append(true)
@@ -461,8 +552,40 @@ Connection: close
             .unwrap()
             .write_all(b"\0")
             .unwrap();
-        let err = load(dir.path(), true).err().expect("must refuse");
+        let err = load(dir.path(), false).err().expect("must refuse");
         assert!(format!("{err:#}").contains("model.onnx.data"), "{err:#}");
+    }
+    /// Load, first-message and steady-state latency on dev.json:
+    /// `NECTRA_LAYA_MODEL=<model dir> cargo test --release -- --ignored latency --nocapture`
+    #[test]
+    #[ignore = "needs a model in NECTRA_LAYA_MODEL"]
+    fn latency() {
+        let dir = PathBuf::from(std::env::var_os("NECTRA_LAYA_MODEL").unwrap());
+        let unpinned = std::env::var_os("NECTRA_LAYA_UNPINNED").is_some();
+        let started = std::time::Instant::now();
+        let engine = load(&dir, unpinned).unwrap();
+        let load_ms = started.elapsed().as_millis();
+        let dev: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../eval/laya/dev.json")).unwrap();
+        let mut ms: Vec<u128> = dev
+            .iter()
+            .map(|c| {
+                let started = std::time::Instant::now();
+                ask_with(&engine, c["prompt"].as_str().unwrap(), None, &[]).unwrap();
+                started.elapsed().as_millis()
+            })
+            .collect();
+        let first = ms.remove(0);
+        ms.sort();
+        let at = |q: f64| ms[((ms.len() - 1) as f64 * q) as usize];
+        println!(
+            "load {load_ms} ms; first message {first} ms; then n={} median {} p95 {} max {} ms; over 300 ms: {}",
+            ms.len(),
+            at(0.5),
+            at(0.95),
+            ms[ms.len() - 1],
+            ms.iter().filter(|&&m| m > 300).count()
+        );
     }
     #[test]
     fn hashes_like_sha256sum() {

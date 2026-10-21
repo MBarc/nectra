@@ -68,8 +68,15 @@ pub struct ClassifierConfig {
     /// Jev difficulty (0..1) above this routes to the demanding role.
     pub demanding_above: f64,
     /// Where `nectra classifier laya` keeps the local model; defaults to the
-    /// per-user data directory.
+    /// per-user data directory. Its files are checked against the hashes
+    /// pinned in the code.
     pub model_dir: Option<PathBuf>,
+    /// Load a model in `model_dir` whose files don't match the pinned hashes,
+    /// including the ONNX Runtime library: for your own retrained model.
+    pub allow_unpinned_model: bool,
+    /// Longest the local model may take per message before Nectra uses
+    /// keywords for that message instead.
+    pub laya_timeout_ms: u64,
 }
 impl Default for ClassifierConfig {
     fn default() -> Self {
@@ -80,6 +87,8 @@ impl Default for ClassifierConfig {
             simple_below: 0.2,
             demanding_above: 0.6,
             model_dir: None,
+            allow_unpinned_model: false,
+            laya_timeout_ms: 300,
         }
     }
 }

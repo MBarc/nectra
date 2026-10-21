@@ -1,13 +1,22 @@
 # Laya task classifier: report
 
-**Result.** The run-4 model scores **312/324 (96.3%) on `fresh-test-2.json`**.
-That set is the gate, and no model saw it before this evaluation. The bar is
-over 95%.
+**Result.** The run-4 model scores **96.3% (312/324) on held-out
+fresh-test-2, 95% Wilson CI 93.6-97.9%**. That set is the gate, and no model
+saw it before this evaluation. The gate's bar is a point estimate over 95%,
+which it meets. The interval does not by itself show accuracy above 95%.
 
-On latency, the gate evaluation that emitted the model measured **202
-ms/message**, under the 300 ms bar, on a loaded desktop.
+On **fresh-test-3**, a larger held-out set labelled and committed before its
+single evaluation, it scores **97.7% (1007/1031), 95% Wilson CI 96.6-98.4%**.
+The lower bound clears 95%. See "fresh-test-3" below.
 
-- The same architecture measured **104 ms/message** on an idle desktop (run 3).
+On latency, the gate evaluation that emitted the model measured a **mean
+of 202 ms/message**, under the 300 ms bar, on a loaded desktop. That is a
+mean, not a per-message bound. Per message, the steady state measured a
+median of 173 ms, a p95 of 338 ms and a maximum of 543 ms. Nectra now enforces
+a per-message deadline at runtime (see "Runtime latency").
+
+- The same architecture measured **104 ms/message** on an idle desktop. That
+  was run 3, a different set of weights; run 4 has not been measured idle.
 - The three run-4 evaluations measured 172, 418 and 202 ms. All ran on a shared
   desktop under load: Roblox Studio at 33–65% CPU, and under 4 GB free on C:.
 - The accuracy figures are deterministic: identical in every evaluation.
@@ -23,6 +32,7 @@ ONNX model, on CPU via ONNX Runtime.
 
 | set | role | run 4 (this) | run 3 (refused) | old model |
 |---|---|---|---|---|
+| `fresh-test-3.json` (1031) | held out, evaluated once | **1007 (97.7%)** | not run | not run |
 | `fresh-test-2.json` (324) | **gate**, unseen until now | **312 (96.3%)** | not run | not run |
 | `dev.json` (324) | per-epoch dev, rubric tie-breaks | 308 (95.1%) | 296 (91.4%) | not run |
 | `fresh-test.json` (323) | reported; its failures were seen | 310 (96.0%) | 295 (91.3%) | 278 (86.1%) |
@@ -60,6 +70,76 @@ boundaries:
 
 The exported int8 model scores 308/324 through Nectra. One prompt flips
 between the fp32 weights in training and the int8-embedding ONNX model.
+
+### fresh-test-3 (held out, evaluated once)
+
+This set was built to narrow fresh-test-2's interval. The process is in
+`eval/laya/fresh-test.README.md`.
+
+- **Writing and labelling.** Claude models only, under the frozen rubric.
+- **Near-duplicates.** Those of the training prompts and follow-ups and of
+  every earlier set were dropped.
+- **Labelling.** Two blind labelers agreed on 1029/1031 items, and an Opus
+  adjudicator settled the other 2.
+- **Order.** The labels were committed in 5a66555 before the evaluation.
+- **The evaluation.** It ran once, on 2026-10-21 at 16:34 local, using the
+  shipped (pinned) model with no deadline. Its output is
+  `eval/laya/fresh-test-3-result.json`.
+- **Not trained on.** Nothing was trained or tuned on this set.
+
+**Result: 1007/1031 = 97.7%, 95% Wilson CI 96.6-98.4%.** The lower bound
+clears 95%.
+
+| class | recall |
+|---|---|
+| architecture | 104/106 (98.1%) |
+| code_generation | 100/100 (100%) |
+| code_review | 106/107 (99.1%) |
+| data_analysis | 105/106 (99.1%) |
+| debugging | 104/108 (96.3%) |
+| general | 76/78 (97.4%) |
+| planning | 101/107 (94.4%) |
+| refactoring | 103/107 (96.3%) |
+| research | 103/106 (97.2%) |
+| writing | 105/106 (99.1%) |
+
+There were 24 misses. The most common pairs were debugging -> code_review (2)
+and refactoring -> debugging (2). Every other pair occurred once.
+
+**Caveat.** This set comes from the same synthetic, rubric-shaped
+distribution as fresh-test-2, so it narrows the interval on that
+distribution, not on real traffic.
+
+## Runtime latency (per message, in the product)
+
+Measured with the shipped model on an i5-9600K at about 40% CPU from other
+work, using
+`NECTRA_LAYA_MODEL=<dir> cargo test --release -- --ignored latency --nocapture`.
+
+| | |
+|---|---|
+| load, including sha256 of every file | 4376 ms |
+| first message after load | 276 ms |
+| steady state (323 dev messages) | median 173, p95 338, max 543 ms |
+| over 300 ms | 36/323 |
+
+What Nectra does about latency now:
+
+- **Deadline.** Each message gets `classifier.laya_timeout_ms` (default 300,
+  the bar). A late answer is dropped, the message is classified by keywords,
+  and the reason ("laya unavailable: no answer within 300 ms") is shown by
+  `route`. With the deadline, the 300 ms bar holds for every message.
+- **Accuracy cost.** On this loaded desktop the deadline cost dev.json 4
+  points: 91.0% at 300 ms against 95.1% without a deadline. Users who prefer
+  accuracy can set `laya_timeout_ms = 1000`, which bounds the worst case
+  near 0.5 s.
+- **Warm-up.** `nectra chat` starts loading at launch on a background thread
+  and runs one throwaway message to pay ONNX Runtime's first-run cost.
+  Messages that arrive in the first ~4.5 s use keywords instead of waiting.
+- **One-shot commands.** `route` and `eval` wait for the load on their first
+  message, outside the deadline.
+- **Evaluation.** `retrain` evaluates with no deadline, so the gate measures
+  the model rather than the machine.
 
 ## Latency (CPU, desktop, ONNX Runtime via Nectra)
 
@@ -123,8 +203,25 @@ Full process: `eval/laya/fresh-test.README.md`.
 - **Labelers.** Two blind labelers per set. Every set got full agreement after
   adjudicating the prompts flagged unsure: 11 on dev, 13 on fresh-test-2.
 - **Rubric freeze.** The rubric tie-breaks for the confusable pairs were
-  decided on dev only. They were committed in 7fa16a7 before fresh-test-2 was
-  labelled (64ef5bc), and before any model saw fresh-test-2.
+  decided on dev only.
+  - **What git shows.** They were committed in 7fa16a7, 107 s before
+    fresh-test-2 (64ef5bc), and before any model saw fresh-test-2. That
+    proves the commit order, not that the rubric was frozen before labelling
+    began.
+  - **Why it matters little.** Both labelers agreed with the writers on all
+    324 prompts, so no tie-break decided a fresh-test-2 label.
+- **Dev prompts in the rubric.** Two rubric examples are dev.json prompts
+  verbatim:
+  - the binary-search review;
+  - the UK drone question.
+
+  Every generator and labeler reads the rubric, so the dev numbers are not
+  clean held-out figures. The rubric stays frozen, because changing it would
+  change what fresh-test-3 was labelled under.
+- **Follow-ups.** The training-data near-duplicate filter checked prompts
+  only. Three run-4 training follow-ups match a `fresh-test.json` prompt
+  verbatim; none matches fresh-test-2, fresh-test-3 or dev. `retrain` now
+  filters follow-ups too.
 - **Models used.** This iteration used only Claude models (Opus and Sonnet) for
   writing, labelling and adjudication.
 - **Caveat.** Every writer, labeler and adjudicator was a language model
@@ -157,18 +254,29 @@ Changes in this iteration:
     `--relaunches` times.
 - **Gate.** The gate is now `fresh-test-2.json`. The other sets are reported
   only. `--dev` prints dev accuracy and confusion every epoch.
-- **Emit.** The model is copied into a `.partial` directory and renamed into
-  place. A failed copy (run 4's first emit hit "not enough space on the disk")
-  now leaves no half-written model.
+- **Emit.** The model is copied into a `.partial` directory. Two renames
+  then swap it in: `out` becomes `out.old`, `.partial` becomes `out`, and
+  `out.old` is deleted.
+  - **Interrupted swaps.** A swap killed partway is finished or undone by the
+    next run. `test_retrain.py` kills it at each step to check this.
+  - **The `emitted` field** in `report.json` is written only once the model
+    is in place.
+  - **Failed copies.** A failed copy (run 4's first emit hit "not enough space
+    on the disk") or a failed rename leaves the old model as it was.
+- **Pinning.** `classifier.model_dir` no longer turns hash pinning off. Any
+  file that doesn't match its pin, including the ONNX Runtime library, needs
+  `classifier.allow_unpinned_model = true`. `retrain`'s evaluation config sets
+  that explicitly.
 
 ## Open items
 
 - **Latency** is load-sensitive on this desktop: 104 to 418 ms for the same
-  graph. To confirm about 104 ms, re-measure on an idle machine (command above).
+  graph. Run 4 has not been measured idle; use the command above or the
+  `latency` test.
   The emitted model is in `tools/laya/work/model` (gitignored; not committed).
-- **Publishing.** `src/laya.rs` still has `TODO` sha256 placeholders for the
-  release assets. Publishing weights needs Michael's go-ahead; nothing was
-  uploaded.
+- **Publishing.** The release assets are pinned in `src/laya.rs` and staged by
+  `scripts/release-laya.sh`. Publishing the weights needs Michael's go-ahead,
+  and nothing has been uploaded.
 - **Desktop disk** is at 99.6% (about 2 GB free). That is not from this work:
   I deleted my own stale exports (2.7 GB), and free space kept falling.
 - The lumina VM was not used. No Codex/OpenAI models were used in this

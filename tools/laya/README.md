@@ -66,13 +66,18 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
    per-row scales (1.29 GB -> 0.70 GB). Matrix multiplies stay fp32.
    `--fp32` skips this step.
 5. **Evaluate through Nectra.** Writes a throwaway config with
-   `backend = "laya"` and `model_dir` set to the export. It checks with
+   `backend = "laya"`, `model_dir` set to the export,
+   `allow_unpinned_model = true` (a new model is not the published one) and
+   no per-message deadline. It checks with
    `nectra route` that the model, not the keyword fallback, answered. Then it
    runs `nectra eval` on `eval/laya/fresh-test-2.json` (the bar). It also
    runs `dev.json`, `fresh-test.json` and `old60-rubric.json`, reported only. Latency is wall time per
    message with process start and model load subtracted.
 6. **Emit or refuse.** It copies the model to `--out` only if fresh-set
-   accuracy is above `--bar` and latency is at most `--max-ms`.
+   accuracy is above `--bar` and latency is at most `--max-ms`. The copy goes
+   to `<out>.partial`. Two renames swap it in (`out` -> `out.old`, then
+   `.partial` -> `out`). A swap that was killed partway is finished or undone
+   by the next run.
 
 ## Interface (stable; other tools call this)
 
@@ -111,10 +116,12 @@ holds:
 - `eval` by corpus, each with `passed`, `total`, `accuracy`,
   `ms_per_message`, a `confusion` map (`"expected -> actual": count`) and
   `failures`;
-- `emitted` (the path or null), or `error`.
+- `emitted`: the path, set only after the model is in place at `--out`, or
+  null; or `error`.
 
 **Installing an emitted model** is up to the caller. Point
-`[classifier] model_dir` at `--out` (with the ONNX Runtime library inside),
+`[classifier] model_dir` at `--out` (with the ONNX Runtime library inside)
+and set `allow_unpinned_model = true` (Nectra warns on every load),
 or publish it as a new release, update the hashes in `src/laya.rs`, and let
 `nectra classifier laya` download it. Publishing is Michael's call.
 
@@ -122,8 +129,9 @@ or publish it as a new release, update the hashes in `src/laya.rs`, and let
 
 `eval/laya/fresh-test-2.json` gates every run, and nothing is trained on it,
 tuned against it or selected by it. The generator never sees it, and
-near-duplicates of it (and of `dev.json` and the older sets) are filtered out
-of generated data. `dev.json` is the model-selection set: training prints its
+near-duplicates of it (and of `dev.json`, `fresh-test-3.json` and the older
+sets) are filtered out of generated prompts and their follow-ups.
+`fresh-test-3.json` is never run by `retrain`; it was evaluated once, by hand. `dev.json` is the model-selection set: training prints its
 task accuracy and confusion after every epoch. `fresh-test.json`, the first
 bar, is reported only, because its failures have been seen. Don't edit its labels to make a model pass. See
 `eval/laya/fresh-test.README.md`.

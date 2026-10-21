@@ -47,4 +47,43 @@ for x in new:  # a new message is labelled as itself
 guarded = [set(retrain.norm("my docker container exits with code 137 right after startup").split())]
 assert retrain.near_duplicate("My Docker container exits with code 137, right after startup!", guarded)
 assert not retrain.near_duplicate("my docker container is slow", guarded)
+
+# emit() killed at each step of the swap: out always ends up a whole model.
+import subprocess, sys, tempfile
+KILL = """
+import importlib.machinery, importlib.util, os, pathlib, sys
+loader = importlib.machinery.SourceFileLoader("retrain", sys.argv[1])
+spec = importlib.util.spec_from_loader("retrain", loader)
+retrain = importlib.util.module_from_spec(spec)
+loader.exec_module(retrain)
+renames, rename = [0], pathlib.Path.rename
+def dying_rename(self, target):
+    if renames[0] == int(sys.argv[4]):
+        os._exit(9)
+    renames[0] += 1
+    return rename(self, target)
+pathlib.Path.rename = dying_rename
+retrain.emit(pathlib.Path(sys.argv[2]), {"emitted": sys.argv[3]}, pathlib.Path(sys.argv[3]))
+"""
+for kill_at, expect in [(0, "old"), (1, "old"), (99, "new")]:  # before, between, after the renames
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "new").mkdir()
+        (tmp / "new" / "model.onnx").write_text("new")
+        out = tmp / "model"
+        out.mkdir()
+        (out / "model.onnx").write_text("old")
+        code = subprocess.run([sys.executable, "-c", KILL, str(HERE / "retrain"), str(tmp / "new"), str(out),
+                               str(kill_at)]).returncode
+        assert (code == 9) == (kill_at < 2), (kill_at, code)
+        retrain.recover(out)
+        assert (out / "model.onnx").read_text() == expect, kill_at
+        assert not out.with_name("model.old").exists()
+        if expect == "new":
+            assert json.loads((out / "report.json").read_text())["emitted"] == str(out)
+            # Killed after both renames, before the old model was deleted.
+            out.with_name("model.old").mkdir()
+            retrain.recover(out)
+            assert (out / "model.onnx").read_text() == "new" and not out.with_name("model.old").exists()
+
 print("ok")

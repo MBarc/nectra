@@ -90,7 +90,7 @@ pub enum Commands {
         name: Option<crate::terminal::Theme>,
     },
     /// Choose how messages are classified: `laya` downloads a free local model
-    /// (about 1.3 GB, nothing leaves the machine), `auto` uses Jev when a
+    /// (about 750 MB, nothing leaves the machine), `auto` uses Jev when a
     /// TypeSafe key is set, `keywords` uses keywords only.
     Classifier {
         #[arg(value_enum)]

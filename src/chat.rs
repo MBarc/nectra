@@ -149,6 +149,8 @@ pub fn run(cli: &Cli, cfg: &Config, registry: &Registry) -> Result<i32> {
             "chat reads one message at a time; omit --stdin and use /paste for multiline messages"
         );
     }
+    // Loads while the user types; messages use keywords until it is ready.
+    crate::laya::warm(cfg);
     let cwd = std::env::current_dir()?;
     let explicit = matches!(
         &cli.command,

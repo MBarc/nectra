@@ -319,6 +319,30 @@ which `nectra setup` writes after checking the key with one live call. The key i
 never stored in `config.toml`, so `nectra config --print` cannot show it. A Jev
 difficulty tier only applies when some enabled model claims its role.
 
+### Local Laya classifier
+
+`nectra classifier laya` downloads a local model, about 750 MB, and every
+file is checked against hashes pinned in the binary. It is checked on
+download and again on every load, wherever `model_dir` points. Prompts
+never leave the machine.
+
+```toml
+[classifier]
+backend = "laya"
+# model_dir = "D:/models/laya"      # where the model lives (default: per-user data dir)
+# allow_unpinned_model = false      # true loads your own retrained model; warns on every load
+laya_timeout_ms = 300               # per message; slower answers fall back to keywords
+```
+
+- **Chat** loads the model in the background at start, which takes about
+  4.5 s. Until the model is ready, messages are classified by keywords.
+- **On a busy machine** some messages miss the 300 ms deadline and fall back
+  to keywords; `route` shows which. Raise `laya_timeout_ms` to 1000 to trade
+  latency for accuracy.
+- **A failed load** is remembered until Nectra restarts.
+- **Accuracy:** 97.7% on a 1031-prompt held-out set (95% CI 96.6-98.4%). See
+  `tools/laya/MODEL_CARD.md`.
+
 `nectra eval` uses the configured classifier, so the same corpus compares both.
 Difficulty saves tokens only when the registry has a cheap model claiming the
 `simple` role (for example `haiku`).
