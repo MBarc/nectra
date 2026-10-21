@@ -32,3 +32,12 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
   `--no-session` can't pass the limit and succeed.
 - `--mcp-config` checks Codex with its extra arguments and environment, and
   `codex mcp list` is bounded by `--deadline` and cancel.
+- A resumed Codex thread whose log has a cut-short or unreadable record is
+  `usage_complete: false`, not counted from it. Codex calls are charged to the
+  model the turn's own log entry names, or `unknown` (no price), never to one
+  from the thread's history.
+- `text` events of a streamed reply are masked across deltas, so a credential
+  split between two isn't shown; every `--mcp-config` server's `env` values are
+  masked. `text` events may now be held back until a word ends.
+- A Ctrl+C while the result is written cancels instead of exiting without it,
+  and a stopped `codex mcp list` is killed before Nectra exits.

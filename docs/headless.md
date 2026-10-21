@@ -83,7 +83,7 @@ Names are the provider's: Claude's tool name, Codex's item type
 | `usage_complete` | `true` only when the provider's final word accounts for every attempt: Claude's `result`, Codex's `turn.completed` total from a known starting point, or a refusal before any work (a usage limit, a sign-in, an unavailable model). `false` when an attempt started and that word never came (a guard, a cancel, a crash), for a resumed Codex thread whose log couldn't be read before the turn, and for any Gemini run (thinking tokens aren't reported). `usage` and `cost_usd` then count what was reported, a lower bound; they never drop work that was reported. |
 | `cost_usd` | API-equivalent USD for `usage`, each model at its own price, or `null` when a model that used tokens has no price, or Claude wrote to the cache without saying at which TTL. Never 0 for unpriced work. |
 | `provider_cost_usd` | Claude Code's own `total_cost_usd`, for cross-checking; `null` for other runtimes. On a resumed session it covers the whole session, not this task. |
-| `models` | `usage`, `usage_complete` and `cost_usd` per model. `model` is the model the provider says answered (Claude Code may use more than one in a task; Codex's from its log); `routed_as` is the Nectra model id the attempt was routed to. Failover attempts appear here too. |
+| `models` | `usage`, `usage_complete` and `cost_usd` per model. `model` is the model the provider says answered (Claude Code may use more than one in a task; Codex's from the attempt's own `turn_context` in its log, or `unknown`, which has no price, when the log didn't name one); `routed_as` is the Nectra model id the attempt was routed to. Failover attempts appear here too. |
 | `attempts` | Each model tried, in order, with its `error_class` and `error`. |
 | `route` | The last routing decision in full. |
 | `warnings` | Problems that didn't change the outcome, such as a session record that couldn't be written. |
@@ -96,8 +96,14 @@ credentials masked as `[redacted]`: values of 4 characters or more of variables
 whose names hold `KEY`, `TOKEN`, `SECRET`, `PASSW`, `CREDENTIAL` or `AUTH` (Nectra's
 own, and `--mcp-config` `env`), except `true`, `false`, `none`, `null` and `auto`;
 any other `--mcp-config` `env` value of 8 characters or more; and token-shaped
-words (`sk-...`, `ghp_...`, `Bearer ...`, JWTs). A credential Nectra doesn't know
-and that has no token shape isn't masked.
+words (`sk-...`, `ghp_...`, `Bearer ...`, JWTs). The `env` values of every server
+in `--mcp-config` count, including those Codex can't take. A reply streamed in
+pieces is masked as one text: the end of a piece waits for the next while it may
+be part of a credential or a word. Diagnostics go out by line (a line over 64
+KiB at its last space, or else all but its last 4 KiB), never cut inside a known
+credential. A credential Nectra doesn't know and that has no token shape isn't
+masked. The interrupt handler stays Nectra's until the `result` is written, so a
+Ctrl+C while it is being put together cancels rather than exits.
 
 ### Error classes and exit codes
 
@@ -138,13 +144,16 @@ Usage is the providers' own token counts, never estimates, per model call:
   or `..._<n>.jsonl` after `thread/revert`; the newest whose first line names the
   thread), which records the thread's running total after every model call, and
   the model in each `turn_context` entry. Each call is the growth since the last
-  one. A resumed thread starts from the total already in the log, read before
-  the turn starts; if it can't be read then, nothing is counted from the log
-  (it would include history) and the turn is `usage_complete: false`.
-  `turn.completed.usage` is the thread's running total too (Codex 0.162.1): from
-  a known starting point, whatever of it the log hasn't shown is counted as the
-  rest of the turn, which is all of it without a log (`--no-session`, which runs
-  Codex `--ephemeral`; the model is then the one Nectra asked for). Cached input
+  one. A resumed thread starts from the total already in the log, read whole
+  before the turn starts; if it can't be read then, or a record in it is cut
+  short or unreadable, nothing is counted from the log (it would include
+  history) and the turn is `usage_complete: false`. `turn.completed.usage` is
+  the thread's running total too (Codex 0.162.1): from a known starting point,
+  whatever of it the log hasn't shown is counted as the rest of the turn, which
+  is all of it without a log (`--no-session`, which runs Codex `--ephemeral`).
+  Calls are charged to the model in this attempt's own `turn_context`, never one
+  from history; when the log names none, to `unknown` (so `cost_usd: null`), and
+  without a log to the model Nectra launched Codex with (`--model`). Cached input
   is moved out of `input` into `cache_read`.
 - **Gemini:** `result.stats.models` (`input`, `cached`, `output_tokens`), read
   from Gemini CLI's source, not yet verified against a live run. Thinking tokens
@@ -159,22 +168,26 @@ models have a 1-hour (`cache_write`) and a 5-minute (`cache_write_5m`) write
 rate. Models without a price (currently fable, gpt-6.x, gpt-5.6-terra and Gemini)
 can't be routed to under `--max-cost-usd`.
 
-`--max-cost-usd` is checked whenever usage arrives, and the call in flight
-counts what it has reported:
+`--max-cost-usd` is a threshold checked whenever usage arrives, not a ceiling:
+the call in flight counts what it has reported, and what is reported is already
+spent.
 
-- **Claude:** at the start of every model call (its input and cache counts) and
-  at its end. A call's output is only reported at its end, so the overshoot is at
-  most one call's output.
+- **Claude:** at the start of every model call, once its input and cache counts
+  arrive, and at its end. By then the call's input and cache are billed, and its
+  output is only reported at its end, so one call can overshoot by all of its
+  input, cache and output.
 - **Codex:** after every model call, at the next event Codex prints once the
   call is in its log. A Codex call can't be stopped part way, and with
   `--no-session` (no log) the check happens only after the whole turn.
 - **Gemini:** only after the whole turn.
 
-Once each attempt ends, the guard is checked again with the attempt's final
+Once an attempt that succeeded ends, the guard is checked again with its final
 count, so a turn whose usage is first known at its end (Codex without a log,
-Gemini) and went past the limit ends as `cost_limit`, not as a success. So the
-guard is a ceiling for Claude, and for Codex and Gemini a threshold that can be
-overshot by one call (Codex) or one turn (Codex without a log, Gemini).
+Gemini) and went past the limit ends as `cost_limit`, not as a success; an
+attempt that failed keeps its own error class. So the run can end over the
+limit by one call (Claude, Codex) or one turn (Codex without a log, Gemini).
+Usage charged to a model without a price (`unknown` included) doesn't count
+towards it.
 
 ## Failover
 
@@ -210,10 +223,14 @@ With `--mcp-config FILE`, exactly the servers in FILE are given to the agent:
   asks `codex mcp list` again with all of that: unless exactly FILE's servers are
   on, Codex models aren't routed to and the reason goes to stderr. Both questions
   are asked as the launch will run: with the servers' environment and the Codex
-  `extra_args` that switch features (`--enable`, `--disable`); any other extra
-  argument that could change which servers load (`--cd`, say) keeps the task off
-  Codex. They count against `--deadline` and stop on a cancel, and anything they
-  leave running is killed with them. Codex also isn't used when FILE has a server
+  `extra_args` that switch features (`--enable`, `--disable`). Sandbox, approval
+  and colour settings (`--sandbox`/`-s`, `--ask-for-approval`/`-a`, `--color`,
+  `--skip-git-repo-check`, `--full-auto`, `--yolo`,
+  `--dangerously-bypass-approvals-and-sandbox`) can't change which servers load
+  and are left out of the questions; any other extra argument (`--cd`, say) keeps
+  the task off Codex. They count against `--deadline` and stop on a cancel, and
+  anything they leave running is killed (and Nectra waits up to 3 s for that)
+  before Nectra writes its result. Codex also isn't used when FILE has a server
   it can't take as written (not stdio, a name outside `[A-Za-z0-9_-]`), or when one
   variable has two values, either between two servers or against Nectra's own
   environment: Codex passes variables by name from one environment, so a server

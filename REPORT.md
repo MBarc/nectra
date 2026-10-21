@@ -187,8 +187,8 @@ test first ("unit" = `src/*.rs` tests, "e2e" = `tests/headless.rs`).
 | 9 | Gemini result without stats looked complete | No per-model stats ⇒ an incomplete entry. | unit `a_gemini_result_without_stats_is_not_complete` | fdcf0f8 |
 | 3 | A write without its TTL priced as 1-hour | `cost_usd` is `null` for it (and per model); the cost guard holds it at the dearer 1-hour rate. Live Claude Code 2.1.304 sends the split, so live costs stay exact. | unit `a_claude_cache_write_without_its_ttl_has_no_price` | 319c971 |
 | 4 | Any `claude-*` name took its family's price | Full names resolve only through `prices.json` `_aliases` (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`); `claude-opus-4-8` etc. have no price, in `nectra usage` too. | unit `only_listed_model_versions_get_a_price` | 027223a |
-| N6 | Codex `--no-session` skips the cost guard | The guard is checked again with each attempt's final count; over the limit is `cost_limit` (exit 4). | e2e "Codex without a log still meets the cost guard" | 05afd6f |
-| N4 / 6 | MCP probes don't see the launch's arguments or environment | Probes get the servers' environment and Codex `extra_args` `--enable`/`--disable`; any other Codex extra argument (`--cd`, …) excludes Codex under `--mcp-config`. (`--config`, `--profile`, `--model` are already refused in `extra_args` by config validation.) | e2e "MCP is checked against Codex's own extra arguments" (`--enable plugins` re-adds a plugin server ⇒ excluded; `--cd` ⇒ excluded) | 3e7b218 |
+| N6 | Codex `--no-session` skips the cost guard | The guard is checked again with each attempt's final count; an attempt that succeeded but went over the limit becomes `cost_limit` (exit 4). A failed attempt keeps its own class. | e2e "Codex without a log still meets the cost guard" | 05afd6f |
+| N4 / 6 | MCP probes don't see the launch's arguments or environment | Probes get the servers' environment and Codex `extra_args` `--enable`/`--disable`; sandbox, approval and colour arguments (`-s`, `-a`, `--color`, `--skip-git-repo-check`, `--full-auto`, `--yolo`, `--dangerously-bypass-approvals-and-sandbox`) are left out of the probes; any other Codex extra argument (`--cd`, …) excludes Codex under `--mcp-config`. (`--config`, `--profile`, `--model` are already refused in `extra_args` by config validation.) | e2e "MCP is checked against Codex's own extra arguments" (`--enable plugins` re-adds a plugin server ⇒ excluded; `--cd` ⇒ excluded) | 3e7b218 |
 | N5 | Probes ignore deadline and cancel | `executor::output_until`: own process group/job, killed at the deadline or a cancel; `--mcp-config` loading also runs under `bounded()`, and its deadline/cancel keep their error classes. | e2e "a hung `codex mcp list` meets the deadline" | 9404f1e |
 | N7 / 5 | Interrupt-handler setup could exit without a result | Setup and the run go through one `settle()` boundary: setup error, run error or panic ⇒ `harness_error`. | unit `setup_failures_errors_and_panics_all_become_one_outcome` | 50d5a04 |
 | N8 | Credentials reach stdout through Codex `error` events; short secrets; split at flush | `emit()` masks every string of every event. Credential-named values masked from 4 characters (except `true`/`false`/`none`/`null`/`auto`), other `--mcp-config` env values from 8. Diagnostics are flushed through the last line end, or the last space of a line over 64 KiB (all but its last 4 KiB without one). | e2e "credentials are redacted" (Codex `error` event, a 5-character key); unit `a_stream_is_only_cut_between_words`, `credentials_are_masked_and_prose_is_not` | 8e8ee78 |
@@ -201,10 +201,30 @@ $0.00745435 equals Claude Code's; the cost-guard run ends `cost_limit` with
 `usage_complete: false`. Codex is still at its usage limit (until 3:38 PM today), so the
 Codex half stays open.
 
-What is still not guaranteed, by design: a credential Nectra doesn't know and that has
-no token shape isn't masked; `--max-cost-usd` can overshoot by one Codex call or by one
-turn of Codex without a log or of Gemini; a resumed Codex turn whose log can't be read
-is reported incomplete rather than counted.
+What is still not guaranteed, by design (as corrected in round 4): a credential Nectra
+doesn't know and that has no token shape isn't masked; `--max-cost-usd` is a threshold,
+not a ceiling, and can overshoot by one Claude call (its input and cache as well as its
+output), one Codex call, or one turn of Codex without a log or of Gemini; a resumed Codex
+turn whose log can't be read is reported incomplete rather than counted.
+
+## Astra review (round 4)
+
+Astra's third review (`astra-nectra-headless-3.review.md`, of 461f61f, verdict HOLD)
+found A–F. The coordinator accepted all of them. Each code fix has a regression test
+written before it. A, B, C's MCP collection and C's stdout deltas were seen failing
+first; C's diagnostics-cut test and D's test use the changed signatures, so they could
+not run against the old code; E's check can only catch the race on Unix.
+
+| # | Finding | Fix | Test | Commit |
+|---|---|---|---|---|
+| A (P1) | A cut-short or garbled historical rollout counted as a verified baseline (1000 + unterminated 1500 ⇒ 700 charged for a 200-token turn) | A baseline read fails when the log doesn't end in a line end or a non-blank line isn't JSON; then nothing is counted from the log and the turn is `usage_complete: false`. | unit `a_cut_short_or_garbled_codex_log_is_no_baseline` (both cases) | ffeee1a |
+| B (P1) | Tail recovery charged recovered tokens to history's model | Baseline reads never record a model. Calls and the recovered rest are charged to this attempt's own `turn_context` model, else `unknown` (unpriced ⇒ `cost_usd: null`); without a log, to the `--model` Nectra launched. | unit `recovered_codex_usage_is_never_charged_to_historys_model` (no context ⇒ `unknown`; this turn's context ⇒ its model) | ffeee1a |
+| C (P1) | Forced stderr cut split a known secret; stdout deltas masked one by one; MCP secrets of servers with `cwd`/restrictions not collected | `redact::ready` never cuts inside a known credential or a prefix of one at the end, nor inside a character, and a forced cut keeps max(longest credential − 1, 4 KiB). Reply deltas go through `redact::Stream` (held back at a partial word, flushed before tool events and at the attempt's end). `--mcp-config` collects every server's `env`. Spec's "never cut mid-word" replaced with what holds. | unit `a_credential_is_never_cut_in_two` (73,728-byte line, `48213` across byte 69,632), `a_reply_in_pieces_is_masked_whole`, `every_server_claude_is_handed_has_its_credentials_masked`; e2e "credentials are redacted" (a key split across two Claude deltas) | 8a3feba |
+| D (P2) | `settle()` dropped `TurnCancellation` before the result was emitted | `settle` borrows the owner; `run()` drops it after the result event. | unit `the_cancellation_owner_outlives_the_run` | e2d9958 |
+| E (P2) | `bounded()` returned without the MCP probe worker, so `process::exit` could beat probe cleanup | `bounded()` gives its work a stop token; on deadline or cancel it cancels it and waits up to a grace period (3 s for `--mcp-config`, 0 for stdin and routing, which own no process) for the worker to kill and reap the probe. | e2e "a hung `codex mcp list` meets the deadline" now also checks the probe's PID is gone when Nectra exits | de1453a |
+| F (P2) + nits | Claude guard called a ceiling; overshoot said to be output only; REPORT rows N6/N4 and spec H8 overstated | docs/headless.md and spec H4: a threshold checked when usage arrives, overshoot of one Claude call includes its input and cache, unpriced usage doesn't count. N6 row: only a successful attempt becomes `cost_limit`. N4 row and spec H8: sandbox/approval/colour arguments are skipped, not excluding. | docs only | ROUND4_DOCS |
+
+ROUND4_TESTS
 
 Tests after round 3: Windows `cargo fmt --check`, `cargo clippy --all-targets -- -D
 warnings` clean, `cargo test` all green (109 unit tests, 17 headless e2e scenarios, every
