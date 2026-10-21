@@ -58,7 +58,7 @@ model-selection set. So `fresh-test.json` is now reported only, and
 
   The rubric was committed (7fa16a7) before fresh-test-2 was labelled.
 - **Fresh-test-2.** Two new blind labelers applied the frozen rubric. They
-  agreed with each other and with the writers on all 324 prompts. The 15
+  agreed with each other and with the writers on all 324 prompts. The 13
   unsure notes are recorded in `fresh-test-2-adjudication.json`. Nothing was
   dropped. The set was committed before any model was evaluated on it.
 - **Uses.** `dev.json` is for model selection: per-epoch confusion and

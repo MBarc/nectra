@@ -87,7 +87,7 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--host USER@HOST` | local | Train over ssh on a Linux host. |
 | `--threads N` | 8 | `OMP_NUM_THREADS` on the training host. On builder (16 vCPU Opteron 6272, 8 FPUs) 8 threads ran 16 s/step, 16 threads 36 s, 4 threads 22 s. |
 | `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
-| `--base` | multilingual | Starting checkpoint: a laya name, or a checkpoint path on the training host. A path continues from an earlier run's `ckpt`. |
+| `--base` | multilingual | Starting checkpoint: a laya name, or a checkpoint path on the training host. A path continues from an earlier run's `ckpt`. From Git Bash, set `MSYS_NO_PATHCONV=1`, or Git Bash rewrites `/home/...` into a Windows path. |
 | `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | 3, 8, 8, auto, 0, off | Training knobs. |
 | `--fp32` | off | Keep the embedding table fp32 (the default int8 table halves the size). |
 | `--resume RUN` | none | Continue `runs/RUN` from its last finished epoch instead of starting a new run. |
