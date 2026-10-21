@@ -705,26 +705,39 @@ fn remember(
 
 /// Runs `work` on its own thread and waits for it until the deadline or a
 /// cancel, so neither a stdin that never closes nor a slow router outlasts them.
+/// Then `work`'s token is cancelled and it gets up to `grace` to clean up (kill
+/// what it started) before the caller goes on to exit.
 fn bounded<T: Send + 'static>(
     until: Option<Instant>,
     cancel: &CancellationToken,
-    work: impl FnOnce() -> Result<T> + Send + 'static,
+    grace: Duration,
+    work: impl FnOnce(&CancellationToken) -> Result<T> + Send + 'static,
 ) -> Result<T> {
     let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || tx.send(work()));
-    loop {
+    let stop = CancellationToken::default();
+    let worker = {
+        let stop = stop.clone();
+        std::thread::spawn(move || tx.send(work(&stop)))
+    };
+    let error = loop {
         if cancel.is_cancelled() {
-            bail!("cancelled");
+            break anyhow::anyhow!("cancelled");
         }
         if until.is_some_and(|u| Instant::now() >= u) {
-            return Err(executor::DeadlineExceeded.into());
+            break executor::DeadlineExceeded.into();
         }
         match rx.recv_timeout(Duration::from_millis(50)) {
             Ok(result) => return result,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => bail!("worker thread failed"),
         }
+    };
+    stop.cancel();
+    let end = Instant::now() + grace;
+    while !worker.is_finished() && Instant::now() < end {
+        std::thread::sleep(Duration::from_millis(10));
     }
+    Err(error)
 }
 
 type Outcome = std::result::Result<String, (&'static str, String)>;
@@ -781,7 +794,8 @@ pub fn run(
                 return fail("harness_error", e);
             }
             (true, true) => {
-                let read = bounded(until, cancel, || {
+                // A blocked read can't be stopped and owns nothing: no grace.
+                let read = bounded(until, cancel, Duration::ZERO, |_| {
                     let mut text = String::new();
                     std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
                         .context("reading prompt from stdin")?;
@@ -811,11 +825,11 @@ pub fn run(
                     path.clone(),
                     codex.map(|(c, e)| (c.to_string(), e.to_vec())),
                 );
-                let token = cancel.clone();
-                // The probes are bounded themselves; this also covers reading FILE.
-                bounded(until, cancel, move || {
+                // The probes are bounded themselves; this also covers reading FILE,
+                // and waits for a stopped probe to be killed (in up to 2 s).
+                bounded(until, cancel, Duration::from_secs(3), move |stop| {
                     let codex = codex.as_ref().map(|(c, e)| (c.as_str(), e.as_slice()));
-                    crate::mcp::Explicit::load(&path, codex, until, &token)
+                    crate::mcp::Explicit::load(&path, codex, until, stop)
                 })
             };
             match explicit {
@@ -898,7 +912,7 @@ pub fn run(
                 } else {
                     cli.provider
                 };
-                bounded(until, cancel, move || {
+                bounded(until, cancel, Duration::ZERO, move |_| {
                     router::route(&prompt, &cfg, &available, mode, provider, pinned)
                 })
             };
@@ -1661,7 +1675,10 @@ mod tests {
                 .0,
             "harness_error"
         );
-        assert_eq!(settle(&Ok(()), |_| Ok(Ok("done".into()))), Ok("done".into()));
+        assert_eq!(
+            settle(&Ok(()), |_| Ok(Ok("done".into()))),
+            Ok("done".into())
+        );
     }
 
     #[test]
@@ -1676,7 +1693,10 @@ mod tests {
         let dropped = std::cell::Cell::new(false);
         let owner = Ok(Owner(&dropped));
         assert_eq!(settle(&owner, |_| Ok(Ok("done".into()))), Ok("done".into()));
-        assert!(!dropped.get(), "still installed while the result is emitted");
+        assert!(
+            !dropped.get(),
+            "still installed while the result is emitted"
+        );
         drop(owner);
         assert!(dropped.get());
     }

@@ -63,7 +63,7 @@ fn main() {
 fn fake(log: &Path) {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "mcp") {
-        return fake_mcp_list(&args);
+        return fake_mcp_list(&args, log);
     }
     let mut prompt = String::new();
     std::io::stdin().read_to_string(&mut prompt).unwrap();
@@ -219,8 +219,10 @@ fn fake_codex(args: &[String], prompt: &str) {
 
 /// `codex mcp list --json`: the servers in NECTRA_FAKE_CODEX_MCP (from any
 /// config layer, or a plugin), with `--config` overrides applied as Codex does.
-fn fake_mcp_list(args: &[String]) {
+fn fake_mcp_list(args: &[String], log: &Path) {
     if std::env::var("NECTRA_FAKE_CODEX_MCP_HANG").is_ok() {
+        let pid = std::process::id().to_string();
+        fs::write(log.parent().unwrap().join("probe.pid"), pid).unwrap();
         std::thread::sleep(Duration::from_secs(60));
     }
     let mut servers: Vec<Value> =
@@ -797,6 +799,26 @@ fn hung_mcp_probe() {
     );
     assert_eq!(result(&events)["error_class"], "deadline");
     assert_eq!(out.status.code(), Some(4));
+    // Nectra cleaned the probe up before it exited.
+    let pid = fs::read_to_string(env.dir.path().join("probe.pid")).unwrap();
+    assert!(!alive(pid.parse().unwrap()), "probe {pid} outlived Nectra");
+}
+
+fn alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        // SAFETY: signal 0 only asks whether the process exists.
+        unsafe { libc::kill(pid as i32, 0) == 0 }
+    }
+    #[cfg(windows)]
+    {
+        let filter = format!("PID eq {pid}");
+        let out = Command::new("tasklist")
+            .args(["/FI", &filter, "/NH", "/FO", "CSV"])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&out.stdout).contains(&format!(",\"{pid}\","))
+    }
 }
 
 fn conflicting_credentials() {
