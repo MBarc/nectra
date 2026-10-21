@@ -68,8 +68,8 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 5. **Evaluate through Nectra.** Writes a throwaway config with
    `backend = "laya"` and `model_dir` set to the export. It checks with
    `nectra route` that the model, not the keyword fallback, answered. Then it
-   runs `nectra eval` on `eval/laya/fresh-test.json` (the bar) and
-   `eval/laya/old60-rubric.json` (reported only). Latency is wall time per
+   runs `nectra eval` on `eval/laya/fresh-test-2.json` (the bar). It also
+   runs `dev.json`, `fresh-test.json` and `old60-rubric.json`, reported only. Latency is wall time per
    message with process start and model load subtracted.
 6. **Emit or refuse.** It copies the model to `--out` only if fresh-set
    accuracy is above `--bar` and latency is at most `--max-ms`.
@@ -87,7 +87,8 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--host USER@HOST` | local | Train over ssh on a Linux host. |
 | `--threads N` | 8 | `OMP_NUM_THREADS` on the training host. On builder (16 vCPU Opteron 6272, 8 FPUs) 8 threads ran 16 s/step, 16 threads 36 s, 4 threads 22 s. |
 | `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
-| `--base`, `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | multilingual, 3, 8, 8, auto, 0, off | Training knobs. |
+| `--base` | multilingual | Starting checkpoint: a laya name, or a checkpoint path on the training host. A path continues from an earlier run's `ckpt`. |
+| `--epochs`, `--micro-batch`, `--grad-accum`, `--device`, `--seed`, `--adamw8bit` | 3, 8, 8, auto, 0, off | Training knobs. |
 | `--fp32` | off | Keep the embedding table fp32 (the default int8 table halves the size). |
 | `--resume RUN` | none | Continue `runs/RUN` from its last finished epoch instead of starting a new run. |
 | `--session NAME` | `laya-<run>` | tmux session name on `--host`. |
@@ -119,7 +120,10 @@ or publish it as a new release, update the hashes in `src/laya.rs`, and let
 
 ## The test set is fixed
 
-`eval/laya/fresh-test.json` gates every run and is never trained on: the
-generator never sees it, and near-duplicates of it are filtered out of
-generated data. Don't edit its labels to make a model pass. See
+`eval/laya/fresh-test-2.json` gates every run, and nothing is trained on it,
+tuned against it or selected by it. The generator never sees it, and
+near-duplicates of it (and of `dev.json` and the older sets) are filtered out
+of generated data. `dev.json` is the model-selection set: training prints its
+task accuracy and confusion after every epoch. `fresh-test.json`, the first
+bar, is reported only, because its failures have been seen. Don't edit its labels to make a model pass. See
 `eval/laya/fresh-test.README.md`.

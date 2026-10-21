@@ -1,10 +1,13 @@
-"""python resumable_train.py [--adamw8bit] <laya-train args>
+"""python resumable_train.py [--adamw8bit] [--dev DEV.jsonl] <laya-train args>
 
 `laya-train`, but an interrupted run picks up where it stopped. laya (pinned rev)
 saves only the weights at each epoch end (`<out>/checkpoint_latest`), so this
 swaps in a copy of `laya.train.train_model` that also writes `<out>/resume.pt`
 (fp32 weights, AdamW and scheduler state, RNG, epochs done) after every epoch,
 and starts from it when present. Run the same command again to resume.
+
+`--dev` prints task accuracy and confusion on a held-out dev set (laya JSONL rows
+asking only the task question) after every epoch, so a run can be stopped early.
 
 A `checkpoint_latest` with an `epochs_done` file but no `resume.pt` (runs started
 before this wrapper) resumes from the fp16 weights with fresh AdamW moments and
@@ -23,6 +26,7 @@ import torch
 from laya import train as T
 
 RESUME = None  # <out>, set from argv
+DEV = None  # dev JSONL path, optional
 
 
 def train_model(model, tok, items, config, device, max_len, head_max_len, on_epoch_end=None, parallel=False):
@@ -106,11 +110,30 @@ def train_model(model, tok, items, config, device, max_len, head_max_len, on_epo
         print("epoch %d/%d mean loss %.4f" % (epoch + 1, config.epochs, mean), flush=True)
         if on_epoch_end is not None:
             on_epoch_end(epoch, mean)
+        if DEV:
+            dev_report(model, tok, device, max_len, head_max_len, parallel, "epoch %d/%d" % (epoch + 1, config.epochs))
+            model.train()
         save(epoch + 1, model, optimizer, scheduler, order_rng)
     model.eval()
     if os.path.exists(state_path()):
         os.remove(state_path())  # 3-4 GB; the finished checkpoint replaces it
     return history
+
+
+def dev_report(model, tok, device, max_len, head_max_len, parallel, when):
+    rows = T.read_jsonl(DEV)
+    items, skipped = T.items_from_rows(tok, rows, max_len, head_max_len)
+    assert len(items) == len(rows) and not skipped, skipped
+    records = T.calibration_records(model, tok, items, device, max_len, head_max_len, parallel=parallel)
+    confusion, right = {}, 0
+    for row, (_qtype, logits, target, _k) in zip(rows, records):
+        labels = list(row["questions"]["task"]["criteria"])
+        want, got = labels[int(max(range(len(target)), key=lambda i: target[i]))], labels[int(logits.argmax())]
+        right += want == got
+        if want != got:
+            confusion[want + " -> " + got] = confusion.get(want + " -> " + got, 0) + 1
+    print("dev %s: %d/%d (%.1f%%) %s" % (when, right, len(rows), 100.0 * right / len(rows),
+                                         sorted(confusion.items(), key=lambda kv: -kv[1])), flush=True)
 
 
 def state_path():
@@ -156,11 +179,13 @@ def resume(model, optimizer, scheduler, order_rng, n_items, config, device):
 
 
 def main(argv):
-    global RESUME
+    global RESUME, DEV
     if argv[:1] == ["--adamw8bit"]:  # 6 GB GPUs
         import bitsandbytes
         torch.optim.AdamW = bitsandbytes.optim.AdamW8bit
         argv = argv[1:]
+    if argv[:1] == ["--dev"]:
+        DEV, argv = argv[1], argv[2:]
     RESUME = argv[argv.index("--out") + 1]
     os.makedirs(RESUME, exist_ok=True)
     T.train_model = train_model

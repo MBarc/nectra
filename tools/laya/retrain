@@ -4,7 +4,7 @@
     python tools/laya/retrain [--host USER@HOST] [--out DIR] [options]
 
 Stages: data -> train -> export -> evaluate -> emit. The model is copied to
---out only if it beats --bar on eval/laya/fresh-test.json, measured through
+--out only if it beats --bar on eval/laya/fresh-test-2.json, measured through
 `nectra eval`, within --max-ms per message. See tools/laya/README.md for the
 interface (arguments, exit codes, report.json), which other tools rely on.
 """
@@ -29,6 +29,11 @@ LAYA = REPO / "eval" / "laya"
 LAYA_GIT = "https://github.com/NandhaKishorM/laya"
 LAYA_REV = "d74e8be46ef5241e4ba2b16cd25e896f24f71373"
 EXIT_OK, EXIT_ERROR, EXIT_BELOW_BAR = 0, 1, 2
+# The bar: blind, never trained on or used for model selection.
+GATE = "fresh-test-2.json"
+# Reported only. dev.json is for model selection (per-epoch confusion);
+# fresh-test.json was the first bar and has been seen; old60 was tuned on earlier.
+REPORTED = ["dev.json", "fresh-test.json", "old60-rubric.json"]
 
 STYLES = [
     "terse lowercase messages typed into a terminal by developers, some with typos",
@@ -41,6 +46,12 @@ STYLES = [
     "ops, cloud, data and sysadmin contexts: logs, kubernetes, metrics, CI, databases",
     "tricky boundary cases containing words that suggest another label, yet clearly this label under the rubric",
     "very short messages of one to six words",
+    # Added from dev.json confusions (2026-10-20): the model followed a word, not the deliverable.
+    "messages that explicitly deny or set aside another kind of task ('not a review request', 'nothing is broken', "
+    "'don't rewrite it', 'the write-up can wait'), so the request that remains decides the label",
+    "messages that borrow another label's verb ('review', 'analyze', 'check', 'plan', 'write', 'fix') for what is "
+    "clearly this label's deliverable under the rubric",
+    "messages that give background about code, logs, data or an incident before asking for this label's deliverable",
 ]
 
 
@@ -150,7 +161,7 @@ def make_data(args, criteria, work):
         return json.loads(path.read_text(encoding="utf-8"))
     guarded = [
         set(norm(c["prompt"]).split())
-        for f in ["fresh-test.json", "old60-rubric.json"]
+        for f in [GATE] + REPORTED
         for c in json.loads((LAYA / f).read_text(encoding="utf-8"))
     ]
     tasks = [k for k, _ in criteria["tasks"]]
@@ -209,16 +220,27 @@ def registry_roles(path):
     return {r for m in models if m.get("enabled", True) for r in m.get("prefers", [])}
 
 
+def task_question(criteria):
+    return {"type": "choice", "instructions": criteria["questions"]["task"],
+            "criteria": {k: "" for k, _ in criteria["tasks"]}}
+
+
+def dev_rows(criteria):
+    """eval/laya/dev.json as laya JSONL asking only the task question (per-epoch dev check)."""
+    dev = json.loads((LAYA / "dev.json").read_text(encoding="utf-8"))
+    return [{"state": c["prompt"], "questions": {"task": task_question(criteria)}, "expected": {"task": c["task"]}}
+            for c in dev]
+
+
 def to_laya_items(data, criteria, claimed):
     """laya-train JSONL: the exact questions src/laya.rs asks."""
     q = criteria["questions"]
-    tasks = [k for k, _ in criteria["tasks"]]
     roles = [k for k, _ in criteria["roles"]]
     subset = [r for r in roles if r in claimed]
 
     def questions(*names, role_options=None):
         qs = {
-            "task": {"type": "choice", "instructions": q["task"], "criteria": {t: "" for t in tasks}},
+            "task": task_question(criteria),
             "difficulty": {"type": "score", "instructions": q["difficulty"], "criteria": q["difficulty_levels"]},
             "new_task": {"type": "noul", "instructions": q["new_task"], "criteria": {"true": "", "false": ""}},
             "role": {"type": "choice", "instructions": q["role"], "criteria": {r: "" for r in role_options or []}},
@@ -263,9 +285,9 @@ def to_laya_items(data, criteria, claimed):
 # ---------------------------------------------------------------- train / export
 
 
-def train_cmd(python, args, script, data, out):
-    # laya-train plus per-epoch resume state: rerunning the same command continues the run.
-    pre = [python, script] + (["--adamw8bit"] if args.adamw8bit else [])
+def train_cmd(python, args, script, data, out, dev):
+    # laya-train plus per-epoch resume state and dev confusion: rerunning the same command continues the run.
+    pre = [python, script] + (["--adamw8bit"] if args.adamw8bit else []) + ["--dev", dev]
     return pre + ["--data", data, "--base", args.base, "--out", out, "--epochs", str(args.epochs),
                   "--micro-batch", str(args.micro_batch), "--grad-accum", str(args.grad_accum),
                   "--device", args.device, "--seed", str(args.seed)]
@@ -293,8 +315,8 @@ def train_remote(args, items_path, run_dir, run_id):
     ssh(host, f"mkdir -p ~/{remote}")
     if not args.resume:  # a resumed run keeps the train.jsonl its checkpoint was trained on
         run(["scp", "-q", items_path, f"{host}:{remote}/train.jsonl"])
-    run(["scp", "-q", Path(__file__).parent / "resumable_train.py", f"{host}:{remote}/"])
-    cmd = train_cmd("../../venv/bin/python", args, "resumable_train.py", "train.jsonl", "ckpt")
+    run(["scp", "-q", Path(__file__).parent / "resumable_train.py", run_dir / "dev.jsonl", f"{host}:{remote}/"])
+    cmd = train_cmd("../../venv/bin/python", args, "resumable_train.py", "train.jsonl", "ckpt", "dev.jsonl")
     export = ["../../venv/bin/python", "../../laya-git/laya-rust/tools/export_onnx.py", "ckpt", "--out", "onnx"]
     job = (f"cd ~/{remote} && export OMP_NUM_THREADS={args.threads} HF_HOME=$HOME/nectra-laya/hf && "
            f"({shlex.join(cmd)} && {shlex.join(export)}) >> train.log 2>&1; echo $? > done")
@@ -332,7 +354,8 @@ def train_remote(args, items_path, run_dir, run_id):
 
 
 def train_local(args, items_path, run_dir):
-    run(train_cmd(args.python, args, Path(__file__).parent / "resumable_train.py", items_path, run_dir / "ckpt"))
+    run(train_cmd(args.python, args, Path(__file__).parent / "resumable_train.py", items_path, run_dir / "ckpt",
+                  run_dir / "dev.jsonl"))
     laya_src = Path(args.laya_src)
     run([args.python, laya_src / "laya-rust" / "tools" / "export_onnx.py", run_dir / "ckpt", "--out", run_dir / "onnx"])
     return find_model(run_dir / "onnx")
@@ -383,9 +406,9 @@ def evaluate(args, model_dir, work):
     if not reason.startswith("laya classified"):
         raise RuntimeError(f"nectra did not use the model: {reason}")
     results = {}
-    for name in ["fresh-test.json", "old60-rubric.json"]:
+    for name in [GATE] + REPORTED:
         report, seconds = nectra_eval(args.nectra, model_dir, LAYA / name, work)
-        for _ in range(args.latency_runs - 1 if name == "fresh-test.json" else 0):
+        for _ in range(args.latency_runs - 1 if name == GATE else 0):
             seconds = min(seconds, nectra_eval(args.nectra, model_dir, LAYA / name, work)[1])
         n = report["total"]
         confusion = {}
@@ -463,6 +486,8 @@ def main(argv=None):
             items = to_laya_items(data, criteria, claimed)
             items_path = run_dir / "train.jsonl"
             items_path.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items), encoding="utf-8")
+            (run_dir / "dev.jsonl").write_text(
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in dev_rows(criteria)), encoding="utf-8")
             summary.update(examples=len(data), train_items=len(items), claimed_roles=sorted(claimed))
             log(f"{len(data)} examples -> {len(items)} training records in {items_path}")
             if args.data_only:
@@ -480,7 +505,7 @@ def main(argv=None):
         summary["error"] = str(e)
         (run_dir / "report.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         return EXIT_ERROR
-    fresh = summary["eval"]["fresh-test.json"]
+    fresh = summary["eval"][GATE]
     passed = fresh["accuracy"] > args.bar and fresh["ms_per_message"] <= args.max_ms
     summary["emitted"] = str(out) if passed else None
     (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
