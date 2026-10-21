@@ -273,11 +273,13 @@ impl Explicit {
         let servers = value["mcpServers"]
             .as_object()
             .with_context(|| format!("{} has no mcpServers object", path.display()))?;
+        // Every server's, not only those Codex could take: Claude gets them all.
         crate::redact::also(
             servers
                 .values()
-                .filter_map(|v| local(&expand_server(v, false)?))
-                .flat_map(|s| s.env.into_iter()),
+                .filter_map(|v| expand_server(v, false))
+                .flat_map(|v| v["env"].as_object().cloned().unwrap_or_default())
+                .filter_map(|(k, v)| Some((k, v.as_str()?.to_string()))),
         );
         let codex = match codex {
             Some((command, extras)) => codex_explicit(servers, command, extras, until, cancel),
@@ -842,5 +844,23 @@ mod tests {
 
         fs::write(home.join(".gemini/settings.json"), "{ // mine\n}").unwrap();
         assert!(add(home, "gemini", "gh", &server).is_err());
+    }
+
+    #[test]
+    fn every_server_claude_is_handed_has_its_credentials_masked() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("mcp.json");
+        // Servers Codex can't take as written still reach Claude whole.
+        let servers = json!({"mcpServers": {
+            "rooted": {"command": "a", "cwd": "/srv", "env": {"A_TOKEN": "rooted-secret-1"}},
+            "limited": {"command": "b", "includeTools": ["x"], "env": {"B_TOKEN": "limited-secret-2"}},
+            "remote": {"type": "http", "url": "https://x", "env": {"C_TOKEN": "remote-secret-3"}},
+        }});
+        fs::write(&file, servers.to_string()).unwrap();
+        let cancel = crate::executor::CancellationToken::default();
+        Explicit::load(&file, None, None, &cancel).unwrap();
+        for secret in ["rooted-secret-1", "limited-secret-2", "remote-secret-3"] {
+            assert_eq!(crate::redact::redact(secret), "[redacted]");
+        }
     }
 }

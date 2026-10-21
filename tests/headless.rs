@@ -121,6 +121,13 @@ fn fake(log: &Path) {
     if prompt.contains("slow") {
         std::thread::sleep(Duration::from_secs(30));
     }
+    if prompt.contains("spill") {
+        // A credential split across two deltas.
+        let short = std::env::var("SHORT_API_KEY").unwrap_or_default();
+        let (a, b) = short.split_at(3);
+        say(text(&format!("the key is {a}")));
+        say(text(&format!("{b}, ")));
+    }
     say(start("m1", 2, 1000, 2000));
     say(
         json!({"type":"assistant","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash"}]}}),
@@ -860,6 +867,17 @@ fn redaction() {
             assert!(error.contains("x-api-key [redacted]"), "{error}");
         }
     }
+    // A reply's deltas are masked as one text, not each on its own.
+    let (_, events) = env.run_with(
+        &["--model", "haiku", "--no-session", "spill it"],
+        &[("SHORT_API_KEY", "k9x2z")],
+    );
+    let shown: String = events
+        .iter()
+        .filter(|e| e["type"] == "text")
+        .map(|e| e["text"].as_str().unwrap())
+        .collect();
+    assert!(shown.starts_with("the key is [redacted], "), "{shown}");
 }
 
 #[cfg(unix)]

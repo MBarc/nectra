@@ -967,6 +967,12 @@ pub fn run(
                 resumed.as_ref().map(|r| r.provider_session_id.as_str()),
                 provider_session.is_some(),
             );
+            // A reply's pieces are masked as one text: a credential can span two.
+            let mut reply = redact::Stream::default();
+            let show = |text: String| match text.is_empty() {
+                true => Ok(()),
+                false => emit("text", json!({"model": decision.model, "text": text})),
+            };
             let result = executor::conversation_observed(
                 &decision,
                 &prompt,
@@ -977,10 +983,14 @@ pub fn run(
                 remaining,
                 &mut |event, text| {
                     ledger.observe(&decision, event);
-                    if let Some(text) = text.filter(|t| !t.is_empty()) {
-                        emit("text", json!({"model": decision.model, "text": text}))?;
+                    if let Some(text) = text {
+                        show(reply.push(text))?;
                     }
-                    for mut tool in tools(&decision.runtime, event, &mut names) {
+                    let tools = tools(&decision.runtime, event, &mut names);
+                    if !tools.is_empty() {
+                        show(reply.flush())?;
+                    }
+                    for mut tool in tools {
                         tool["model"] = json!(decision.model);
                         emit("tool", tool)?;
                     }
@@ -990,6 +1000,7 @@ pub fn run(
                     }
                 },
             );
+            show(reply.flush())?;
             ledger.rejected = result.as_ref().is_err_and(|e| classify(e, cancel).1);
             ledger.finish(&decision);
             // Usage first known as the turn ends (Codex without a log, Gemini)

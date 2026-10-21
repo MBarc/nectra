@@ -53,14 +53,19 @@ fn environment() -> &'static [String] {
     })
 }
 
+/// Every known credential value, longest first, so a secret that contains
+/// another is masked whole.
+fn secrets() -> Vec<String> {
+    let mut secrets: Vec<String> = ALSO.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    secrets.extend(environment().iter().cloned());
+    secrets.sort_by_key(|s| std::cmp::Reverse(s.len()));
+    secrets
+}
+
 /// `text` with known credential values and token-shaped words masked.
 pub fn redact(text: &str) -> String {
     let mut out = text.to_string();
-    let mut secrets: Vec<String> = ALSO.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    secrets.extend(environment().iter().cloned());
-    // Longest first, so a secret that contains another is masked whole.
-    secrets.sort_by_key(|s| std::cmp::Reverse(s.len()));
-    for secret in &secrets {
+    for secret in &secrets() {
         out = out.replace(secret.as_str(), MASK);
     }
     let word = |c: char| c.is_ascii_alphanumeric() || "-_.".contains(c);
@@ -84,17 +89,64 @@ pub fn redact(text: &str) -> String {
     masked
 }
 
+/// Where [`ready`] prefers to cut: at line ends (diagnostics), or at any
+/// space (a reply, shown as it streams).
+pub const LINE: fn(u8) -> bool = |c| c == b'\n';
+pub const SPACE: fn(u8) -> bool = |c| c.is_ascii_whitespace();
+
 /// How much of a stream's `pending` bytes can be masked and passed on now
-/// without cutting a credential in two: through the last line end; for a line
-/// over 64 KiB, through its last space (or all but its last 4 KiB without one);
-/// everything at the end of the stream.
-pub fn ready(pending: &[u8], eof: bool) -> usize {
+/// without cutting a credential in two: through the last `boundary`; past
+/// 64 KiB without one, through the last space, or else all but the last 4 KiB
+/// (at least the longest known credential less one byte). Never inside a known
+/// credential, or what may yet become one, nor inside a character. Everything
+/// at the end of the stream.
+pub fn ready(pending: &[u8], eof: bool, boundary: fn(u8) -> bool) -> usize {
+    if eof {
+        return pending.len();
+    }
+    let secrets = secrets();
     let after = |b: &dyn Fn(u8) -> bool| pending.iter().rposition(|&c| b(c)).map(|i| i + 1);
-    match after(&|c| c == b'\n') {
-        _ if eof => pending.len(),
+    let keep = secrets.first().map_or(0, |s| s.len().saturating_sub(1));
+    let mut cut = match after(&boundary) {
         Some(end) => end,
         None if pending.len() <= 65536 => 0,
-        None => after(&|c| c.is_ascii_whitespace()).unwrap_or(pending.len() - 4096),
+        None => after(&SPACE).unwrap_or(pending.len().saturating_sub(keep.max(4096))),
+    };
+    while cut < pending.len() && pending[cut] & 0xC0 == 0x80 {
+        cut -= 1;
+    }
+    // Back to the start of a credential the cut would split, or of what the
+    // pending bytes end in that may yet be one; until none is split.
+    loop {
+        let split = secrets.iter().map(String::as_bytes).find_map(|s| {
+            (cut.saturating_sub(s.len() - 1)..cut).find(|&start| {
+                let rest = &pending[start..];
+                let n = rest.len().min(s.len());
+                start + s.len() > cut && rest[..n] == s[..n]
+            })
+        });
+        match split {
+            Some(start) => cut = start,
+            None => return cut,
+        }
+    }
+}
+
+/// Text passed on in pieces (a reply's deltas), masked as a whole: the end of
+/// what came so far waits for the next piece when it may be part of a
+/// credential or a token-shaped word.
+#[derive(Default)]
+pub struct Stream(String);
+impl Stream {
+    /// What can go out now of everything held so far and `text`, masked.
+    pub fn push(&mut self, text: &str) -> String {
+        self.0.push_str(text);
+        let end = ready(self.0.as_bytes(), false, SPACE);
+        redact(&self.0.drain(..end).collect::<String>())
+    }
+    /// Everything still held, masked.
+    pub fn flush(&mut self) -> String {
+        redact(&std::mem::take(&mut self.0))
     }
 }
 
@@ -103,14 +155,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_stream_is_only_cut_between_words() {
-        assert_eq!(ready(b"one\ntwo", false), 4);
-        assert_eq!(ready(b"two", false), 0);
-        assert_eq!(ready(b"two", true), 3);
+    fn a_stream_is_cut_at_line_ends_then_spaces() {
+        assert_eq!(ready(b"one\ntwo", false, LINE), 4);
+        assert_eq!(ready(b"two", false, LINE), 0);
+        assert_eq!(ready(b"two", true, LINE), 3);
         let mut long = vec![b'a'; 70_000];
-        assert_eq!(ready(&long, false), 70_000 - 4096);
+        assert_eq!(ready(&long, false, LINE), 70_000 - 4096);
         long[60_000] = b' ';
-        assert_eq!(ready(&long, false), 60_001);
+        assert_eq!(ready(&long, false, LINE), 60_001);
+    }
+
+    #[test]
+    fn a_credential_is_never_cut_in_two() {
+        also([("FORCED_PASSWORD".into(), "48213".into())]);
+        // A diagnostic with no line end or space, the credential across the
+        // forced cut at 73,728 - 4,096.
+        let mut long = vec![b'a'; 73_728];
+        long[69_630..69_635].copy_from_slice(b"48213");
+        let cut = ready(&long, false, LINE);
+        let pieces = [&long[..cut], &long[cut..]].map(|p| redact(&String::from_utf8_lossy(p)));
+        assert!(!pieces.iter().any(|p| p.contains("482")), "{cut}");
+        // A cut at a boundary waits for what may yet complete one.
+        also([("SPACED_PASSWORD".into(), "open sesame".into())]);
+        assert_eq!(ready(b"say open ", false, SPACE), 4);
+        // A forced cut keeps whole characters.
+        let wide = "é".repeat(40_000);
+        let cut = ready(wide.as_bytes(), false, LINE);
+        assert!(wide.is_char_boundary(cut));
+    }
+
+    #[test]
+    fn a_reply_in_pieces_is_masked_whole() {
+        also([("STREAM_API_KEY".into(), "k9x2z".into())]);
+        let mut stream = Stream::default();
+        let mut shown = String::new();
+        for delta in ["the key is k9", "x2", "z, done"] {
+            shown += &stream.push(delta);
+        }
+        shown += &stream.flush();
+        assert_eq!(shown, "the key is [redacted], done");
     }
 
     #[test]
