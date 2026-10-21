@@ -107,17 +107,32 @@ pub fn ready(pending: &[u8], eof: bool, boundary: fn(u8) -> bool) -> usize {
     let secrets = secrets();
     let after = |b: &dyn Fn(u8) -> bool| pending.iter().rposition(|&c| b(c)).map(|i| i + 1);
     let keep = secrets.first().map_or(0, |s| s.len().saturating_sub(1));
+    // A forced cut backs off to a character's start; bytes that aren't UTF-8
+    // at all are left to the lossy decoding.
+    let forced = |mut cut: usize| {
+        while cut > 0 && pending[cut] & 0xC0 == 0x80 {
+            cut -= 1;
+        }
+        cut
+    };
     let mut cut = match after(&boundary) {
         Some(end) => end,
         None if pending.len() <= 65536 => 0,
-        None => after(&SPACE).unwrap_or(pending.len().saturating_sub(keep.max(4096))),
+        None => after(&SPACE).unwrap_or_else(|| forced(pending.len() - keep.max(4096))),
     };
-    while cut < pending.len() && pending[cut] & 0xC0 == 0x80 {
-        cut -= 1;
-    }
     // Back to the start of a credential the cut would split, or of what the
-    // pending bytes end in that may yet be one; until none is split.
+    // pending bytes end in that may yet be one, and to before a trailing
+    // "Bearer" so its token is masked with it; until neither moves the cut.
     loop {
+        let word = |c: u8| c.is_ascii_alphanumeric() || b"-_.".contains(&c);
+        let before = pending[..cut].trim_ascii_end();
+        let bearer = before.len() >= 6
+            && before[before.len() - 6..].eq_ignore_ascii_case(b"bearer")
+            && (before.len() == 6 || !word(before[before.len() - 7]));
+        if bearer {
+            cut = before.len() - 6;
+            continue;
+        }
         let split = secrets.iter().map(String::as_bytes).find_map(|s| {
             (cut.saturating_sub(s.len() - 1)..cut).find(|&start| {
                 let rest = &pending[start..];
@@ -182,6 +197,27 @@ mod tests {
         let wide = "é".repeat(40_000);
         let cut = ready(wide.as_bytes(), false, LINE);
         assert!(wide.is_char_boundary(cut));
+    }
+
+    #[test]
+    fn bytes_that_arent_utf_8_never_break_the_cut() {
+        assert_eq!(ready(&[0x80, b'a'], false, LINE), 0);
+        assert_eq!(ready(&[0x80; 70_000], false, LINE), 0);
+        assert_eq!(ready(&[0x80, b'\n', 0x80], false, LINE), 2);
+    }
+
+    #[test]
+    fn a_bearer_token_is_masked_however_it_streams() {
+        for deltas in [
+            vec!["auth Bearer A7b8C9d0E1f2G3h4I5j6", " ok"],
+            vec!["auth Bearer ", "A7b8C9d0E1f2G3h4I5j6 ok"],
+            vec!["auth Bearer", " A7b8C9d0E1f2G3h4I5j6 ok"],
+        ] {
+            let mut stream = Stream::default();
+            let mut shown: String = deltas.iter().map(|d| stream.push(d)).collect();
+            shown += &stream.flush();
+            assert_eq!(shown, "auth Bearer [redacted] ok", "{deltas:?}");
+        }
     }
 
     #[test]

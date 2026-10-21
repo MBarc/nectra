@@ -122,11 +122,18 @@ fn fake(log: &Path) {
         std::thread::sleep(Duration::from_secs(30));
     }
     if prompt.contains("spill") {
-        // A credential split across two deltas.
+        // A credential split across two deltas, with a subagent's tool use
+        // in between; then Bearer tokens in one delta and across two.
         let short = std::env::var("SHORT_API_KEY").unwrap_or_default();
         let (a, b) = short.split_at(3);
         say(text(&format!("the key is {a}")));
+        say(
+            json!({"type":"assistant","parent_tool_use_id":"sub1","message":{"id":"s1","content":[{"type":"tool_use","id":"t9","name":"Read"}]}}),
+        );
         say(text(&format!("{b}, ")));
+        say(text("one Bearer A7b8C9d0E1f2G3h4I5j6 "));
+        say(text("two Bearer "));
+        say(text("K1l2M3n4O5p6Q7r8S9t0 "));
     }
     say(start("m1", 2, 1000, 2000));
     say(
@@ -899,7 +906,10 @@ fn redaction() {
         .filter(|e| e["type"] == "text")
         .map(|e| e["text"].as_str().unwrap())
         .collect();
-    assert!(shown.starts_with("the key is [redacted], "), "{shown}");
+    assert!(
+        shown.starts_with("the key is [redacted], one Bearer [redacted] two Bearer [redacted] "),
+        "{shown}"
+    );
 }
 
 #[cfg(unix)]

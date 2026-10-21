@@ -38,6 +38,7 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
   from the thread's history.
 - `text` events of a streamed reply are masked across deltas, so a credential
   split between two isn't shown; every `--mcp-config` server's `env` values are
-  masked. `text` events may now be held back until a word ends.
+  masked. `text` events may now be held back until a word ends, even past a
+  `tool` event.
 - A Ctrl+C while the result is written cancels instead of exiting without it,
   and a stopped `codex mcp list` is killed before Nectra exits.

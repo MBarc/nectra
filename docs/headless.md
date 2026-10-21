@@ -98,8 +98,10 @@ own, and `--mcp-config` `env`), except `true`, `false`, `none`, `null` and `auto
 any other `--mcp-config` `env` value of 8 characters or more; and token-shaped
 words (`sk-...`, `ghp_...`, `Bearer ...`, JWTs). The `env` values of every server
 in `--mcp-config` count, including those Codex can't take. A reply streamed in
-pieces is masked as one text: the end of a piece waits for the next while it may
-be part of a credential or a word. Diagnostics go out by line (a line over 64
+pieces goes out in `text` events cut only after a word: the end of what has come
+so far waits, through any `tool` events in between, while it may be part of a
+word, a known credential, or the token after `Bearer`. So a `text` event can come
+after a `tool` event that arrived in the middle of its word. Diagnostics go out by line (a line over 64
 KiB at its last space, or else all but its last 4 KiB), never cut inside a known
 credential. A credential Nectra doesn't know and that has no token shape isn't
 masked. The interrupt handler stays Nectra's until the `result` is written, so a

@@ -1000,11 +1000,9 @@ pub fn run(
                     if let Some(text) = text {
                         show(reply.push(text))?;
                     }
-                    let tools = tools(&decision.runtime, event, &mut names);
-                    if !tools.is_empty() {
-                        show(reply.flush())?;
-                    }
-                    for mut tool in tools {
+                    // Not flushed for a tool event: that would cut a credential
+                    // the reply is in the middle of (a subagent's tools interleave).
+                    for mut tool in tools(&decision.runtime, event, &mut names) {
                         tool["model"] = json!(decision.model);
                         emit("tool", tool)?;
                     }
