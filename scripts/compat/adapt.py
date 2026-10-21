@@ -909,12 +909,14 @@ def run(args, installed, configured_ollama, selected):
         cmd = [sys.executable, os.path.join(os.path.dirname(__file__), "check.py"), "--nectra", args.nectra,
                "--providers", ",".join(providers)] + (["--live"] if args.live else [])
         try:
-            rep["check"] = run_bounded(cmd, CHECK_TIMEOUT, stdin=subprocess.DEVNULL)[1]
+            code, rep["check"] = run_bounded(cmd, CHECK_TIMEOUT, stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired:
-            rep["check"] = f"[FAIL] check.py timed out after {CHECK_TIMEOUT}s"
+            code, rep["check"] = None, f"[FAIL] check.py timed out after {CHECK_TIMEOUT}s"
         except OSError as e:
-            rep["check"] = f"[FAIL] check.py could not start: {e}"
+            code, rep["check"] = None, f"[FAIL] check.py could not start: {e}"
         findings += [{"kind": "check", "detail": l[7:]} for l in rep["check"].splitlines() if l.startswith("[FAIL]")]
+        if code:  # a crash prints no [FAIL] line; its exit code is the only sign
+            findings.append({"kind": "check", "detail": f"check.py exited {code}: {check.last_lines(rep['check'], 3)}"})
     # A rename is only mechanical where Nectra builds that provider's command with the literal.
     for f in fixes:
         if f["kind"] != "flag":

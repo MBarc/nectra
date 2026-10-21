@@ -890,5 +890,67 @@ class AstraRound3(Sandbox):
         self.assertIn("check.py timed out", self.latest_report())
 
 
+
+class AstraRound5(Sandbox):
+    """The new problems in Astra's fourth review (astra-nectra-compat-4.review.md)."""
+
+    def path(self):
+        return os.path.join(self.user, "models.toml")
+
+    # 1: a slug that is not a string is a reported issue, not a crash
+    def test_a_slug_that_is_not_a_string_is_rejected(self):
+        for slug in ("{}", "[]", "7", "null"):
+            catalog, error = adapt.parse_codex_catalog(0, '{"models": [{"slug": %s}]}' % slug)
+            self.assertIsNone(catalog, slug)
+            self.assertTrue(error)
+
+    # 2: any failure after the move puts the original back and is reported
+    def test_a_backup_that_cannot_be_read_puts_the_original_back(self):
+        from unittest import mock
+        real = open
+
+        def unreadable_backup(file, *a, **kw):
+            if ".bak-" in str(file) and "w" not in (a[0] if a else kw.get("mode", "r")):
+                raise PermissionError(13, "Access is denied", file)
+            return real(file, *a, **kw)
+        with mock.patch("builtins.open", side_effect=unreadable_backup):
+            self.assertEqual(self.run_main(), 1)
+        self.assertEqual(self.installed(), REGISTRY)
+        self.assertIn("Access is denied", self.latest_report())
+        self.assertEqual([f for f in os.listdir(self.user) if ".bak-" in f or f.endswith((".tmp", ".swap"))], [])
+
+    def test_a_failed_restore_keeps_the_backup_and_journal(self):
+        from unittest import mock
+        real = adapt.rename_noreplace
+
+        def refuse_all(src, dst):
+            if dst == self.path():
+                raise PermissionError(13, "Access is denied")
+            return real(src, dst)
+        with mock.patch.object(adapt, "rename_noreplace", side_effect=refuse_all):
+            self.assertEqual(self.run_main(), 1)
+        self.assertFalse(os.path.exists(self.path()))
+        self.assertTrue(os.path.exists(self.path() + ".swap"))
+        self.assertIn("the next run", self.latest_report())
+        self.run_main(fixture=self.clean_fixture())
+        self.assertIn("put back", self.latest_report())
+        self.assertTrue(os.path.exists(self.path()))
+
+    # 3: a check.py that exits nonzero is a failure, whatever it printed
+    def test_a_crashed_check_fails_the_run(self):
+        from unittest import mock
+        real = adapt.run_bounded
+
+        def crash(cmd, timeout, **kw):
+            if any(str(c).endswith("check.py") for c in cmd):
+                return 1, "Traceback (most recent call last):\nImportError: no terminal"
+            return real(cmd, timeout, **kw)
+        with mock.patch.object(adapt, "run_bounded", side_effect=crash):
+            self.assertEqual(self.run_main(fixture=self.clean_fixture(), extra=["--nectra", "nectra"]), 1)
+        report = self.latest_report()
+        self.assertIn("check.py exited 1", report)
+        self.assertIn("ImportError: no terminal", report)
+
+
 if __name__ == "__main__":
     unittest.main()
