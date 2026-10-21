@@ -240,6 +240,18 @@ struct Rollout {
     /// counted from the log, which would include the thread's history.
     based: bool,
 }
+impl Rollout {
+    /// The model this attempt's calls are charged to: the one its own
+    /// `turn_context` names; without a log, the one Nectra launched Codex with.
+    /// A log that hasn't named one leaves it unknown, and so unpriced.
+    fn answering(&self, d: &Decision) -> String {
+        match (&self.model, &self.thread) {
+            (Some(model), _) => model.clone(),
+            (None, None) => d.model.clone(),
+            (None, Some(_)) => "unknown".into(),
+        }
+    }
+}
 
 /// Token usage as the providers report it, per call. Claude's result
 /// `modelUsage` adds up the whole session on a resumed one, so Claude is
@@ -423,18 +435,25 @@ impl Ledger {
         });
         // Only whole lines; a line still being written is read next time.
         let end = match (read, text.iter().rposition(|&b| b == b'\n')) {
+            (Err(_), _) => return false,
+            // A baseline is the whole history so far: a record cut short means it isn't.
+            (Ok(_), end) if !count && end.map_or(0, |e| e + 1) != text.len() => return false,
             (Ok(_), Some(end)) => end,
             (Ok(_), None) => return true,
-            (Err(_), _) => return false,
         };
         r.read += end as u64 + 1;
         let mut found = vec![];
         for line in text[..end].split(|&b| b == b'\n') {
             let Ok(entry) = serde_json::from_slice::<Value>(line) else {
+                // Nor is a baseline with a record that can't be read.
+                if !count && !line.trim_ascii().is_empty() {
+                    return false;
+                }
                 continue;
             };
             let p = &entry["payload"];
-            if entry["type"] == "turn_context" {
+            // The model history ran on says nothing of what answers now.
+            if count && entry["type"] == "turn_context" {
                 r.model = p["model"].as_str().map(String::from).or(r.model.take());
             }
             let total = &p["info"]["total_token_usage"];
@@ -445,7 +464,7 @@ impl Ledger {
             let call = total.since(r.total);
             r.total = total;
             if count && call != Usage::default() {
-                found.push((r.model.clone().unwrap_or_else(|| d.model.clone()), call));
+                found.push((r.answering(d), call));
             }
         }
         self.worked |= !found.is_empty();
@@ -467,8 +486,8 @@ impl Ledger {
                 if let Some(u) = self.reported.filter(|_| self.rollout.based) {
                     let rest = u.since(self.rollout.total);
                     if rest != Usage::default() {
-                        let model = self.rollout.model.clone();
-                        self.call(d, &model.unwrap_or_else(|| d.model.clone()), rest, true);
+                        let model = self.rollout.answering(d);
+                        self.call(d, &model, rest, true);
                     }
                     return;
                 }
@@ -481,11 +500,7 @@ impl Ledger {
             }
         }
         if (self.worked || self.reported.is_some()) && !self.rejected {
-            let model = self
-                .rollout
-                .model
-                .clone()
-                .unwrap_or_else(|| d.model.clone());
+            let model = self.rollout.answering(d);
             self.call(d, &model, Usage::default(), false);
         }
     }
@@ -1388,6 +1403,73 @@ mod tests {
         let (t, complete) = total(&l);
         assert_eq!((t.input, t.cache_read, t.output), (700, 1800, 90));
         assert!(complete, "the turn's own total accounts for every call");
+    }
+
+    #[test]
+    fn a_cut_short_or_garbled_codex_log_is_no_baseline() {
+        let d = decision("codex", "gpt-5.6-luna");
+        let whole = rollout(&[counted(1000, 0, 0)]);
+        for history in [
+            // The last record was cut off mid-write: the history went on to 1500.
+            format!("{whole}{}", counted(1500, 0, 0)),
+            format!("{whole}{{\"type\":\"event_msg\",\"pay\n"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("rollout-x-thread-5.jsonl");
+            std::fs::write(&path, history).unwrap();
+            let mut l = Ledger::default();
+            l.begin(&d, Some("thread-5"), true);
+            l.rollout.path = Some(path);
+            l.rollout.read = 0;
+            l.rollout.based = l.read_rollout(&d, false);
+            assert!(!l.rollout.based, "an unreadable history is no baseline");
+            l.observe(&d, &json!({"type":"turn.started"}));
+            // This turn used 200: from 1500 to 1700.
+            l.observe(&d, &json!({"type":"turn.completed","usage":{"input_tokens":1700,"cached_input_tokens":0,"output_tokens":0}}));
+            l.finish(&d);
+            let (t, complete) = total(&l);
+            assert_eq!(t, Usage::default(), "700 would count history");
+            assert!(!complete);
+        }
+    }
+
+    #[test]
+    fn recovered_codex_usage_is_never_charged_to_historys_model() {
+        let d = decision("codex", "gpt-5.6-luna");
+        let a = json!({"type":"turn_context","payload":{"turn_id":"t1","model":"gpt-5.6-luna"}});
+        let b = json!({"type":"turn_context","payload":{"turn_id":"t2","model":"gpt-5.6-sol"}});
+        for this_turn in [vec![], vec![b]] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("rollout-x-thread-6.jsonl");
+            std::fs::write(&path, rollout(&[a.clone(), counted(1000, 0, 0)])).unwrap();
+            let mut l = Ledger::default();
+            l.begin(&d, Some("thread-6"), true);
+            l.rollout.path = Some(path.clone());
+            l.rollout.read = 0;
+            l.rollout.based = l.read_rollout(&d, false);
+            // This turn logged its context (or nothing), never its count.
+            std::fs::OpenOptions::new()
+                .append(true)
+                .open(&path)
+                .unwrap()
+                .write_all(rollout(&this_turn).as_bytes())
+                .unwrap();
+            l.observe(&d, &json!({"type":"turn.started"}));
+            l.observe(&d, &json!({"type":"turn.completed","usage":{"input_tokens":1700,"cached_input_tokens":0,"output_tokens":0}}));
+            l.finish(&d);
+            let (t, complete) = total(&l);
+            assert_eq!(t.input, 700);
+            assert!(complete);
+            let models = l.models();
+            match this_turn.is_empty() {
+                // Only history named a model: what answered this turn is unknown.
+                true => {
+                    assert_eq!(models[0].0.model, "unknown");
+                    assert!(!l.cost().1, "no price for an unknown model");
+                }
+                false => assert_eq!(models[0].0.model, "gpt-5.6-sol"),
+            }
+        }
     }
 
     #[test]
