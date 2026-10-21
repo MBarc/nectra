@@ -33,3 +33,35 @@ How it was made (2026-10-20):
 changes: "look into what caused the outage" goes from research to debugging
 (rubric rule 2). The old labels were Jev's, and those sets were used during
 earlier tuning, so they are reported but don't gate anything.
+
+## fresh-test-2.json and dev.json (2026-10-20, second round)
+
+After the first retrain scored 91.3% on `fresh-test.json`, its failures had
+been seen. Steering more training at them would have turned that set into a
+model-selection set. So `fresh-test.json` is now reported only, and
+`fresh-test-2.json` is the bar.
+
+- **Prompts.** Three new writers got the same three briefs as round one and
+  could read only `RUBRIC.md`: no eval set, no training data. They wrote 660
+  prompts. 12 near-duplicates (token Jaccard >= 0.8) of every earlier set and
+  of the generated training data were dropped. The remaining 648 were split at
+  random, stratified by writer and label, into `dev.json` (324) and
+  `fresh-test-2.json` (324).
+- **Dev first.** Two blind labelers (Opus, Sonnet) labelled dev. They agreed
+  on every prompt, and with the writers. The 11 unsure notes were settled by
+  the rubric (`dev-adjudication.json`). The coordinator's confusable pairs were
+  then adjudicated on dev only, and their tie-breaks written into
+  `RUBRIC.md`:
+  - "review why X fails" (debugging vs code_review);
+  - porting and writing tests (code_generation vs refactoring);
+  - legal and "is X current" questions (research vs general).
+
+  The rubric was committed (7fa16a7) before fresh-test-2 was labelled.
+- **Fresh-test-2.** Two new blind labelers applied the frozen rubric. They
+  agreed with each other and with the writers on all 324 prompts. The 15
+  unsure notes are recorded in `fresh-test-2-adjudication.json`. Nothing was
+  dropped. The set was committed before any model was evaluated on it.
+- **Uses.** `dev.json` is for model selection: per-epoch confusion and
+  generator styles. `fresh-test-2.json` is only the retrain gate.
+- **Caveat.** Same as round one: writers, labelers and adjudicator were all
+  language models.

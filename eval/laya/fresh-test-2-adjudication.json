@@ -1,0 +1,223 @@
+[
+ {
+  "id": "t008",
+  "prompt": "Rewriting our legacy PHP app: how should I approach it, which parts first, which last, and roughly how long each phase?",
+  "writer_intent": "planning",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": true,
+   "note": "planning vs architecture"
+  },
+  "decision": "planning",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t010",
+  "prompt": "nested loop over 1e6 rows is slow, vectorize w/ numpy but output must match exactly",
+  "writer_intent": "refactoring",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "refactoring vs code_generation"
+  },
+  "decision": "refactoring",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t011",
+  "prompt": "Where does the word 'debugging' come from? Is the moth story true?",
+  "writer_intent": "general",
+  "labeler_1": {
+   "label": "general",
+   "unsure": true,
+   "note": "general vs research (word origin; stable trivia or lookup?)"
+  },
+  "labeler_2": {
+   "label": "general",
+   "unsure": true,
+   "note": "general vs research"
+  },
+  "decision": "general",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t012",
+  "prompt": "Analysis done, I just need wording: make this paragraph from our incident postmortem clearer for non-engineers. 'At approx 14:02 the deploy caused pool exhaustion which cascaded...'",
+  "writer_intent": "writing",
+  "labeler_1": {
+   "label": "writing",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "writing",
+   "unsure": true,
+   "note": "writing vs debugging"
+  },
+  "decision": "writing",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t056",
+  "prompt": "Is this OK? Maybe 1 in 20 runs, the integration test times out waiting for the queue message. Can't reproduce it locally at all.",
+  "writer_intent": "debugging",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "debugging vs code_review"
+  },
+  "decision": "debugging",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t153",
+  "prompt": "merge deploy-staging.sh and deploy-prod.sh into one parametrized script, identical behavior per env",
+  "writer_intent": "refactoring",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "refactoring vs code_generation"
+  },
+  "decision": "refactoring",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t215",
+  "prompt": "Planning question: should our new booking system be a monolith or split into services for payments, availability and notifications? Team of 4, about 10k users.",
+  "writer_intent": "architecture",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "architecture vs planning"
+  },
+  "decision": "architecture",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t217",
+  "prompt": "migrate from the request lib to axios, keep the same responses and error shapes",
+  "writer_intent": "refactoring",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "refactoring vs code_generation (library swap request->axios, same behaviour)"
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "refactoring vs code_generation (port)"
+  },
+  "decision": "refactoring",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t235",
+  "prompt": "Storing customer passwords like this in my shop's database, is that okay? Code below.",
+  "writer_intent": "code_review",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "code_review vs general"
+  },
+  "decision": "code_review",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t270",
+  "prompt": "Everyone says goroutines are cheap, but is spawning one per incoming row in this importer a bad idea? Everything runs fine for now; here's the code.",
+  "writer_intent": "code_review",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "code_review vs architecture"
+  },
+  "decision": "code_review",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t276",
+  "prompt": "Write me a summary of what this sales data shows: Q1 North 40k, South 55k; Q2 North 46k, South 52k; Q3 North 53k, South 50k. Which region is trending up?",
+  "writer_intent": "data_analysis",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "data_analysis vs writing"
+  },
+  "decision": "data_analysis",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t287",
+  "prompt": "Our old PHP contact form uses the mysql_ functions. Update it to PDO but keep the behaviour identical.",
+  "writer_intent": "refactoring",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "refactoring vs code_generation"
+  },
+  "decision": "refactoring",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ },
+ {
+  "id": "t297",
+  "prompt": "Review and reword this message to my landlord so it sounds firm but polite: 'The heater is broken AGAIN and nobody came.'",
+  "writer_intent": "writing",
+  "labeler_1": {
+   "label": "writing",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "writing",
+   "unsure": true,
+   "note": "writing vs code_review"
+  },
+  "decision": "writing",
+  "reason": "both labelers and the writer agree; the unsure note is settled by the frozen rubric"
+ }
+]

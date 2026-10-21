@@ -1,0 +1,1298 @@
+[
+ {
+  "prompt": "timeline for deprecating api v1: announce, warn, sunset dates",
+  "task": "planning"
+ },
+ {
+  "prompt": "terraform apply -> Error acquiring the state lock, nobody else is running it",
+  "task": "debugging"
+ },
+ {
+  "prompt": "does gdpr require consent for cookieless server side analytics, what do lawyers say",
+  "task": "research"
+ },
+ {
+  "prompt": "terraform for an s3 bucket w/ versioning + block public access",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Prepare a roadmap for moving our small shop's website from Wix to WordPress without losing customers.",
+  "task": "planning"
+ },
+ {
+  "prompt": "go race detector flags DATA RACE in cache.Set and prod panics occasionally",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Following a Flask tutorial, I get 'TemplateNotFound: index.html' even though the file is right there.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Rewriting our legacy PHP app: how should I approach it, which parts first, which last, and roughly how long each phase?",
+  "task": "planning"
+ },
+ {
+  "prompt": "process vs thread, what's the difference",
+  "task": "general"
+ },
+ {
+  "prompt": "nested loop over 1e6 rows is slow, vectorize w/ numpy but output must match exactly",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Where does the word 'debugging' come from? Is the moth story true?",
+  "task": "general"
+ },
+ {
+  "prompt": "Analysis done, I just need wording: make this paragraph from our incident postmortem clearer for non-engineers. 'At approx 14:02 the deploy caused pool exhaustion which cascaded...'",
+  "task": "writing"
+ },
+ {
+  "prompt": "swiftui countdown timer view w/ start + pause buttons",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Yesterday's migration ran fine in staging, but in prod the email index on users is gone and logins now take 9 seconds. What went wrong?",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Using the budget spreadsheet I uploaded, compare planned vs actual spending per department.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "make this PR description less rambly",
+  "task": "writing"
+ },
+ {
+  "prompt": "My daughter needs a bedtime story about a dragon who is afraid of the dark. Could you write one?",
+  "task": "writing"
+ },
+ {
+  "prompt": "Broadly, how does garbage collection work in Java?",
+  "task": "general"
+ },
+ {
+  "prompt": "Give me an SQL query that lists customers who haven't ordered anything in the last six months.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "From the attached log of my 3D prints, what's my failure rate per filament brand?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "pip install -r requirements.txt fails on a fresh Windows box with 'error: Microsoft Visual C++ 14.0 or greater is required'.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Put in words how you'd structure the backend for a ride-sharing MVP: which components, how they talk to each other, and where state lives.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "current lts version of node and when does 20 go EOL",
+  "task": "research"
+ },
+ {
+  "prompt": "Feature flags for the platform we're architecting: own DB table, a config service, or a vendor SDK? Tell me the structure you'd go with.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Fix a gap in my knowledge: what's the current minimum wage in California, and is Seattle's different?",
+  "task": "research"
+ },
+ {
+  "prompt": "E-invoicing in Germany: which standards exist as of this year, and which are mandatory for B2B?",
+  "task": "research"
+ },
+ {
+  "prompt": "Convert these sprint retro bullet points into a short narrative update for stakeholders.",
+  "task": "writing"
+ },
+ {
+  "prompt": "We have a contact form on WordPress and I want a PHP function that emails me a copy of each submission.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "query went from 50ms to timing out after the index migration, EXPLAIN shows a seq scan now",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Compute the correlation between ad spend and signups over these 6 weeks: (1.2k, 80), (1.5k, 95), (0.9k, 61), (2.0k, 130), (1.7k, 104), (1.1k, 70).",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Grade my two-sum solution: is it idiomatic Python? def two_sum(nums, t): seen = {}; for i, n in enumerate(nums): if t - n in seen: return [seen[t-n], i]; seen[n] = i",
+  "task": "code_review"
+ },
+ {
+  "prompt": "RFID cards at the school door for attendance: what components would that system need, where does data live, and how do they communicate?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "can you see my files or just what i paste",
+  "task": "general"
+ },
+ {
+  "prompt": "SUMIF returns 0 for every row even though the numbers are clearly in the column. Any idea what's going on?",
+  "task": "debugging"
+ },
+ {
+  "prompt": "outliers in these adc sensor readings? log pasted below",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Hunt through this pull request for race conditions. CI is green and nobody has seen an issue, I just want to be sure before approving.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Help me write a cover letter for an office manager job, I have eight years of admin experience.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Review our options: Postgres with JSONB versus MongoDB for a product catalogue with wildly varying attributes. Which fits the system we're building, and why?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "convert 72f to c",
+  "task": "general"
+ },
+ {
+  "prompt": "Has anyone made a Home Assistant integration for Bosch dishwashers?",
+  "task": "research"
+ },
+ {
+  "prompt": "hn opinions on htmx in prod, good or bad experiences?",
+  "task": "research"
+ },
+ {
+  "prompt": "For our small online shop, should we use one database for orders and inventory or separate them? How should the tables look?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "All my tests pass, which is the problem: there are none for parse_date. Write pytest cases covering ISO strings, empty input and timezone offsets. def parse_date(s): return datetime.fromisoformat(s) if s else None",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "invoice totals off by a cent, sum() over float prices gives 0.30000000000000004",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Skip the research, I know the options. For the chat app we're designing, pick between WebSockets, SSE and long polling and explain how the pieces connect.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Ever since the Windows update, our office print script produces blank pages. Here is the PowerShell code.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Nothing's broken in our checkout flow, it all works. I just need a new endpoint POST /refunds that takes an order id and an amount and inserts a refund row. Express + Postgres.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Write release notes for version 2.1 of our scheduling app: added recurring bookings, fixed a calendar bug.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Document this function in plain English for our wiki: what it does, parameters, an example. Don't touch the code.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Speed isn't the issue, correctness is: my email-dedupe script keeps 'Bob@x.com' and 'bob@x.com' as two separate entries. unique = set(emails)",
+  "task": "debugging"
+ },
+ {
+  "prompt": "compare supabase vs firebase vs appwrite free tiers",
+  "task": "research"
+ },
+ {
+  "prompt": "reviewer said my code is messy, clean up OrderService without changing what it does",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Translate this function from JavaScript to Rust: function sum(arr) { return arr.reduce((a, b) => a + b, 0) }",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "hackathon this weekend, team of 3, 36h, how should we split the time",
+  "task": "planning"
+ },
+ {
+  "prompt": "Difference between a process and a thread, in a sentence or two?",
+  "task": "general"
+ },
+ {
+  "prompt": "Is this OK? Maybe 1 in 20 runs, the integration test times out waiting for the queue message. Can't reproduce it locally at all.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Has someone already built an open-source app for managing a community garden's plot waiting list?",
+  "task": "research"
+ },
+ {
+  "prompt": "Rate my bash script. Any pitfalls? rm -rf $DIR/*; cp -r src/* $DIR",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Good morning! How are you today?",
+  "task": "general"
+ },
+ {
+  "prompt": "Explain why this happens: TypeError: Cannot read properties of undefined (reading 'map') on the first render of ProductList, and then it works after a refresh.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "The Home Assistant automation I wrote never triggers at sunset, although the logs show no errors.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "launch checklist + timeline for my saas beta next month",
+  "task": "planning"
+ },
+ {
+  "prompt": "Rewrite this shell script as small functions instead of one long top-to-bottom blob. It works; flags and output stay identical.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Cloud storage, what does that mean exactly?",
+  "task": "general"
+ },
+ {
+  "prompt": "Sorry, I'm new to this. What kinds of things can you help me with?",
+  "task": "general"
+ },
+ {
+  "prompt": "Check my Dockerfile please. Is it reasonable for a small home server?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "thoughts on this react component? it works but feels off",
+  "task": "code_review"
+ },
+ {
+  "prompt": "one page proposal to my manager for moving us off jenkins, persuasive",
+  "task": "writing"
+ },
+ {
+  "prompt": "group the commits csv by author and sum lines added",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Explain what a race condition is. No code to review, I just want to understand the concept.",
+  "task": "general"
+ },
+ {
+  "prompt": "Fixing nothing today. I need a crontab line that runs /opt/backup.sh at 2:30am every Sunday.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Return rates by product last quarter: which was highest? Data is in the table below.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Nothing's failing yet, but is this safe? query = f\"SELECT * FROM users WHERE name = '{name}'\"",
+  "task": "code_review"
+ },
+ {
+  "prompt": "plan out building a cnc plotter from an old 3d printer",
+  "task": "planning"
+ },
+ {
+  "prompt": "Which products in this inventory CSV haven't sold a single unit in 90 days? Columns: sku, last_sale_date, stock. Today is 2026-10-20.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Hello! Is it okay to ask you stupid questions? I am beginner with computers.",
+  "task": "general"
+ },
+ {
+  "prompt": "Add a dark mode toggle to this little JavaScript to-do app I made. The code is below.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "test_checkout passes locally but fails in CI every other run. flaky af, how do i track it down",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Accessibility laws: which would apply to a small Canadian e-commerce site that sells into the EU?",
+  "task": "research"
+ },
+ {
+  "prompt": "Renovating a small bathroom myself: what's the sequence of jobs, and what has to dry before what?",
+  "task": "planning"
+ },
+ {
+  "prompt": "tweet thread about our q3 engineering wins, 5 tweets",
+  "task": "writing"
+ },
+ {
+  "prompt": "Need script for Raspberry Pi which take photo every 10 minute of my plants, for timelapse.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "grpc or rest between our internal services? mostly go, some python",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Some code for ESP32 which read soil moisture and send me Telegram message when tomatoes need water, please.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "At the end of each print I'd like my 3D printer to move the bed forward and cool the nozzle to 50. What G-code should I add to the end script?",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Plan? No plan needed. Turn this Java class with getters and an all-args constructor into a record; it's already immutable and nothing else should change.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Kafka consumer group keeps rebalancing every few minutes and lag keeps climbing. max.poll.interval.ms=300000, and a batch can take up to 6 minutes to process.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "tickets per label in this jira export + avg time to close",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "caching layers for a read heavy news site, cdn + redis + what else",
+  "task": "architecture"
+ },
+ {
+  "prompt": "I'd like the code of my Discord bot organized into separate files for each command, same features as now.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "audit this solidity contract for reentrancy",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Go through my .env.example and docker-compose.yml: are we committing anything we shouldn't?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "should i refactor this class or is it fine as is? want an honest opinion",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Setting up a home lab from scratch: which hardware first, then networking, then services? Give me the order.",
+  "task": "planning"
+ },
+ {
+  "prompt": "A friend says I should 'research' how to grab my own blog's archive, but honestly just write a Python script with requests and BeautifulSoup that saves every post title and URL from example-blog.com/archive into a CSV.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "I was going to refactor this module, but first: test_total_with_discount fails with 'expected 90, got 100'. def total(price, discount): return price - price * discount // 100",
+  "task": "debugging"
+ },
+ {
+  "prompt": "sanity check my threat model for the webhook receiver: hmac sig + 5 min timestamp window",
+  "task": "code_review"
+ },
+ {
+  "prompt": "explain worst case big O of quicksort",
+  "task": "general"
+ },
+ {
+  "prompt": "Can you review this function? It throws KeyError: 'user_id' every time a guest checks out. def checkout(session): uid = session['user_id']; cart = load_cart(uid)",
+  "task": "debugging"
+ },
+ {
+  "prompt": "My boss wants a button on our internal Flask site that exports the orders table as CSV. How would I code that?",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "correlation between build time and dep count across these 40 repos (csv below)",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "From these Home Assistant sensor logs, how often did the garage door stay open longer than 10 minutes?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "pick between postgres LISTEN/NOTIFY and a dedicated queue for our job dispatcher, ~200 jobs/s",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Give me milestones for building a simple app for my dog-grooming business over six months.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Newsletter paragraph needed for parents announcing the school science fair, date is March 14.",
+  "task": "writing"
+ },
+ {
+  "prompt": "realtime chat backend for 50k concurrent, websockets + redis pubsub or something else?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Lay out the main components and data flow for a self-hosted photo backup system for my family.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Search will be central to the new marketplace. Elasticsearch, Postgres full-text or a hosted search service, and how should indexing hook into the write path?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "arduino sketch: read a dht22 every 2s, print temp + humidity over serial",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "do app store rules currently allow in-app crypto tipping",
+  "task": "research"
+ },
+ {
+  "prompt": "Attached: 30 days of CPU usage exported from Grafana (pasted below). What's the trend, and what's the average daily peak?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "prep schedule for a conference talk in 3 weeks",
+  "task": "planning"
+ },
+ {
+  "prompt": "Sketch out the architecture for a greenhouse monitoring setup: ESP32 sensors, some storage, a dashboard I can see from my phone.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "schema for permissions w/ roles, groups and per-resource overrides",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Survey the landscape of open-source vector databases: which ones exist right now and what are people saying about running them in production?",
+  "task": "research"
+ },
+ {
+  "prompt": "Hello, I want make platform for tutors and students in my country. Which components I need, and should it be microservices or one big app?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "My daughter's Scratch game freezes whenever the cat touches the second wall, can you see why?",
+  "task": "debugging"
+ },
+ {
+  "prompt": "why is a software bug called a bug",
+  "task": "general"
+ },
+ {
+  "prompt": "Whats the difference between a virus and malware, my friend say they are same.",
+  "task": "general"
+ },
+ {
+  "prompt": "Teacher will grade my homework code soon, can you tell me if it follow good style? It work, but I want better grade.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Analyse our churn: of 1,200 January signups, 300 cancelled within two months; of 1,500 February signups, 330 did. Which cohort retained better?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Quick review of my running data, please: is my pace actually improving over the last 8 weeks? 5:40, 5:38, 5:41, 5:30, 5:28, 5:25, 5:27, 5:20 min/km.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "polish the intro paragraph of my github profile readme",
+  "task": "writing"
+ },
+ {
+  "prompt": "Find out whether there's a grant for small businesses in Ontario that want to digitize their bookkeeping.",
+  "task": "research"
+ },
+ {
+  "prompt": "Attached is a CSV from our home energy monitor. What times of day do we use the most power?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "summarize memory usage over the week from this grafana csv, peaks and when",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "What are developers saying about Bun vs Node these days? Is Bun considered production-ready for most teams now?",
+  "task": "research"
+ },
+ {
+  "prompt": "Hard-coded file paths are all over our intern's script. Move them into one place at the top without changing what it does.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "convert these callbacks to async/await, same behavior",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "is spawning go func(){ for { ... } }() in init() idiomatic or a smell",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Has anyone already written a Rust crate for parsing GEDCOM files? Don't write one, just tell me what's out there.",
+  "task": "research"
+ },
+ {
+  "prompt": "Who makes the most reliable cordless track saw for a hobby woodworker, based on reviews?",
+  "task": "research"
+ },
+ {
+  "prompt": "ab test: control 412/9800, variant 468/9750, significant?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Explain what a resistor does in a circuit.",
+  "task": "general"
+ },
+ {
+  "prompt": "break down aws spend by service from the cost explorer csv",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Break the work for adding SSO to our product into ordered tasks with estimates so we can slot them into sprints.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Can you make my Excel macro run faster? It takes five minutes to loop through 10,000 rows, but the result is correct.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "The plan says step 4 is 'add dark mode toggle'. Here's my React Header component; add the toggle and remember the choice in localStorage. function Header(){ return <nav><Logo/></nav> }",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "critique the error handling in lib.rs, there's a lot of unwrap()",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Trip planning comes later. First: what are the current visa requirements for a US citizen visiting Vietnam for two weeks?",
+  "task": "research"
+ },
+ {
+  "prompt": "flatten the callback pyramid in seed.js",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "inline the pointless one-line wrapper funcs in helpers.ts",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "How much do freelance web developers in Poland typically charge per hour these days?",
+  "task": "research"
+ },
+ {
+  "prompt": "webpack Module parse failed: Unexpected token (12:4) on every .tsx file after the upgrade",
+  "task": "debugging"
+ },
+ {
+  "prompt": "cohort retention table from orders.csv by signup month",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "ModuleNotFoundError: No module named 'app' when i run pytest from repo root",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Translate our old '%s' % x string formatting to f-strings across this module, same output everywhere.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Survey results from 200 parents are in this file. What percentage want a later school start time, broken down by grade?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Outline a schedule for training my two new employees in their first two weeks.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Refactor isn't the word, I want to add something: our CLI needs a --dry-run flag that prints what it would delete instead of deleting. Current setup: parser = argparse.ArgumentParser(); parser.add_argument('path')",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "The Arduino IDE says 'avrdude: stk500_recv(): programmer is not responding' when I try to upload. Help!",
+  "task": "debugging"
+ },
+ {
+  "prompt": "quick look at nginx.conf before i push it to prod?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "merge deploy-staging.sh and deploy-prod.sh into one parametrized script, identical behavior per env",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "blog post on why we moved from mongo to postgres, casual tone",
+  "task": "writing"
+ },
+ {
+  "prompt": "Why do teams do code reviews at all? What's the idea behind them?",
+  "task": "general"
+ },
+ {
+  "prompt": "Shorten this research paper abstract to under 150 words without losing the main finding.",
+  "task": "writing"
+ },
+ {
+  "prompt": "TypeError: Cannot read properties of undefined (reading 'map') in UserList.jsx:42, data comes from useQuery",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Put together a one-page proposal to my manager for a four-day-week trial on our team. Persuasive but not pushy.",
+  "task": "writing"
+ },
+ {
+  "prompt": "ESP32 keeps rebooting every few seconds once I connect it to WiFi. Serial monitor shows 'Brownout detector was triggered'.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Design the data model for a multi-tenant invoicing SaaS: tenants, users, clients, invoices, line items, payments. Tables and relationships, not code.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Check my Dockerfile for anything wrong: FROM node:latest / COPY . . / RUN npm install / USER root / CMD node server.js",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Planning to ship Friday, but CI fails with \"Module not found: Can't resolve './utils/Format'\" while the build works fine on my Mac.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Polish my Upwork profile description. I do Python scraping and automation for small businesses.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Monthly sales: Jan 120, Feb 135, Mar 128, Apr 160, May 172, Jun 190. What's the month-over-month growth, and is the trend accelerating?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "My sleep this week: 6.1, 7.4, 5.9, 8.0, 6.6, 7.1, 6.3 hours. Mean, median, and how many nights under 6.5?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "CORS error: No 'Access-Control-Allow-Origin' header is present, express backend on :3000",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Inherited a Go package where every error is wrapped differently. Standardise on fmt.Errorf with %w without changing what callers receive.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Their dog barks all night, so I need a polite note for my neighbours. Can you write it?",
+  "task": "writing"
+ },
+ {
+  "prompt": "Tidy up this JavaScript for my portfolio site, it works but looks messy. Don't add anything new.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "RAM versus storage, what's the difference? Explain like I'm 10.",
+  "task": "general"
+ },
+ {
+  "prompt": "makefile w/ build, test, clean targets for a small C project",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "class components -> function components + hooks for Dashboard.jsx",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Would you merge this change if you were me? It's a small update to how our booking app displays dates.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Tell me what machine learning is without the jargon.",
+  "task": "general"
+ },
+ {
+  "prompt": "Steps to set up a 3D printer from the box to the first successful print?",
+  "task": "planning"
+ },
+ {
+  "prompt": "Hey, small ask: swap this giant switch on shape type for a lookup map. Works great today, I'd just like it shorter.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Rephrase this error message so end users aren't scared by it: 'ERR_CONN_REFUSED: upstream 10.0.3.4:5432 unavailable'.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Extract the magic numbers in this game loop into named constants: 0.016, 9.81, 640, 480.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Compare the pricing of Hetzner, DigitalOcean and Linode for a 4 vCPU / 8 GB VPS.",
+  "task": "research"
+ },
+ {
+  "prompt": "replace the giant switch in handleEvent with a lookup table",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Question about my own data, not the web: in these 2,000 survey responses (CSV attached), which age group rated the product highest on average?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "godot signal never reaches my handler, connect() returns OK but _on_hit is never called",
+  "task": "debugging"
+ },
+ {
+  "prompt": "A bash script to back up my Documents folder to an external drive every night would be amazing.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "esp32 reboots w/ 'Brownout detector was triggered' as soon as wifi connects",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Nested IF formula with 7 levels, total monster. Can it be rewritten shorter with the same results?",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Raspberry Pi 5: still hard to get, or in stock at normal prices now?",
+  "task": "research"
+ },
+ {
+  "prompt": "The Home Assistant config has the same automation copied for every room. Is there a way to restructure it so it's less repetitive but works the same?",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Move the hard-coded SQL strings in these repository methods into one queries.py and reference them from there. The queries themselves stay exactly the same.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Do you remember things from our previous chats?",
+  "task": "general"
+ },
+ {
+  "prompt": "monolith vs microservices for a 3 person team building a booking app?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "implement a ring buffer in C for uart rx on stm32, no malloc, isr safe",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "We plan to deploy tomorrow. Any concerns with this Kubernetes manifest? No resource limits, replicas: 1, image tag :latest.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "closures in js, explain like i'm a junior",
+  "task": "general"
+ },
+ {
+  "prompt": "Here's my Arduino code for the greenhouse controller. Does it look okay to you, or would an expert do something differently?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Draft a timeline for organising a 200-person tech meetup in March: venue, speakers, sponsors, promotion.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Translate this message to my Italian supplier into Italian: we need the order by the 15th or we must cancel.",
+  "task": "writing"
+ },
+ {
+  "prompt": "lol that's a cursed regex",
+  "task": "general"
+ },
+ {
+  "prompt": "Totals in our shop's invoice spreadsheet come out wrong, off by a few euros every month, and I can't find where.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Can you put together a study schedule for my chemistry exam in four weeks? I can do about an hour a day.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Gentle review needed: my first React component for our school newsletter page. What would you change?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "changelog entry for the breaking change in /v1/users",
+  "task": "writing"
+ },
+ {
+  "prompt": "First pull request ever for our club's website, please review it. Be honest!",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Permissions modelling for a document-sharing product: RBAC, per-document ACLs, or relationship-based like Zanzibar? Show the entities and relationships.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Hello, my code for school project is working but teacher say it is too repetitive. Can you make it shorter but same output?",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Count how often each word appears in this paragraph of customer feedback and give me the top 10, ignoring stopwords.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Lay out the module structure for a plugin system in our desktop app: host, plugin API, sandboxing, and how plugins get discovered and loaded.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Too permissive? Our IAM policy is {\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"} for the reporting Lambda.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "which distros actually shipped the backdoored xz version",
+  "task": "research"
+ },
+ {
+  "prompt": "Roadmap for our mobile app over the next two quarters: offline mode, push notifications and a redesign. Sequence and rough dates.",
+  "task": "planning"
+ },
+ {
+  "prompt": "release notes for v2.3: added dark mode, fixed csv export, dropped node 16",
+  "task": "writing"
+ },
+ {
+  "prompt": "Convert these callback-based Node functions to async/await. They work fine; I just want modern syntax and the same behaviour.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Redoing the kitchen: floors, cabinets, painting, appliances. In what sequence should they happen?",
+  "task": "planning"
+ },
+ {
+  "prompt": "Write the README for my CLI tool csvkit-lite: what it does (filters and joins CSVs), install via pip, three usage examples. The code is done.",
+  "task": "writing"
+ },
+ {
+  "prompt": "What's the best way to structure a mobile app and backend for a dog-walking business? Firebase or our own server?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Planning question: should our new booking system be a monolith or split into services for payments, availability and notifications? Team of 4, about 10k users.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Why does my Klipper printer stop mid-print with 'Unknown command M600' every time it reaches the colour change?",
+  "task": "debugging"
+ },
+ {
+  "prompt": "migrate from the request lib to axios, keep the same responses and error shapes",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "rename getData to fetchInvoices across src/ without breaking anything",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "How should I organize the components of a Discord bot that also has a web dashboard and stores points for members?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Can you analyze this function and cut its complexity? It finds duplicates with two nested loops, O(n^2). Same output, ideally O(n).",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "I attach attendance list of my class for the semester, please find which students miss more than 20 percent.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Is moment.js still maintained, and what do people recommend instead nowadays?",
+  "task": "research"
+ },
+ {
+  "prompt": "data model for a recipe app: recipes, ingredients, units, substitutions",
+  "task": "architecture"
+ },
+ {
+  "prompt": "We're switching our team from email to Slack. What should we do first, second, and so on?",
+  "task": "planning"
+ },
+ {
+  "prompt": "port to rust: def chunks(xs,n): return [xs[i:i+n] for i in range(0,len(xs),n)]",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "dedupe the three nearly identical validate_* funcs in forms.py",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Does this backup script look correct to you? It hasn't run yet, I just want a second pair of eyes.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "In which order I should do the steps for building a shed on concrete slab?",
+  "task": "planning"
+ },
+ {
+  "prompt": "First-time electronics hobbyist here: in what order should I learn things to eventually build a robot arm?",
+  "task": "planning"
+ },
+ {
+  "prompt": "Studying for the CKA exam in six weeks. Make me a study schedule.",
+  "task": "planning"
+ },
+ {
+  "prompt": "ml inference as its own service or embedded in the api process?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Design the system for a small charity's volunteer scheduling app: users, shifts, notifications. How do the pieces connect?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "This Python script works but it's one giant function. Could you split it into smaller pieces without changing what it does?",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Count how many support emails we got per category each month from this export.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Storing customer passwords like this in my shop's database, is that okay? Code below.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "API docs exist already; what I don't have is a client. Write a small Python class wrapping GET /users and POST /users with requests, taking base_url in the constructor.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Critique my ESP32 code for the weather station: power usage, style, anything.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Reviews of the Framework Laptop 16 versus the latest MacBook Air for programming: what are reviewers concluding?",
+  "task": "research"
+ },
+ {
+  "prompt": "The decision to move our 40 internal services from REST to gRPC is made. What's the rollout sequence so we can switch gradually without breaking clients?",
+  "task": "planning"
+ },
+ {
+  "prompt": "LoRa, Zigbee or WiFi for my battery-powered garden sensors talking to the base station? I'm designing the whole system and need to pick one.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "pls review my diff for the auth middleware before i merge",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Here's a working merge sort. Leave it exactly as it is, but add a binary_search(sorted_list, target) function next to it that the rest of the module can call.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "phased rollout plan for the new payment provider behind feature flags",
+  "task": "planning"
+ },
+ {
+  "prompt": "Recommend some well-reviewed online courses for office workers who want to learn Excel properly.",
+  "task": "research"
+ },
+ {
+  "prompt": "80 word 3rd person bio for my embedded rust conference talk",
+  "task": "writing"
+ },
+ {
+  "prompt": "cheapest cloud egress for ~50TB/mo",
+  "task": "research"
+ },
+ {
+  "prompt": "Appreciate the help on the migration plan yesterday, you're great.",
+  "task": "general"
+ },
+ {
+  "prompt": "look over my terraform IAM policy, too permissive?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Our data team wants to analyze churn eventually. For now: what are the steps, in order, to get event tracking set up and validated over the next month?",
+  "task": "planning"
+ },
+ {
+  "prompt": "sequence the mysql -> postgres cutover for a weekend window",
+  "task": "planning"
+ },
+ {
+  "prompt": "Make this SQL query easier to read; it returns the right rows but nobody here can follow it.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Help, the numbers in my sheet are wrong: the March total shows 0 even though there are 40 rows dated March. Formula: =SUMIFS(C:C, A:A, \"March\") and column A holds real dates.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "draft an email to the team that the deploy freeze starts friday",
+  "task": "writing"
+ },
+ {
+  "prompt": "Event sourcing or a plain CRUD database for a membership system at my sports club? Which fits the design better?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Turn these bullet points into a proper meeting summary for my manager.",
+  "task": "writing"
+ },
+ {
+  "prompt": "milestones for porting our ios app to android",
+  "task": "planning"
+ },
+ {
+  "prompt": "Something is broken in my Google Apps Script: the emails go out twice to every parent.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "What does the current EU law say about cookie banners for a small shop website?",
+  "task": "research"
+ },
+ {
+  "prompt": "Design is settled (we picked Redis for rate limiting last week). Write the middleware in Go: 100 requests per minute per API key, sliding window.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Complaint letter to the airline about my lost luggage, flight was on 12 October. Keep it firm but polite.",
+  "task": "writing"
+ },
+ {
+  "prompt": "game engines that support console export w/o a paid license",
+  "task": "research"
+ },
+ {
+  "prompt": "I'm making a home automation system with sensors in every room. Should everything talk through MQTT to a central Raspberry Pi, or go directly to the cloud?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Fix up this function for me: it works correctly, but the if/else is five levels deep. Flatten it with early returns; behaviour must stay identical.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Ok great, thank you, bye!",
+  "task": "general"
+ },
+ {
+  "prompt": "Regex for UK postcodes, possible? I need it for a form on our website.",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "8 week plan to learn rust, i already know python",
+  "task": "planning"
+ },
+ {
+  "prompt": "Analyze the trade-offs and pick one: serverless functions or a containerised service for the image-processing backend we're designing. Bursty load, jobs up to 3 minutes.",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Dear assistant, please write me nice message for colleague retirement card, she was working here 30 years.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Calculate the total hours each freelancer billed per client from this timesheet.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Everyone says goroutines are cheap, but is spawning one per incoming row in this importer a bad idea? Everything runs fine for now; here's the code.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "k8s cronjob yaml that curls /healthz every 5 min",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "sql or a tsdb for iot time series from 2k devices",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Give me a 12-week half-marathon training plan. I currently run about 15 km a week.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Are there still popular Python libraries that haven't moved to Python 3, or is that finished by now?",
+  "task": "research"
+ },
+ {
+  "prompt": "Lay out a weekly plan for my vegetable garden from seed starting in March to harvest.",
+  "task": "planning"
+ },
+ {
+  "prompt": "Write me a summary of what this sales data shows: Q1 North 40k, South 55k; Q2 North 46k, South 52k; Q3 North 53k, South 50k. Which region is trending up?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "multi-tenant saas db: shared tables with tenant_id or schema per tenant?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Which model are you, and can you write code?",
+  "task": "general"
+ },
+ {
+  "prompt": "has anyone benchmarked bun vs deno http throughput recently",
+  "task": "research"
+ },
+ {
+  "prompt": "This Google Apps Script calls the sheet once per cell and is super slow. Could you rework it to read everything in one go? Output should stay the same.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "linkedin post announcing i shipped my first open source crate",
+  "task": "writing"
+ },
+ {
+  "prompt": "One test keeps failing only on Fridays. I think it has something to do with dates but I'm lost.",
+  "task": "debugging"
+ },
+ {
+  "prompt": "Which cloud providers currently rent GPUs with 80 GB of VRAM by the hour, and roughly what do they charge?",
+  "task": "research"
+ },
+ {
+  "prompt": "anything wrong with this dockerfile? FROM node:latest / COPY . . / RUN npm install / CMD npm start",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Weird one: my product comparison scraper returns the same price for every product even though each URL is different. for url in urls: html = cached_html; price = parse(html)",
+  "task": "debugging"
+ },
+ {
+  "prompt": "which customers churned in q3 per subscriptions.xlsx",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Our old PHP contact form uses the mysql_ functions. Update it to PDO but keep the behaviour identical.",
+  "task": "refactoring"
+ },
+ {
+  "prompt": "Best accounting tools for a one-person cleaning business in the UK, and how much do they cost?",
+  "task": "research"
+ },
+ {
+  "prompt": "find me papers on learned index structures since 2020",
+  "task": "research"
+ },
+ {
+  "prompt": "Does this code follow SOLID? Not looking for a rewrite, just a verdict with reasons.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "Draft the contributor onboarding guide for our repo. The steps are already decided (clone, make setup, make test, open a PR); I need it written up in a welcoming tone.",
+  "task": "writing"
+ },
+ {
+  "prompt": "Schedule needed for migrating our app from Heroku to AWS over 6 weeks: what happens in each week?",
+  "task": "planning"
+ },
+ {
+  "prompt": "raised garden bed with drip irrigation on a timer, build steps",
+  "task": "planning"
+ },
+ {
+  "prompt": "need a go http handler for POST /api/orders that validates the json body and returns 201",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "who created the C language",
+  "task": "general"
+ },
+ {
+  "prompt": "Please tell me which countries in EU need e-invoice for freelancer from next year. I am translator in Spain.",
+  "task": "research"
+ },
+ {
+  "prompt": "Review and reword this message to my landlord so it sounds firm but polite: 'The heater is broken AGAIN and nobody came.'",
+  "task": "writing"
+ },
+ {
+  "prompt": "check my k8s deployment yaml for best practices, resource limits, probes etc",
+  "task": "code_review"
+ },
+ {
+  "prompt": "For a new offline-first notes app, how should sync work: CRDTs, last-write-wins or operational transform, and where does the server fit in?",
+  "task": "architecture"
+ },
+ {
+  "prompt": "Work out the year-over-year growth for each product line from this table.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Can you write a friendly email to my customers telling them our bakery will be closed for two weeks in August?",
+  "task": "writing"
+ },
+ {
+  "prompt": "top 20 most used deps across our package.json files (pasted below)",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "git merge vs rebase, concept only",
+  "task": "general"
+ },
+ {
+  "prompt": "Our A/B test: control had 4,812 visitors and 241 conversions, the variant 4,790 visitors and 289 conversions. Is the difference significant?",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "Haiku about a failing unit test, please.",
+  "task": "writing"
+ },
+ {
+  "prompt": "good morning, long day of yaml ahead",
+  "task": "general"
+ },
+ {
+  "prompt": "dockerfile for a fastapi app, multi stage, python 3.12-slim",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Does this firewall config on the office router look sensible? Our IT guy set it up.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "English is not my first language, so can you make this more natural: 'We are glad to inform that our shop is now opened also on Sunday.'",
+  "task": "writing"
+ },
+ {
+  "prompt": "from this sprint spreadsheet, avg velocity and is it trending up",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "existing open source js lib for diff3 merges?",
+  "task": "research"
+ },
+ {
+  "prompt": "I'm not asking you to fix anything. Read this error handling and tell me whether catching bare Exception everywhere is acceptable here.",
+  "task": "code_review"
+ },
+ {
+  "prompt": "I'm a freelancer drowning in projects. Can you help me organize the next two weeks into a schedule?",
+  "task": "planning"
+ },
+ {
+  "prompt": "Is there a correlation between temperature and ice cream sales in my kiosk data? I've put both columns here.",
+  "task": "data_analysis"
+ },
+ {
+  "prompt": "cover letter for a junior backend role at a fintech",
+  "task": "writing"
+ },
+ {
+  "prompt": "Glance at this schema and then write the SQL that returns every customer with more than three orders in the last 30 days. Tables: customers(id, name), orders(id, customer_id, created_at).",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Selling candles on Etsy, I want a Google Sheets formula that pulls the shipping cost from another tab based on the country. Can you write it?",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Just got the website code from my freelancer. Can you check whether it's well written before I pay the final invoice?",
+  "task": "code_review"
+ },
+ {
+  "prompt": "fetchUser() works fine, i just want retry w/ exponential backoff added for 503s",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "Could you write me a little Python script that renames all the photos in a folder by the date they were taken?",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "add a --dry-run flag to cli.py (argparse), should print actions instead of doing them",
+  "task": "code_generation"
+ },
+ {
+  "prompt": "week by week plan to get soc2 type 1 done",
+  "task": "planning"
+ },
+ {
+  "prompt": "How many minutes are in 3.5 hours?",
+  "task": "general"
+ },
+ {
+  "prompt": "Move this React class component to hooks with identical rendering and behaviour: class Counter extends React.Component { state = { n: 0 }; render() { return <button onClick={() => this.setState({ n: this.state.n + 1 })}>{this.state.n}</button> } }",
+  "task": "refactoring"
+ }
+]
