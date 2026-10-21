@@ -513,10 +513,18 @@ def main(argv=None):
         log(f"REFUSED: {fresh['accuracy']:.1%} at {fresh['ms_per_message']} ms/message does not beat "
             f"{args.bar:.0%} within {args.max_ms:.0f} ms; nothing emitted. Report: {run_dir / 'report.json'}")
         return EXIT_BELOW_BAR
+    partial = out.with_name(out.name + ".partial")  # a failed copy (disk full) must not leave half a model at out
+    shutil.rmtree(partial, ignore_errors=True)
+    try:
+        shutil.copytree(model_dir, partial)
+        shutil.copy(run_dir / "report.json", partial / "report.json")
+    except OSError as e:
+        shutil.rmtree(partial, ignore_errors=True)
+        log(f"error: passed, but could not emit {out}: {e}")
+        return EXIT_ERROR
     if out.exists():
         shutil.rmtree(out)
-    shutil.copytree(model_dir, out)
-    shutil.copy(run_dir / "report.json", out / "report.json")
+    partial.rename(out)
     log(f"emitted {out} ({fresh['accuracy']:.1%}, {fresh['ms_per_message']} ms/message)")
     return EXIT_OK
 
