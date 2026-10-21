@@ -204,19 +204,7 @@ pub fn launch(runtime: &str, home: &Path) -> (Vec<OsString>, Vec<(String, String
                 {
                     continue;
                 }
-                let strings = |v: Vec<String>| {
-                    toml::Value::Array(v.into_iter().map(toml::Value::String).collect())
-                };
-                args.push("--config".into());
-                args.push(
-                    format!(
-                        "mcp_servers.{name}={{command={},args={},env_vars={}}}",
-                        toml::Value::String(server.command.clone()),
-                        strings(server.args.clone()),
-                        strings(server.env.keys().cloned().collect()),
-                    )
-                    .into(),
-                );
+                args.extend(["--config".into(), codex_server(name, server)]);
                 env.extend(server.env.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
         }
@@ -226,15 +214,231 @@ pub fn launch(runtime: &str, home: &Path) -> (Vec<OsString>, Vec<(String, String
 }
 
 /// [`launch`] for this decision: nothing for a read-only launch, whose tools
-/// are what keeps it read-only, or when no home was given.
+/// are what keeps it read-only, or when no home was given. An explicit
+/// `--mcp-config` replaces sharing.
 pub fn for_launch(
     runtime: &str,
     cfg: &crate::config::Config,
 ) -> (Vec<OsString>, Vec<(String, String)>) {
+    if cfg.read_only {
+        return (vec![], vec![]);
+    }
+    if let Some(explicit) = &cfg.mcp_config {
+        return explicit.launch(runtime);
+    }
     match &cfg.mcp_home {
-        Some(home) if !cfg.read_only => launch(runtime, home),
+        Some(home) => launch(runtime, home),
         _ => (vec![], vec![]),
     }
+}
+
+/// Codex takes a server at launch as `--config mcp_servers.NAME={...}`, with
+/// env values passed by name only (`env_vars`) so they stay off the command line.
+fn codex_server(name: &str, server: &Server) -> OsString {
+    let strings =
+        |v: Vec<String>| toml::Value::Array(v.into_iter().map(toml::Value::String).collect());
+    format!(
+        "mcp_servers.{name}={{command={},args={},env_vars={}}}",
+        toml::Value::String(server.command.clone()),
+        strings(server.args.clone()),
+        strings(server.env.keys().cloned().collect()),
+    )
+    .into()
+}
+
+/// A launch's extra arguments and environment.
+type Launch = (Vec<OsString>, Vec<(String, String)>);
+
+/// `--mcp-config FILE`: exactly these servers (standard `mcpServers` JSON), for
+/// whichever runtime the task routes to.
+#[derive(Debug, Clone)]
+pub struct Explicit {
+    path: PathBuf,
+    /// Codex's launch arguments and environment, or why Codex can't be held to FILE.
+    codex: std::result::Result<Launch, String>,
+}
+impl Explicit {
+    /// `codex` is the Codex command and its extra arguments, asked which
+    /// servers it would load here; by `until`, or until a cancel.
+    pub fn load(
+        path: &Path,
+        codex: Option<(&str, &[String])>,
+        until: Option<std::time::Instant>,
+        cancel: &crate::executor::CancellationToken,
+    ) -> Result<Self> {
+        let text =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let value: Value =
+            serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        let servers = value["mcpServers"]
+            .as_object()
+            .with_context(|| format!("{} has no mcpServers object", path.display()))?;
+        // Every server's, not only those Codex could take: Claude gets them all.
+        crate::redact::also(
+            servers
+                .values()
+                .filter_map(|v| expand_server(v, false))
+                .flat_map(|v| v["env"].as_object().cloned().unwrap_or_default())
+                .filter_map(|(k, v)| Some((k, v.as_str()?.to_string()))),
+        );
+        let codex = match codex {
+            Some((command, extras)) => codex_explicit(servers, command, extras, until, cancel),
+            None => Err("no Codex model is enabled".into()),
+        };
+        if cancel.is_cancelled() {
+            anyhow::bail!("cancelled");
+        }
+        if until.is_some_and(|u| std::time::Instant::now() >= u) {
+            return Err(crate::executor::DeadlineExceeded.into());
+        }
+        Ok(Self {
+            path: std::path::absolute(path)?,
+            codex,
+        })
+    }
+    /// Why Codex can't take FILE exactly, if it can't.
+    pub fn codex_excluded(&self) -> Option<&str> {
+        self.codex.as_ref().err().map(String::as_str)
+    }
+    /// Whether a launch on `runtime` gets exactly FILE's servers. Gemini has no
+    /// launch-time server option, and Ollama runs no tools.
+    pub fn supports(&self, runtime: &str) -> bool {
+        match runtime {
+            "claude" => true,
+            "codex" => self.codex.is_ok(),
+            _ => false,
+        }
+    }
+    fn launch(&self, runtime: &str) -> (Vec<OsString>, Vec<(String, String)>) {
+        match runtime {
+            "claude" => {
+                let mut flag = OsString::from("--mcp-config=");
+                flag.push(&self.path);
+                (vec![flag, "--strict-mcp-config".into()], vec![])
+            }
+            "codex" => self.codex.clone().unwrap_or_default(),
+            _ => (vec![], vec![]),
+        }
+    }
+}
+
+/// Codex has no strict mode and loads servers from its user, project and plugin
+/// config layers. So plugins and apps go off, every other server Codex reports
+/// goes off by name, and `codex mcp list` must then show exactly FILE's servers,
+/// asked with the launch's own extra arguments and environment.
+fn codex_explicit(
+    servers: &serde_json::Map<String, Value>,
+    command: &str,
+    extras: &[String],
+    until: Option<std::time::Instant>,
+    cancel: &crate::executor::CancellationToken,
+) -> std::result::Result<Launch, String> {
+    // The launch passes `extras` before these arguments. Feature switches
+    // reach `codex mcp list` too; anything else that could change which
+    // servers Codex loads (another directory, say) can't be checked there.
+    let mut probe: Vec<OsString> = vec![];
+    let mut rest = extras.iter();
+    while let Some(arg) = rest.next() {
+        let flag = arg.split('=').next().unwrap_or(arg);
+        let value = !arg.contains('=');
+        match flag {
+            "--enable" | "--disable" => {
+                probe.push(arg.into());
+                if value {
+                    probe.extend(rest.next().map(OsString::from));
+                }
+            }
+            "--sandbox" | "-s" | "--ask-for-approval" | "-a" | "--color" => {
+                if value {
+                    rest.next();
+                }
+            }
+            "--skip-git-repo-check"
+            | "--full-auto"
+            | "--yolo"
+            | "--dangerously-bypass-approvals-and-sandbox" => {}
+            _ => {
+                return Err(format!(
+                    "Codex's extra argument {arg} could change which servers it loads"
+                ))
+            }
+        }
+    }
+    let mut args: Vec<OsString> = vec![];
+    for setting in ["features.plugins=false", "features.apps=false"] {
+        args.extend(["--config".into(), setting.into()]);
+    }
+    let mut env: BTreeMap<String, String> = BTreeMap::new();
+    for (name, v) in servers {
+        let server = expand_server(v, false)
+            .as_ref()
+            .and_then(local)
+            .ok_or(format!("server {name} isn't a local (stdio) server"))?;
+        if !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "_-".contains(c))
+        {
+            return Err(format!("Codex can't take the server name {name}"));
+        }
+        // Codex forwards variables by name from its own environment, so one
+        // name with two values would give a server the other's credential.
+        for (key, value) in &server.env {
+            if std::env::var(key).is_ok_and(|own| &own != value)
+                || env.get(key).is_some_and(|other| other != value)
+            {
+                return Err(format!(
+                    "{key} has a different value for server {name}, and Codex passes one value to every server"
+                ));
+            }
+            env.insert(key.clone(), value.clone());
+        }
+        args.extend(["--config".into(), codex_server(name, &server)]);
+    }
+    let list = |args: &[OsString]| -> std::result::Result<Vec<(String, bool)>, String> {
+        let mut command = crate::executor::launch(command).map_err(|e| format!("{e:#}"))?;
+        command
+            .args(["mcp", "list", "--json"])
+            .args(&probe)
+            .args(args)
+            .envs(&env);
+        let out = crate::executor::output_until(&mut command, until, cancel)
+            .map_err(|e| format!("running codex mcp list: {e:#}"))?;
+        if !out.status.success() {
+            return Err(format!(
+                "codex mcp list failed: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
+        let listed: Vec<Value> = serde_json::from_slice(&out.stdout)
+            .map_err(|e| format!("reading codex mcp list: {e}"))?;
+        Ok(listed
+            .iter()
+            .map(|s| {
+                (
+                    s["name"].as_str().unwrap_or("").to_string(),
+                    s["enabled"] == true,
+                )
+            })
+            .collect())
+    };
+    for (name, enabled) in list(&args)? {
+        if enabled && !servers.contains_key(&name) {
+            let key = toml::Value::String(name);
+            args.extend([
+                "--config".into(),
+                format!("mcp_servers.{key}.enabled=false").into(),
+            ]);
+        }
+    }
+    let mut on: Vec<String> = list(&args)?
+        .into_iter()
+        .filter_map(|(name, enabled)| enabled.then_some(name))
+        .collect();
+    on.sort();
+    if !on.iter().eq(servers.keys()) {
+        return Err(format!("Codex would still load {}", on.join(", ")));
+    }
+    Ok((args, env.into_iter().collect()))
 }
 
 /// Hex keeps every (server, key) pair distinct: `foo-bar` and `foo_bar` differ.
@@ -640,5 +844,23 @@ mod tests {
 
         fs::write(home.join(".gemini/settings.json"), "{ // mine\n}").unwrap();
         assert!(add(home, "gemini", "gh", &server).is_err());
+    }
+
+    #[test]
+    fn every_server_claude_is_handed_has_its_credentials_masked() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("mcp.json");
+        // Servers Codex can't take as written still reach Claude whole.
+        let servers = json!({"mcpServers": {
+            "rooted": {"command": "a", "cwd": "/srv", "env": {"A_TOKEN": "rooted-secret-1"}},
+            "limited": {"command": "b", "includeTools": ["x"], "env": {"B_TOKEN": "limited-secret-2"}},
+            "remote": {"type": "http", "url": "https://x", "env": {"C_TOKEN": "remote-secret-3"}},
+        }});
+        fs::write(&file, servers.to_string()).unwrap();
+        let cancel = crate::executor::CancellationToken::default();
+        Explicit::load(&file, None, None, &cancel).unwrap();
+        for secret in ["rooted-secret-1", "limited-secret-2", "remote-secret-3"] {
+            assert_eq!(crate::redact::redact(secret), "[redacted]");
+        }
     }
 }

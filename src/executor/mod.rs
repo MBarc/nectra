@@ -12,8 +12,9 @@ pub use conversation::conversation_resumable;
 pub use conversation::conversation_with_cancellation;
 pub use conversation::conversation_with_session;
 pub use conversation::AuthenticationRequired;
-pub use process::CancellationToken;
+pub use conversation::{conversation_observed, DeadlineExceeded, Observer};
 pub use process::TurnCancellation;
+pub use process::{output_until, CancellationToken};
 use std::{
     env,
     ffi::OsString,

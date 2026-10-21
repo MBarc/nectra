@@ -25,20 +25,52 @@ const PRICES: &str = include_str!("../eval/chat-savings/prices.json");
 
 /// USD per million tokens (input, cache read, cache write, output) for the
 /// models in `eval/chat-savings/prices.json`. Claude Code logs full names
-/// (`claude-opus-5-5`), which resolve to their short ids.
+/// (`claude-opus-5-5`); those listed under `_aliases` resolve to their short
+/// ids, and any other version has no price.
 pub fn price(model: &str) -> Option<[f64; 4]> {
-    let id = ["opus", "sonnet", "haiku"]
-        .into_iter()
-        .find(|s| model.starts_with("claude-") && model.contains(s))
-        .unwrap_or(model);
-    let prices: Value = serde_json::from_str(PRICES).ok()?;
-    let n = |k: &str| prices[id][k].as_f64();
+    let n = |k: &str| price_of(model, k);
     Some([
         n("input")?,
         n("cache_read")?,
         n("cache_write")?,
         n("output")?,
     ])
+}
+/// USD per million tokens of a 5-minute cache write (Claude), where `cache_write`
+/// is the 1-hour rate; the same as `cache_write` for models without the split.
+pub fn price_cache_write_5m(model: &str) -> Option<f64> {
+    price_of(model, "cache_write_5m").or_else(|| price_of(model, "cache_write"))
+}
+fn price_of(model: &str, key: &str) -> Option<f64> {
+    let prices: Value = serde_json::from_str(PRICES).ok()?;
+    let id = prices["_aliases"][model].as_str().unwrap_or(model);
+    prices[id][key].as_f64()
+}
+
+/// The log (rollout) Codex keeps of thread `id`, once it has written one.
+pub fn codex_rollout(id: &str) -> Option<PathBuf> {
+    codex_rollout_in(&Logs::default_paths().ok()?.codex_sessions, id)
+}
+/// In `dir`: `rollout-<time>-<id>.jsonl`, or `rollout-<time>-<id>_<n>.jsonl` once
+/// `thread/revert` has started a new file for the thread; the newest is the one
+/// Codex writes to. Its first line (`session_meta`) must name the thread.
+pub fn codex_rollout_in(dir: &Path, id: &str) -> Option<PathBuf> {
+    let (plain, reverted) = (format!("-{id}.jsonl"), format!("-{id}_"));
+    let mut found = files(dir, |n| {
+        n.starts_with("rollout-") && (n.ends_with(&plain) || n.contains(&reverted))
+    })
+    .ok()?;
+    found.retain(|path| {
+        let first = fs::File::open(path)
+            .ok()
+            .and_then(|f| BufReader::new(f).lines().next()?.ok());
+        first
+            .and_then(|l| serde_json::from_str::<Value>(&l).ok())
+            .is_some_and(|e| e["type"] == "session_meta" && e["payload"]["id"] == id)
+    });
+    found
+        .into_iter()
+        .max_by_key(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -50,7 +82,7 @@ pub struct Tokens {
     pub output: u64,
 }
 impl Tokens {
-    fn add(&mut self, o: Tokens) {
+    pub fn add(&mut self, o: Tokens) {
         self.input += o.input;
         self.cache_read += o.cache_read;
         self.cache_write += o.cache_write;
@@ -532,6 +564,16 @@ pub fn render(report: &Report, baseline: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_listed_model_versions_get_a_price() {
+        assert_eq!(price("claude-haiku-5-5"), price("haiku"));
+        assert!(price("claude-opus-5-5").is_some());
+        // Another version of a family isn't assumed to cost the same.
+        assert_eq!(price("claude-opus-4-8"), None);
+        assert_eq!(price("claude-haiku-9-9-preview"), None);
+        assert_eq!(price("_aliases"), None);
+    }
 
     #[test]
     fn totals_come_from_each_providers_own_log() {
