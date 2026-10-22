@@ -1,0 +1,127 @@
+{
+  "total": 1031,
+  "passed": 1007,
+  "accuracy": 0.976721629485936,
+  "failures": [
+    {
+      "prompt": "Is this SQL safe? It's giving me duplicate rows whenever a customer has more than one address: SELECT c.*, a.city FROM customers c JOIN addresses a ON a.customer_id = c.id",
+      "expected": "debugging",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "Rewrite my abstract so it is shorter, max 150 words. I will paste it below. 'In this study we examined the relationship between sleep duration and academic performance among undergraduate students at three universities...'",
+      "expected": "writing",
+      "actual": "research"
+    },
+    {
+      "prompt": "incident followup: write me an action plan w/ owners and deadlines from this — disk filled on prod-db-2, alerts went to a dead slack channel, no runbook",
+      "expected": "planning",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "My SQL query to get customers who ordered last month returns every customer, not only those ones. WHERE order_date > '2026-09-01' OR status = 'paid'. Why?",
+      "expected": "debugging",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "cache the regex compile outside the hot path, nothing else should change",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "break this down into tickets: add dark mode, persist it in localstorage, respect prefers-color-scheme",
+      "expected": "planning",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "Plan my science fair project for me: I want to test which plant food grows beans fastest, due in 5 weeks.",
+      "expected": "planning",
+      "actual": "research"
+    },
+    {
+      "prompt": "I run a small bakery and want to start accepting card payments at a market stall. Can you compare Square, SumUp and Zettle in terms of fees and hardware cost?",
+      "expected": "research",
+      "actual": "data_analysis"
+    },
+    {
+      "prompt": "is there a rust crate for parsing .ini with comments preserved on write",
+      "expected": "research",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "my bash script for backing up photos has the same rsync command five times with different folders. make it a loop or something. same backups at the end.",
+      "expected": "refactoring",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "Our monolith has a performance problem, but before profiling anything, outline the investigation approach: what to measure first, what order to rule out suspects, and when to stop and escalate.",
+      "expected": "planning",
+      "actual": "architecture"
+    },
+    {
+      "prompt": "The tax calculation in my spreadsheet macro is hardcoded in 8 different places. Put the rate in one spot so when it changes I only edit once. Results unchanged.",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "What's the right component breakdown for a video streaming backend: upload, transcoding, CDN, manifest generation, DRM? Draw it out in text.",
+      "expected": "architecture",
+      "actual": "writing"
+    },
+    {
+      "prompt": "ELI5: why does git merge sometimes make a 'merge commit'",
+      "expected": "general",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Can you review these nginx access logs and tell me which endpoints return the most 404s? I pasted about 2,000 lines below.",
+      "expected": "data_analysis",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "I want to write a novel during NaNoWriMo next month. Help me plan out the days so I hit 50,000 words.",
+      "expected": "planning",
+      "actual": "writing"
+    },
+    {
+      "prompt": "what's new in go 1.25, just the highlights",
+      "expected": "research",
+      "actual": "general"
+    },
+    {
+      "prompt": "what is a monolith vs microservices, one or two sentences is fine, I don't need a design",
+      "expected": "general",
+      "actual": "architecture"
+    },
+    {
+      "prompt": "why are these logs full of timeouts? Just count them per service and show me when they cluster, I'm not asking you to fix anything yet.",
+      "expected": "debugging",
+      "actual": "data_analysis"
+    },
+    {
+      "prompt": "The function is correct but allocates a new list on every call and it's showing up in profiling. Optimise memory use without altering results.",
+      "expected": "refactoring",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "Skim this C function and tell me if there's any chance of a buffer overflow. It has never crashed in production.\n\nvoid copy(char *src) { char buf[64]; strcpy(buf, src); printf(\"%s\", buf); }",
+      "expected": "code_review",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "Could you audit my login handler? Users keep getting logged out after about 5 minutes no matter what I set the session expiry to.",
+      "expected": "debugging",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "Someone told me serverless is the answer for our bursty image-processing workload. Lay out whether Lambda plus queues beats a container fleet for this system, and the resulting design.",
+      "expected": "architecture",
+      "actual": "research"
+    },
+    {
+      "prompt": "ive got a week to get this repo ready for open source. what do i do each day",
+      "expected": "planning",
+      "actual": "code_review"
+    }
+  ]
+}

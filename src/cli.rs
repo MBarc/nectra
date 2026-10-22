@@ -89,6 +89,13 @@ pub enum Commands {
         #[arg(value_enum)]
         name: Option<crate::terminal::Theme>,
     },
+    /// Choose how messages are classified: `laya` downloads a free local model
+    /// (about 750 MB, nothing leaves the machine), `auto` uses Jev when a
+    /// TypeSafe key is set, `keywords` uses keywords only.
+    Classifier {
+        #[arg(value_enum)]
+        backend: crate::config::ClassifierBackend,
+    },
     /// Configure an Ollama server and selected local models without prompts.
     Ollama {
         #[arg(long, default_value = "http://localhost:11434")]

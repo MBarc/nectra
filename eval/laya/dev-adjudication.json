@@ -1,0 +1,189 @@
+[
+ {
+  "id": "d007",
+  "prompt": "glance at the frag shader, is all that branching a bad idea on mobile gpus?",
+  "writer_intent": "code_review",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "code_review/research"
+  },
+  "decision": "code_review",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d025",
+  "prompt": "p95 of these latencies: 120 98 340 110 105 2000 99 101",
+  "writer_intent": "data_analysis",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "data_analysis vs general (simple arithmetic on supplied numbers)"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "data_analysis/general"
+  },
+  "decision": "data_analysis",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d031",
+  "prompt": "count unique users per country in signups.json",
+  "writer_intent": "data_analysis",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "data_analysis vs code_generation (count could be a script)"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "data_analysis",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d066",
+  "prompt": "17% of 2400?",
+  "writer_intent": "general",
+  "labeler_1": {
+   "label": "general",
+   "unsure": true,
+   "note": "general vs data_analysis (plain arithmetic)"
+  },
+  "labeler_2": {
+   "label": "general",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "general",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d106",
+  "prompt": "Hashing passwords like this, reasonable or not? hashlib.sha256(pw.encode()).hexdigest()",
+  "writer_intent": "code_review",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "code_review/research"
+  },
+  "decision": "code_review",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d143",
+  "prompt": "can u review this binary search, it returns -1 on arrays w/ duplicates even when the target is there",
+  "writer_intent": "debugging",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "debugging/code_review"
+  },
+  "decision": "debugging",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d171",
+  "prompt": "Research question maybe? Our cron job ran fine for a year and stopped firing after we moved the server to UTC. Nothing in the logs. What's wrong?",
+  "writer_intent": "debugging",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "debugging/research"
+  },
+  "decision": "debugging",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d212",
+  "prompt": "steps to migrate our app from heroku to fly.io w/o downtime",
+  "writer_intent": "planning",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": true,
+   "note": "planning/code_generation"
+  },
+  "decision": "planning",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d273",
+  "prompt": "getting started section of the docs for our python sdk",
+  "writer_intent": "writing",
+  "labeler_1": {
+   "label": "writing",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "writing",
+   "unsure": true,
+   "note": "writing/code_generation"
+  },
+  "decision": "writing",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d286",
+  "prompt": "kafka vs rabbitmq vs sqs for order events in the new platform",
+  "writer_intent": "architecture",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "architecture/research"
+  },
+  "decision": "architecture",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ },
+ {
+  "id": "d314",
+  "prompt": "Could you find out why the website went down for two hours last night? Here are the server logs.",
+  "writer_intent": "debugging",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "debugging/data_analysis"
+  },
+  "decision": "debugging",
+  "reason": "both labelers agree; the unsure note is settled by the rubric as written"
+ }
+]

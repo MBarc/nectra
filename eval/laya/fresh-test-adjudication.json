@@ -1,0 +1,132 @@
+[
+  {
+    "id": "f004",
+    "prompt": "I want to separate my IoT devices from the main wifi, what network layout (vlans? guest network?) would you recommend",
+    "writer": "b",
+    "writer_intended": "architecture",
+    "labeler_1": "architecture",
+    "labeler_2": "architecture",
+    "decision": "architecture",
+    "reason": "architecture: network layout is system structure"
+  },
+  {
+    "id": "f006",
+    "prompt": "compare bun vs node vs deno for a new backend in 2026",
+    "writer": "a",
+    "writer_intended": "research",
+    "labeler_1": "research",
+    "labeler_2": "research",
+    "decision": "dropped",
+    "reason": "research vs architecture: a runtime comparison that is also a technology choice for the user's own backend; the rubric does not separate them"
+  },
+  {
+    "id": "f033",
+    "prompt": "kafka vs rabbitmq vs just sqs for ~200 msgs/sec of order events, we're on aws already",
+    "writer": "a",
+    "writer_intended": "architecture",
+    "labeler_1": "architecture",
+    "labeler_2": "architecture",
+    "decision": "architecture",
+    "reason": "architecture: messaging choice for the user's own system with stated load and platform"
+  },
+  {
+    "id": "f041",
+    "prompt": "Calculate the average, median and standard deviation of: 12, 15, 11, 18, 22, 9, 14",
+    "writer": "b",
+    "writer_intended": "data_analysis",
+    "labeler_1": "data_analysis",
+    "labeler_2": "data_analysis",
+    "decision": "data_analysis",
+    "reason": "data_analysis: statistics computed from supplied numbers, not trivial arithmetic"
+  },
+  {
+    "id": "f072",
+    "prompt": "best way to set up my home network? i have 2 floors, a NAS, about 25 smart devices and kids who use too much bandwidth",
+    "writer": "b",
+    "writer_intended": "architecture",
+    "labeler_1": "architecture",
+    "labeler_2": "architecture",
+    "decision": "architecture",
+    "reason": "architecture: network layout is system structure"
+  },
+  {
+    "id": "f104",
+    "prompt": "I have survey results from 200 people on a 1-5 scale. How do I find out if men and women answered differently?",
+    "writer": "b",
+    "writer_intended": "data_analysis",
+    "labeler_1": "data_analysis",
+    "labeler_2": "data_analysis",
+    "decision": "data_analysis",
+    "reason": "data_analysis: how to test the user's own survey data"
+  },
+  {
+    "id": "f105",
+    "prompt": "What's a good folder and naming structure for 10 years of research data and analysis scripts so my future self can find stuff?",
+    "writer": "b",
+    "writer_intended": "architecture",
+    "labeler_1": "architecture",
+    "labeler_2": "architecture",
+    "decision": "architecture",
+    "reason": "architecture: rule 5, the structure of a data store, not a sequence of steps"
+  },
+  {
+    "id": "f161",
+    "prompt": "Convert my old VBA macro to Google Apps Script, I want it to do the exact same thing",
+    "writer": "b",
+    "writer_intended": "refactoring",
+    "labeler_1": "code_generation",
+    "labeler_2": "code_generation",
+    "decision": "code_generation",
+    "reason": "code_generation: ports to another language are new code by definition (writer intended refactoring)"
+  },
+  {
+    "id": "f176",
+    "prompt": "sql query got way slower after i added the join, EXPLAIN shows seq scan on events. help",
+    "writer": "a",
+    "writer_intended": "debugging",
+    "labeler_1": "debugging",
+    "labeler_2": "debugging",
+    "decision": "debugging",
+    "reason": "debugging: rule 2, a query that got slower after a change is a reported regression (compare f126, perf work on working code = refactoring)"
+  },
+  {
+    "id": "f188",
+    "prompt": "can you write the docstrings for this module, google style",
+    "writer": "a",
+    "writer_intended": "writing",
+    "labeler_1": "writing",
+    "labeler_2": "writing",
+    "decision": "writing",
+    "reason": "writing: rule 7, docstrings are prose for people even inside code (labeler 1 flagged code_generation as plausible)"
+  },
+  {
+    "id": "f206",
+    "prompt": "Should my small online shop use Shopify or build custom with a database and Stripe? I can code a little python.",
+    "writer": "b",
+    "writer_intended": "architecture",
+    "labeler_1": "architecture",
+    "labeler_2": "architecture",
+    "decision": "dropped",
+    "reason": "research vs architecture: a product comparison (Shopify) that is also a build-vs-buy design decision"
+  },
+  {
+    "id": "f234",
+    "prompt": "Make a pivot table summarizing revenue by region and quarter from my data",
+    "writer": "b",
+    "writer_intended": "data_analysis",
+    "labeler_1": "data_analysis",
+    "labeler_2": "data_analysis",
+    "decision": "data_analysis",
+    "reason": "data_analysis: a summary computed from the user's data"
+  },
+  {
+    "id": "f307",
+    "prompt": "we have a monolith that's getting painful. how would you split it, and is it even worth going microservices with a team of 4?",
+    "writer": "a",
+    "writer_intended": "architecture",
+    "labeler_1": "architecture",
+    "labeler_2": "architecture",
+    "decision": "architecture",
+    "reason": "architecture: how to split a monolith"
+  }
+]

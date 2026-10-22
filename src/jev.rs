@@ -83,11 +83,16 @@ pub fn classify_turn(
 ) -> Classification {
     let local = || classify_local(prompt, previous);
     let c = &cfg.inner.classifier;
-    let key = api_key(&cfg.path);
-    let Some(key) = key.filter(|_| allowed(cfg)) else {
-        return local();
+    // The local model runs on this machine, so even a local-only setup may use it.
+    let (source, answer) = if c.backend == ClassifierBackend::Laya {
+        ("laya", crate::laya::ask(prompt, previous, roles, cfg))
+    } else {
+        let Some(key) = api_key(&cfg.path).filter(|_| allowed(cfg)) else {
+            return local();
+        };
+        ("jev", ask(prompt, previous, roles, &key, c.timeout_ms))
     };
-    match ask(prompt, previous, roles, &key, c.timeout_ms) {
+    match answer {
         Ok(Answer {
             task,
             confidence,
@@ -107,7 +112,7 @@ pub fn classify_turn(
                 req: classifier::requirements(task),
                 tier: Some(tier),
                 why: format!(
-                    "jev classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{})",
+                    "{source} classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{})",
                     role.as_deref().map(|r| format!(", role {r}")).unwrap_or_default()
                 ),
                 new_task: new_task.map(|p| p >= 0.5),
@@ -117,7 +122,7 @@ pub fn classify_turn(
         }
         Err(e) => {
             let mut l = local();
-            l.why = format!("{}; jev unavailable: {e:#}", l.why);
+            l.why = format!("{}; {source} unavailable: {e:#}", l.why);
             l
         }
     }
@@ -126,7 +131,7 @@ pub fn classify_turn(
 /// Whether this configuration may send prompts to Jev at all. A local-only
 /// Ollama setup chose privacy, so its prompts never leave the machine.
 pub fn allowed(cfg: &Config) -> bool {
-    cfg.inner.classifier.backend != ClassifierBackend::Local
+    cfg.inner.classifier.backend == ClassifierBackend::Auto
         && !(cfg.ollama_enabled()
             && cfg
                 .inner
@@ -169,14 +174,59 @@ pub fn save_key(config_path: &Path, key: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-struct Answer {
-    task: TaskType,
-    confidence: f64,
+/// The task types and the plain descriptions Jev chooses between. The local
+/// model is trained on the same list (`eval/laya/criteria.json`).
+pub const TASK_CRITERIA: [(&str, &str); 10] = [
+    (
+        "code_generation",
+        "Write new code, features, scripts, endpoints, tests or flags",
+    ),
+    (
+        "debugging",
+        "Find and fix why something is broken, failing, crashing or behaving wrongly",
+    ),
+    (
+        "refactoring",
+        "Restructure, rename or clean up existing code without changing behaviour",
+    ),
+    (
+        "code_review",
+        "Review, audit or critique existing code, a diff or a PR for quality or security",
+    ),
+    (
+        "architecture",
+        "Design system structure, components, data models or big technical trade-offs",
+    ),
+    (
+        "research",
+        "Find out facts, compare products or look up the current state of something",
+    ),
+    (
+        "writing",
+        "Produce or polish prose: emails, bios, stories, docs, letters",
+    ),
+    (
+        "planning",
+        "Lay out steps, order of work or a project plan for building or doing something",
+    ),
+    (
+        "data_analysis",
+        "Analyse data, logs, CSVs, statistics or metrics to find patterns",
+    ),
+    (
+        "general",
+        "Chit-chat, thanks, trivial questions, simple explanations or questions about the assistant itself",
+    ),
+];
+
+pub(crate) struct Answer {
+    pub task: TaskType,
+    pub confidence: f64,
     /// Normalised to 0..1.
-    difficulty: f64,
+    pub difficulty: f64,
     /// Probability the message starts a new task; None without a previous message.
-    new_task: Option<f64>,
-    role: Option<String>,
+    pub new_task: Option<f64>,
+    pub role: Option<String>,
 }
 
 fn ask(
@@ -200,18 +250,7 @@ fn ask(
             "task": {
                 "type": "choice",
                 "instructions": format!("Which kind of task does {subject} ask an AI assistant to do?"),
-                "criteria": {
-                    "code_generation": "Write new code, features, scripts, endpoints, tests or flags",
-                    "debugging": "Find and fix why something is broken, failing, crashing or behaving wrongly",
-                    "refactoring": "Restructure, rename or clean up existing code without changing behaviour",
-                    "code_review": "Review, audit or critique existing code, a diff or a PR for quality or security",
-                    "architecture": "Design system structure, components, data models or big technical trade-offs",
-                    "research": "Find out facts, compare products or look up the current state of something",
-                    "writing": "Produce or polish prose: emails, bios, stories, docs, letters",
-                    "planning": "Lay out steps, order of work or a project plan for building or doing something",
-                    "data_analysis": "Analyse data, logs, CSVs, statistics or metrics to find patterns",
-                    "general": "Chit-chat, thanks, trivial questions, simple explanations or questions about the assistant itself"
-                }
+                "criteria": TASK_CRITERIA.iter().map(|(name, about)| (name.to_string(), json!(about))).collect::<serde_json::Map<_, _>>()
             },
             "difficulty": {
                 "type": "score",

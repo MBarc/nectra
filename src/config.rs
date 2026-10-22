@@ -47,12 +47,16 @@ impl Default for RoutingConfig {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum ClassifierBackend {
     /// Jev when TYPESAFE_API_KEY is set, local keywords otherwise.
     Auto,
+    /// Local keywords only.
+    #[value(name = "keywords")]
     Local,
+    /// The downloaded Laya model, on this machine (`nectra classifier laya`).
+    Laya,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
@@ -63,6 +67,16 @@ pub struct ClassifierConfig {
     pub simple_below: f64,
     /// Jev difficulty (0..1) above this routes to the demanding role.
     pub demanding_above: f64,
+    /// Where `nectra classifier laya` keeps the local model; defaults to the
+    /// per-user data directory. Its files are checked against the hashes
+    /// pinned in the code.
+    pub model_dir: Option<PathBuf>,
+    /// Load a model in `model_dir` whose files don't match the pinned hashes,
+    /// including the ONNX Runtime library: for your own retrained model.
+    pub allow_unpinned_model: bool,
+    /// Longest the local model may take per message before Nectra uses
+    /// keywords for that message instead.
+    pub laya_timeout_ms: u64,
 }
 impl Default for ClassifierConfig {
     fn default() -> Self {
@@ -72,6 +86,9 @@ impl Default for ClassifierConfig {
             timeout_ms: 1500,
             simple_below: 0.2,
             demanding_above: 0.6,
+            model_dir: None,
+            allow_unpinned_model: false,
+            laya_timeout_ms: 1000,
         }
     }
 }

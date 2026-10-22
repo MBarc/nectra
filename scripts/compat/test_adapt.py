@@ -186,6 +186,18 @@ class EndToEnd(Sandbox):
         self.assertEqual(len([b for b in self.branches() if b.startswith("compat/auto-")]), 1)
         adapt.validate_registry(open(installed, encoding="utf-8").read())
 
+    def test_extensionless_python_retrain_tool_is_called(self):
+        # The real tool is tools/laya/retrain: no extension, a python shebang.
+        self.run_main()
+        tool = os.path.join(self.repo, "tools", "laya")
+        os.makedirs(tool)
+        seen = os.path.join(self.tmp, "seen.txt")
+        with open(os.path.join(tool, "retrain"), "w") as f:
+            f.write(f"#!/usr/bin/env python3\nimport os\nopen({seen!r}, 'w').write(os.environ['NECTRA_RETRAIN_REASON'])\n")
+        self.run_main()
+        self.assertFalse(self.state_json()["retrain"]["needed"])
+        self.assertIn("gpt-5.6-luna", open(seen).read())
+
     def test_retrain_tool_is_called_once_it_exists(self):
         self.run_main()
         self.assertTrue(self.state_json()["retrain"]["needed"])

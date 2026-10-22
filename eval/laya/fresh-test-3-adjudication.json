@@ -1,0 +1,758 @@
+[
+ {
+  "prompt": "i need a CONTRIBUTING.md for my open source project. pr process, code style, how to run tests",
+  "writer_intent": "writing",
+  "brief": "a",
+  "id": "u0020",
+  "labeler_1": {
+   "label": "writing",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "writing",
+   "unsure": true,
+   "note": "README-like doc is prose per rule 7"
+  },
+  "decision": "writing",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "std dev and mean of these numbers: 12, 15, 11, 19, 42, 14, 13. also flag anything weird",
+  "writer_intent": "data_analysis",
+  "brief": "a",
+  "id": "u0050",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "small inline numbers; could read as general arithmetic, but outlier flagging makes it analysis"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Compute the cohort retention table from this events.csv: users grouped by signup week, percent still active at weeks 1 through 8.",
+  "writer_intent": "data_analysis",
+  "brief": "c",
+  "id": "u0059",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "could be code_generation if code is wanted"
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Review and tighten this Java method: pull the long conditional into a well-named boolean method and use streams for the filtering. Same results as the loop version.",
+  "writer_intent": "refactoring",
+  "brief": "c",
+  "id": "u0060",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "'Review and tighten' but deliverable is restructured code with same results"
+  },
+  "decision": "refactoring",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "We have a flaky CI pipeline and a backlog of 15 tickets about it. Help me prioritize which to fix first and lay out a 3-sprint roadmap to get the build green.",
+  "writer_intent": "planning",
+  "brief": "c",
+  "id": "u0064",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": true,
+   "note": "Flaky CI is a reported failure, but what they want back is a prioritised roadmap"
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "We have an old Access database that 8 people use at the same time and it keeps locking. What should the new setup look like?",
+  "writer_intent": "architecture",
+  "brief": "b",
+  "id": "u0071",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "Locking is a failure, but they ask for a new setup, not a fix"
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "architecture",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "got a csv of api latencies, need p50/p95/p99 per endpoint. pandas or awk, whatever's quickest",
+  "writer_intent": "data_analysis",
+  "brief": "a",
+  "id": "u0089",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "Could be code_generation since it asks for pandas/awk, but the goal is the percentiles"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "could be code_generation (pandas/awk snippet), but computing percentiles from user's CSV"
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "cohort retention table from events.parquet, week 0 through week 8, by signup month",
+  "writer_intent": "data_analysis",
+  "brief": "a",
+  "id": "u0122",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "could be read as asking for the code that builds the table; the table itself is computed from the user's data"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "could be code_generation for the query/script, but it asks for a table computed from the data"
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "We're a tiny nonprofit. Should donor data live in a cloud CRM or in a database we host ourselves? Think about privacy, cost and who maintains it.",
+  "writer_intent": "architecture",
+  "brief": "b",
+  "id": "u0124",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "technology trade-off for where the system's data lives; some research flavour"
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "could be research; framed as a design/trade-off decision"
+  },
+  "decision": "architecture",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Convert this React class component to a function component with hooks. Props and rendered output should be identical.",
+  "writer_intent": "refactoring",
+  "brief": "c",
+  "id": "u0154",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "same-language restructure (class to hooks) with identical behaviour"
+  },
+  "decision": "refactoring",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "incident followup: write me an action plan w/ owners and deadlines from this — disk filled on prod-db-2, alerts went to a dead slack channel, no runbook",
+  "writer_intent": "planning",
+  "brief": "a",
+  "id": "u0158",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": true,
+   "note": "action plan with owners and deadlines; could be writing"
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "plan for splitting the monolith's billing module into its own service. phases, what moves first, how to roll back",
+  "writer_intent": "planning",
+  "brief": "a",
+  "id": "u0234",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": true,
+   "note": "Splitting a service out has an architecture side, but the user asks for phases, ordering and rollback, so planning"
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Write an OpenAPI 3 spec for a simple todo API with GET/POST /todos and DELETE /todos/{id}.",
+  "writer_intent": "code_generation",
+  "brief": "c",
+  "id": "u0248",
+  "labeler_1": {
+   "label": "code_generation",
+   "unsure": true,
+   "note": "spec file is a config-like artifact; could read as architecture (API design)"
+  },
+  "labeler_2": {
+   "label": "code_generation",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "code_generation",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "is my github actions workflow leaking secrets? uses pull_request_target and checks out the PR head",
+  "writer_intent": "code_review",
+  "brief": "a",
+  "id": "u0262",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "possible leak, but no reported failure; security review of workflow"
+  },
+  "decision": "code_review",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "We're onboarding 3 new engineers next month. Draft an onboarding schedule for their first 30 days, day by day for week 1 and weekly goals after that.",
+  "writer_intent": "planning",
+  "brief": "c",
+  "id": "u0277",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": true,
+   "note": "could be writing a draft schedule"
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "need a schema for a rbac system w/ orgs, teams, roles, and per-resource permission overrides. sketch the tables",
+  "writer_intent": "architecture",
+  "brief": "a",
+  "id": "u0287",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "schema design could be code_generation"
+  },
+  "decision": "architecture",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "break this down into tickets: add dark mode, persist it in localstorage, respect prefers-color-scheme",
+  "writer_intent": "planning",
+  "brief": "a",
+  "id": "u0290",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": true,
+   "note": "breaking work into tickets is sequencing work, not writing code"
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Is there a documented known issue with Docker Desktop on Windows 11 24H2 breaking WSL2 networking? Search for reports and any official fix.",
+  "writer_intent": "research",
+  "brief": "c",
+  "id": "u0310",
+  "labeler_1": {
+   "label": "research",
+   "unsure": true,
+   "note": "Asks to look up reports of a known issue rather than fix the user's own reported failure; could be read as debugging under rule 2"
+  },
+  "labeler_2": {
+   "label": "research",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "research",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Replace the deprecated datetime.utcnow() calls in my script with the recommended timezone-aware version. Behavior should be the same.",
+  "writer_intent": "refactoring",
+  "brief": "b",
+  "id": "u0312",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "API upgrade with same behavior"
+  },
+  "decision": "refactoring",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Should I build my club's member app as a native phone app or just a website that works on phones? We have 3 volunteers and no budget.",
+  "writer_intent": "architecture",
+  "brief": "b",
+  "id": "u0343",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "could be research or general"
+  },
+  "decision": "architecture",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "plan: I want to split this 2000-line models.py into a package with one module per model. Just do the split, keep all imports working, no logic changes.",
+  "writer_intent": "refactoring",
+  "brief": "c",
+  "id": "u0376",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "Starts with 'plan:', but what it asks for is the split itself ('just do the split', no logic changes)"
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "starts with 'plan:' but asks to do the split with no logic changes"
+  },
+  "decision": "refactoring",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Our monolith has a performance problem, but before profiling anything, outline the investigation approach: what to measure first, what order to rule out suspects, and when to stop and escalate.",
+  "writer_intent": "planning",
+  "brief": "c",
+  "id": "u0388",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": true,
+   "note": "Reports a performance problem, which could trigger rule 2, but it asks for an ordered investigation outline rather than finding the cause"
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Plan my budget next year based on the attached expense history — actually, first just tell me the monthly average and standard deviation for each expense category.",
+  "writer_intent": "data_analysis",
+  "brief": "c",
+  "id": "u0441",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "planning mentioned but first ask is computing stats"
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Rewrite this docstring so it's clearer and less rambling: 'This function does the thing where it takes the input and then kind of processes it and returns whatever the result is, or None if there was an issue'",
+  "writer_intent": "writing",
+  "brief": "c",
+  "id": "u0444",
+  "labeler_1": {
+   "label": "writing",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "writing",
+   "unsure": true,
+   "note": "docstring rewording; could be refactoring"
+  },
+  "decision": "writing",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "For my biology project I measured the height of 40 bean plants under two light conditions. How do I tell if the difference between the groups is statistically significant? Data is in the attached file.",
+  "writer_intent": "data_analysis",
+  "brief": "b",
+  "id": "u0475",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "asks how to test significance; could be read as a general explanation, but the user's data is attached"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "asks how to test; data attached; could be general"
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "sentry export has 2k events. cluster them by stack trace similarity and tell me the biggest group",
+  "writer_intent": "data_analysis",
+  "brief": "a",
+  "id": "u0497",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "Sentry errors suggest debugging, but what's asked for is clustering the data"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Plan out how to track down a memory leak in my Node service — RSS grows about 40MB an hour and only restarts bring it back down.",
+  "writer_intent": "debugging",
+  "brief": "c",
+  "id": "u0515",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "Asks for a plan, but a reported leak wins under rule 2"
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": true,
+   "note": "could be debugging since a leak is reported, but asks for a plan of steps"
+  },
+  "decision": "debugging",
+  "reason": "adjudicated: A failure is reported (a memory leak: RSS grows until restart), and tie-break 2 says a reported failure wins; the plan the user asks for is a way of finding why it's broken, which is debugging work, not a plan for building something."
+ },
+ {
+  "prompt": "This is a dump of our Kubernetes pod restart counts per namespace over 30 days. Which namespaces are the most unstable and is there a trend?",
+  "writer_intent": "data_analysis",
+  "brief": "c",
+  "id": "u0570",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "Pod restarts suggest instability, but the request is to analyse metrics, not fix a specific failure"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Write me a regex to match dates. Actually I already have one, ^\\d{2}/\\d{2}/\\d{4}$, but it rejects 1/5/2024 which should be valid. Fix it?",
+  "writer_intent": "debugging",
+  "brief": "c",
+  "id": "u0573",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "Existing regex rejects valid input (wrong behaviour), though it opens as a request for a new regex"
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "regex rejects valid input; could be code_generation"
+  },
+  "decision": "debugging",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Help me understand this error, I'm not sure it's a real problem: 'warning: unable to rename temp file, permission denied' and then my git push hangs.",
+  "writer_intent": "debugging",
+  "brief": "c",
+  "id": "u0635",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "user doubts it's a real problem, but the git push hanging counts as a reported failure"
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "debugging",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Can you review these nginx access logs and tell me which endpoints return the most 404s? I pasted about 2,000 lines below.",
+  "writer_intent": "data_analysis",
+  "brief": "c",
+  "id": "u0665",
+  "labeler_1": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "404 counts are aggregated from the user's logs, and no fix is requested, so not debugging"
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "data_analysis",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "my teacher asked us to write a function that checks if a number is prime. can you give feedback on my code? i want to know what could be better\n\ndef is_prime(n):\n    for i in range(2, n):\n        if n % i == 0:\n            return False\n    return True",
+  "writer_intent": "code_review",
+  "brief": "b",
+  "id": "u0742",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "The user wants feedback and hasn't reported a failure. The code is wrong for n<2, but they didn't mention it."
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "code_review",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "replace the moment.js calls w/ date-fns equivalents, output formats should match",
+  "writer_intent": "refactoring",
+  "brief": "a",
+  "id": "u0755",
+  "labeler_1": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "Swaps one library for another in the same language with the same output, so it's refactoring rather than a port."
+  },
+  "labeler_2": {
+   "label": "refactoring",
+   "unsure": true,
+   "note": "library swap with equal behaviour; could be seen as a port"
+  },
+  "decision": "refactoring",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Lay out a debugging strategy for our intermittent memory leak in production: what to instrument first, what to try next, how long to spend on each step. Haven't found anything yet, just need a game plan.",
+  "writer_intent": "planning",
+  "brief": "c",
+  "id": "u0820",
+  "labeler_1": {
+   "label": "planning",
+   "unsure": true,
+   "note": "The deliverable is a staged plan (rule 1), but there is a real production memory leak, so rule 2 could make it debugging"
+  },
+  "labeler_2": {
+   "label": "planning",
+   "unsure": true,
+   "note": "debugging strategy but no failure fixed now; plan requested"
+  },
+  "decision": "planning",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "I designed a microservices layout with one shared Postgres database used by all six services. Not asking for a new design, just give me your honest critique of whether this existing setup is a bad idea.",
+  "writer_intent": "code_review",
+  "brief": "c",
+  "id": "u0850",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "Asks to critique an existing design, not make a new one. Rule 4 points to code_review, though the subject is architecture."
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "critique of existing design; could be architecture"
+  },
+  "decision": "code_review",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "why are these logs full of timeouts? Just count them per service and show me when they cluster, I'm not asking you to fix anything yet.",
+  "writer_intent": "data_analysis",
+  "brief": "c",
+  "id": "u0899",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "Rule 2's example ('why are these logs full of 500s') points to debugging. But the user only asks for counts and clustering, which looks like data_analysis."
+  },
+  "labeler_2": {
+   "label": "data_analysis",
+   "unsure": true,
+   "note": "'why' framing but explicitly asks only to count and show clustering"
+  },
+  "decision": "debugging",
+  "reason": "adjudicated: Tie-break 2 comes before the analysis rule and puts reported failures above analysis, naming \"why are these logs full of 500s\" as debugging; \"not asking you to fix anything yet\" puts off the fix but doesn't deny the failure, so the timeouts still count as one."
+ },
+ {
+  "prompt": "Compare these two numbers for me: my Prometheus dashboard says 4,200 req/s but the load balancer logs show 6,800. One of them is wrong, find out which and why.",
+  "writer_intent": "debugging",
+  "brief": "c",
+  "id": "u0933",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "Says one number is wrong, so rule 2 applies over data_analysis"
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "discrepancy between metrics; could be data_analysis"
+  },
+  "decision": "debugging",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "write a commit message for this: added retry w/ backoff to the s3 uploader, fixed timeout default",
+  "writer_intent": "writing",
+  "brief": "a",
+  "id": "u0945",
+  "labeler_1": {
+   "label": "writing",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "writing",
+   "unsure": true,
+   "note": "commit message is prose, but could be code-adjacent"
+  },
+  "decision": "writing",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Audit this nginx config for security hardening gaps. TLS 1.0 is still enabled, server_tokens is on, and there are no security headers. What else stands out?",
+  "writer_intent": "code_review",
+  "brief": "c",
+  "id": "u0976",
+  "labeler_1": {
+   "label": "code_review",
+   "unsure": true,
+   "note": "The listed gaps are hardening findings, not a reported failure, so this is an audit rather than debugging"
+  },
+  "labeler_2": {
+   "label": "code_review",
+   "unsure": false,
+   "note": ""
+  },
+  "decision": "code_review",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "Draft a short postmortem for me? Actually first help me figure out the root cause: our Redis failover took 4 minutes and clients never reconnected.",
+  "writer_intent": "debugging",
+  "brief": "c",
+  "id": "u0996",
+  "labeler_1": {
+   "label": "debugging",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "debugging",
+   "unsure": true,
+   "note": "Postmortem draft requested but first asks for root cause of a failure; failure wins."
+  },
+  "decision": "debugging",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "REST or GraphQL for the API of my student project, a campus event finder? Only I will use it at first, maybe 30 users later.",
+  "writer_intent": "architecture",
+  "brief": "b",
+  "id": "u1017",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": false,
+   "note": ""
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "Technology tradeoff for a small project; could be research or general."
+  },
+  "decision": "architecture",
+  "reason": "both blind labelers agree"
+ },
+ {
+  "prompt": "What would a good setup look like for a school to let teachers post homework and students submit it, with grades visible only to the student and parents?",
+  "writer_intent": "architecture",
+  "brief": "b",
+  "id": "u1030",
+  "labeler_1": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "\"Setup\" most likely means system design (roles, data model, access control), but it could also be read as a request to research existing school products."
+  },
+  "labeler_2": {
+   "label": "architecture",
+   "unsure": true,
+   "note": "could be planning, but asks for a system setup design"
+  },
+  "decision": "architecture",
+  "reason": "both blind labelers agree"
+ }
+]

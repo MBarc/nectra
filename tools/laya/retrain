@@ -1,0 +1,564 @@
+#!/usr/bin/env python3
+"""Retrain Nectra's local Laya classifier end to end.
+
+    python tools/laya/retrain [--host USER@HOST] [--out DIR] [options]
+
+Stages: data -> train -> export -> evaluate -> emit. The model is copied to
+--out only if it beats --bar on eval/laya/fresh-test-2.json, measured through
+`nectra eval`, within --max-ms per message. See tools/laya/README.md for the
+interface (arguments, exit codes, report.json), which other tools rely on.
+"""
+import argparse
+import concurrent.futures
+import hashlib
+import json
+import os
+import random
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+LAYA = REPO / "eval" / "laya"
+# Same commit Cargo.toml pins for inference, so training and serving agree.
+LAYA_GIT = "https://github.com/NandhaKishorM/laya"
+LAYA_REV = "d74e8be46ef5241e4ba2b16cd25e896f24f71373"
+EXIT_OK, EXIT_ERROR, EXIT_BELOW_BAR = 0, 1, 2
+# The bar: blind, never trained on or used for model selection.
+GATE = "fresh-test-2.json"
+# Reported only. dev.json is for model selection (per-epoch confusion);
+# fresh-test.json was the first bar and has been seen; old60 was tuned on earlier.
+REPORTED = ["dev.json", "fresh-test.json", "old60-rubric.json"]
+# Held out from every run: evaluated once, by hand (eval/laya/fresh-test.README.md).
+HELD_OUT = ["fresh-test-3.json"]
+
+STYLES = [
+    "terse lowercase messages typed into a terminal by developers, some with typos",
+    "long messages (2-4 sentences) from professional engineers who explain their context first",
+    "non-specialists: small-business owners, students, office workers, managers",
+    "people writing in slightly non-native English",
+    "messages that include a pasted one-line error message or a short inline code snippet",
+    "indirect, polite phrasings ('could you maybe', 'I was wondering if', 'any idea how')",
+    "hobby and physical-world contexts: 3D printing, woodworking, electronics, home automation, gardening",
+    "ops, cloud, data and sysadmin contexts: logs, kubernetes, metrics, CI, databases",
+    "tricky boundary cases containing words that suggest another label, yet clearly this label under the rubric",
+    "very short messages of one to six words",
+    # Added from dev.json confusions (2026-10-20): the model followed a word, not the deliverable.
+    "messages that explicitly deny or set aside another kind of task ('not a review request', 'nothing is broken', "
+    "'don't rewrite it', 'the write-up can wait'), so the request that remains decides the label",
+    "messages that borrow another label's verb ('review', 'analyze', 'check', 'plan', 'write', 'fix') for what is "
+    "clearly this label's deliverable under the rubric",
+    "messages that give background about code, logs, data or an incident before asking for this label's deliverable",
+]
+
+
+def log(msg):
+    print(f"[retrain {time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def norm(text):
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", text.lower()).split())
+
+
+def near_duplicate(text, guarded):
+    words = set(norm(text).split())
+    for g in guarded:
+        if not words or not g:
+            continue
+        if len(words & g) / len(words | g) >= 0.8:
+            return True
+    return False
+
+
+def run(cmd, **kw):
+    log("$ " + " ".join(map(str, cmd)))
+    return subprocess.run([str(c) for c in cmd], check=True, **kw)
+
+
+# ---------------------------------------------------------------- data
+
+
+def ask_llm(generator, prompt):
+    cmd = shlex.split(generator)
+    cmd[0] = shutil.which(cmd[0]) or cmd[0]
+    for attempt in range(3):
+        # A neutral directory, so the CLI does not pick up this repo's agent instructions.
+        out = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
+                             cwd=tempfile.gettempdir())
+        match = re.search(r"\[.*\]", out.stdout, re.S)
+        if out.returncode == 0 and match:
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+        log(f"generator answer unusable (attempt {attempt + 1}): {out.stderr[-300:] or out.stdout[:300]}")
+    raise RuntimeError("generator failed three times; check --generator")
+
+
+def write_prompts(generator, criteria, rubric, label, style, n):
+    labels = "\n".join(f"- {k}: {v}" for k, v in criteria["tasks"])
+    return [
+        x
+        for x in ask_llm(
+            generator,
+            f"""You write training data for a classifier that sorts messages sent to an AI assistant
+(which can code and write) into one of these task labels:
+{labels}
+
+The labelling rubric, which decides every case:
+{rubric}
+
+Write {n} distinct, realistic messages whose correct label under the rubric is `{label}`.
+Style for this batch: {style}.
+Vary vocabulary, length, sentence shape and subject; do not start more than two with the same word.
+For each message also write `followup`: a short next message the same user might send that
+continues the same task (a tweak, next step, question or confirmation).
+Reply with only a JSON array: [{{"prompt": "...", "followup": "..."}}]""",
+        )
+        if isinstance(x, dict) and x.get("prompt")
+    ]
+
+
+def label_prompts(generator, criteria, rubric, batch):
+    labels = "\n".join(f"- {k}: {v}" for k, v in criteria["tasks"])
+    roles = "\n".join(f"- {k}: {v}" for k, v in criteria["roles"])
+    items = "\n".join(json.dumps({"id": i, "prompt": p}) for i, p in batch)
+    answer = ask_llm(
+        generator,
+        f"""Label each message sent to an AI assistant. Judge each one yourself.
+
+task — one of:
+{labels}
+Rubric (apply its tie-breaks in order):
+{rubric}
+
+difficulty — how capable a model the task needs: 0 = easy (a small fast model handles it),
+1 = moderate (a mid-tier model), 2 = hard (needs the strongest model).
+
+role — which kind of model should handle it, one of:
+{roles}
+
+Messages (JSON lines):
+{items}
+
+Reply with only a JSON array: [{{"id": ..., "task": "...", "difficulty": 0|1|2, "role": "..."}}]""",
+    )
+    return {a["id"]: a for a in answer if isinstance(a, dict) and "id" in a}
+
+
+def make_data(args, criteria, work):
+    """Generated prompts with checked labels, cached under the criteria hash."""
+    rubric = (LAYA / "RUBRIC.md").read_text(encoding="utf-8")
+    key = hashlib.sha256(
+        json.dumps([criteria, rubric, STYLES, args.per_batch], sort_keys=True).encode()
+    ).hexdigest()[:16]
+    path = work / f"data-{key}.json"
+    if path.exists() and not args.regenerate:
+        log(f"reusing {path} (criteria and rubric unchanged)")
+        return json.loads(path.read_text(encoding="utf-8"))
+    guarded = [
+        set(norm(c["prompt"]).split())
+        for f in [GATE] + REPORTED + HELD_OUT
+        for c in json.loads((LAYA / f).read_text(encoding="utf-8"))
+    ]
+    tasks = [k for k, _ in criteria["tasks"]]
+    jobs = [(t, s) for t in tasks for s in STYLES]
+    log(f"writing {len(jobs)} batches of {args.per_batch} prompts with: {args.generator}")
+    written = []
+    with concurrent.futures.ThreadPoolExecutor(args.parallel) as pool:
+        futures = {
+            pool.submit(write_prompts, args.generator, criteria, rubric, t, s, args.per_batch): t
+            for t, s in jobs
+        }
+        for f in concurrent.futures.as_completed(futures):
+            written += [dict(x, intended=futures[f]) for x in f.result()]
+    seen, kept, leaks = set(), [], 0
+    for x in written:
+        n = norm(x["prompt"])
+        if n in seen:
+            continue
+        seen.add(n)
+        # Follow-ups are trained on as messages too.
+        if near_duplicate(x["prompt"], guarded) or near_duplicate(x.get("followup") or "", guarded):
+            leaks += 1
+            continue
+        kept.append(x)
+    log(f"{len(written)} written, {len(kept)} unique, {leaks} dropped as near-duplicates of test prompts")
+    random.Random(0).shuffle(kept)
+    batches = [list(enumerate(kept))[i : i + 80] for i in range(0, len(kept), 80)]
+    batches = [[(i, x["prompt"]) for i, x in b] for b in batches]
+    labels = {}
+    with concurrent.futures.ThreadPoolExecutor(args.parallel) as pool:
+        for got in pool.map(lambda b: label_prompts(args.generator, criteria, rubric, b), batches):
+            labels.update(got)
+    roles = [k for k, _ in criteria["roles"]]
+    data, disagree = [], 0
+    for i, x in enumerate(kept):
+        a = labels.get(i)
+        # A second, blind labelling must agree with the writer's intent;
+        # disagreements are ambiguous under the rubric and dropped.
+        if not a or a.get("task") != x["intended"]:
+            disagree += 1
+            continue
+        if a.get("role") not in roles or a.get("difficulty") not in (0, 1, 2):
+            disagree += 1
+            continue
+        data.append(dict(prompt=x["prompt"], followup=x.get("followup") or "",
+                         task=a["task"], difficulty=a["difficulty"], role=a["role"]))
+    log(f"{len(data)} examples kept, {disagree} dropped (labeler disagreed with writer)")
+    path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    return data
+
+
+def registry_roles(path):
+    """Roles some enabled model claims (`prefers`), the subset Nectra offers."""
+    import tomllib
+
+    models = tomllib.loads(Path(path).read_text(encoding="utf-8")).get("model", [])
+    return {r for m in models if m.get("enabled", True) for r in m.get("prefers", [])}
+
+
+def task_question(criteria):
+    return {"type": "choice", "instructions": criteria["questions"]["task"],
+            "criteria": {k: "" for k, _ in criteria["tasks"]}}
+
+
+def dev_rows(criteria):
+    """eval/laya/dev.json as laya JSONL asking only the task question (per-epoch dev check)."""
+    dev = json.loads((LAYA / "dev.json").read_text(encoding="utf-8"))
+    return [{"state": c["prompt"], "questions": {"task": task_question(criteria)}, "expected": {"task": c["task"]}}
+            for c in dev]
+
+
+def to_laya_items(data, criteria, claimed):
+    """laya-train JSONL: the exact questions src/laya.rs asks."""
+    q = criteria["questions"]
+    roles = [k for k, _ in criteria["roles"]]
+    subset = [r for r in roles if r in claimed]
+
+    def questions(*names, role_options=None):
+        qs = {
+            "task": task_question(criteria),
+            "difficulty": {"type": "score", "instructions": q["difficulty"], "criteria": q["difficulty_levels"]},
+            "new_task": {"type": "noul", "instructions": q["new_task"], "criteria": {"true": "", "false": ""}},
+            "role": {"type": "choice", "instructions": q["role"], "criteria": {r: "" for r in role_options or []}},
+        }
+        return {n: qs[n] for n in names}
+
+    # Each question is one encoder pass in training, so on a CPU host the item
+    # count is the budget: the gated task question goes on every example,
+    # difficulty and role (easier, unscored) on every other one.
+    rng = random.Random(1)
+    out = []
+    for i, d in enumerate(data):
+        if i % 2:
+            out.append({"state": d["prompt"], "questions": questions("task"), "expected": {"task": d["task"]}})
+        else:
+            options = roles
+            # Nectra offers only the roles your models claim; train on that list too.
+            if len(subset) > 1 and subset != roles and d["role"] in subset and (i // 2) % 3 == 0:
+                options = subset
+            out.append({
+                "state": d["prompt"],
+                "questions": questions("task", "difficulty", "role", role_options=options),
+                "expected": {"task": d["task"], "difficulty": d["difficulty"], "role": d["role"]},
+            })
+        # One in eight examples also teaches follow-ups and topic changes.
+        if i % 8 == 0 and d["followup"]:
+            out.append({
+                "state": {"previous_message": d["prompt"], "current_message": d["followup"]},
+                "questions": questions("task", "new_task"),
+                "expected": {"task": d["task"], "new_task": False},
+            })
+            other = rng.choice([o for o in data if o["task"] != d["task"]])
+            out.append({
+                "state": {"previous_message": d["prompt"], "current_message": other["prompt"]},
+                "questions": questions("task", "new_task"),
+                "expected": {"task": other["task"], "new_task": True},
+            })
+    rng.shuffle(out)
+    return out
+
+
+# ---------------------------------------------------------------- train / export
+
+
+def train_cmd(python, args, script, data, out, dev):
+    # laya-train plus per-epoch resume state and dev confusion: rerunning the same command continues the run.
+    pre = [python, script] + (["--adamw8bit"] if args.adamw8bit else []) + ["--dev", dev]
+    return pre + ["--data", data, "--base", args.base, "--out", out, "--epochs", str(args.epochs),
+                  "--micro-batch", str(args.micro_batch), "--grad-accum", str(args.grad_accum),
+                  "--device", args.device, "--seed", str(args.seed)]
+
+
+HOST_SETUP = f"""set -e
+mkdir -p ~/nectra-laya && cd ~/nectra-laya
+if [ ! -d laya-git/.git ]; then git clone -q {LAYA_GIT} laya-git; fi
+git -C laya-git fetch -q origin && git -C laya-git checkout -q {LAYA_REV}
+if [ ! -x venv/bin/python ]; then python3 -m venv venv; fi
+venv/bin/python -c 'import torch' 2>/dev/null || venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+# Unconditional: a no-op when current, and it moves the install to this checkout.
+venv/bin/pip install -q -e ./laya-git onnx onnxruntime onnxscript
+"""
+
+
+def ssh(host, script, **kw):
+    return run(["ssh", "-o", "BatchMode=yes", host, script], **kw)
+
+
+def train_remote(args, items_path, run_dir, run_id):
+    host, remote = args.host, f"nectra-laya/runs/{run_id}"
+    ssh(host, HOST_SETUP)
+    session = args.session or f"laya-{run_id}"
+    ssh(host, f"mkdir -p ~/{remote}")
+    if not args.resume:  # a resumed run keeps the train.jsonl its checkpoint was trained on
+        run(["scp", "-q", items_path, f"{host}:{remote}/train.jsonl"])
+    run(["scp", "-q", Path(__file__).parent / "resumable_train.py", run_dir / "dev.jsonl", f"{host}:{remote}/"])
+    cmd = train_cmd("../../venv/bin/python", args, "resumable_train.py", "train.jsonl", "ckpt", "dev.jsonl")
+    export = ["../../venv/bin/python", "../../laya-git/laya-rust/tools/export_onnx.py", "ckpt", "--out", "onnx"]
+    job = (f"cd ~/{remote} && export OMP_NUM_THREADS={args.threads} HF_HOME=$HOME/nectra-laya/hf && "
+           f"({shlex.join(cmd)} && {shlex.join(export)}) >> train.log 2>&1; echo $? > done")
+    # tmux keeps the job alive if this ssh session drops. A host reboot kills the
+    # session without writing `done`; relaunching continues from the last finished epoch.
+    launch = (f"cd ~/{remote} && {{ [ \"$(cat done 2>/dev/null)\" = 0 ] || {{ rm -f done; "
+              f"tmux has-session -t {session} 2>/dev/null || tmux new -d -s {session} {shlex.quote(job)}; }}; }}")
+    ssh(host, launch)
+    log(f"training on {host} in tmux session {session}; log: ~/{remote}/train.log")
+    relaunches = 0
+    while True:
+        time.sleep(60)
+        got = subprocess.run(["ssh", "-o", "BatchMode=yes", host,
+                              f"cat ~/{remote}/done 2>/dev/null || tmux has-session -t {session} 2>/dev/null || echo GONE; "
+                              f"tail -c 300 ~/{remote}/train.log | tr '\\r' '\\n' | tail -1"],
+                             capture_output=True, text=True)
+        if got.returncode == 255:  # ssh failed: host down or rebooting
+            continue
+        lines = got.stdout.strip().splitlines()
+        if lines and lines[0].strip() == "GONE":
+            relaunches += 1
+            if relaunches > args.relaunches:
+                raise RuntimeError(f"tmux session {session} keeps dying; see {host}:~/{remote}/train.log")
+            log(f"tmux session {session} died without finishing; relaunching ({relaunches}/{args.relaunches})")
+            ssh(host, launch)
+            continue
+        if lines and lines[0].strip().isdigit():
+            if lines[0].strip() != "0":
+                raise RuntimeError(f"remote training failed; see {host}:~/{remote}/train.log")
+            break
+        if lines:
+            log(lines[-1][:160])
+    run(["scp", "-q", "-r", f"{host}:{remote}/onnx", str(run_dir)])
+    return find_model(run_dir / "onnx")
+
+
+def train_local(args, items_path, run_dir):
+    run(train_cmd(args.python, args, Path(__file__).parent / "resumable_train.py", items_path, run_dir / "ckpt",
+                  run_dir / "dev.jsonl"))
+    laya_src = Path(args.laya_src)
+    run([args.python, laya_src / "laya-rust" / "tools" / "export_onnx.py", run_dir / "ckpt", "--out", run_dir / "onnx"])
+    return find_model(run_dir / "onnx")
+
+
+def find_model(root):
+    hits = list(Path(root).rglob("model.onnx"))
+    if not hits:
+        raise RuntimeError(f"no model.onnx under {root}")
+    return hits[0].parent
+
+
+# ---------------------------------------------------------------- evaluate
+
+
+def nectra_eval(nectra, model_dir, corpus, work):
+    cfg = work / "eval-config.toml"
+    base = (REPO / "config" / "nectra.toml").read_text(encoding="utf-8")
+    cfg.write_text(
+        f'{base}\n[classifier]\nbackend = "laya"\nmodel_dir = {json.dumps(str(model_dir))}\n'
+        # A retrained model is not the published one; no deadline, so accuracy is the model's alone.
+        f'allow_unpinned_model = true\nlaya_timeout_ms = 600000\n',
+        encoding="utf-8",
+    )
+    shutil.copy(REPO / "config" / "models.toml", work / "models.toml")
+    start = time.time()
+    out = subprocess.run([nectra, "--config", cfg, "eval", corpus], capture_output=True, text=True, encoding="utf-8")
+    seconds = time.time() - start
+    try:
+        report = json.loads(out.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"nectra eval failed: {out.stderr[-500:]}")
+    return report, seconds
+
+
+def evaluate(args, model_dir, work):
+    runtime = {"win32": "onnxruntime.dll", "darwin": "libonnxruntime.dylib"}.get(sys.platform, "libonnxruntime.so")
+    if not (model_dir / runtime).exists():
+        if not args.ort:
+            raise RuntimeError(f"pass --ort PATH to {runtime} (ONNX Runtime 1.31)")
+        shutil.copy(args.ort, model_dir / runtime)
+    one = work / "one.json"
+    one.write_text(json.dumps([{"prompt": "hello", "task": "general"}]), encoding="utf-8")
+    # Fastest of several runs: background load on a shared machine only adds time.
+    load_s = min(nectra_eval(args.nectra, model_dir, one, work)[1] for _ in range(args.latency_runs))
+    # A model that fails to load silently falls back to keywords; route says which ran.
+    route = subprocess.run([args.nectra, "--config", work / "eval-config.toml", "route", "write a hello world script"],
+                           capture_output=True, text=True, encoding="utf-8")
+    reason = json.loads(route.stdout or "{}").get("reason", route.stderr)
+    if not reason.startswith("laya classified"):
+        raise RuntimeError(f"nectra did not use the model: {reason}")
+    results = {}
+    for name in [GATE] + REPORTED:
+        report, seconds = nectra_eval(args.nectra, model_dir, LAYA / name, work)
+        for _ in range(args.latency_runs - 1 if name == GATE else 0):
+            seconds = min(seconds, nectra_eval(args.nectra, model_dir, LAYA / name, work)[1])
+        n = report["total"]
+        confusion = {}
+        for f in report["failures"]:
+            k = f"{f['expected']} -> {f['actual']}"
+            confusion[k] = confusion.get(k, 0) + 1
+        results[name] = {
+            "passed": report["passed"], "total": n, "accuracy": report["accuracy"],
+            # Process start and model load excluded via the one-prompt run.
+            "ms_per_message": round(max(seconds - load_s, 0) * 1000 / max(n - 1, 1)),
+            "confusion": dict(sorted(confusion.items(), key=lambda kv: -kv[1])),
+            "failures": report["failures"],
+        }
+        log(f"{name}: {report['passed']}/{n} ({report['accuracy']:.1%}), "
+            f"{results[name]['ms_per_message']} ms/message")
+    return results
+
+
+# ---------------------------------------------------------------- main
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="tools/laya/retrain", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--out", default=None, help="where a passing model is written (default: <work>/model)")
+    p.add_argument("--work", default=str(REPO / "tools" / "laya" / "work"), help="cache and run directory")
+    p.add_argument("--registry", default=str(REPO / "config" / "models.toml"), help="model registry whose claimed roles Nectra offers")
+    p.add_argument("--generator", default="claude -p --model sonnet",
+                   help="command that reads a prompt on stdin and answers on stdout; writes and labels training data")
+    p.add_argument("--regenerate", action="store_true", help="rebuild training data even if criteria are unchanged")
+    p.add_argument("--per-batch", type=int, default=40, help="prompts per (label, style) batch; 100 batches")
+    p.add_argument("--parallel", type=int, default=4, help="concurrent generator calls")
+    p.add_argument("--host", default=None, help="train over ssh on USER@HOST (Linux; set up on first use) instead of locally")
+    p.add_argument("--resume", default=None, metavar="RUN",
+                   help="continue runs/RUN from its last finished epoch (after an interruption) instead of starting over")
+    p.add_argument("--session", default=None, help="tmux session name on --host (default: laya-<run>)")
+    p.add_argument("--relaunches", type=int, default=3, help="relaunch a --host session that died (e.g. reboot) this many times")
+    p.add_argument("--threads", type=int, default=8,
+                   help="OMP threads on the training host (8 beat 16 and 4 on builder's 16-vCPU Opteron)")
+    p.add_argument("--python", default=sys.executable, help="local python with laya installed (local training)")
+    p.add_argument("--laya-src", default=None, help="local laya checkout at the pinned rev (local export)")
+    p.add_argument("--base", default="multilingual", help="Laya base checkpoint (default: multilingual = mmBERT-base)")
+    p.add_argument("--epochs", type=int, default=3)
+    p.add_argument("--micro-batch", type=int, default=8)
+    p.add_argument("--grad-accum", type=int, default=8)
+    p.add_argument("--device", default="auto")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--adamw8bit", action="store_true", help="8-bit AdamW (bitsandbytes) for 6 GB GPUs")
+    p.add_argument("--fp32", action="store_true", help="keep the embedding table fp32 (default: int8, half the size)")
+    p.add_argument("--model", default=None, help="skip data and training; evaluate (and emit) this exported model dir")
+    p.add_argument("--nectra", default=None, help="nectra binary (default: target/release/nectra[.exe])")
+    p.add_argument("--ort", default=os.environ.get("ORT_DYLIB_PATH"), help="ONNX Runtime library for evaluation (default: $ORT_DYLIB_PATH)")
+    p.add_argument("--bar", type=float, default=0.95, help="fresh-set accuracy the model must beat")
+    p.add_argument("--max-ms", type=float, default=300, help="slowest acceptable ms per message")
+    p.add_argument("--latency-runs", type=int, default=3, help="time the fresh set this many times and keep the fastest")
+    p.add_argument("--data-only", action="store_true", help="stop after building training data")
+    args = p.parse_args(argv)
+
+    work = Path(args.work).resolve()
+    work.mkdir(parents=True, exist_ok=True)
+    out = Path(args.out).resolve() if args.out else work / "model"
+    exe = "nectra.exe" if os.name == "nt" else "nectra"
+    args.nectra = args.nectra or str(REPO / "target" / "release" / exe)
+    run_id = args.resume or time.strftime("%Y%m%d-%H%M%S")
+    run_dir = work / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=bool(args.resume))
+    summary = {"run": run_id, "laya_rev": LAYA_REV, "bar": args.bar, "max_ms": args.max_ms}
+    try:
+        criteria = json.loads((LAYA / "criteria.json").read_text(encoding="utf-8"))
+        if args.model:
+            model_dir = Path(args.model).resolve()
+        else:
+            data = make_data(args, criteria, work)
+            claimed = registry_roles(args.registry)
+            items = to_laya_items(data, criteria, claimed)
+            items_path = run_dir / "train.jsonl"
+            items_path.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items), encoding="utf-8")
+            (run_dir / "dev.jsonl").write_text(
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in dev_rows(criteria)), encoding="utf-8")
+            summary.update(examples=len(data), train_items=len(items), claimed_roles=sorted(claimed))
+            log(f"{len(data)} examples -> {len(items)} training records in {items_path}")
+            if args.data_only:
+                print(json.dumps(summary, indent=2))
+                return EXIT_OK
+            if not Path(args.nectra).exists():
+                raise RuntimeError(f"build nectra first (cargo build --release) or pass --nectra; {args.nectra} missing")
+            model_dir = train_remote(args, items_path, run_dir, run_id) if args.host else train_local(args, items_path, run_dir)
+            if not args.fp32:
+                run([sys.executable, Path(__file__).parent / "int8_embeddings.py", model_dir, run_dir / "int8"])
+                model_dir = run_dir / "int8"
+        summary["eval"] = evaluate(args, model_dir, run_dir)
+    except (RuntimeError, subprocess.CalledProcessError, OSError) as e:
+        log(f"error: {e}")
+        summary["error"] = str(e)
+        (run_dir / "report.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        return EXIT_ERROR
+    fresh = summary["eval"][GATE]
+    passed = fresh["accuracy"] > args.bar and fresh["ms_per_message"] <= args.max_ms
+    summary["emitted"] = None
+    if not passed:
+        (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+        log(f"REFUSED: {fresh['accuracy']:.1%} at {fresh['ms_per_message']} ms/message does not beat "
+            f"{args.bar:.0%} within {args.max_ms:.0f} ms; nothing emitted. Report: {run_dir / 'report.json'}")
+        return EXIT_BELOW_BAR
+    try:
+        emit(model_dir, dict(summary, emitted=str(out)), out)
+    except OSError as e:
+        summary["error"] = f"passed, but could not emit {out}: {e}"
+        (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+        log(f"error: {summary['error']}")
+        return EXIT_ERROR
+    # Only now: "emitted" means the model is at out.
+    summary["emitted"] = str(out)
+    (run_dir / "report.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    log(f"emitted {out} ({fresh['accuracy']:.1%}, {fresh['ms_per_message']} ms/message)")
+    return EXIT_OK
+
+
+def recover(out):
+    """Finishes or undoes a swap that emit() was killed in the middle of."""
+    old = out.with_name(out.name + ".old")
+    if old.exists():
+        if out.exists():
+            shutil.rmtree(old)  # killed after the new model was in place
+        else:
+            old.rename(out)  # killed between the renames: put the old model back
+
+
+def emit(model_dir, report, out):
+    """Copies to out.partial, then swaps it in with two renames. At every
+    point out holds a whole model, or recover() puts one back."""
+    recover(out)
+    partial = out.with_name(out.name + ".partial")
+    shutil.rmtree(partial, ignore_errors=True)
+    try:
+        shutil.copytree(model_dir, partial)
+        (partial / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        shutil.rmtree(partial, ignore_errors=True)
+        raise
+    old = out.with_name(out.name + ".old")
+    if out.exists():
+        out.rename(old)  # fails on Windows while a running nectra has the model open; out is untouched
+    partial.rename(out)
+    shutil.rmtree(old, ignore_errors=True)
+
+if __name__ == "__main__":
+    sys.exit(main())

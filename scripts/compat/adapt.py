@@ -704,6 +704,15 @@ def retrain_tool(repo):
     return None
 
 
+def is_python_script(path):
+    try:
+        with open(path, "rb") as f:
+            first = f.readline()
+    except OSError:
+        return False
+    return first.startswith(b"#!") and b"python" in first
+
+
 def mark_retrain(state, fp, reason, save):
     """Record that Laya needs retraining for `fp`, and save it, before anything acts on it."""
     if fp == state.get("fingerprint"):
@@ -728,6 +737,8 @@ def maybe_retrain(state, repo, timeout, save):
         return result
     cmd = {".py": [sys.executable, tool], ".ps1": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tool],
            ".sh": ["sh", tool]}.get(os.path.splitext(tool)[1], [tool])
+    if cmd == [tool] and is_python_script(tool):
+        cmd = [sys.executable, tool]  # Windows cannot run a shebang script directly
     result["tool"] = os.path.relpath(tool, repo)
     try:
         code, out = run_bounded(cmd, timeout, cwd=repo,
