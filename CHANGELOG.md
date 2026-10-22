@@ -4,6 +4,13 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Laya: `laya_timeout_ms` now bounds inference only; the load and ONNX Runtime
+  first-run setup happen before the engine is used. The route line says why
+  keywords answered: `keywords · Laya still loading`, `keywords · Laya failed to
+  load: ...` or `keywords · Laya timed out: ...`. `nectra chat` loads Laya in the
+  background once per session. Memory and latency on small machines:
+  [docs/design/LAYA-MEMORY.md](docs/design/LAYA-MEMORY.md); a shared per-machine
+  service is designed in [docs/design/LAYA-SHARED.md](docs/design/LAYA-SHARED.md).
 - `nectra run --events jsonl`: unattended runs with a versioned JSON-lines event
   stream (schema 1: `route`, `text`, `tool`, `result`), typed `error_class` and
   exit codes, exact per-model usage and API-equivalent cost, `--resume`,

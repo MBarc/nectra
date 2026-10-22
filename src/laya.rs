@@ -108,24 +108,24 @@ type Pin = (&'static str, &'static str, &'static str);
 static ENGINE: OnceLock<std::result::Result<LayaEngine, String>> = OnceLock::new();
 static WARMING: AtomicBool = AtomicBool::new(false);
 
-/// Loaded once per process (about 4.5 s); a failure is remembered so every
-/// message falls back to keywords instead of retrying the load. The model's
-/// files must match their pins unless `allow_unpinned_model` says otherwise.
-fn engine(cfg: &Config) -> Result<&'static LayaEngine> {
-    ENGINE
-        .get_or_init(|| {
-            model_dir(cfg)
-                .context("cannot find a data directory")
-                .and_then(|dir| load(&dir, cfg.inner.classifier.allow_unpinned_model))
-                .map_err(|e| format!("{e:#}"))
-        })
-        .as_ref()
-        .map_err(|e| anyhow::anyhow!("{e}"))
+/// Loaded once per process; a failure is remembered so every message falls
+/// back to keywords instead of retrying the load. The model's files must match
+/// their pins unless `allow_unpinned_model` says otherwise. One throwaway
+/// message is answered before the engine is published, so ONNX Runtime's
+/// first-run setup is part of the load and never of a message's budget.
+fn engine(cfg: &Config) -> &'static std::result::Result<LayaEngine, String> {
+    ENGINE.get_or_init(|| {
+        let engine = model_dir(cfg)
+            .context("cannot find a data directory")
+            .and_then(|dir| load(&dir, cfg.inner.classifier.allow_unpinned_model))
+            .map_err(|e| format!("{e:#}"))?;
+        ask_with(&engine, "hello", None, &[]).map_err(|e| format!("{e:#}"))?;
+        Ok(engine)
+    })
 }
 
-/// Loads the model in the background, and answers one throwaway message so
-/// ONNX Runtime's first-run setup is paid too. Until it is ready, messages
-/// use keywords instead of waiting.
+/// Loads the model in the background so the first messages don't wait for it.
+/// Until it is ready, messages use keywords (`ask` says "still loading").
 pub fn warm(cfg: &Config) {
     if cfg.inner.classifier.backend != crate::config::ClassifierBackend::Laya
         || WARMING.swap(true, Ordering::SeqCst)
@@ -134,9 +134,7 @@ pub fn warm(cfg: &Config) {
     }
     let cfg = cfg.clone();
     std::thread::spawn(move || {
-        if let Ok(engine) = engine(&cfg) {
-            let _ = ask_with(engine, "hello", None, &[]);
-        }
+        engine(&cfg);
     });
 }
 
@@ -199,13 +197,18 @@ fn within<T: Send + 'static>(
 ) -> Result<T> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || tx.send(f()));
-    rx.recv_timeout(deadline)
-        .map_err(|_| anyhow::anyhow!("no answer within {} ms", deadline.as_millis()))?
+    rx.recv_timeout(deadline).map_err(|_| {
+        anyhow::anyhow!(
+            "Laya timed out: no answer within {} ms",
+            deadline.as_millis()
+        )
+    })?
 }
 
-/// The same questions as Jev's, in the short form the model was trained on,
-/// answered within `laya_timeout_ms` or not at all. Without `warm` (one-shot
-/// commands such as `route` and `eval`) the first call waits for the load.
+/// The same questions as Jev's, in the short form the model was trained on.
+/// `laya_timeout_ms` bounds inference only, never the load. Without `warm`
+/// (one-shot commands such as `route` and `eval`) the first call waits for it.
+/// A load failure and a timeout are reported as what they are.
 pub(crate) fn ask(
     prompt: &str,
     previous: Option<&str>,
@@ -213,9 +216,11 @@ pub(crate) fn ask(
     cfg: &Config,
 ) -> Result<Answer> {
     let engine = match ENGINE.get() {
-        None if WARMING.load(Ordering::SeqCst) => bail!("local model still loading"),
-        _ => engine(cfg)?,
-    };
+        None if WARMING.load(Ordering::SeqCst) => bail!("Laya still loading"),
+        found => found.unwrap_or_else(|| engine(cfg)),
+    }
+    .as_ref()
+    .map_err(|e| anyhow::anyhow!("Laya failed to load: {e}"))?;
     let (prompt, previous, roles) = (
         prompt.to_string(),
         previous.map(str::to_string),
@@ -500,6 +505,20 @@ Connection: close
         assert!(check_pins(dir.path(), &[&pin], false).unwrap().is_empty());
     }
     #[test]
+    fn a_failed_load_is_not_a_timeout() {
+        // The only test that touches the process-wide engine.
+        let dir = tempfile::tempdir().unwrap();
+        let cfg_file = dir.path().join("config.toml");
+        fs::write(&cfg_file, include_str!("../config/nectra.toml")).unwrap();
+        let mut cfg = Config::from_path(&cfg_file).unwrap();
+        cfg.inner.classifier.model_dir = Some(dir.path().to_path_buf());
+        for _ in 0..2 {
+            let err = format!("{:#}", ask("hi", None, &[], &cfg).err().expect("must fail"));
+            assert!(err.contains("Laya failed to load"), "{err}");
+            assert!(!err.contains("timed out"), "{err}");
+        }
+    }
+    #[test]
     fn gives_up_at_the_deadline() {
         let slow = within(Duration::from_millis(50), || {
             std::thread::sleep(Duration::from_millis(500));
@@ -555,7 +574,8 @@ Connection: close
         let err = load(dir.path(), false).err().expect("must refuse");
         assert!(format!("{err:#}").contains("model.onnx.data"), "{err:#}");
     }
-    /// Load, first-message and steady-state latency on dev.json:
+    /// Load, first-message and steady-state latency on dev.json (the first
+    /// `NECTRA_LAYA_N` messages), with the process's memory:
     /// `NECTRA_LAYA_MODEL=<model dir> cargo test --release -- --ignored latency --nocapture`
     #[test]
     #[ignore = "needs a model in NECTRA_LAYA_MODEL"]
@@ -565,10 +585,16 @@ Connection: close
         let started = std::time::Instant::now();
         let engine = load(&dir, unpinned).unwrap();
         let load_ms = started.elapsed().as_millis();
+        let loaded = memory();
         let dev: Vec<serde_json::Value> =
             serde_json::from_str(include_str!("../eval/laya/dev.json")).unwrap();
+        let limit = std::env::var("NECTRA_LAYA_N")
+            .ok()
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(dev.len());
         let mut ms: Vec<u128> = dev
             .iter()
+            .take(limit)
             .map(|c| {
                 let started = std::time::Instant::now();
                 ask_with(&engine, c["prompt"].as_str().unwrap(), None, &[]).unwrap();
@@ -586,6 +612,29 @@ Connection: close
             ms[ms.len() - 1],
             ms.iter().filter(|&&m| m > 300).count()
         );
+        println!(
+            "memory after load: {loaded}; after {} messages: {}",
+            ms.len() + 1,
+            memory()
+        );
+    }
+    /// This process's resident memory on Linux, split into private (`RssAnon`,
+    /// which the kernel can only swap) and file-backed (`RssFile`, the mapped
+    /// weights, which it can drop and re-read).
+    fn memory() -> String {
+        fs::read_to_string("/proc/self/status")
+            .map(|s| {
+                s.lines()
+                    .filter(|l| {
+                        ["VmRSS", "RssAnon", "RssFile", "VmHWM"]
+                            .iter()
+                            .any(|k| l.starts_with(k))
+                    })
+                    .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_else(|_| "n/a".into())
     }
     #[test]
     fn hashes_like_sha256sum() {

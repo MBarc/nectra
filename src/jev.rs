@@ -278,7 +278,13 @@ fn classify_turn_in(
         }
         Err(e) => {
             let mut l = local();
-            l.why = format!("{}; {source} unavailable: {e:#}", l.why);
+            // Laya's errors already name themselves ("Laya still loading").
+            let reason = if source == "laya" {
+                format!("{e:#}")
+            } else {
+                format!("{source} unavailable: {e:#}")
+            };
+            l.why = format!("keywords · {reason}; {}", l.why);
             l
         }
     }
