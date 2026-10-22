@@ -1,0 +1,10 @@
+Nectra: route a "read this file, it is your task" prompt by the file's content, not by the pointer sentence.
+
+Observed (2026-10-21, Laya build): an orchestrator sent a Nectra chat the line "Read .orca-task/dispatch-x.md (your Orca dispatch: preamble and TASK)... Report with orca orchestration send". Laya classified that sentence as "quick question" / "writing or explaining" and routed a multi-hour design-and-build task to sonnet. The real task was in the file.
+
+Implement, in the classification path (src/jev.rs classify / classify_turn and wherever chat.rs and headless.rs call it; find the single place all callers route through):
+1. Detect prompts whose main content is a pointer to local text files (a relative or absolute path to an existing .md/.txt/.toml/.json file in the working directory tree, mentioned with a verb like read/follow/see, or the prompt is short (<400 chars) and names such a file). Keep the rule simple and conservative; no false positives on prompts that merely mention a file name while asking a real question about it (e.g. "why does src/router.rs panic?" must still classify on the prompt).
+2. For such prompts, classify on the prompt plus the first ~4 KB of each referenced file (cap total), and log at debug that the file content was used.
+3. Security: read only regular files inside the session's working directory (canonicalize, refuse symlinks/.. escapes outside it), never follow URLs, size-cap reads, never send file content anywhere except the local classifier that already sees prompts. Remote classifier backends (jev) must not receive file content unless they already receive full prompts; say which.
+4. Tests first (seen failing): pointer to a design spec classifies as the spec's task type; pointer outside the working dir is ignored; "why does src/router.rs panic?" unchanged; missing file falls back to the prompt; oversized file is truncated.
+5. fmt, clippy -D warnings, cargo test (incl. headless scenarios) green. Commit on this branch, don't push, don't touch the vault. worker_done: head SHA, files changed, test output summary, and the before/after route for the observed prompt.

@@ -1,0 +1,10 @@
+Nectra: give interactive `nectra chat` the same provider fallback that headless `nectra run` already has.
+
+Observed (2026-10-22): with Codex at its usage limit, Laya routed chat turns to gpt-5.6-luna (openai). The provider printed "You've hit your usage limit ... try again at Oct 27th" and the chat showed "Turn failed: provider work was interrupted"; the next message routed to openai again and failed the same way. Headless `nectra run` on the same machine fell back correctly: its result event has attempts[] = [{model: gpt-5.6-luna, error_class: rate_limited}, {model: haiku, error_class: null}].
+
+Implement:
+1. Find how headless detects rate_limited/quota errors and retries the next eligible candidate; reuse that code path for chat (one shared implementation, not a copy). Interactive chat may show the real provider terminal (--provider-view terminal), so detection must also work on what that view exposes; if it cannot, say exactly why and fall back to detecting from the stream/exit status.
+2. When a provider is rate-limited, mark it unavailable for the rest of the session (and until the reset time if the message gives one), so later turns don't route to it. Show the user one short line: which model was skipped, why, and which one ran instead.
+3. Do not retry on non-quota errors (auth, network, user cancel); never replay a turn that already made tool calls with side effects. Explain how you guarantee that.
+4. Tests first (seen failing): rate-limited first candidate falls back to the next; later turn skips the limited provider; user cancel does not fall back; non-quota error does not fall back; the reset time is parsed from the message above.
+5. fmt, clippy --all-targets -D warnings, cargo test (incl. headless and chat scenarios) green. Commit on this branch, don't push.

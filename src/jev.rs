@@ -229,23 +229,126 @@ fn classify_turn_in(
         Some(root) => with_referenced_files(prompt, root),
         None => (Cow::Borrowed(prompt), String::new()),
     };
+    let mut c = classify_text(&text, &note, previous, cfg, roles);
+    if let Some(risks) = high_stakes(&text) {
+        // Difficulty can't see this (see `high_stakes`); the risks decide.
+        c.tier = Some(Tier::Demanding);
+        // Without an offered demanding role the router scores for capability.
+        c.role = roles
+            .iter()
+            .any(|(name, _)| *name == "demanding")
+            .then(|| "demanding".to_string());
+        c.why.push_str(&format!(
+            "; high-stakes build ({}) -> Demanding",
+            risks.join(", ")
+        ));
+    }
+    c
+}
+
+/// Word starts that mark high-stakes engineering: untrusted input, auth and
+/// secrets, side effects that must not repeat, data loss, concurrency.
+const RISKS: [&str; 26] = [
+    "secur",
+    "untrusted",
+    "sanitiz",
+    "canonicaliz",
+    "symlink",
+    "traversal",
+    "injection",
+    "privilege",
+    "credential",
+    "password",
+    "secret",
+    "authenticat",
+    "authoriz",
+    "encrypt",
+    "crypto",
+    "harden",
+    "sandbox",
+    "replay",
+    "idempot",
+    "side effect",
+    "data loss",
+    "corrupt",
+    "race condition",
+    "deadlock",
+    "rate limit",
+    "quota",
+];
+
+/// Sentence openings that ask for the work itself, not prose about it.
+const BUILD_VERBS: [&str; 13] = [
+    "implement",
+    "build",
+    "fix",
+    "patch",
+    "add",
+    "refactor",
+    "deliver",
+    "package",
+    "port",
+    "migrate",
+    "harden",
+    "deploy",
+    "debug",
+];
+
+/// The risks a request to build something names, when it names at least two.
+///
+/// Laya learned difficulty from short messages (the eval and training sets
+/// stop at ~400 characters) and scores a long spec by its framing: a
+/// file-routing spec with symlink and UNC rules came back "general, 0.08".
+/// A build request that spells out two or more distinct risks is high-stakes
+/// whatever the score. Questions, docs and summaries that merely mention
+/// security ask for no build and don't count.
+// ponytail: fixed word list; retrain with long specs (tools/laya/retrain STYLES) to let the model judge this
+fn high_stakes(text: &str) -> Option<Vec<&'static str>> {
+    let norm = |s: &str| {
+        let words: Vec<String> = s
+            .to_lowercase()
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .map(str::to_string)
+            .collect();
+        format!(" {}", words.join(" "))
+    };
+    let builds = text
+        .split(['\n', '.', '!', '?', ':', ';'])
+        .filter_map(|s| norm(s).split_whitespace().next().map(str::to_string))
+        .any(|w| BUILD_VERBS.contains(&w.as_str()));
+    let words = norm(text);
+    let risks: Vec<_> = RISKS
+        .into_iter()
+        .filter(|r| words.contains(&format!(" {r}")))
+        .collect();
+    (builds && risks.len() >= 2).then_some(risks)
+}
+
+fn classify_text(
+    text: &str,
+    note: &str,
+    previous: Option<&str>,
+    cfg: &Config,
+    roles: &[Role],
+) -> Classification {
     // Every backend classifies on the expanded text. Jev already receives
     // full prompts, so it may see the file heads too; a local-only setup never
     // reaches Jev (`allowed`).
     let local = || {
-        let mut l = classify_local(&text, previous);
-        l.why.push_str(&note);
+        let mut l = classify_local(text, previous);
+        l.why.push_str(note);
         l
     };
     let c = &cfg.inner.classifier;
     // The local model runs on this machine, so even a local-only setup may use it.
     let (source, answer) = if c.backend == ClassifierBackend::Laya {
-        ("laya", crate::laya::ask(&text, previous, roles, cfg))
+        ("laya", crate::laya::ask(text, previous, roles, cfg))
     } else {
         let Some(key) = api_key(&cfg.path).filter(|_| allowed(cfg)) else {
             return local();
         };
-        ("jev", ask(&text, previous, roles, &key, c.timeout_ms))
+        ("jev", ask(text, previous, roles, &key, c.timeout_ms))
     };
     match answer {
         Ok(Answer {
@@ -521,6 +624,71 @@ mod tests {
         let c = classify("debug this failing race condition", &cfg);
         assert_eq!(c.task, TaskType::Debugging);
         assert!(c.tier.is_none() && c.why.starts_with("local heuristic"));
+    }
+
+    /// Blind-graded A/B pairs where a cheap model missed the core defect.
+    const HIGH_STAKES: [&str; 3] = [
+        include_str!("../tests/fixtures/high-stakes/file-pointer-routing.txt"),
+        include_str!("../tests/fixtures/high-stakes/chat-provider-fallback.txt"),
+        include_str!("../tests/fixtures/high-stakes/package-server.txt"),
+    ];
+
+    #[test]
+    fn high_stakes_builds_route_demanding() {
+        std::env::remove_var(KEY_ENV);
+        let cfg = Config::from_defaults().unwrap();
+        let roles = crate::policy::ROLES;
+        for prompt in HIGH_STAKES {
+            let c = classify_turn_in(prompt, None, &cfg, &roles, None);
+            assert_eq!(c.tier, Some(Tier::Demanding), "{}", c.why);
+            assert_eq!(c.role.as_deref(), Some("demanding"), "{}", c.why);
+            // No model claims demanding: the router scores for capability instead.
+            let c = classify_turn_in(prompt, None, &cfg, &roles[..5], None);
+            assert_eq!((c.tier, c.role), (Some(Tier::Demanding), None));
+        }
+    }
+
+    #[test]
+    fn routine_work_that_mentions_risk_stays_cheap() {
+        std::env::remove_var(KEY_ENV);
+        let cfg = Config::from_defaults().unwrap();
+        for prompt in [
+            "summarise this security policy doc",
+            "fix the typo in README",
+            "what does TLS stand for?",
+            "How should I store passwords and secrets securely?",
+            "Write a blog post about password security for our customers.",
+            "fix the race condition in the cache",
+        ] {
+            let c = classify_turn_in(prompt, None, &cfg, &crate::policy::ROLES, None);
+            assert!(!c.why.contains("high-stakes"), "{prompt}: {}", c.why);
+        }
+    }
+
+    #[test]
+    fn few_everyday_prompts_are_high_stakes() {
+        // Every escalation costs the strongest model; keep routine work cheap.
+        let corpora = [
+            include_str!("../eval/laya/dev.json"),
+            include_str!("../eval/laya/fresh-test.json"),
+            include_str!("../eval/laya/fresh-test-2.json"),
+            include_str!("../eval/laya/fresh-test-3.json"),
+            include_str!("../eval/laya/old60-rubric.json"),
+        ];
+        let (mut total, mut fired) = (0, 0);
+        for corpus in corpora {
+            let cases: Vec<Value> = serde_json::from_str(corpus).unwrap();
+            for case in cases {
+                total += 1;
+                let prompt = case["prompt"].as_str().unwrap();
+                if let Some(risks) = high_stakes(prompt) {
+                    fired += 1;
+                    println!("{} {risks:?}: {prompt}", case["task"]);
+                }
+            }
+        }
+        println!("high-stakes: {fired} of {total}");
+        assert!(fired * 100 <= total, "{fired} of {total}");
     }
 
     const SPEC: &str =
