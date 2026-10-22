@@ -22,7 +22,7 @@ unicode-width = "0.2"
 ctrlc = "~3.4"
 tempfile = "3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
-laya = { package = "laya-onnx", git = "https://github.com/NandhaKishorM/laya", rev = "d74e8be46ef5241e4ba2b16cd25e896f24f71373", default-features = false }
+laya = { package = "laya-onnx", path = "vendor/laya-onnx", default-features = false }
 # ponytail: pinned; laya-onnx breaks on rc.14. load-dynamic: the runtime library comes with the model download.
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "std", "ndarray"] }
 sha2 = "0.10"

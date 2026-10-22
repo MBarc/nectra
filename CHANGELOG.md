@@ -11,6 +11,12 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
   background once per session. Memory and latency on small machines:
   [docs/design/LAYA-MEMORY.md](docs/design/LAYA-MEMORY.md); a shared per-machine
   service is designed in [docs/design/LAYA-SHARED.md](docs/design/LAYA-SHARED.md).
+- Laya on small machines: `laya-onnx` is vendored with a prepacking switch
+  (`classifier.laya_prepacking`, off by default on Linux under 4 GiB RAM: half
+  the private memory); `laya_timeout_ms` defaults to 5000 with 2 or fewer cores or
+  no AVX2; a root-owned model install verified once with
+  `nectra classifier laya --model-dir DIR --verify-only` skips the 667 MiB
+  re-hash on every load (user-owned installs still hash in full).
 - `nectra run --events jsonl`: unattended runs with a versioned JSON-lines event
   stream (schema 1: `route`, `text`, `tool`, `result`), typed `error_class` and
   exit codes, exact per-model usage and API-equivalent cost, `--resume`,

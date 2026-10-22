@@ -459,7 +459,12 @@ fn save_config(path: &Path, mut cfg: Config, output: &mut dyn Write) -> Result<(
 pub fn classifier_setup(
     path: Option<&Path>,
     backend: crate::config::ClassifierBackend,
+    model_dir: Option<&Path>,
+    verify_only: bool,
 ) -> Result<()> {
+    if (model_dir.is_some() || verify_only) && backend != crate::config::ClassifierBackend::Laya {
+        bail!("--model-dir and --verify-only apply to `nectra classifier laya`");
+    }
     let path = path
         .map(Path::to_path_buf)
         .or_else(|| dirs::config_dir().map(|p| p.join("nectra/config.toml")))
@@ -469,7 +474,14 @@ pub fn classifier_setup(
     } else {
         Config::from_defaults()?
     };
+    if let Some(dir) = model_dir {
+        cfg.inner.classifier.model_dir = Some(dir.to_path_buf());
+    }
     let mut output = crate::terminal::stdout();
+    if verify_only {
+        let dir = crate::laya::model_dir(&cfg).context("cannot find a data directory")?;
+        return crate::laya::verify_dir(&dir, &mut output);
+    }
     if backend == crate::config::ClassifierBackend::Laya {
         crate::laya::download(&cfg, &mut output)?;
     }

@@ -75,8 +75,13 @@ pub struct ClassifierConfig {
     /// including the ONNX Runtime library: for your own retrained model.
     pub allow_unpinned_model: bool,
     /// Longest the local model may take per message before Nectra uses
-    /// keywords for that message instead.
-    pub laya_timeout_ms: u64,
+    /// keywords for that message instead. Unset: 5000 on a machine with 2 or
+    /// fewer cores or no AVX2, 1000 elsewhere.
+    pub laya_timeout_ms: Option<u64>,
+    /// Build ONNX Runtime's prepacked weight copies. Off keeps the weights in
+    /// the memory-mapped model file: half the private memory, about 15%
+    /// slower messages. Unset: off on Linux with under 4 GiB of RAM.
+    pub laya_prepacking: Option<bool>,
 }
 impl Default for ClassifierConfig {
     fn default() -> Self {
@@ -88,7 +93,8 @@ impl Default for ClassifierConfig {
             demanding_above: 0.6,
             model_dir: None,
             allow_unpinned_model: false,
-            laya_timeout_ms: 1000,
+            laya_timeout_ms: None,
+            laya_prepacking: None,
         }
     }
 }

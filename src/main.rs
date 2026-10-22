@@ -52,8 +52,18 @@ fn app() -> Result<i32> {
         Some(theme) => theme,
         None => nectra::terminal::load_theme(&theme_path)?,
     });
-    if let Some(Commands::Classifier { backend }) = &cli.command {
-        nectra::setup::classifier_setup(cli.config.as_deref(), *backend)?;
+    if let Some(Commands::Classifier {
+        backend,
+        model_dir,
+        verify_only,
+    }) = &cli.command
+    {
+        nectra::setup::classifier_setup(
+            cli.config.as_deref(),
+            *backend,
+            model_dir.as_deref(),
+            *verify_only,
+        )?;
         return Ok(0);
     }
     if let Some(Commands::Ollama {

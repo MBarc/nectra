@@ -95,6 +95,14 @@ pub enum Commands {
     Classifier {
         #[arg(value_enum)]
         backend: crate::config::ClassifierBackend,
+        /// With `laya`: use this model directory instead of `classifier.model_dir`.
+        #[arg(long)]
+        model_dir: Option<PathBuf>,
+        /// With `laya`: hash every file already in the model directory against its
+        /// pin and write the verification stamp. Downloads nothing and leaves the
+        /// configuration alone; for a package's post-install step, run as root.
+        #[arg(long)]
+        verify_only: bool,
     },
     /// Configure an Ollama server and selected local models without prompts.
     Ollama {

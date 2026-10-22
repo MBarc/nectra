@@ -95,8 +95,9 @@ measured 104 ms per message on an idle desktop. Run 4 has not been measured
 idle.
 
 **The deadline.** Each message gets `classifier.laya_timeout_ms` (default
-1000). A message the model hasn't answered by then is classified by keywords,
-and `route` shows "laya unavailable: no answer within 1000 ms".
+1000, or 5000 on a machine with 2 or fewer cores or no AVX2). The load is not
+part of it. A message the model hasn't answered by then is classified by
+keywords, and `route` shows "keywords · Laya timed out: no answer within 1000 ms".
 
 - **Why 1000 ms.** No message measured near it (maximum 543 ms), so the model
   keeps its accuracy, and a model turn takes seconds anyway.

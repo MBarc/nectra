@@ -63,3 +63,57 @@ first message also paid ONNX Runtime's first-run setup inside the budget. Now (e
 
 On a machine like this set `laya_timeout_ms` to about 5000 (or use the keyword matcher). `nectra route` is still about 15 s
 because the one-shot process loads the model first; that wait is no longer inside the budget but is still a wait.
+
+## Follow-up, 2026-10-22: what shipped
+
+Same VM recipe (clone of template 9000, 2 vCPU, 1907 MiB, balloon off, destroyed afterwards), release build.
+
+**Prepacking off is now the default under 4 GiB (Linux).** `laya-onnx` is vendored in `vendor/laya-onnx` with one addition,
+`LayaOptions::disable_prepacking`. It is a config key, `classifier.laya_prepacking`, unset by default: unset means off on
+Linux when `MemTotal` is under 4 GiB and on everywhere else; `true`/`false` force it. (A key with a machine-dependent default,
+rather than a hard-coded rule, so a 2 GiB box that wants speed over memory can say so.)
+
+| Through the shipped option | Peak RSS | Private after load | Load | Median message |
+|---|---:|---:|---:|---:|
+| Prepacking on (2 runs) | 1,054,516 / 1,053,040 kB | 841,408 / 848,336 kB | 12.6 / 13.5 s | 2.60 / 2.86 s |
+| Prepacking off (2 runs) | 576,104 / 575,888 kB | 403,372 / 403,368 kB | 12.7 / 11.1 s | 2.69 / 2.62 s |
+
+Private memory is halved again and the peak falls 45%. The per-message cost is inside the run-to-run noise this time (the first
+measurement saw +15%); treat it as 0 to 15%.
+
+**Default timeout scales to the machine.** `classifier.laya_timeout_ms` is unset by default: 5000 ms with 2 or fewer cores or
+no AVX2, 1000 ms otherwise. Setting it keeps the old meaning. A timeout still reads "keywords · Laya timed out: no answer
+within N ms".
+
+**The pin check runs once, at install.** See the trust model below. On the 2 GiB VM with a root-sealed, stamped install:
+
+| Load (test harness, prepacking off) | Time |
+|---|---:|
+| Stamp trusted, size + mtime only | 8.4 s, 8.4 s |
+| No stamp, full hash of 667 MiB | 13.2 s |
+| `nectra classifier laya --verify-only` (once, as root) | 12.8 s |
+
+`nectra route --dry-run` with defaults on that VM (nothing configured but `backend = "laya"` and `model_dir`): 11.4 s and 10.7 s
+wall, classified by Laya ("laya classified prompt as code_generation"), against 15.5-16.2 s and a keyword fallback before.
+The remaining 8 s is building the ONNX session and the warm-up message.
+
+## Trust model for the verification stamp
+
+The pins in the binary say what the right files are; hashing them proves the files on disk are those. Hashing 667 MiB costs
+about 8 s on a small machine, so it is done once and remembered in `<model dir>/.nectra-verified.json`: for each file its pin,
+size and modification time at the moment it was fully hashed.
+
+- **Written** by `nectra classifier laya` after it has downloaded and hashed everything, and by
+  `nectra classifier laya --model-dir <dir> --verify-only`, which hashes the files already in `<dir>`, downloads nothing and
+  leaves the configuration alone. A `nectra-laya` package's post-install step should run the second form as root.
+- **Trusted on load only when root alone can have changed anything:** the directory, `tokenizer/`, the stamp and every pinned
+  file are owned by uid 0, are not group- or world-writable, and are regular files (no symlinks). Then a file whose pin, size
+  and mtime match its stamp entry is not hashed again; anything that differs, and every file when the stamp is missing,
+  unreadable or for other pins, gets the full hash and a mismatch is refused as before.
+- **Why root only:** mtime is not a proof of content. Anyone who can write a file can change it and set its mtime back. So a
+  user-owned install, such as `nectra classifier laya` run by a normal user into the per-user data directory, or any
+  group/world-writable directory, never trusts the stamp and hashes everything on every load, exactly as before. Non-unix
+  platforms do the same.
+- **What it does not defend against:** root, a compromised root, or a kernel/filesystem fault that changes content without
+  changing size or mtime. Those are outside what a hash check at load ever covered.
+- A new release (new pins) invalidates old stamps automatically: the stamp entry must carry the pin the binary expects.

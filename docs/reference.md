@@ -323,7 +323,9 @@ difficulty tier only applies when some enabled model claims its role.
 
 `nectra classifier laya` downloads a local model, about 750 MB, and every
 file is checked against hashes pinned in the binary. It is checked on
-download and again on every load, wherever `model_dir` points. Prompts
+download and again on every load, wherever `model_dir` points (a root-owned
+install verified once by `nectra classifier laya --verify-only` skips the
+re-hashing; see `docs/design/LAYA-MEMORY.md`). Prompts
 never leave the machine.
 
 ```toml
@@ -331,7 +333,11 @@ never leave the machine.
 backend = "laya"
 # model_dir = "D:/models/laya"      # where the model lives (default: per-user data dir)
 # allow_unpinned_model = false      # true loads your own retrained model; warns on every load
-laya_timeout_ms = 1000              # per message; slower answers fall back to keywords
+# laya_timeout_ms = 1000            # per message; slower answers fall back to keywords.
+                                    # Unset: 5000 with 2 or fewer cores or no AVX2, else 1000
+# laya_prepacking = false           # false keeps the weights in the mapped file: half the
+                                    # private memory, 0-15% slower. Unset: false on Linux
+                                    # with under 4 GiB RAM, true elsewhere
 ```
 
 - **Chat** loads the model in the background at start, which takes about
