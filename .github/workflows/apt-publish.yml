@@ -2,16 +2,19 @@
 # GitHub Pages from the debs release.yml attached to the v* releases. Design:
 # docs/design/APT-REPO.md.
 #
-# workflow_dispatch only, from master, in the `apt-publish` environment, which
-# holds the signing key and needs Michael's approval for each run. A tag-push
+# workflow_dispatch only, in the `apt-publish` environment, which holds the
+# signing key. The guard that matters is that environment's settings on GitHub
+# (deployment branches: master only; a required reviewer): the `if:` below is
+# only in this file, and a branch could carry a copy without it. A tag-push
 # trigger would run the workflow file as it is at the tag, so a pushed tag never
 # reaches the key. Third-party actions are pinned by commit.
 #
-# Stateless: every run rebuilds both suites from scratch.
+# Stateless: every run rebuilds both suites from scratch (scripts/apt_plan.py).
 #   stable  the last 3 v* releases
 #   alpha   those, plus the last 3 v* prereleases
-# A release whose title or notes contain [yanked] is skipped; a release must be
-# on master and every deb must match the .sha256 next to it, or nothing is published.
+# A release whose title or notes contain [yanked] is skipped. Every deb must come
+# from a tag on master, match the .sha256 next to it and carry release.yml's
+# build provenance for that tag, or nothing is published.
 name: apt-publish
 on: workflow_dispatch
 permissions: {}
@@ -23,44 +26,33 @@ jobs:
     environment: apt-publish
     permissions:
       contents: read
+      attestations: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Fetch the debs
+      - name: Fetch and verify the debs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release list --exclude-drafts --limit 100 --json tagName,isPrerelease \
-            --jq '.[] | select(.tagName | startswith("v")) | "\(.isPrerelease) \(.tagName)"' > releases
-          # Stable first: a deb that is in both (the same nectra-laya) goes to stable.
-          for suite in stable alpha; do
-            [ $suite = stable ] && want=false || want=true
-            n=0
-            while read -r pre tag <&3; do
-              [ "$pre" = $want ] && [ $n -lt 3 ] || continue
-              # Captured first: grep -q exiting early would fail the pipe under pipefail.
-              notes=$(gh release view "$tag" --json name,body --jq '.name + " " + .body')
-              if grep -qF '[yanked]' <<< "$notes"; then
-                echo "skipping $tag: [yanked]"; continue
-              fi
-              if [ "$(gh release view "$tag" --json assets --jq '[.assets[].name | select(endswith(".deb"))] | length')" = 0 ]; then
-                echo "skipping $tag: no debs"; continue
-              fi
-              git merge-base --is-ancestor "$tag" origin/master || { echo "$tag is not on master"; exit 1; }
-              n=$((n + 1))
-              gh release download "$tag" --pattern '*.deb' --pattern '*.deb.sha256' --dir "dl/$tag"
-              (cd "dl/$tag" && sha256sum --check --strict -- *.deb.sha256)
-              mkdir -p "debs/$suite"
-              for deb in "dl/$tag"/*.deb; do
-                f=${deb##*/}
-                [ -e "debs/stable/$f" ] || [ -e "debs/alpha/$f" ] || cp "$deb" "debs/$suite/"
-              done
-            done 3< releases
-          done
-          find debs -name '*.deb' | sort
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" > releases.json
+          python3 scripts/apt_plan.py < releases.json > plan
+          cat plan
+          [ -s plan ] || { echo "no debs to publish"; exit 1; }
+          while read -r suite tag asset <&3; do
+            git merge-base --is-ancestor "$tag" origin/master || { echo "$tag is not on master"; exit 1; }
+            mkdir -p "dl/$tag" "debs/$suite"
+            gh release download "$tag" --pattern "$asset" --pattern "$asset.sha256" --dir "dl/$tag"
+            (cd "dl/$tag" && sha256sum --check --strict -- "$asset.sha256")
+            # The .sha256 sits in the same mutable release; the attestation is
+            # what ties the bytes to release.yml running on that tag.
+            gh attestation verify "dl/$tag/$asset" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-ref "refs/tags/$tag" --deny-self-hosted-runners
+            cp "dl/$tag/$asset" "debs/$suite/"
+          done 3< plan
       - name: Build and sign the repository
         env:
           APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
@@ -73,7 +65,8 @@ jobs:
           gpg --batch --import <<< "$APT_SIGNING_KEY"
           printf %s "$APT_SIGNING_PASSPHRASE" > "$GNUPGHOME/passphrase"
           export APT_KEY=$(gpg --list-secret-keys --with-colons | awk -F: '$1 == "fpr" { print $10; exit }')
-          # Only a key that nectra ships in its keyring may sign.
+          [ -n "$APT_KEY" ] || { echo "APT_SIGNING_KEY holds no secret key"; exit 1; }
+          # Only a key that nectra-archive-keyring ships may sign.
           shipped=$(gpg --show-keys --with-colons packaging/nectra-archive-keyring.gpg)
           grep -qF ":$APT_KEY:" <<< "$shipped" \
             || { echo "signing key $APT_KEY is not in packaging/nectra-archive-keyring.gpg"; exit 1; }

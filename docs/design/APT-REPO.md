@@ -2,12 +2,14 @@
 
 Status: approved 2026-10-22 and built for an **alpha** release ("the official
 release can happen with astra"). Built: `nectra classifier fetch --dir`,
-`[package.metadata.deb]`, `packaging/` (the `nectra-laya` deb, the keyring,
-`nectra.sources`, `build-apt-repo.sh`), `release.yml` attaching the debs, and
-`apt-publish.yml`. The signing key exists (§3); the GitHub environment, secret
-and Pages site do not yet. Decided going in: Debian packages, a static signed
-repo, two packages (`nectra`, optional `nectra-laya`), the PonsOS installer's
-"Laya vs Jev" question installs or omits `nectra-laya`.
+`[package.metadata.deb]`, `packaging/` (the `nectra-laya` and
+`nectra-archive-keyring` debs, `nectra.sources`, `build-apt-repo.sh`),
+`release.yml` attaching and attesting the debs, and `apt-publish.yml`. The
+signing keys exist (§3); the GitHub environment, secret and Pages site do not
+yet. Decided going in: Debian packages, a static signed repo, two packages
+(`nectra`, optional `nectra-laya`; a security review added
+`nectra-archive-keyring`), the PonsOS installer's "Laya vs Jev" question
+installs or omits `nectra-laya`.
 
 **Alpha channel.** Nectra `0.5.0-alpha.1` (deb `0.5.0~alpha.1`, which sorts
 before `0.5.0`) pins Laya `laya-model-1-alpha.1`, packaged as `nectra-laya`
@@ -37,8 +39,16 @@ Facts this plan rests on (read from the code, 2026-10-22):
 |---|---|
 | `/usr/bin/nectra` | |
 | `/usr/share/nectra/models.toml` | Not a conffile: it tracks the binary. pons points `registry` here (absolute) and stops baking its own copy. |
-| `/usr/share/keyrings/nectra-archive-keyring.gpg` | Repo public key, shipped so key rotation travels as an ordinary upgrade (§3). |
 | `/usr/share/doc/nectra/` | README, LICENSE, `config/` as examples. |
+
+`Depends: nectra-archive-keyring (>= 1)`. **`nectra-archive-keyring`**
+(`Architecture: all`, version `1`, set in `packaging/build-debs.sh`) holds
+`/usr/share/keyrings/nectra-archive-keyring.gpg`, the repo's public keys, in a
+package of its own. If `nectra` shipped it, `apt remove nectra` would delete
+the keyring that `Signed-By` names, and every later `apt update` would fail.
+Key rotation travels as an upgrade of this package (§3). Bump its version
+whenever the keyring changes, and raise nectra's `Depends` with it to push it
+out.
 
 No conffiles. The default config is compiled in, and on PonsOS pons owns the
 config (`/etc/pons/nectra/config.toml`, already a conffile of `pons`). Add an
@@ -106,12 +116,20 @@ URL: `https://mbarc.github.io/nectra/apt` (or a custom domain later).
   username = fingerprint, password = passphrase, notes = armored secret key
   and revocation certificate). Generated 2026-10-22 in tmpfs on builder, never
   written to disk. Fingerprint
-  **`18C46D9FDD3A411C3DB663FFA1A6F3C961636194`**, expires 2028-10-21. Public
-  key: `packaging/nectra-archive-keyring.gpg` (and the PonsOS repo).
-- CI gets it as an **Environment secret** on a `apt-publish` GitHub
-  Environment. The environment is restricted to `master` and needs Michael's
-  approval for each run. (This is a settings change, made at build time, not
-  now.)
+  **`18C46D9FDD3A411C3DB663FFA1A6F3C961636194`**, expires 2028-10-21.
+- An **offline backup key**, made the same way, in hush at
+  **`Nectra/apt-signing-backup`**: fingerprint
+  **`80E3F18B9A0C4923ABFB47AC88B1854B1AD53937`**, expires 2028-10-21. It never
+  goes to CI while the primary is usable.
+- Both public keys are in `packaging/nectra-archive-keyring.gpg` (and belong in
+  the PonsOS repo), so apt accepts a Release signed by either.
+- CI gets the primary as an **environment secret** (never a repository secret)
+  on the `apt-publish` GitHub environment. **That environment is the guard**: its
+  deployment branches are `master` only, and it needs Michael's approval for each
+  run. The `if: github.ref == master` in `apt-publish.yml` is only in that file,
+  and a branch could carry a copy without it, so the environment must be set up
+  before the secret is ever added (Phase B). `github-pages` gets the same branch
+  policy.
 - Clients, as deb822 `/etc/apt/sources.list.d/nectra.sources`:
   ```
   Types: deb
@@ -121,29 +139,57 @@ URL: `https://mbarc.github.io/nectra/apt` (or a custom domain later).
   Signed-By: /usr/share/keyrings/nectra-archive-keyring.gpg
   ```
   `build-template.sh` writes this file and the keyring (from the PonsOS repo's
-  checked-in copy, fingerprint asserted) before the first `apt install nectra`.
-  After that the `nectra` deb owns the keyring.
-- Rotation: generate key 2 and ship a keyring holding keys 1 and 2 in a nectra
-  release signed by key 1. Once the fleet has it (one release cycle), sign
-  with key 2, then drop key 1 from the keyring. On compromise, do the same
-  immediately, plus a pons release if any machine is too stale to upgrade.
+  checked-in copy, fingerprints asserted) and then runs
+  `apt install nectra-archive-keyring nectra`. Naming the keyring package
+  marks it manually installed, so `apt autoremove` never takes it after nectra
+  is removed. After that the package owns the keyring.
+- **Planned rotation** (expiry, or retiring a key): generate the new key the
+  same way, into hush. Ship a `nectra-archive-keyring` holding old and new keys,
+  with nectra's `Depends` raised to that version, in a release signed by the
+  old key. Once the fleet has it (one release cycle), swap the environment
+  secret and sign with the new key. Then drop the old key from the keyring.
+- **Primary lost or compromised:** the backup key is already in every
+  installed keyring. Put the backup into the environment secret and publish
+  at once: clients accept it with no keyring change. Then generate a new
+  backup into hush. Ship a keyring without the old primary and with the new
+  backup, as the planned rotation does. For a compromise, also revoke the old
+  key: its revocation certificate is in the hush notes. Any machine too stale
+  to upgrade needs a pons release.
+- **Both lost:** no client will accept anything new. Every machine needs a
+  keyring by hand, or through a pons release.
+- **No `Valid-Until` (deferred for the alpha).** Without it, an attacker who
+  can serve old files may freeze a client on an old, validly signed
+  `Release` and withhold fixes. `Valid-Until` closes that, but the `Release`
+  then has to be re-signed before it expires, on a schedule. Every signing run
+  currently needs Michael's approval, so that would mean either a regular
+  approval chore or an unapproved scheduled path to the key. Revisit before
+  the fleet grows, for example with a separate short-lived key that may only
+  re-sign.
 
 ## 4. Release flow
 
 1. `release.yml` (tag `v*`, unchanged trigger) also runs `cargo deb` and
-   attaches `nectra_<ver>_amd64.deb` to the GitHub release, and
-   `nectra-laya_<N>_amd64.deb` (`packaging/build-laya-deb.sh`) for the model
-   `RELEASE` in `src/laya.rs` pins. As built it attaches `nectra-laya` to every
-   release, and apt-publish keeps one copy per version, which is simpler than
-   detecting a new model. Tags containing `-` become prereleases.
+   attaches `nectra_<ver>_amd64.deb` to the GitHub release. It also attaches
+   `nectra-laya_<N>_amd64.deb` for the model that `RELEASE` in `src/laya.rs`
+   pins, and `nectra-archive-keyring_<K>_all.deb` (both from
+   `packaging/build-debs.sh`). It attests every deb with
+   `actions/attest-build-provenance`. Every release rebuilds the two small
+   debs, which is simpler than detecting a change. apt-publish takes each
+   version from the **oldest** release that has it, so the bytes published
+   under a version never change. Tags containing `-` become prereleases.
 2. A new **`apt-publish.yml`**, `workflow_dispatch` only, run from `master`
    in the `apt-publish` environment. This follows laya-release.yml's reasoning:
    a tag-push workflow runs whatever workflow file is at the tag, so it must
    never see the key. It:
-   - downloads the debs from the last 3 `v*` releases (`stable`) and the last 3
-     prereleases (`alpha` only), skipping any release whose title or notes
-     contain `[yanked]` and failing if a tag is not on `master`;
-   - checks each `.deb` against the release's `.sha256`;
+   - picks the debs with `scripts/apt_plan.py`: the last 3 `v*` releases
+     (`stable`) and the last 3 prereleases (`alpha` only). It skips any release
+     whose title or notes contain `[yanked]`, and the workflow fails if a tag
+     is not on `master`;
+   - checks each `.deb` against the release's `.sha256`. That file sits in the
+     same mutable release, so it also runs `gh attestation verify
+     --signer-workflow <repo>/.github/workflows/release.yml --source-ref
+     refs/tags/<tag>`. A deb swapped into a release after the build fails
+     that check and is never signed;
    - runs `packaging/build-apt-repo.sh`: `apt-ftparchive packages` / `release`
      with `Origin: Nectra`, `Suite: stable|alpha` (no reprepro or aptly: the repo
      is rebuilt from scratch each time, so there is no state to manage). It
@@ -196,7 +242,8 @@ What nectra provides, and what PonsOS must do to use it:
 |---|---|
 | Repo | `https://mbarc.github.io/nectra/apt`, suites `alpha` and `stable`, component `main`, amd64 |
 | Sources | `packaging/nectra.sources`, installed as `/etc/apt/sources.list.d/nectra.sources` |
-| Keyring | `/usr/share/keyrings/nectra-archive-keyring.gpg`; fingerprint `18C46D9FDD3A411C3DB663FFA1A6F3C961636194` (assert it in `build-template.sh`) |
+| Keyring | package `nectra-archive-keyring`, file `/usr/share/keyrings/nectra-archive-keyring.gpg`; fingerprints `18C46D9FDD3A411C3DB663FFA1A6F3C961636194` (primary) and `80E3F18B9A0C4923ABFB47AC88B1854B1AD53937` (backup), assert both in `build-template.sh` |
+| Install | `apt install nectra-archive-keyring nectra [nectra-laya]`; naming the keyring keeps `apt autoremove` from taking it |
 | Binary | `/usr/bin/nectra` |
 | Registry | `/usr/share/nectra/models.toml` (set `registry` to it, absolute) |
 | Laya | `apt install nectra-laya` puts the model in `/usr/lib/nectra/laya`; nectra uses that directory when the config names no `classifier.model_dir`, so `backend = "laya"` is enough |
@@ -238,10 +285,14 @@ the URL and key.
 
 ## Security review points
 
-- **Who can publish:** only an approved `apt-publish` run on `master`. Pushing
-  a tag builds debs but cannot sign them. Remaining gap: the debs are built by
-  the tag-push workflow. The approver should check that the tag is on
-  `master`, and publish can enforce it (`git merge-base --is-ancestor`).
+- **Who can publish:** only an approved `apt-publish` run on `master`. The
+  guard is enforced by GitHub's settings on the `apt-publish` environment
+  (deployment branches, required reviewer), not by the workflow file. Pushing
+  a tag builds debs but cannot sign them. The debs are built by the tag-push
+  workflow. Publish enforces that the tag is on `master`
+  (`git merge-base --is-ancestor`) and that each deb carries `release.yml`'s
+  build provenance for that tag. Proposed for Michael's OK: protect `master`
+  against force-pushes and deletion, so "on master" cannot be rewritten.
 - **Key custody:** the private key exists only in hush and the environment
   secret, never on a dev machine after generation. The fingerprint is pinned
   in both repos. If GitHub is compromised, the secret leaks too: treat it as
@@ -254,8 +305,10 @@ the URL and key.
   700 MB that bypasses apt is still verified. A swapped GitHub release asset
   fails the hash check, and the result is keyword fallback, not code
   execution.
-- **Actions supply chain:** `release.yml` uses unpinned `@v4`/`@v2` actions.
-  Pin them by commit, as `laya-release.yml` does, before they build debs that
-  get signed.
-- **Not covered:** reproducible builds, transparency logs, per-machine repo
-  pinning. Add them if the fleet goes beyond Michael's machines.
+- **Actions supply chain:** every action in `release.yml` and
+  `apt-publish.yml` is pinned by commit.
+- **Laya download hangs:** `classifier fetch` gives up after 30 s without
+  data, and also on connect, so a stalled server can't hold dpkg forever.
+  There is no total limit, because the model is 700 MB.
+- **Not covered:** reproducible builds, `Valid-Until` (§3), and per-machine
+  repo pinning. Add them if the fleet goes beyond Michael's machines.

@@ -312,7 +312,7 @@ fn fetch_all(release: &str, dir: &Path, output: &mut dyn Write) -> Result<()> {
     let runtime = RUNTIME.context(
         "the local model needs ONNX Runtime, which has no official build for this platform",
     )?;
-    let client = reqwest::blocking::Client::builder().timeout(None).build()?;
+    let client = http_client(IDLE_TIMEOUT)?;
     for &(path, asset, sha256) in MODEL_FILES.iter().chain([&runtime]) {
         let target = dir.join(path);
         if target.is_file() && hash_file(&target)? == sha256 {
@@ -345,16 +345,27 @@ fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<An
     Ok(answer)
 }
 
+/// A stalled server fails the download after this long without data, so the
+/// nectra-laya postinst can't hang dpkg. Not a total limit: the model is 700 MB.
+const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// The blocking client's `timeout` covers connecting, waiting for the headers
+/// and each `read` of the body, so for a download it is an idle timeout.
+fn http_client(idle: Duration) -> Result<reqwest::blocking::Client> {
+    Ok(reqwest::blocking::Client::builder()
+        .connect_timeout(idle)
+        .timeout(idle)
+        .build()?)
+}
+
 /// Writes `target` only if the whole download matches `sha256`; a failed or
 /// interrupted download leaves nothing behind.
 fn fetch(client: &reqwest::blocking::Client, url: &str, target: &Path, sha256: &str) -> Result<()> {
     let partial = target.with_extension("part");
-    let result = fetch_part(client, url, &partial, sha256);
-    match result {
-        Ok(()) => fs::rename(&partial, target)?,
-        Err(_) => {
-            let _ = fs::remove_file(&partial);
-        }
+    let result =
+        fetch_part(client, url, &partial, sha256).and_then(|()| Ok(fs::rename(&partial, target)?));
+    if result.is_err() {
+        let _ = fs::remove_file(&partial);
     }
     result
 }
@@ -543,9 +554,9 @@ Connection: close
             })
             .collect()
     }
-    #[test]
-    fn cleans_up_an_interrupted_download() {
-        // Promises 1000 bytes, sends 10, hangs up.
+    /// Promises 1000 bytes and sends 10, then hangs up or (`stall`) goes quiet
+    /// with the connection open; either way nothing may be kept.
+    fn short_download(stall: bool) -> anyhow::Error {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/asset", listener.local_addr().unwrap());
         std::thread::spawn(move || {
@@ -560,13 +571,15 @@ Connection: close
 0123456789"
             )
             .unwrap();
+            if stall {
+                std::thread::sleep(Duration::from_secs(60));
+            }
         });
         let dir = tempfile::tempdir().unwrap();
-        let target = dir.path().join("asset");
         let err = fetch(
-            &reqwest::blocking::Client::new(),
+            &http_client(Duration::from_secs(1)).unwrap(),
             &url,
-            &target,
+            &dir.path().join("asset"),
             &hex(&Sha256::digest(b"genuine")),
         )
         .unwrap_err();
@@ -575,6 +588,21 @@ Connection: close
             walk(dir.path()),
             Vec::<PathBuf>::new(),
             "no partial file kept"
+        );
+        err
+    }
+    #[test]
+    fn cleans_up_an_interrupted_download() {
+        short_download(false);
+    }
+    #[test]
+    fn gives_up_on_a_stalled_download() {
+        let started = std::time::Instant::now();
+        let err = short_download(true);
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "took {:?}: {err:#}",
+            started.elapsed()
         );
     }
     #[test]
@@ -695,7 +723,7 @@ Connection: close
     }
     #[test]
     fn nectra_deb_breaks_older_models() {
-        // packaging/build-laya-deb.sh versions nectra-laya from RELEASE the same way.
+        // packaging/build-debs.sh versions nectra-laya from RELEASE the same way.
         let tag = RELEASE.rsplit('/').next().unwrap();
         let version = tag.trim_start_matches("laya-model-").replace('-', "~");
         let breaks = format!("breaks = \"nectra-laya (<< {version})\"");

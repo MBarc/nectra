@@ -28,15 +28,15 @@ ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dy
 sha2 = "0.10"
 
 # `cargo deb` (0.5.0-alpha.1 becomes 0.5.0~alpha.1). Breaks names the Laya model
-# src/laya.rs pins, as packaging/build-laya-deb.sh versions it; a test checks they agree.
+# src/laya.rs pins, as packaging/build-debs.sh versions it; a test checks they agree.
 [package.metadata.deb]
 maintainer = "MBarc <michaelb4185@gmail.com>"
 section = "utils"
+depends = "$auto, nectra-archive-keyring (>= 1)"
 breaks = "nectra-laya (<< 1~alpha.1)"
 assets = [
     ["target/release/nectra", "usr/bin/", "755"],
     ["config/models.toml", "usr/share/nectra/", "644"],
-    ["packaging/nectra-archive-keyring.gpg", "usr/share/keyrings/", "644"],
     ["README.md", "usr/share/doc/nectra/", "644"],
     ["config/*", "usr/share/doc/nectra/examples/", "644"],
 ]
