@@ -103,12 +103,12 @@ The pins in the binary say what the right files are; hashing them proves the fil
 about 8 s on a small machine, so it is done once and remembered in `<model dir>/.nectra-verified.json`: for each file its pin,
 size and modification time at the moment it was fully hashed.
 
-- **Written** by `nectra classifier laya` after it has downloaded and hashed everything, and by
+- **Written** by `nectra classifier laya` only when it runs as root (a user-written stamp would never be trusted), after it has downloaded and hashed everything, and by
   `nectra classifier laya --model-dir <dir> --verify-only`, which hashes the files already in `<dir>`, downloads nothing and
   leaves the configuration alone. A `nectra-laya` package's post-install step should run the second form as root.
 - **Trusted on load only when root alone can have changed anything:** the directory, `tokenizer/`, the stamp and every pinned
   file are owned by uid 0, are not group- or world-writable, and are regular files (no symlinks). Then a file whose pin, size
-  and mtime match its stamp entry is not hashed again; anything that differs, and every file when the stamp is missing,
+  file are owned by uid 0, are not group- or world-writable (and every parent up to /, via the canonical path the load then uses, is root-owned and not writable by others unless sticky), and are regular files (no symlinks). Then a file whose pin, size
   unreadable or for other pins, gets the full hash and a mismatch is refused as before.
 - **Why root only:** mtime is not a proof of content. Anyone who can write a file can change it and set its mtime back. So a
   user-owned install, such as `nectra classifier laya` run by a normal user into the per-user data directory, or any

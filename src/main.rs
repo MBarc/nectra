@@ -10,10 +10,10 @@ use std::io::{IsTerminal, Read, Write};
 
 fn main() {
     match app() {
-        Ok(code) => std::process::exit(code),
+        Ok(code) => nectra::laya::exit(code),
         Err(error) => {
             nectra::terminal::error(&format!("nectra: {error:#}"));
-            std::process::exit(1);
+            nectra::laya::exit(1);
         }
     }
 }

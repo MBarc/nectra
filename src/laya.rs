@@ -16,7 +16,7 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc, OnceLock,
     },
     time::{Duration, UNIX_EPOCH},
@@ -108,6 +108,55 @@ type Pin = (&'static str, &'static str, &'static str);
 
 static ENGINE: OnceLock<std::result::Result<LayaEngine, String>> = OnceLock::new();
 static WARMING: AtomicBool = AtomicBool::new(false);
+/// Threads currently inside ONNX Runtime (the loader, an inference).
+static BUSY: AtomicUsize = AtomicUsize::new(0);
+
+struct Busy;
+impl Busy {
+    fn enter() -> Self {
+        BUSY.fetch_add(1, Ordering::SeqCst);
+        Busy
+    }
+}
+impl Drop for Busy {
+    fn drop(&mut self) {
+        BUSY.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Ends the process. ONNX Runtime's teardown at exit would run beside a
+/// thread still loading or inferring (a quit mid-load, or after a timeout),
+/// so then the process leaves without running it, after flushing output.
+pub fn exit(code: i32) -> ! {
+    if BUSY.load(Ordering::SeqCst) > 0 {
+        let _ = std::io::stdout().flush();
+        let _ = std::io::stderr().flush();
+        #[cfg(unix)]
+        unsafe {
+            libc::_exit(code)
+        }
+    }
+    std::process::exit(code)
+}
+
+/// The directory to load from: where it really is, so a symlink or rename
+/// after the checks cannot point the load somewhere else.
+fn resolved(dir: &Path) -> PathBuf {
+    #[cfg(unix)]
+    if let Ok(real) = fs::canonicalize(dir) {
+        return real;
+    }
+    dir.to_path_buf()
+}
+
+/// ort reads `ORT_DYLIB_PATH` when it first loads the runtime library: always
+/// the one the pins check, never another found through the environment. Set
+/// before the loader thread exists (`set_var` is not safe beside other threads).
+fn point_ort_at_runtime(cfg: &Config) {
+    if let (Some(dir), Some((runtime, _, _))) = (model_dir(cfg), RUNTIME) {
+        std::env::set_var("ORT_DYLIB_PATH", resolved(&dir).join(runtime));
+    }
+}
 
 /// Loaded once per process; a failure is remembered so every message falls
 /// back to keywords instead of retrying the load. The model's files must match
@@ -115,6 +164,9 @@ static WARMING: AtomicBool = AtomicBool::new(false);
 /// message is answered before the engine is published, so ONNX Runtime's
 /// first-run setup is part of the load and never of a message's budget.
 fn engine(cfg: &Config) -> &'static std::result::Result<LayaEngine, String> {
+    if !WARMING.load(Ordering::SeqCst) {
+        point_ort_at_runtime(cfg);
+    }
     ENGINE.get_or_init(|| {
         let engine = model_dir(cfg)
             .context("cannot find a data directory")
@@ -139,9 +191,19 @@ pub fn warm(cfg: &Config) {
     {
         return;
     }
+    point_ort_at_runtime(cfg);
     let cfg = cfg.clone();
     std::thread::spawn(move || {
-        engine(&cfg);
+        let _busy = Busy::enter();
+        // A panic would leave the cell empty and "still loading" forever.
+        if let Err(panic) = std::panic::catch_unwind(|| engine(&cfg)) {
+            let why = panic
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| panic.downcast_ref::<&str>().copied())
+                .unwrap_or("unknown panic");
+            let _ = ENGINE.set(Err(format!("loader panicked: {why}")));
+        }
     });
 }
 
@@ -236,18 +298,36 @@ fn write_stamp(dir: &Path, files: &[&Pin]) -> Result<()> {
 /// a user-owned install is always hashed in full on load.
 #[cfg(unix)]
 fn stamp_trusted(dir: &Path, files: &[&Pin]) -> bool {
+    stamp_trusted_for(dir, files, 0)
+}
+/// `owner` is root (0) outside tests.
+#[cfg(unix)]
+fn stamp_trusted_for(dir: &Path, files: &[&Pin], owner: u32) -> bool {
     use std::os::unix::fs::MetadataExt;
     let sealed = |path: &Path, want_dir: bool| {
         fs::symlink_metadata(path).is_ok_and(|m| {
-            m.uid() == 0 && m.mode() & 0o022 == 0 && m.is_dir() == want_dir && !m.is_symlink()
+            m.uid() == owner && m.mode() & 0o022 == 0 && m.is_dir() == want_dir && !m.is_symlink()
         })
     };
-    sealed(dir, true)
-        && sealed(&dir.join("tokenizer"), true)
-        && sealed(&dir.join(STAMP), false)
+    // Every ancestor too: whoever can write a parent can rename the sealed
+    // directory away and put back same-size, backdated files. A sticky parent
+    // (/tmp) only lets an entry's owner rename it. `load` goes through the
+    // canonical path, so these are the real parents.
+    let Ok(real) = fs::canonicalize(dir) else {
+        return false;
+    };
+    let parents_safe = real.ancestors().skip(1).all(|p| {
+        fs::metadata(p).is_ok_and(|m| {
+            (m.uid() == owner || m.uid() == 0) && (m.mode() & 0o022 == 0 || m.mode() & 0o1000 != 0)
+        })
+    });
+    parents_safe
+        && sealed(&real, true)
+        && sealed(&real.join("tokenizer"), true)
+        && sealed(&real.join(STAMP), false)
         && files
             .iter()
-            .all(|&&(path, _, _)| sealed(&dir.join(path), false))
+            .all(|&&(path, _, _)| sealed(&real.join(path), false))
 }
 #[cfg(not(unix))]
 fn stamp_trusted(_: &Path, _: &[&Pin]) -> bool {
@@ -292,6 +372,7 @@ fn check_pins(
 }
 
 fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEngine> {
+    let dir = &resolved(dir);
     let pin = RUNTIME.context("no local model runtime for this platform")?;
     let (runtime, _, _) = pin;
     if !dir.join(runtime).is_file() || !dir.join("model.onnx").is_file() {
@@ -306,9 +387,6 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
         .into_iter()
         .partition(|(path, _, _)| *path == "model.onnx.data");
     let mut unpinned = check_pins(dir, &rest, allow_unpinned, &stamp)?;
-    // ort reads this when it first loads the runtime library: always the one
-    // checked above, never another found through the environment.
-    std::env::set_var("ORT_DYLIB_PATH", dir.join(runtime));
     let engine = std::thread::scope(|s| {
         let weights = s.spawn(|| check_pins(dir, &weights, allow_unpinned, &stamp));
         let engine = LayaEngine::create(LayaOptions {
@@ -350,7 +428,10 @@ fn within<T: Send + 'static>(
     f: impl FnOnce() -> Result<T> + Send + 'static,
 ) -> Result<T> {
     let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || tx.send(f()));
+    std::thread::spawn(move || {
+        let _busy = Busy::enter();
+        tx.send(f())
+    });
     rx.recv_timeout(deadline).map_err(|_| {
         anyhow::anyhow!(
             "Laya timed out: no answer within {} ms",
@@ -461,11 +542,19 @@ fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<An
             .with_context(|| format!("downloading {asset}"))?;
     }
     let all: Vec<&Pin> = MODEL_FILES.iter().chain([&runtime]).collect();
-    if let Err(e) = write_stamp(dir, &all) {
-        writeln!(
-            output,
-            "Could not write {STAMP}: {e:#}; every load will hash the model."
-        )?;
+    // Only root's stamp is ever trusted, so a user-written one would be dead
+    // weight: `classifier laya --verify-only` as root writes it.
+    #[cfg(unix)]
+    let root = unsafe { libc::geteuid() } == 0;
+    #[cfg(not(unix))]
+    let root = false;
+    if root {
+        if let Err(e) = write_stamp(dir, &all) {
+            writeln!(
+                output,
+                "Could not write {STAMP}: {e:#}; every load will hash the model."
+            )?;
+        }
     }
     let started = std::time::Instant::now();
     let answer = ask_with(
@@ -773,6 +862,39 @@ Connection: close
         assert_eq!(stamp_trusted(dir.path(), &files), root);
         fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o777)).unwrap();
         assert!(!stamp_trusted(dir.path(), &files));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn a_writable_parent_untrusts_a_sealed_directory() {
+        use std::os::unix::fs::PermissionsExt;
+        let me = unsafe { libc::geteuid() };
+        let top = tempfile::tempdir().unwrap();
+        let sealed = top.path().join("sealed");
+        fs::create_dir(&sealed).unwrap();
+        for name in ["one", "two", STAMP] {
+            fs::write(sealed.join(name), name).unwrap();
+        }
+        fs::create_dir(sealed.join("tokenizer")).unwrap();
+        let pins = [("one", "", ""), ("two", "", "")];
+        let files: Vec<&Pin> = pins.iter().collect();
+        let mode = |p: &Path, m| fs::set_permissions(p, fs::Permissions::from_mode(m)).unwrap();
+        mode(&sealed, 0o755);
+        mode(top.path(), 0o755);
+        // `me` stands in for root: sealed, so trusted.
+        assert!(stamp_trusted_for(&sealed, &files, me));
+        // Under a parent others can write it could be renamed away and replaced.
+        mode(top.path(), 0o777);
+        assert!(!stamp_trusted_for(&sealed, &files, me));
+        // Sticky (like /tmp) only lets an entry's owner rename it.
+        mode(top.path(), 0o1777);
+        assert!(stamp_trusted_for(&sealed, &files, me));
+        // A symlink to it is judged by where it really is.
+        let link = tempfile::tempdir().unwrap();
+        let via = link.path().join("via");
+        std::os::unix::fs::symlink(&sealed, &via).unwrap();
+        mode(top.path(), 0o777);
+        assert!(!stamp_trusted_for(&via, &files, me));
+        mode(top.path(), 0o755);
     }
     #[test]
     fn slow_machines_get_a_longer_budget_and_less_memory_use() {
