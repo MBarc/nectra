@@ -177,10 +177,31 @@ fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, Str
     (Cow::Owned(text), note)
 }
 
+/// Whether `word` may be looked up on disk at all: only plain relative
+/// paths. Anything with a root, a drive or a device/UNC prefix (`C:x.md`,
+/// `\\?\`, `\\.\`, and mixed-slash `/\host\share`) would replace `root` on
+/// join, and on Windows merely asking for its metadata can open an SMB
+/// connection that leaks the user's NTLM hash. Pure: touches no filesystem.
+fn plain_relative(word: &str) -> bool {
+    let path = Path::new(word);
+    !(word.starts_with(['/', '\\'])
+        || word.contains(':')
+        || path.has_root()
+        || path.is_absolute()
+        || matches!(
+            path.components().next(),
+            Some(std::path::Component::Prefix(_) | std::path::Component::RootDir)
+        ))
+}
+
 /// `word` as a regular text file under `root` (already canonical), or None.
 fn text_file_inside(root: &Path, word: &str) -> Option<PathBuf> {
-    // URLs and network paths are never touched.
-    if word.contains("://") || word.starts_with("//") || word.starts_with("\\\\") {
+    // URLs, network paths and anything absolute are never touched.
+    if word.contains("://")
+        || word.starts_with("//")
+        || word.starts_with("\\\\")
+        || !plain_relative(word)
+    {
         return None;
     }
     let ext = Path::new(word).extension()?.to_str()?.to_ascii_lowercase();
@@ -189,7 +210,7 @@ fn text_file_inside(root: &Path, word: &str) -> Option<PathBuf> {
     }
     let path = root.join(word);
     // A symlink is not a regular file here; canonicalize then catches ".."
-    // and absolute paths that leave the working directory.
+    // escapes that leave the working directory.
     if !fs::symlink_metadata(&path).ok()?.is_file() {
         return None;
     }
@@ -648,6 +669,27 @@ mod tests {
             r"\\server\share\spec.md".into(),
         ] {
             assert!(text_file_inside(&root, &word).is_none(), "{word}");
+        }
+        // Refused by the pure pre-check, before any filesystem call can open
+        // an SMB connection.
+        for word in [
+            spec.display().to_string(),
+            r"/\localhost\c$\spec.md".into(),
+            r"\/localhost/c$/spec.md".into(),
+            r"/\127.0.0.1\c$\spec.md".into(),
+            r"\\server\share\spec.md".into(),
+            "//server/share/spec.md".into(),
+            r"\\?\C:\spec.md".into(),
+            r"\\.\C:\spec.md".into(),
+            r"\?\C:\spec.md".into(),
+            r"\.\C:\spec.md".into(),
+            "C:s.md".into(),
+            "/etc/spec.md".into(),
+        ] {
+            assert!(!plain_relative(&word), "{word}");
+        }
+        for word in ["inside.md", "a/b.md", r"a\b.md", "../x/spec.md"] {
+            assert!(plain_relative(word), "{word}");
         }
     }
 }
