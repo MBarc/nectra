@@ -87,8 +87,10 @@ pub fn classify_turn(
     classify_turn_in(prompt, previous, cfg, roles, cwd.as_deref())
 }
 
-/// How much of each pointed-at file classification reads, and how many files.
+/// How much of each pointed-at file classification reads, in all, and how
+/// many files.
 const FILE_HEAD: u64 = 4096;
+const TOTAL_HEAD: u64 = 8192;
 const MAX_FILES: usize = 4;
 
 /// A prompt that hands over its task as a local text file ("Read
@@ -97,27 +99,40 @@ const MAX_FILES: usize = 4;
 /// plus a note for the routing reason (empty when nothing was read).
 ///
 /// Conservative: only .md/.txt/.toml/.json regular files inside `root`, named
-/// right after read/follow/see/open or in a short prompt that is not a
-/// question, so "why does config.toml fail to parse?" still classifies on its
-/// own words. Never follows URLs, network paths or symlinks.
+/// within three words after read/follow/see/open/do/implement or as one of the
+/// first two words of a short prompt. Questions ("why does config.toml fail
+/// to parse", with or without "?") never expand. Never follows URLs, network
+/// paths or symlinks.
 fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String) {
     let unchanged = || (Cow::Borrowed(prompt), String::new());
+    let words: Vec<&str> = prompt.split_whitespace().collect();
+    let first = words.first().map(|w| w.to_lowercase()).unwrap_or_default();
+    let question = prompt.trim_end().ends_with('?')
+        || [
+            "why", "how", "what", "when", "where", "which", "who", "is", "are", "does", "can",
+            "could", "should", "would", "will",
+        ]
+        .contains(&first.trim_end_matches(|c: char| !c.is_alphanumeric()));
     let Ok(root) = fs::canonicalize(root) else {
         return unchanged();
     };
-    let short_order = prompt.len() < 400 && !prompt.trim_end().ends_with('?');
-    let words: Vec<&str> = prompt.split_whitespace().collect();
+    if question {
+        return unchanged();
+    }
+    let short = prompt.len() < 400;
     let mut files: Vec<(String, PathBuf)> = Vec::new();
     for (i, raw) in words.iter().enumerate() {
         let word = raw
             .trim_matches(|c: char| "\"'`()[]<>,;:!?*".contains(c))
             .trim_end_matches('.');
-        let after_verb = i > 0
-            && matches!(
-                words[i - 1].to_lowercase().as_str(),
-                "read" | "follow" | "see" | "open"
-            );
-        if !(after_verb || short_order) || files.len() == MAX_FILES {
+        let after_verb = words[i.saturating_sub(3)..i].iter().any(|w| {
+            matches!(
+                w.to_lowercase()
+                    .trim_matches(|c: char| !c.is_alphanumeric()),
+                "read" | "follow" | "see" | "open" | "do" | "implement"
+            )
+        });
+        if !(after_verb || short && i < 2) || files.len() == MAX_FILES {
             continue;
         }
         if let Some(real) = text_file_inside(&root, word) {
@@ -129,18 +144,34 @@ fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, Str
     // The file goes first: it is the task, and Laya reads the opening most.
     let mut text = String::new();
     let mut used = Vec::new();
+    let mut budget = TOTAL_HEAD;
     for (name, path) in files {
         let mut head = Vec::new();
-        let read = fs::File::open(&path).and_then(|f| f.take(FILE_HEAD).read_to_end(&mut head));
-        if read.is_ok() {
+        let take = FILE_HEAD.min(budget);
+        let read = fs::File::open(&path).and_then(|f| f.take(take).read_to_end(&mut head));
+        if read.is_ok() && !head.is_empty() {
+            budget -= head.len() as u64;
             text.push_str(&String::from_utf8_lossy(&head));
-            text.push_str("\n\n");
-            used.push(name);
+            text.push_str(
+                "
+
+",
+            );
+            used.push(format!("{name} ({} bytes)", head.len()));
+        }
+        if budget == 0 {
+            break;
         }
     }
-    text.push_str(prompt);
     if used.is_empty() {
         return unchanged();
+    }
+    text.push_str(prompt);
+    if std::env::var_os("NECTRA_DEBUG").is_some() {
+        eprintln!(
+            "nectra: debug: classifying with file content: {}",
+            used.join(", ")
+        );
     }
     let note = format!("; classified with the content of {}", used.join(", "));
     (Cow::Owned(text), note)
@@ -177,8 +208,9 @@ fn classify_turn_in(
         Some(root) => with_referenced_files(prompt, root),
         None => (Cow::Borrowed(prompt), String::new()),
     };
-    // File content stays on this machine: the keyword classifier and Laya
-    // see it, Jev gets the prompt alone.
+    // Every backend classifies on the expanded text. Jev already receives
+    // full prompts, so it may see the file heads too; a local-only setup never
+    // reaches Jev (`allowed`).
     let local = || {
         let mut l = classify_local(&text, previous);
         l.why.push_str(&note);
@@ -192,7 +224,7 @@ fn classify_turn_in(
         let Some(key) = api_key(&cfg.path).filter(|_| allowed(cfg)) else {
             return local();
         };
-        ("jev", ask(prompt, previous, roles, &key, c.timeout_ms))
+        ("jev", ask(&text, previous, roles, &key, c.timeout_ms))
     };
     match answer {
         Ok(Answer {
@@ -216,7 +248,7 @@ fn classify_turn_in(
                 why: format!(
                     "{source} classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{}){}",
                     role.as_deref().map(|r| format!(", role {r}")).unwrap_or_default(),
-                    if source == "laya" { note.as_str() } else { "" }
+                    note
                 ),
                 new_task: new_task.map(|p| p >= 0.5),
                 // Only roles offered can come back; reject anything else.
@@ -533,6 +565,7 @@ mod tests {
         for prompt in [
             "why does src/router.rs panic?",
             "why does config.toml fail to parse?",
+            "why does config.toml fail to parse",
         ] {
             let c = turn(prompt, dir.path());
             assert_eq!(c.task, TaskType::Debugging, "{prompt}");
@@ -555,5 +588,66 @@ mod tests {
         assert!(note.contains("big.md"));
         assert!(text.len() <= "Read big.md".len() + 2 + FILE_HEAD as usize);
         assert!(!text.contains("architecture"));
+    }
+    #[test]
+    fn only_pointers_expand() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join(".orca-task")).unwrap();
+        for f in [
+            ".orca-task/dispatch-x.md",
+            "CHANGELOG.md",
+            "config.toml",
+            "spec.md",
+        ] {
+            fs::write(dir.path().join(f), SPEC).unwrap();
+        }
+        let expands = |p: &str| !with_referenced_files(p, dir.path()).1.is_empty();
+        assert!(expands(POINTER));
+        assert!(expands(
+            "Read .orca-task/dispatch-x.md (your Orca dispatch: preamble and TASK)... Report with orca orchestration send"
+        ));
+        assert!(expands("please implement the spec.md plan"));
+        assert!(expands("spec.md is your task"));
+        assert!(!expands("Add a release section to CHANGELOG.md"));
+        assert!(!expands("why does config.toml fail to parse"));
+        assert!(!expands("why does config.toml fail to parse?"));
+        assert!(!expands("What is in spec.md"));
+        assert!(!expands("the build broke after someone edited config.toml"));
+    }
+    #[test]
+    fn file_content_is_capped_in_total() {
+        let dir = tempfile::tempdir().unwrap();
+        for f in ["a.md", "b.md", "c.md", "d.md"] {
+            fs::write(dir.path().join(f), "y".repeat(FILE_HEAD as usize)).unwrap();
+        }
+        let prompt = "Read a.md, b.md, c.md, d.md";
+        let (text, note) = with_referenced_files(prompt, dir.path());
+        assert!(
+            text.len() <= prompt.len() + 4 + TOTAL_HEAD as usize,
+            "{}",
+            text.len()
+        );
+        assert!(note.contains("b.md") && !note.contains("c.md"), "{note}");
+    }
+    #[test]
+    fn paths_escaping_the_root_are_refused() {
+        let outside = tempfile::tempdir().unwrap();
+        let spec = outside.path().join("spec.md");
+        fs::write(&spec, SPEC).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("inside.md"), SPEC).unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let name = outside.path().file_name().unwrap().to_str().unwrap();
+        assert!(text_file_inside(&root, "inside.md").is_some());
+        for word in [
+            spec.display().to_string(),
+            format!("../{name}/spec.md"),
+            format!(r"..\{name}\spec.md"),
+            "https://example.com/spec.md".into(),
+            "//server/share/spec.md".into(),
+            r"\\server\share\spec.md".into(),
+        ] {
+            assert!(text_file_inside(&root, &word).is_none(), "{word}");
+        }
     }
 }
