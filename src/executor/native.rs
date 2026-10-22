@@ -309,8 +309,10 @@ impl Capture {
             ) {
                 return Err(error.into());
             }
+            // Claude's PreToolUse hook reports every tool before it runs.
+            let quiet = self.began && !self.work_started && self.earlier.is_empty();
             if let Some(limit) =
-                crate::limits::RateLimited::from_error(&json!({"message":self.error}), false)
+                crate::limits::RateLimited::from_error(&json!({"message":self.error}), quiet)
             {
                 return Err(limit.into());
             }
@@ -510,10 +512,20 @@ pub fn conversation_with_session(
         .tempdir()?;
     fs::write(root.path().join("context.txt"), prompt)?;
     let cmd = command(d, cfg, root.path(), session.as_deref())?;
+    let marker = root
+        .path()
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
     let mut capture = Capture::default();
-    let outcome = pane::run(cmd, &d.model, || {
+    let outcome = pane::run(cmd, &d.model, |screen| {
         capture.refresh(root.path())?;
-        Ok((capture.revision, capture.ready || !capture.error.is_empty()))
+        // Codex sits at its prompt after a usage limit: end the turn for fallback.
+        let limited = d.runtime == "codex" && screen_limit(screen, &marker).is_some();
+        Ok((
+            capture.revision + usize::from(limited),
+            capture.ready || !capture.error.is_empty() || limited,
+        ))
     })?;
     capture.refresh(root.path())?;
     if let Some(s) = session {
@@ -525,6 +537,9 @@ pub fn conversation_with_session(
         return capture.finish();
     }
     if !capture.ready {
+        if let Some(limit) = terminal_limit(&d.runtime, &outcome, &capture, &marker) {
+            return Err(limit.into());
+        }
         if let Some(error) = crate::access::ModelUnavailable::detect(&outcome.diagnostic, false) {
             return Err(error.into());
         }
@@ -559,6 +574,47 @@ pub fn conversation_with_session(
     }
     println!("\n{answer}");
     Ok(answer)
+}
+
+/// A rate or usage limit that ended a terminal-view turn without an answer.
+/// Codex's terminal view has no hook for a failed turn, so its screen is the
+/// only report; Claude's failures arrive through its StopFailure hook instead.
+fn terminal_limit(
+    runtime: &str,
+    outcome: &pane::Outcome,
+    capture: &Capture,
+    marker: &str,
+) -> Option<crate::limits::RateLimited> {
+    if runtime != "codex" || outcome.cancelled {
+        return None;
+    }
+    let mut limit = screen_limit(&outcome.diagnostic, marker)?;
+    // A completed Codex turn in this launch means its work may have run.
+    limit.safe_to_retry &= capture.revision == 0 && capture.earlier.is_empty();
+    Some(limit)
+}
+
+/// A limit in the last Codex error cell (`■ …`) below this launch's prompt,
+/// which names `marker` (its handoff directory). Codex draws every tool call
+/// and reply as a `•` cell, so none above the error means no work ran.
+fn screen_limit(screen: &str, marker: &str) -> Option<crate::limits::RateLimited> {
+    let lines: Vec<&str> = screen.lines().collect();
+    let prompt = lines.iter().rposition(|l| l.contains(marker));
+    let lines = &lines[prompt.map_or(0, |i| i + 1)..];
+    let at = lines
+        .iter()
+        .rposition(|l| l.trim_start().starts_with('■'))?;
+    let message: Vec<&str> = std::iter::once(lines[at].trim_start().trim_start_matches('■'))
+        .chain(
+            lines[at + 1..]
+                .iter()
+                .copied()
+                .take_while(|l| l.starts_with(' ') && !l.trim().is_empty()),
+        )
+        .map(str::trim)
+        .collect();
+    let quiet = prompt.is_some() && !lines[..at].iter().any(|l| l.trim_start().starts_with('•'));
+    crate::limits::RateLimited::from_error(&json!({"message": message.join(" ")}), quiet)
 }
 
 fn take_claude_settings(args: &mut Vec<OsString>) -> Result<Value> {
@@ -657,7 +713,7 @@ pub fn demo() -> Result<i32> {
         root.path().as_os_str().to_owned(),
     ]);
     let mut capture = Capture::default();
-    let outcome = pane::run(cmd, "Local test provider", || {
+    let outcome = pane::run(cmd, "Local test provider", |_| {
         capture.refresh(root.path())?;
         Ok((capture.revision, capture.ready))
     })?;
@@ -965,5 +1021,91 @@ mod access_handoff_tests {
                 .unwrap()
                 .safe_to_retry
         );
+    }
+
+    const MARKER: &str = "nectra-terminal-abc";
+    /// Codex's terminal view after its first request hit the plan's usage limit.
+    const LIMITED: &str = "› Read the UTF-8 conversation at C:/t/nectra-terminal-abc/context.txt and answer\n\n■ You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try\n  again at Oct 27th, 2026 3:04 PM.\n\n› Ask Codex to do anything\n";
+    fn ended(screen: &str, cancelled: bool) -> pane::Outcome {
+        pane::Outcome {
+            diagnostic: screen.into(),
+            success: true,
+            pending_input: false,
+            cancelled,
+        }
+    }
+
+    #[test]
+    fn a_usage_limit_on_the_codex_screen_is_a_safe_rate_limit() {
+        let capture = Capture::default();
+        let limit = terminal_limit("codex", &ended(LIMITED, false), &capture, MARKER)
+            .expect("usage limit on screen");
+        assert!(limit.safe_to_retry && limit.provider_wide);
+        assert!(limit
+            .message
+            .contains("try again at Oct 27th, 2026 3:04 PM."));
+        // Shown while the provider still waits, so the pane can end the turn.
+        assert!(screen_limit(LIMITED, MARKER).is_some());
+    }
+
+    #[test]
+    fn a_limit_after_codex_did_work_is_not_safe_to_replay() {
+        let worked = LIMITED.replace("\n\n■", "\n\n• Ran cargo build\n  └ Finished\n\n■");
+        let capture = Capture::default();
+        let limit = terminal_limit("codex", &ended(&worked, false), &capture, MARKER).unwrap();
+        assert!(!limit.safe_to_retry);
+        // Our prompt scrolled away: what ran before the error can't be seen.
+        let unseen = LIMITED.replace(MARKER, "elsewhere");
+        let limit = terminal_limit("codex", &ended(&unseen, false), &capture, MARKER).unwrap();
+        assert!(!limit.safe_to_retry);
+        // A completed Codex turn means work ran in this launch.
+        let answered = Capture {
+            revision: 1,
+            ..Capture::default()
+        };
+        let limit = terminal_limit("codex", &ended(LIMITED, false), &answered, MARKER).unwrap();
+        assert!(!limit.safe_to_retry);
+    }
+
+    #[test]
+    fn a_cancelled_turn_or_another_error_is_no_rate_limit() {
+        let capture = Capture::default();
+        assert!(terminal_limit("codex", &ended(LIMITED, true), &capture, MARKER).is_none());
+        for error in [
+            "■ stream disconnected before completion: error sending request for url",
+            "■ unexpected status 401 Unauthorized: Missing bearer authentication",
+            "■ Conversation interrupted - tell the model what to do differently.",
+        ] {
+            let screen = LIMITED.replace(
+                "■ You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try\n  again at Oct 27th, 2026 3:04 PM.",
+                error,
+            );
+            assert!(terminal_limit("codex", &ended(&screen, false), &capture, MARKER).is_none());
+        }
+        // An error from resumed history, above this launch's prompt, is not this turn's.
+        let old = format!("■ You've hit your usage limit.\n\n{LIMITED}").replace(
+            "■ You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try\n  again at Oct 27th, 2026 3:04 PM.",
+            "",
+        );
+        assert!(screen_limit(&old, MARKER).is_none());
+    }
+
+    #[test]
+    fn a_claude_limit_before_any_tool_ran_is_safe_to_replay() {
+        let mut capture = Capture {
+            began: true,
+            error: "\"rate_limit\" You've hit your limit".into(),
+            ..Capture::default()
+        };
+        let safe = |c: &Capture| {
+            c.finish()
+                .unwrap_err()
+                .downcast::<crate::limits::RateLimited>()
+                .unwrap()
+                .safe_to_retry
+        };
+        assert!(safe(&capture));
+        capture.work_started = true;
+        assert!(!safe(&capture));
     }
 }

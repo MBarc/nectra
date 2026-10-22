@@ -22,6 +22,8 @@ pub(super) struct Outcome {
     pub diagnostic: String,
     pub success: bool,
     pub pending_input: bool,
+    /// The user stopped the turn (Ctrl+] twice).
+    pub cancelled: bool,
 }
 
 thread_local! {
@@ -119,10 +121,11 @@ fn allocate(rows: u16) -> Result<u16> {
 /// Provider silence longer than this, mid-turn, means it is waiting on the user.
 const QUIET: Duration = Duration::from_secs(3);
 
+/// `completion` sees the provider's screen and returns (revision, finished).
 pub(super) fn run(
     cmd: CommandBuilder,
     model: &str,
-    mut completion: impl FnMut() -> Result<(usize, bool)>,
+    mut completion: impl FnMut(&str) -> Result<(usize, bool)>,
 ) -> Result<Outcome> {
     let (mut cols, mut rows) = size()?;
     let pair = native_pty_system().openpty(pty_size(cols, rows))?;
@@ -182,6 +185,7 @@ pub(super) fn run(
     let mut leave = false;
     let mut dirty = true;
     let mut confirm_cancel = false;
+    let mut cancelled = false;
     let mut typed = String::new();
     let mut draft = super::draft::Draft::default();
     let mut provider_input = false;
@@ -221,7 +225,7 @@ pub(super) fn run(
                 }
             }
             if last_capture.elapsed() >= Duration::from_millis(100) {
-                let (new_revision, new_ready) = completion()?;
+                let (new_revision, new_ready) = completion(&parser.screen().contents())?;
                 if new_revision != revision {
                     revision = new_revision;
                     ready = new_ready;
@@ -338,14 +342,16 @@ pub(super) fn run(
                         || exit_time.is_some_and(|t| t.elapsed() > Duration::from_millis(500))))
             {
                 // Pick up the final hook notification before deciding whether a reply exists.
-                let (new_revision, new_ready) = completion()?;
+                let screen = parser.screen().contents();
+                let (new_revision, new_ready) = completion(&screen)?;
                 if new_revision != revision {
                     pending_input = !new_ready;
                 }
                 return Ok(Outcome {
-                    diagnostic: parser.screen().contents(),
+                    diagnostic: screen,
                     success: leave || exited == Some(true),
                     pending_input,
+                    cancelled,
                 });
             }
             if event::poll(Duration::from_millis(15))? {
@@ -374,6 +380,7 @@ pub(super) fn run(
                             && key.modifiers.contains(KeyModifiers::CONTROL)
                         {
                             if (ready && !pending_input) || confirm_cancel {
+                                cancelled = confirm_cancel;
                                 leave = true;
                             } else {
                                 confirm_cancel = true;

@@ -41,7 +41,10 @@ struct Mock {
     fail_next: bool,
     limit_all: bool,
     limit_anthropic: bool,
+    /// The limit states no cooldown worth keeping (a 0 s retry-after).
+    brief_limit: bool,
     started_work: bool,
+    cancel: bool,
 }
 impl Backend for Mock {
     fn take_queued_messages(&mut self) -> Vec<String> {
@@ -85,10 +88,13 @@ impl Backend for Mock {
             return Err(nectra::limits::RateLimited {
                 message: "usage limit reached".into(),
                 provider_wide: true,
-                retry_after: std::time::Duration::from_secs(60),
+                retry_after: std::time::Duration::from_secs(if self.brief_limit { 0 } else { 60 }),
                 safe_to_retry: !self.started_work,
             }
             .into());
+        }
+        if self.cancel {
+            bail!("Turn cancelled; partial output was not saved or replayed.");
         }
         if self.fail_next {
             self.fail_next = false;
@@ -200,6 +206,78 @@ fn rate_limits_fail_over_and_keep_context() {
     assert!(backend.models[1..].iter().all(|m| m.starts_with("gpt-")));
     assert_eq!(backend.prompts[0], backend.prompts[1]);
     assert_eq!(session.exchanges.len(), 2);
+}
+
+#[test]
+fn a_rate_limited_provider_is_skipped_for_the_rest_of_the_session() {
+    let (dir, cfg, reg) = fixture();
+    let mut session = Session::create(&dir.path().join("limits.jsonl"), dir.path()).unwrap();
+    // The cooldown alone expires at once: only the session keeps it skipped.
+    let mut backend = Mock {
+        limit_anthropic: true,
+        brief_limit: true,
+        ..Default::default()
+    };
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new(
+            "hello
+hello again
+/quit
+",
+        ),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models.len(), 3, "{:?}", backend.models);
+    assert_eq!(backend.models[0], "haiku");
+    assert!(backend.models[1..].iter().all(|m| m.starts_with("gpt-")));
+    assert_eq!(session.exchanges.len(), 2);
+    let output = String::from_utf8(output).unwrap();
+    let skipped: Vec<&str> = output
+        .lines()
+        .filter(|l| l.starts_with("Skipped haiku"))
+        .collect();
+    assert_eq!(skipped.len(), 1, "{output}");
+    assert!(
+        skipped[0].contains("rate limited") && skipped[0].contains(&backend.models[1]),
+        "{}",
+        skipped[0]
+    );
+}
+
+#[test]
+fn a_cancelled_or_failed_turn_does_not_fall_back() {
+    for (cancel, fail_next) in [(true, false), (false, true)] {
+        let (dir, cfg, reg) = fixture();
+        let mut session = Session::create(&dir.path().join("fail.jsonl"), dir.path()).unwrap();
+        let mut backend = Mock {
+            cancel,
+            fail_next,
+            ..Default::default()
+        };
+        chat::run_loop(
+            &cfg,
+            &reg,
+            options(),
+            &mut session,
+            &mut Cursor::new(
+                "hello
+/quit
+",
+            ),
+            &mut vec![],
+            &mut backend,
+        )
+        .unwrap();
+        assert_eq!(backend.models, ["haiku"]);
+        assert!(session.exchanges.is_empty());
+    }
 }
 
 #[test]

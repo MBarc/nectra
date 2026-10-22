@@ -266,6 +266,9 @@ pub fn run_loop(
             let _ = cooldowns.persist(path);
         }
     };
+    // A limit hit in this chat holds for the rest of it, however soon the
+    // provider says it resets: walking back into it costs the user a turn.
+    let mut session_limits = crate::limits::Cooldowns::default();
     let mut needs_login: Vec<String> = vec![];
     let mut denied_models = std::collections::HashSet::<String>::new();
     let mut successful_models = std::collections::HashSet::<String>::new();
@@ -452,6 +455,18 @@ pub fn run_loop(
                                 "{} ({}) — login required; /login {}",
                                 model.id,
                                 model.provider.as_str(),
+                                model.provider.as_str()
+                            )?;
+                            continue;
+                        }
+                        if session_limits
+                            .remaining(&model.id, model.provider.as_str())
+                            .is_some()
+                        {
+                            writeln!(
+                                output,
+                                "{} ({}) — rate limited; skipped for this session",
+                                model.id,
                                 model.provider.as_str()
                             )?;
                             continue;
@@ -649,7 +664,8 @@ pub fn run_loop(
                     && (!backend.available(m.runtime, cfg)
                         || denied_models.contains(id)
                         || needs_login.iter().any(|p| p == m.provider.as_str())
-                        || cooldowns.remaining(id, m.provider.as_str()).is_some())
+                        || cooldowns.remaining(id, m.provider.as_str()).is_some()
+                        || session_limits.remaining(id, m.provider.as_str()).is_some())
             }) {
                 writeln!(
                     output,
@@ -660,6 +676,8 @@ pub fn run_loop(
             }
         }
         let mut limited_provider: Option<String> = None;
+        // The model a rate limit just skipped, and why; told with its replacement.
+        let mut skipped: Option<String> = None;
         // One classification per message, reused by retries.
         let previous = session.exchanges.last();
         let roles =
@@ -700,11 +718,17 @@ pub fn run_loop(
                     .filter(|m| {
                         !attempted.contains(&m.id)
                             && cooldowns.remaining(&m.id, m.provider.as_str()).is_none()
+                            && session_limits
+                                .remaining(&m.id, m.provider.as_str())
+                                .is_none()
                     })
                     .cloned()
                     .collect(),
             };
             if available.models.is_empty() {
+                if let Some(skipped) = skipped.take() {
+                    writeln!(output, "{skipped}.")?;
+                }
                 writeln!(
                 output,
                 "No eligible model is available right now. The session remains open; use /models to see cooldowns and try again when capacity returns."
@@ -846,6 +870,9 @@ pub fn run_loop(
             } else if requested_model.is_none() && options.model.as_ref() == Some(&decision.model) {
                 why = format!("{kind} · pinned with /model");
             }
+            if let Some(skipped) = skipped.take() {
+                writeln!(output, "{skipped}; {} runs instead.", decision.model)?;
+            }
             writeln!(
                 output,
                 "\n{} ({}) · {why}> ",
@@ -978,27 +1005,41 @@ pub fn run_loop(
                         continue 'messages;
                     }
                     if let Some(limit) = error.downcast_ref::<crate::limits::RateLimited>() {
+                        // Persisted until the stated reset; held for this chat regardless.
                         cooldowns.record(&decision.model, &decision.provider, limit);
                         remember(&cooldowns);
-                        limited_provider = Some(decision.provider.clone());
-                        writeln!(
-                            output,
-                            "\n{} rate limited; {} cooldown for {}s.",
-                            decision.model,
-                            if limit.provider_wide {
-                                "provider"
-                            } else {
-                                "model"
+                        session_limits.record(
+                            &decision.model,
+                            &decision.provider,
+                            &crate::limits::RateLimited {
+                                message: limit.message.clone(),
+                                provider_wide: limit.provider_wide,
+                                retry_after: std::time::Duration::from_secs(365 * 86400),
+                                safe_to_retry: limit.safe_to_retry,
                             },
-                            limit.retry_after.as_secs()
-                        )?;
+                        );
+                        limited_provider = Some(decision.provider.clone());
+                        let scope = if limit.provider_wide {
+                            &decision.provider
+                        } else {
+                            &decision.model
+                        };
+                        let why = format!(
+                            "Skipped {}: {scope} rate limited, unavailable for this session",
+                            decision.model
+                        );
+                        // Only when no work ran: the same context goes to the next
+                        // eligible model, with selections relaxed for this turn.
                         if limit.safe_to_retry {
                             turn_model = None;
                             turn_provider = None;
-                            writeln!(output, "Trying an available alternative with the same conversation context; unavailable model/provider selections are relaxed for this turn.")?;
+                            skipped = Some(why);
                             continue;
                         }
-                        writeln!(output, "Work already started, so this message was not replayed. Future messages will avoid the limited models.")?;
+                        writeln!(
+                            output,
+                            "\n{why}. Work already started, so this message was not replayed."
+                        )?;
                         continue 'messages;
                     }
                     writeln!(output, "\nTurn failed: {error:#}\nThe session remains open. You can choose another model and send a new message.")?;

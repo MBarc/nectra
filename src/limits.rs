@@ -109,11 +109,14 @@ impl RateLimited {
                     .as_secs();
                 Some(reset.saturating_sub(now))
             })
-            // ponytail: a plan's usage limit lasts hours and Codex states its reset
-            // as a local clock time ("try again at 10:53 PM"), which needs a
-            // time-zone library to parse; re-probing hourly beats every minute.
+            // ponytail: a reset stated as a clock time alone ("try again at
+            // 10:53 PM") is within a day; re-probing hourly beats every minute.
+            .or_else(|| {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?;
+                reset_in(&message, now.as_secs()).map(|s| s.max(3600))
+            })
             .unwrap_or(if exhausted { 3600 } else { 60 })
-            .clamp(1, 86400);
+            .clamp(1, MAX_COOLDOWN);
         Some(Self {
             message,
             provider_wide,
@@ -121,6 +124,65 @@ impl RateLimited {
             safe_to_retry,
         })
     }
+}
+
+/// A weekly plan limit, with a day to spare.
+const MAX_COOLDOWN: u64 = 8 * 86400;
+
+/// Seconds until a reset Codex states as a date: "try again at Oct 27th, 2026 3:04 PM".
+///
+/// ponytail: the time is the user's local time and no time-zone library is
+/// here, so this is the earliest instant that wall-clock time occurs anywhere
+/// (UTC+14). Up to a day early, never late: an early re-probe just meets the
+/// limit and falls back again, while a late one locks out a provider that works.
+fn reset_in(message: &str, now: u64) -> Option<u64> {
+    const MONTHS: [&str; 12] = [
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    ];
+    let lower = message.to_lowercase();
+    let rest = lower.split("try again at ").nth(1)?;
+    let mut words = rest
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|w| !w.is_empty());
+    let first = words.next()?;
+    let month = MONTHS.iter().position(|m| first.starts_with(m))? as i64 + 1;
+    let day: i64 = words
+        .next()?
+        .trim_end_matches(|c: char| c.is_alphabetic() || c == '.')
+        .parse()
+        .ok()?;
+    let (mut year, mut minutes) = (None, 0);
+    for word in words.take(3).map(|w| w.trim_end_matches('.')) {
+        if let Some((h, m)) = word.split_once(':') {
+            minutes = h.parse::<i64>().ok()? % 12 * 60 + m.parse::<i64>().ok()?;
+        } else if word == "pm" {
+            minutes += 720;
+        } else if word.len() == 4 && word.parse::<i64>().is_ok() {
+            year = word.parse().ok();
+        } else if word != "am" {
+            break;
+        }
+    }
+    let now = now as i64;
+    let at = |y| days_from_civil(y, month, day) * 86400 + minutes * 60 - 14 * 3600;
+    // No year: the next such date, allowing for today's being underway.
+    let approx = 1970 + now / 31_556_952;
+    let at = match year {
+        Some(y) => at(y),
+        None => (approx - 1..=approx + 1)
+            .map(at)
+            .find(|t| t + 2 * 86400 > now)?,
+    };
+    Some(at.saturating_sub(now).max(0) as u64)
+}
+
+/// Days since 1970-01-01 of a proleptic Gregorian date (Howard Hinnant's algorithm).
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * ((m + 9) % 12) + 2) / 5 + d - 1;
+    era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468
 }
 
 #[cfg(test)]
@@ -169,6 +231,38 @@ mod tests {
             cooldown("Rate limit reached for organization org-1 on tokens per min"),
             60
         );
+    }
+
+    #[test]
+    fn a_stated_reset_date_is_parsed() {
+        // 2026-10-22T12:00:00Z; Codex states the reset in local time, so the
+        // estimate is the earliest instant that wall-clock time occurs (UTC+14).
+        let now = 1_792_670_400;
+        let early = 14 * 3600;
+        assert_eq!(
+            reset_in("You've hit your usage limit ... try again at Oct 27th", now),
+            Some(1_793_059_200 - early - now)
+        );
+        assert_eq!(
+            reset_in(
+                "You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try again at Oct 27th, 2026 3:04 PM.",
+                now
+            ),
+            Some(1_793_113_440 - early - now)
+        );
+        // No year: the next one, across the new year.
+        assert_eq!(
+            reset_in("try again at Jan 2nd", 1_793_059_200 + 60 * 86400),
+            Some(1_798_848_000 - early - (1_793_059_200 + 60 * 86400))
+        );
+        // A clock time alone keeps the hourly re-probe.
+        assert_eq!(reset_in("Try again at 10:53 PM.", now), None);
+        let limit = RateLimited::from_error(
+            &serde_json::json!({"message": "You've hit your usage limit. Try again at Dec 30th, 2999 1:00 PM."}),
+            true,
+        )
+        .unwrap();
+        assert_eq!(limit.retry_after.as_secs(), MAX_COOLDOWN);
     }
 
     #[test]
