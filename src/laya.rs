@@ -878,6 +878,11 @@ Connection: close
         let pins = [("one", "", ""), ("two", "", "")];
         let files: Vec<&Pin> = pins.iter().collect();
         let mode = |p: &Path, m| fs::set_permissions(p, fs::Permissions::from_mode(m)).unwrap();
+        // Explicit modes: the umask (0002 on some machines) must not decide.
+        for name in ["one", "two", STAMP] {
+            mode(&sealed.join(name), 0o644);
+        }
+        mode(&sealed.join("tokenizer"), 0o755);
         mode(&sealed, 0o755);
         mode(top.path(), 0o755);
         // `me` stands in for root: sealed, so trusted.
