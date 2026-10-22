@@ -11,7 +11,9 @@ use crate::{
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use std::{
+    borrow::Cow,
     fs,
+    io::Read,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -81,11 +83,111 @@ pub fn classify_turn(
     cfg: &Config,
     roles: &[Role],
 ) -> Classification {
-    let local = || classify_local(prompt, previous);
+    let cwd = std::env::current_dir().ok();
+    classify_turn_in(prompt, previous, cfg, roles, cwd.as_deref())
+}
+
+/// How much of each pointed-at file classification reads, and how many files.
+const FILE_HEAD: u64 = 4096;
+const MAX_FILES: usize = 4;
+
+/// A prompt that hands over its task as a local text file ("Read
+/// .orca-task/dispatch.md, it is your task") classifies on that file, not on
+/// the pointer sentence. Returns the head of each such file, then the prompt,
+/// plus a note for the routing reason (empty when nothing was read).
+///
+/// Conservative: only .md/.txt/.toml/.json regular files inside `root`, named
+/// right after read/follow/see/open or in a short prompt that is not a
+/// question, so "why does config.toml fail to parse?" still classifies on its
+/// own words. Never follows URLs, network paths or symlinks.
+fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String) {
+    let unchanged = || (Cow::Borrowed(prompt), String::new());
+    let Ok(root) = fs::canonicalize(root) else {
+        return unchanged();
+    };
+    let short_order = prompt.len() < 400 && !prompt.trim_end().ends_with('?');
+    let words: Vec<&str> = prompt.split_whitespace().collect();
+    let mut files: Vec<(String, PathBuf)> = Vec::new();
+    for (i, raw) in words.iter().enumerate() {
+        let word = raw
+            .trim_matches(|c: char| "\"'`()[]<>,;:!?*".contains(c))
+            .trim_end_matches('.');
+        let after_verb = i > 0
+            && matches!(
+                words[i - 1].to_lowercase().as_str(),
+                "read" | "follow" | "see" | "open"
+            );
+        if !(after_verb || short_order) || files.len() == MAX_FILES {
+            continue;
+        }
+        if let Some(real) = text_file_inside(&root, word) {
+            if !files.iter().any(|(_, p)| *p == real) {
+                files.push((word.to_string(), real));
+            }
+        }
+    }
+    // The file goes first: it is the task, and Laya reads the opening most.
+    let mut text = String::new();
+    let mut used = Vec::new();
+    for (name, path) in files {
+        let mut head = Vec::new();
+        let read = fs::File::open(&path).and_then(|f| f.take(FILE_HEAD).read_to_end(&mut head));
+        if read.is_ok() {
+            text.push_str(&String::from_utf8_lossy(&head));
+            text.push_str("\n\n");
+            used.push(name);
+        }
+    }
+    text.push_str(prompt);
+    if used.is_empty() {
+        return unchanged();
+    }
+    let note = format!("; classified with the content of {}", used.join(", "));
+    (Cow::Owned(text), note)
+}
+
+/// `word` as a regular text file under `root` (already canonical), or None.
+fn text_file_inside(root: &Path, word: &str) -> Option<PathBuf> {
+    // URLs and network paths are never touched.
+    if word.contains("://") || word.starts_with("//") || word.starts_with("\\\\") {
+        return None;
+    }
+    let ext = Path::new(word).extension()?.to_str()?.to_ascii_lowercase();
+    if !["md", "txt", "toml", "json"].contains(&ext.as_str()) {
+        return None;
+    }
+    let path = root.join(word);
+    // A symlink is not a regular file here; canonicalize then catches ".."
+    // and absolute paths that leave the working directory.
+    if !fs::symlink_metadata(&path).ok()?.is_file() {
+        return None;
+    }
+    let real = fs::canonicalize(&path).ok()?;
+    real.starts_with(root).then_some(real)
+}
+
+fn classify_turn_in(
+    prompt: &str,
+    previous: Option<&str>,
+    cfg: &Config,
+    roles: &[Role],
+    root: Option<&Path>,
+) -> Classification {
+    let (text, note) = match root {
+        Some(root) => with_referenced_files(prompt, root),
+        None => (Cow::Borrowed(prompt), String::new()),
+    };
+    // File content stays on this machine: the keyword classifier and Laya
+    // see it, Jev gets the prompt alone.
+    let local = || {
+        let mut l = classify_local(&text, previous);
+        l.why.push_str(&note);
+        l
+    };
     let c = &cfg.inner.classifier;
     // The local model runs on this machine, so even a local-only setup may use it.
     let (source, answer) = if c.backend == ClassifierBackend::Laya {
-        ("laya", crate::laya::ask(prompt, previous, roles, cfg))
+        ("laya", crate::laya::ask(&text, previous, roles, cfg))
     } else {
         let Some(key) = api_key(&cfg.path).filter(|_| allowed(cfg)) else {
             return local();
@@ -112,8 +214,9 @@ pub fn classify_turn(
                 req: classifier::requirements(task),
                 tier: Some(tier),
                 why: format!(
-                    "{source} classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{})",
-                    role.as_deref().map(|r| format!(", role {r}")).unwrap_or_default()
+                    "{source} classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{}){}",
+                    role.as_deref().map(|r| format!(", role {r}")).unwrap_or_default(),
+                    if source == "laya" { note.as_str() } else { "" }
                 ),
                 new_task: new_task.map(|p| p >= 0.5),
                 // Only roles offered can come back; reject anything else.
@@ -365,5 +468,92 @@ mod tests {
         let c = classify("debug this failing race condition", &cfg);
         assert_eq!(c.task, TaskType::Debugging);
         assert!(c.tier.is_none() && c.why.starts_with("local heuristic"));
+    }
+
+    const SPEC: &str =
+        "Design the system architecture: components, data model and the scalability tradeoffs.";
+    const POINTER: &str =
+        "Read .orca-task/dispatch-x.md (your Orca dispatch: preamble and TASK). Report with orca orchestration send";
+
+    fn turn(prompt: &str, root: &Path) -> Classification {
+        std::env::remove_var(KEY_ENV);
+        classify_turn_in(
+            prompt,
+            None,
+            &Config::from_defaults().unwrap(),
+            &[],
+            Some(root),
+        )
+    }
+
+    #[test]
+    fn a_pointer_to_a_spec_classifies_as_the_spec() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join(".orca-task")).unwrap();
+        fs::write(dir.path().join(".orca-task/dispatch-x.md"), SPEC).unwrap();
+        let alone = classify_local(POINTER, None).task;
+        assert_ne!(alone, TaskType::Architecture);
+        let c = turn(POINTER, dir.path());
+        assert_eq!(c.task, TaskType::Architecture);
+        assert!(c.why.contains("dispatch-x.md"), "{}", c.why);
+    }
+    #[test]
+    fn files_outside_the_working_directory_are_ignored() {
+        let outside = tempfile::tempdir().unwrap();
+        let spec = outside.path().join("spec.md");
+        fs::write(&spec, SPEC).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let abs = format!("Read {} and do it", spec.display());
+        let rel = format!(
+            "Read ../{}/spec.md and do it",
+            outside.path().file_name().unwrap().to_str().unwrap()
+        );
+        for prompt in [abs, rel] {
+            let c = turn(&prompt, dir.path());
+            assert_eq!(c.task, classify_local(&prompt, None).task, "{prompt}");
+            assert!(!c.why.contains("spec.md"), "{}", c.why);
+        }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_files_are_ignored() {
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(outside.path().join("spec.md"), SPEC).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        std::os::unix::fs::symlink(outside.path().join("spec.md"), dir.path().join("spec.md"))
+            .unwrap();
+        assert!(!turn("Read spec.md", dir.path()).why.contains("spec.md"));
+    }
+    #[test]
+    fn a_question_about_a_file_classifies_on_the_prompt() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("src")).unwrap();
+        fs::write(dir.path().join("src/router.rs"), SPEC).unwrap();
+        fs::write(dir.path().join("config.toml"), SPEC).unwrap();
+        for prompt in [
+            "why does src/router.rs panic?",
+            "why does config.toml fail to parse?",
+        ] {
+            let c = turn(prompt, dir.path());
+            assert_eq!(c.task, TaskType::Debugging, "{prompt}");
+            assert!(c.why.starts_with("local heuristic") && !c.why.contains("content of"));
+        }
+    }
+    #[test]
+    fn a_missing_file_falls_back_to_the_prompt() {
+        let dir = tempfile::tempdir().unwrap();
+        let c = turn(POINTER, dir.path());
+        assert_eq!(c.task, classify_local(POINTER, None).task);
+        assert!(!c.why.contains("content of"));
+    }
+    #[test]
+    fn oversized_files_are_truncated() {
+        let dir = tempfile::tempdir().unwrap();
+        let big = format!("{}{SPEC}", "x".repeat(FILE_HEAD as usize));
+        fs::write(dir.path().join("big.md"), big).unwrap();
+        let (text, note) = with_referenced_files("Read big.md", dir.path());
+        assert!(note.contains("big.md"));
+        assert!(text.len() <= "Read big.md".len() + 2 + FILE_HEAD as usize);
+        assert!(!text.contains("architecture"));
     }
 }
