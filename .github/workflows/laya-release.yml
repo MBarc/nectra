@@ -52,7 +52,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          [[ "$TAG" =~ ^laya-model-[0-9]+$ ]] || { echo "TAG must be laya-model-N, got $TAG"; exit 1; }
+          [[ "$TAG" =~ ^laya-model-[0-9]+(-alpha\.[0-9]+)?$ ]] || { echo "TAG must be laya-model-N[-alpha.M], got $TAG"; exit 1; }
           if gh release view "$TAG" >/dev/null 2>&1; then echo "$TAG is already released"; exit 1; fi
       - name: Fetch the staged model
         env:

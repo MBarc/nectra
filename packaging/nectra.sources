@@ -1,0 +1,7 @@
+# /etc/apt/sources.list.d/nectra.sources
+# Suite `alpha` gets prereleases and stable releases; `stable` only the latter.
+Types: deb
+URIs: https://mbarc.github.io/nectra/apt
+Suites: alpha
+Components: main
+Signed-By: /usr/share/keyrings/nectra-archive-keyring.gpg

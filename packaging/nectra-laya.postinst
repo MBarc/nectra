@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# The model is ~700 MB, so it is downloaded here rather than shipped in the deb.
+# No network: this fails, the package stays unconfigured, and apt retries it.
+# Run as root, the fetch hashes every file against its pin and writes the
+# stamp that lets each load skip re-hashing 700 MB (docs/design/LAYA-MEMORY.md).
+if [ "$1" = configure ]; then
+    nectra classifier fetch --dir /usr/lib/nectra/laya
+fi

@@ -17,8 +17,8 @@ from pathlib import Path
 
 # One (path in the model directory, release asset, sha256) tuple of src/laya.rs.
 PIN = re.compile(r'\(\s*"([^"]+)",\s*"([^"]+)",\s*"([0-9a-f]{64})",?\s*\)')
-TAG = re.compile(r"laya-model-[0-9]+")
-RELEASE = re.compile(r'(releases/download/)laya-model-[0-9]+(")')
+TAG = re.compile(r"laya-model-[0-9]+(-alpha\.[0-9]+)?")
+RELEASE = re.compile(r'(releases/download/)laya-model-[0-9]+(?:-alpha\.[0-9]+)?(")')
 
 
 def pins(text):

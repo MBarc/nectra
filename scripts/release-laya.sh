@@ -17,8 +17,8 @@ case "${1:-}" in --dry-run) mode=dry; shift;; --stage-only) mode=stage; shift;; 
 [ $# -ge 3 ] || { sed -n '3,4p' "$0" >&2; exit 2; }
 model=$1 ort=$2 tag=$3 stage=${4:-$(mktemp -d)}
 src="$(dirname "$0")/../src/laya.rs"
-case "$tag" in laya-model-[0-9]*) ;; *) echo "TAG must be laya-model-N" >&2; exit 1;; esac
-release=$(grep -o 'releases/download/laya-model-[0-9]*' "$src" | sed 's|.*/||')
+[[ "$tag" =~ ^laya-model-[0-9]+(-alpha\.[0-9]+)?$ ]] || { echo "TAG must be laya-model-N or laya-model-N-alpha.M" >&2; exit 1; }
+release=$(grep -o 'releases/download/laya-model-[^"]*' "$src" | sed 's|.*/||')
 [ "$release" = "$tag" ] || { echo "src/laya.rs downloads from $release, not $tag; change RELEASE first" >&2; exit 1; }
 sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | awk '{print $1}'; }
 run() { printf '%q ' "$@"; echo; [ $mode = dry ] || "$@"; }
@@ -40,4 +40,5 @@ echo "(cd $(printf '%q' "$stage") && sha256sum -- ${assets[*]##*/} > SHA256SUMS)
 [ $mode = dry ] || (cd "$stage" && for a in "${assets[@]##*/}"; do echo "$(sha256 "$a")  $a"; done > SHA256SUMS)
 gh=(gh release create "$tag" --repo MBarc/nectra --title "Laya model ${tag#laya-model-}"
   --notes-file "$(dirname "$0")/../tools/laya/MODEL_CARD.md" "${assets[@]}" "$stage/SHA256SUMS")
+case "$tag" in *-alpha.*) gh+=(--prerelease);; esac
 if [ $mode = run ]; then run "${gh[@]}"; else printf '%q ' "${gh[@]}"; echo; fi

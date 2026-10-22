@@ -103,9 +103,11 @@ The pins in the binary say what the right files are; hashing them proves the fil
 about 8 s on a small machine, so it is done once and remembered in `<model dir>/.nectra-verified.json`: for each file its pin,
 size and modification time at the moment it was fully hashed.
 
-- **Written** by `nectra classifier laya` only when it runs as root (a user-written stamp would never be trusted), after it has downloaded and hashed everything, and by
+- **Written** only by a process running as root (a user-written stamp would never be trusted), after every file has been
+  hashed against its pin: `nectra classifier laya` and `nectra classifier fetch --dir <dir>` after downloading, and
   `nectra classifier laya --model-dir <dir> --verify-only`, which hashes the files already in `<dir>`, downloads nothing and
-  leaves the configuration alone. A `nectra-laya` package's post-install step should run the second form as root.
+  leaves the configuration alone. The `nectra-laya` package's postinst runs `classifier fetch --dir /usr/lib/nectra/laya` as
+  root, so it writes the stamp with no separate verify step; `--verify-only` is for files put in place by other means.
 - **Trusted on load only when root alone can have changed anything:** the directory, `tokenizer/`, the stamp and every pinned
   file are owned by uid 0, are not group- or world-writable, and are regular files (no symlinks). Then a file whose pin, size
   file are owned by uid 0, are not group- or world-writable (and every parent up to /, via the canonical path the load then uses, is root-owned and not writable by others unless sticky), and are regular files (no symlinks). Then a file whose pin, size

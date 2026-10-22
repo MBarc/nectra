@@ -18,6 +18,16 @@ pub enum ProviderArg {
     Google,
 }
 
+#[derive(Subcommand, Debug, Clone)]
+pub enum ClassifierCommands {
+    /// Download the Laya model into DIR and check every file against the
+    /// hashes built into this binary; changes no config (the nectra-laya package).
+    Fetch {
+        #[arg(long)]
+        dir: PathBuf,
+    },
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "nectra",
@@ -92,15 +102,18 @@ pub enum Commands {
     /// Choose how messages are classified: `laya` downloads a free local model
     /// (about 750 MB, nothing leaves the machine), `auto` uses Jev when a
     /// TypeSafe key is set, `keywords` uses keywords only.
+    #[command(args_conflicts_with_subcommands = true, subcommand_negates_reqs = true)]
     Classifier {
-        #[arg(value_enum)]
-        backend: crate::config::ClassifierBackend,
+        #[arg(value_enum, required = true)]
+        backend: Option<crate::config::ClassifierBackend>,
+        #[command(subcommand)]
+        command: Option<ClassifierCommands>,
         /// With `laya`: use this model directory instead of `classifier.model_dir`.
         #[arg(long)]
         model_dir: Option<PathBuf>,
         /// With `laya`: hash every file already in the model directory against its
         /// pin and write the verification stamp. Downloads nothing and leaves the
-        /// configuration alone; for a package's post-install step, run as root.
+        /// configuration alone; run as root, since only root's stamp is trusted.
         #[arg(long)]
         verify_only: bool,
     },

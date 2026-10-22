@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use nectra::{
     chat,
-    cli::{Cli, Commands},
+    cli::{ClassifierCommands, Cli, Commands},
     config, executor, models, router,
 };
 use serde::{Deserialize, Serialize};
@@ -54,16 +54,23 @@ fn app() -> Result<i32> {
     });
     if let Some(Commands::Classifier {
         backend,
+        command,
         model_dir,
         verify_only,
     }) = &cli.command
     {
-        nectra::setup::classifier_setup(
-            cli.config.as_deref(),
-            *backend,
-            model_dir.as_deref(),
-            *verify_only,
-        )?;
+        match (backend, command) {
+            (_, Some(ClassifierCommands::Fetch { dir })) => {
+                nectra::laya::fetch_to(dir, &mut nectra::terminal::stdout())?
+            }
+            (Some(backend), None) => nectra::setup::classifier_setup(
+                cli.config.as_deref(),
+                *backend,
+                model_dir.as_deref(),
+                *verify_only,
+            )?,
+            (None, None) => unreachable!("clap requires a backend"),
+        }
         return Ok(0);
     }
     if let Some(Commands::Ollama {
