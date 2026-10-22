@@ -3,9 +3,12 @@
 
     python scripts/update_laya_pins.py laya-model-N SHA256SUMS [--src src/laya.rs]
 
-Sets RELEASE to the tag and every pinned sha256 to the one SHA256SUMS lists for
-that asset. Refuses, changing nothing, if the tag is malformed, an asset the
-source pins is missing from SHA256SUMS, or a hash isn't 64 hex digits.
+Sets RELEASE to the tag and the model files' sha256 (model*, tokenizer/*,
+rl_agent_config.json) to the ones SHA256SUMS lists. The ONNX Runtime binaries
+and ONNXRUNTIME-LICENSE are not retrained, so their SHA256SUMS entries must match
+the existing pins. Refuses, changing nothing, if the tag is malformed, an asset
+the source pins is missing from SHA256SUMS, a hash isn't 64 hex digits, or a
+runtime file's hash differs from its pin.
 """
 import argparse
 import re
@@ -23,6 +26,11 @@ def pins(text):
     return PIN.findall(text)
 
 
+def repinnable(path):
+    """Only the retrained files may change; the runtime and its license are pinned for good."""
+    return path.startswith(("model", "tokenizer/")) or path == "rl_agent_config.json"
+
+
 def read_sums(path):
     sums = {}
     for line in Path(path).read_text(encoding="utf-8").splitlines():
@@ -38,12 +46,16 @@ def read_sums(path):
 def update(text, tag, sums):
     if not TAG.fullmatch(tag):
         sys.exit(f"tag must be laya-model-N, got {tag!r}")
-    assets = {asset for _, asset, _ in pins(text)}
-    if not assets:
+    current = pins(text)
+    if not current:
         sys.exit("found no pinned assets in the source")
-    missing = sorted(assets - sums.keys())
+    missing = sorted({asset for _, asset, _ in current} - sums.keys())
     if missing:
         sys.exit(f"SHA256SUMS has no entry for: {', '.join(missing)}")
+    changed = sorted(asset for path, asset, sha in current if not repinnable(path) and sums[asset] != sha)
+    if changed:
+        sys.exit(f"runtime files differ from their pins (only the model may be repinned): {', '.join(changed)}")
+    assets = {asset for path, asset, _ in current if repinnable(path)}
     text, n = RELEASE.subn(rf"\g<1>{tag}\g<2>", text)
     if n != 1:
         sys.exit(f"expected one RELEASE url, found {n}")
@@ -63,4 +75,4 @@ if __name__ == "__main__":
     a = p.parse_args()
     src = Path(a.src)
     src.write_text(update(src.read_text(encoding="utf-8"), a.tag, read_sums(a.sums)), encoding="utf-8", newline="\n")
-    print(f"{src}: RELEASE -> {a.tag}, {len(pins(src.read_text(encoding='utf-8')))} pins updated")
+    print(f"{src}: RELEASE -> {a.tag}, model pins updated")

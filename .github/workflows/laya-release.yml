@@ -5,10 +5,16 @@
 # Upload its output as a *staging* release named laya-staging-N, every asset
 # under the name src/laya.rs downloads (see tools/laya/README.md, "Publishing"):
 #   gh release create laya-staging-N --prerelease --title "Laya staging N" <assets...>
-# Then run this workflow with model_tag laya-model-N (or push that tag). It gates
-# the model on a held-out set, creates the laya-model-N release from the staged
-# files with scripts/release-laya.sh, and opens the pin-update PR. Needs
+# Then run this workflow with model_tag laya-model-N. It gates the model on a
+# held-out set, opens the pin-update PR, and only then creates the laya-model-N
+# release from the staged files with scripts/release-laya.sh. Needs
 # Settings > Actions > "Allow GitHub Actions to create pull requests".
+#
+# workflow_dispatch only: a tag-push trigger would run the workflow file as it
+# is at the tagged commit, so anyone who can push a tag could run modified
+# steps with write permissions. Third-party actions are pinned by commit, and
+# GH_TOKEN is set only on the steps that call gh or git push, so the toolchain
+# action and every build.rs run without it.
 name: laya-release
 on:
   workflow_dispatch:
@@ -22,28 +28,35 @@ on:
       min_accuracy:
         description: Accuracy floor, on top of the current model's (0 = current model only)
         default: "0"
-  push:
-    tags: ["laya-model-*"]
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 env:
-  TAG: ${{ inputs.model_tag || github.ref_name }}
-  GH_TOKEN: ${{ github.token }}
+  TAG: ${{ inputs.model_tag }}
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Permissions are per job; the token reaches only the steps that set GH_TOKEN.
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # A tag push checks out the tag; the PR must be cut from the default branch.
+          # The PR is cut from the default branch, whatever branch the run was started on.
           ref: ${{ github.event.repository.default_branch }}
-      - uses: dtolnay/rust-toolchain@stable
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          # Pinned by commit, the action can't read the toolchain from its ref.
+          toolchain: stable
       - name: Check the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           [[ "$TAG" =~ ^laya-model-[0-9]+$ ]] || { echo "TAG must be laya-model-N, got $TAG"; exit 1; }
           if gh release view "$TAG" >/dev/null 2>&1; then echo "$TAG is already released"; exit 1; fi
       - name: Fetch the staged model
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release download "laya-staging-${TAG#laya-model-}" --pattern "*" --dir stage
           (cd stage && sha256sum -- * > ../SHA256SUMS)
@@ -55,10 +68,11 @@ jobs:
           EVAL_SET: ${{ inputs.eval_set || 'fresh-test-3.json' }}
           FLOOR: ${{ inputs.min_accuracy || '0' }}
         run: python3 scripts/laya_gate.py stage --set "$EVAL_SET" --floor "$FLOOR" --out gate.json
-      - name: Create the release
-        # Checks every file against the new pins, then gh release create with SHA256SUMS.
-        run: bash scripts/release-laya.sh stage stage "$TAG" release-assets
       - name: Open the pin-update PR
+        # Before the release, so a failure here publishes nothing. A re-run
+        # force-pushes laya-pins-N and refreshes the PR it already opened.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY' > pr-body.md
           import json
@@ -73,5 +87,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git commit -am "Pin $TAG in src/laya.rs"
-          git push origin "$branch"
-          gh pr create --title "Pin $TAG" --body-file pr-body.md --base "${{ github.event.repository.default_branch }}" --head "$branch"
+          gh auth setup-git
+          git push --force origin "$branch"
+          if gh pr view "$branch" >/dev/null 2>&1; then
+            gh pr edit "$branch" --body-file pr-body.md
+          else
+            gh pr create --title "Pin $TAG" --body-file pr-body.md --base "${{ github.event.repository.default_branch }}" --head "$branch"
+          fi
+      - name: Create the release
+        # Checks every file against the new pins, then gh release create with SHA256SUMS.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release-laya.sh stage stage "$TAG" release-assets

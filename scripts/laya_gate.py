@@ -51,6 +51,8 @@ def main():
     p.add_argument("--nectra", default=str(REPO / "target" / "release" / ("nectra.exe" if sys.platform == "win32" else "nectra")))
     p.add_argument("--out", type=Path, default=Path("gate.json"))
     a = p.parse_args()
+    if not a.set or Path(a.set).name != a.set:
+        sys.exit(f"--set must be a file name in eval/laya/, got {a.set!r}")
 
     baseline = json.loads((retrain.LAYA / a.set.replace(".json", "-result.json")).read_text(encoding="utf-8"))["accuracy"]
     need = max(baseline, a.floor)

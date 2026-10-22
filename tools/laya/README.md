@@ -151,18 +151,33 @@ gh release create laya-staging-N --prerelease --title "Laya staging N" \
 ```
 
 Then run the workflow (Actions > laya-release > Run workflow) with `model_tag`
-`laya-model-N`, or push that tag. It:
+`laya-model-N`. It runs only on demand: there is no tag-push trigger, because a
+pushed tag would run the workflow file as it is at that commit, with write
+permissions. It:
 
 1. downloads the staged files and hashes them;
-2. rewrites `RELEASE` and the pins in `src/laya.rs` (`scripts/update_laya_pins.py`);
+2. rewrites `RELEASE` and the model pins in `src/laya.rs`
+   (`scripts/update_laya_pins.py`). Only the model files (`model*`,
+   `tokenizer/*`, `rl_agent_config.json`) are repinned; the staged ONNX Runtime
+   binaries and `ONNXRUNTIME-LICENSE` must match their existing pins, or the run
+   stops here. Upgrading the runtime is a reviewed source change, not a retrain;
 3. builds Nectra and evaluates the model on a held-out set
    (`scripts/laya_gate.py`, default `fresh-test-3.json`). It fails if accuracy is
    below the current model's (`fresh-test-3-result.json`, 97.7%) or below
    `min_accuracy`;
-4. creates the `laya-model-N` release with `scripts/release-laya.sh`, which
-   re-checks every file against the new pins and adds `SHA256SUMS`;
-5. pushes `laya-pins-N` and opens a PR with the eval numbers.
+4. pushes `laya-pins-N` and opens a PR with the eval numbers;
+5. creates the `laya-model-N` release with `scripts/release-laya.sh`, which
+   re-checks every file against the new pins and adds `SHA256SUMS`. Merge the
+   PR only after this step succeeded: the pins point at this release.
 
 Each gate run on `fresh-test-3` counts as seeing it; pass another `eval_set`
 (a new held-out set with a `-result.json` next to it) once it has been
 used for selection. Nothing is released until you run the workflow.
+
+**If a run fails.** Before step 5 nothing is public except the `laya-pins-N`
+branch and its PR; fix the cause and re-run, which force-pushes the branch and
+refreshes the PR. If step 5 itself fails, `gh release create` may have left a
+partial `laya-model-N` release, and a re-run stops at "already released". Check
+it with `gh release view laya-model-N`; if it is incomplete, delete it with
+`gh release delete laya-model-N --cleanup-tag --yes` and re-run. If the run
+is abandoned, close the PR and delete `laya-pins-N`.
