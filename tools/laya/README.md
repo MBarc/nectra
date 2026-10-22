@@ -135,3 +135,34 @@ sets) are filtered out of generated prompts and their follow-ups.
 task accuracy and confusion after every epoch. `fresh-test.json`, the first
 bar, is reported only, because its failures have been seen. Don't edit its labels to make a model pass. See
 `eval/laya/fresh-test.README.md`.
+
+## Publishing (CI)
+
+`.github/workflows/laya-release.yml` turns an emitted model into a release and
+a pin-update PR. Retraining stays on your machine (it needs the generator CLI
+and the training host), so the model reaches CI as a **staging release**:
+
+```sh
+# --out is the retrain output; ORT_DIR holds the three runtimes under their release names.
+gh release create laya-staging-N --prerelease --title "Laya staging N" \
+  OUT/model.onnx OUT/model.onnx.data OUT/rl_agent_config.json OUT/ONNXRUNTIME-LICENSE \
+  OUT/tokenizer/tokenizer.json OUT/tokenizer/tokenizer_config.json \
+  ORT_DIR/onnxruntime-win-x64.dll ORT_DIR/libonnxruntime-linux-x64.so ORT_DIR/libonnxruntime-macos-arm64.dylib
+```
+
+Then run the workflow (Actions > laya-release > Run workflow) with `model_tag`
+`laya-model-N`, or push that tag. It:
+
+1. downloads the staged files and hashes them;
+2. rewrites `RELEASE` and the pins in `src/laya.rs` (`scripts/update_laya_pins.py`);
+3. builds Nectra and evaluates the model on a held-out set
+   (`scripts/laya_gate.py`, default `fresh-test-3.json`). It fails if accuracy is
+   below the current model's (`fresh-test-3-result.json`, 97.7%) or below
+   `min_accuracy`;
+4. creates the `laya-model-N` release with `scripts/release-laya.sh`, which
+   re-checks every file against the new pins and adds `SHA256SUMS`;
+5. pushes `laya-pins-N` and opens a PR with the eval numbers.
+
+Each gate run on `fresh-test-3` counts as seeing it; pass another `eval_set`
+(a new held-out set with a `-result.json` next to it) once it has been
+used for selection. Nothing is released until you run the workflow.
