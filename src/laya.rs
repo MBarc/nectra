@@ -193,8 +193,9 @@ pub fn warm(cfg: &Config) {
     }
     point_ort_at_runtime(cfg);
     let cfg = cfg.clone();
+    let busy = Busy::enter();
     std::thread::spawn(move || {
-        let _busy = Busy::enter();
+        let _busy = busy;
         // A panic would leave the cell empty and "still loading" forever.
         if let Err(panic) = std::panic::catch_unwind(|| engine(&cfg)) {
             let why = panic
@@ -428,8 +429,10 @@ fn within<T: Send + 'static>(
     f: impl FnOnce() -> Result<T> + Send + 'static,
 ) -> Result<T> {
     let (tx, rx) = mpsc::channel();
+    // Counted before the thread starts, so `exit` can't miss it.
+    let busy = Busy::enter();
     std::thread::spawn(move || {
-        let _busy = Busy::enter();
+        let _busy = busy;
         tx.send(f())
     });
     rx.recv_timeout(deadline).map_err(|_| {
