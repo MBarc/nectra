@@ -18,6 +18,16 @@ pub enum ProviderArg {
     Google,
 }
 
+#[derive(Subcommand, Debug, Clone)]
+pub enum ClassifierCommands {
+    /// Download the Laya model into DIR and check every file against the
+    /// hashes built into this binary; changes no config (the nectra-laya package).
+    Fetch {
+        #[arg(long)]
+        dir: PathBuf,
+    },
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "nectra",
@@ -92,9 +102,12 @@ pub enum Commands {
     /// Choose how messages are classified: `laya` downloads a free local model
     /// (about 750 MB, nothing leaves the machine), `auto` uses Jev when a
     /// TypeSafe key is set, `keywords` uses keywords only.
+    #[command(args_conflicts_with_subcommands = true, subcommand_negates_reqs = true)]
     Classifier {
-        #[arg(value_enum)]
-        backend: crate::config::ClassifierBackend,
+        #[arg(value_enum, required = true)]
+        backend: Option<crate::config::ClassifierBackend>,
+        #[command(subcommand)]
+        command: Option<ClassifierCommands>,
     },
     /// Configure an Ollama server and selected local models without prompts.
     Ollama {

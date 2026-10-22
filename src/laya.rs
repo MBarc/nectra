@@ -22,7 +22,11 @@ use std::{
 };
 
 /// Each retrained model gets a new release tag; its files are pinned below.
-const RELEASE: &str = "https://github.com/MBarc/nectra/releases/download/laya-model-1";
+/// `NECTRA_LAYA_RELEASE` names a mirror instead: the pins still apply.
+const RELEASE: &str = "https://github.com/MBarc/nectra/releases/download/laya-model-1-alpha.1";
+
+/// Where the nectra-laya package keeps the model, used when the config names none.
+const SYSTEM_MODEL_DIR: &str = "/usr/lib/nectra/laya";
 
 /// (path in the model directory, release asset, sha256)
 const MODEL_FILES: &[(&str, &str, &str)] = &[
@@ -100,7 +104,16 @@ pub fn model_dir(cfg: &Config) -> Option<PathBuf> {
         .classifier
         .model_dir
         .clone()
+        .or_else(|| {
+            let system = Path::new(SYSTEM_MODEL_DIR);
+            (cfg!(target_os = "linux") && system.join("model.onnx").is_file())
+                .then(|| system.to_path_buf())
+        })
         .or_else(|| dirs::data_local_dir().map(|d| d.join("nectra").join("laya")))
+}
+
+fn release() -> String {
+    std::env::var("NECTRA_LAYA_RELEASE").unwrap_or_else(|_| RELEASE.into())
 }
 
 type Pin = (&'static str, &'static str, &'static str);
@@ -283,25 +296,38 @@ fn ask_with(
 /// sure the model loads and answers.
 pub fn download(cfg: &Config, output: &mut dyn Write) -> Result<PathBuf> {
     let dir = model_dir(cfg).context("cannot find a data directory")?;
-    download_from(RELEASE, &dir, output)?;
+    download_from(&release(), &dir, output)?;
     Ok(dir)
 }
 
-fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<Answer> {
+/// `nectra classifier fetch --dir`: only downloads and checks the files, for
+/// the nectra-laya package, which runs it as root without a user config.
+pub fn fetch_to(dir: &Path, output: &mut dyn Write) -> Result<()> {
+    fetch_all(&release(), dir, output)?;
+    writeln!(output, "Local model files verified in {}.", dir.display())?;
+    Ok(())
+}
+
+fn fetch_all(release: &str, dir: &Path, output: &mut dyn Write) -> Result<()> {
     let runtime = RUNTIME.context(
         "the local model needs ONNX Runtime, which has no official build for this platform",
     )?;
-    fs::create_dir_all(dir.join("tokenizer"))?;
     let client = reqwest::blocking::Client::builder().timeout(None).build()?;
     for &(path, asset, sha256) in MODEL_FILES.iter().chain([&runtime]) {
         let target = dir.join(path);
         if target.is_file() && hash_file(&target)? == sha256 {
             continue;
         }
+        fs::create_dir_all(target.parent().context("no parent directory")?)?;
         writeln!(output, "Downloading {asset}...")?;
         fetch(&client, &format!("{release}/{asset}"), &target, sha256)
             .with_context(|| format!("downloading {asset}"))?;
     }
+    Ok(())
+}
+
+fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<Answer> {
+    fetch_all(release, dir, output)?;
     let started = std::time::Instant::now();
     let answer = ask_with(
         &load(dir, false)?,
@@ -319,10 +345,28 @@ fn download_from(release: &str, dir: &Path, output: &mut dyn Write) -> Result<An
     Ok(answer)
 }
 
+/// Writes `target` only if the whole download matches `sha256`; a failed or
+/// interrupted download leaves nothing behind.
 fn fetch(client: &reqwest::blocking::Client, url: &str, target: &Path, sha256: &str) -> Result<()> {
-    let mut response = client.get(url).send()?.error_for_status()?;
     let partial = target.with_extension("part");
-    let mut file = fs::File::create(&partial)?;
+    let result = fetch_part(client, url, &partial, sha256);
+    match result {
+        Ok(()) => fs::rename(&partial, target)?,
+        Err(_) => {
+            let _ = fs::remove_file(&partial);
+        }
+    }
+    result
+}
+
+fn fetch_part(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    partial: &Path,
+    sha256: &str,
+) -> Result<()> {
+    let mut response = client.get(url).send()?.error_for_status()?;
+    let mut file = fs::File::create(partial)?;
     let mut hasher = Sha256::new();
     let mut buffer = vec![0; 1 << 16];
     loop {
@@ -337,10 +381,8 @@ fn fetch(client: &reqwest::blocking::Client, url: &str, target: &Path, sha256: &
     drop(file);
     let got = hex(&hasher.finalize());
     if got != sha256 {
-        let _ = fs::remove_file(&partial);
         bail!("checksum mismatch: expected {sha256}, got {got}");
     }
-    fs::rename(&partial, target)?;
     Ok(())
 }
 
@@ -472,6 +514,70 @@ Connection: close
         assert_eq!(fs::read(&target).unwrap(), b"tampered");
     }
     #[test]
+    fn fetch_dir_refuses_files_that_miss_their_pins() {
+        if RUNTIME.is_none() {
+            return;
+        }
+        // A mirror serving the wrong bytes under every asset name.
+        let served = tempfile::tempdir().unwrap();
+        for (_, asset, _) in MODEL_FILES.iter().chain(RUNTIME.as_ref()) {
+            fs::write(served.path().join(asset), b"not the pinned file").unwrap();
+        }
+        let url = serve(served.path().to_path_buf());
+        let dir = tempfile::tempdir().unwrap();
+        let err = fetch_all(&url, &dir.path().join("laya"), &mut Vec::new()).unwrap_err();
+        assert!(format!("{err:#}").contains("checksum mismatch"), "{err:#}");
+        let files: Vec<_> = walk(dir.path());
+        assert!(files.is_empty(), "nothing written: {files:?}");
+    }
+    fn walk(dir: &Path) -> Vec<PathBuf> {
+        fs::read_dir(dir)
+            .unwrap()
+            .flat_map(|e| {
+                let path = e.unwrap().path();
+                if path.is_dir() {
+                    walk(&path)
+                } else {
+                    vec![path]
+                }
+            })
+            .collect()
+    }
+    #[test]
+    fn cleans_up_an_interrupted_download() {
+        // Promises 1000 bytes, sends 10, hangs up.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/asset", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = std::io::Read::read(&mut stream, &mut [0; 4096]);
+            write!(
+                stream,
+                "HTTP/1.1 200 OK
+Content-Length: 1000
+Connection: close
+
+0123456789"
+            )
+            .unwrap();
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("asset");
+        let err = fetch(
+            &reqwest::blocking::Client::new(),
+            &url,
+            &target,
+            &hex(&Sha256::digest(b"genuine")),
+        )
+        .unwrap_err();
+        assert!(!format!("{err:#}").contains("checksum"), "{err:#}");
+        assert_eq!(
+            walk(dir.path()),
+            Vec::<PathBuf>::new(),
+            "no partial file kept"
+        );
+    }
+    #[test]
     fn refuses_to_load_a_changed_file() {
         if RUNTIME.is_none() {
             return;
@@ -585,6 +691,17 @@ Connection: close
             at(0.95),
             ms[ms.len() - 1],
             ms.iter().filter(|&&m| m > 300).count()
+        );
+    }
+    #[test]
+    fn nectra_deb_breaks_older_models() {
+        // packaging/build-laya-deb.sh versions nectra-laya from RELEASE the same way.
+        let tag = RELEASE.rsplit('/').next().unwrap();
+        let version = tag.trim_start_matches("laya-model-").replace('-', "~");
+        let breaks = format!("breaks = \"nectra-laya (<< {version})\"");
+        assert!(
+            include_str!("../Cargo.toml").contains(&breaks),
+            "Cargo.toml must say {breaks}"
         );
     }
     #[test]

@@ -1,9 +1,20 @@
-# Nectra APT repository (plan, not built)
+# Nectra APT repository
 
-Status: proposal for Michael's approval. Nothing here exists yet: no key, no
-workflow, no Pages site. Decided going in: Debian packages, a static signed
+Status: approved 2026-10-22 and built for an **alpha** release ("the official
+release can happen with astra"). Built: `nectra classifier fetch --dir`,
+`[package.metadata.deb]`, `packaging/` (the `nectra-laya` deb, the keyring,
+`nectra.sources`, `build-apt-repo.sh`), `release.yml` attaching the debs, and
+`apt-publish.yml`. The signing key exists (§3); the GitHub environment, secret
+and Pages site do not yet. Decided going in: Debian packages, a static signed
 repo, two packages (`nectra`, optional `nectra-laya`), the PonsOS installer's
 "Laya vs Jev" question installs or omits `nectra-laya`.
+
+**Alpha channel.** Nectra `0.5.0-alpha.1` (deb `0.5.0~alpha.1`, which sorts
+before `0.5.0`) pins Laya `laya-model-1-alpha.1`, packaged as `nectra-laya`
+`1~alpha.1`. Tags with a `-` are GitHub prereleases and go only into the
+`alpha` suite; `stable` gets non-prereleases. `alpha` also carries stable
+releases, so an alpha machine moves on to `0.5.0` without a sources change.
+`packaging/nectra.sources` points at `alpha` until then.
 
 Facts this plan rests on (read from the code, 2026-10-22):
 
@@ -91,8 +102,12 @@ URL: `https://mbarc.github.io/nectra/apt` (or a custom domain later).
 - One dedicated **ed25519** key, `Nectra APT signing`, 2-year expiry, signing
   only. Debian 13's apt (sqv) accepts ed25519. RSA-4096 is the fallback only
   if some client's gpgv rejects it.
-- Private key and passphrase in **hush at `Nectra/apt-signing`** (proposed
-  path). Public key and fingerprint checked into both repos.
+- Private key and passphrase in **hush at `Nectra/apt-signing`** (a credential:
+  username = fingerprint, password = passphrase, notes = armored secret key
+  and revocation certificate). Generated 2026-10-22 in tmpfs on builder, never
+  written to disk. Fingerprint
+  **`18C46D9FDD3A411C3DB663FFA1A6F3C961636194`**, expires 2028-10-21. Public
+  key: `packaging/nectra-archive-keyring.gpg` (and the PonsOS repo).
 - CI gets it as an **Environment secret** on a `apt-publish` GitHub
   Environment. The environment is restricted to `master` and needs Michael's
   approval for each run. (This is a settings change, made at build time, not
@@ -116,19 +131,23 @@ URL: `https://mbarc.github.io/nectra/apt` (or a custom domain later).
 ## 4. Release flow
 
 1. `release.yml` (tag `v*`, unchanged trigger) also runs `cargo deb` and
-   attaches `nectra_<ver>_amd64.deb` to the GitHub release. If the pinned
-   model (`RELEASE` const in `src/laya.rs`) is new, it also builds and
-   attaches `nectra-laya_<N>_amd64.deb`.
+   attaches `nectra_<ver>_amd64.deb` to the GitHub release, and
+   `nectra-laya_<N>_amd64.deb` (`packaging/build-laya-deb.sh`) for the model
+   `RELEASE` in `src/laya.rs` pins. As built it attaches `nectra-laya` to every
+   release, and apt-publish keeps one copy per version, which is simpler than
+   detecting a new model. Tags containing `-` become prereleases.
 2. A new **`apt-publish.yml`**, `workflow_dispatch` only, run from `master`
    in the `apt-publish` environment. This follows laya-release.yml's reasoning:
    a tag-push workflow runs whatever workflow file is at the tag, so it must
    never see the key. It:
-   - downloads the debs from the last 3 `v*` releases plus the current
-     `nectra-laya`, skipping any release whose title or notes contain `[yanked]`;
+   - downloads the debs from the last 3 `v*` releases (`stable`) and the last 3
+     prereleases (`alpha` only), skipping any release whose title or notes
+     contain `[yanked]` and failing if a tag is not on `master`;
    - checks each `.deb` against the release's `.sha256`;
-   - runs `apt-ftparchive packages` / `release` with `Origin: Nectra`,
-     `Suite: stable` (no reprepro or aptly: the repo is rebuilt from scratch
-     each time, so there is no state to manage);
+   - runs `packaging/build-apt-repo.sh`: `apt-ftparchive packages` / `release`
+     with `Origin: Nectra`, `Suite: stable|alpha` (no reprepro or aptly: the repo
+     is rebuilt from scratch each time, so there is no state to manage). It
+     refuses a signing key that is not in the shipped keyring;
    - `gpg --clearsign` → `InRelease`, `gpg -abs` → `Release.gpg`;
    - deploys with `actions/deploy-pages`.
 3. Stateless means a re-run is a no-op: same releases in, same repo out
@@ -166,6 +185,41 @@ URL: `https://mbarc.github.io/nectra/apt` (or a custom domain later).
   `Depends: nectra (>= 0.4.5), nectra (<< 0.5~)`, so auto-upgrades stay inside
   the `run` contract (C1). Enrollment changes from an exact version match to
   "dpkg says satisfied". The runner path changes `/usr/local/bin` → `/usr/bin`.
+  `0.5.0~alpha.1` is outside `<< 0.5~`: a PonsOS build that takes the alpha
+  widens the range itself, after checking the `run` contract against it.
+
+### Interface for PonsOS (the PonsOS side is a separate task)
+
+What nectra provides, and what PonsOS must do to use it:
+
+| Item | Value |
+|---|---|
+| Repo | `https://mbarc.github.io/nectra/apt`, suites `alpha` and `stable`, component `main`, amd64 |
+| Sources | `packaging/nectra.sources`, installed as `/etc/apt/sources.list.d/nectra.sources` |
+| Keyring | `/usr/share/keyrings/nectra-archive-keyring.gpg`; fingerprint `18C46D9FDD3A411C3DB663FFA1A6F3C961636194` (assert it in `build-template.sh`) |
+| Binary | `/usr/bin/nectra` |
+| Registry | `/usr/share/nectra/models.toml` (set `registry` to it, absolute) |
+| Laya | `apt install nectra-laya` puts the model in `/usr/lib/nectra/laya`; nectra uses that directory when the config names no `classifier.model_dir`, so `backend = "laya"` is enough |
+| Mirror | `NECTRA_LAYA_RELEASE=<url>` in the environment of `apt install nectra-laya` downloads from a mirror; the compiled-in hashes still apply |
+| Upgrade lock | `/run/pons/nectra.lock`: tasks hold it **shared**, the upgrade **exclusive** |
+
+The lock, exactly:
+
+```ini
+# /etc/systemd/system/apt-daily-upgrade.service.d/pons.conf
+[Service]
+ExecStart=
+ExecStart=/usr/bin/flock -w 3600 /run/pons/nectra.lock /usr/lib/apt/apt.systemd.daily install
+```
+
+```text
+# pons runner, every task argv:
+/usr/bin/flock --shared /run/pons/nectra.lock <task argv...>
+```
+
+`/run/pons` must exist before either runs (a `tmpfiles.d` line,
+`d /run/pons 0755 root root -`). flock creates the lock file. An admin running
+`apt upgrade` by hand bypasses the lock; that is the admin's choice.
 
 ## 6. Work breakdown
 

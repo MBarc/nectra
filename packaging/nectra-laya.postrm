@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# The downloaded files belong to no package, so dpkg would leave them behind.
+case "$1" in
+remove | purge)
+    rm -rf /usr/lib/nectra/laya
+    rmdir /usr/lib/nectra 2>/dev/null || true
+    ;;
+esac

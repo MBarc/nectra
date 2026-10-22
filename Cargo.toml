@@ -1,6 +1,6 @@
 [package]
 name = "nectra"
-version = "0.4.5"
+version = "0.5.0-alpha.1"
 edition = "2021"
 rust-version = "1.89"
 description = "Local conversation router for Claude Code, Codex, Gemini CLI, and Ollama"
@@ -26,6 +26,20 @@ laya = { package = "laya-onnx", git = "https://github.com/NandhaKishorM/laya", r
 # ponytail: pinned; laya-onnx breaks on rc.14. load-dynamic: the runtime library comes with the model download.
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "std", "ndarray"] }
 sha2 = "0.10"
+
+# `cargo deb` (0.5.0-alpha.1 becomes 0.5.0~alpha.1). Breaks names the Laya model
+# src/laya.rs pins, as packaging/build-laya-deb.sh versions it; a test checks they agree.
+[package.metadata.deb]
+maintainer = "MBarc <michaelb4185@gmail.com>"
+section = "utils"
+breaks = "nectra-laya (<< 1~alpha.1)"
+assets = [
+    ["target/release/nectra", "usr/bin/", "755"],
+    ["config/models.toml", "usr/share/nectra/", "644"],
+    ["packaging/nectra-archive-keyring.gpg", "usr/share/keyrings/", "644"],
+    ["README.md", "usr/share/doc/nectra/", "644"],
+    ["config/*", "usr/share/doc/nectra/examples/", "644"],
+]
 
 [patch.crates-io]
 portable-pty = { path = "vendor/portable-pty" }
