@@ -135,7 +135,7 @@ const MAX_COOLDOWN: u64 = 8 * 86400;
 /// here, so this is the earliest instant that wall-clock time occurs anywhere
 /// (UTC+14). Up to a day early, never late: an early re-probe just meets the
 /// limit and falls back again, while a late one locks out a provider that works.
-fn reset_in(message: &str, now: u64) -> Option<u64> {
+pub(crate) fn reset_in(message: &str, now: u64) -> Option<u64> {
     const MONTHS: [&str; 12] = [
         "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
     ];
@@ -177,7 +177,7 @@ fn reset_in(message: &str, now: u64) -> Option<u64> {
 }
 
 /// Days since 1970-01-01 of a proleptic Gregorian date (Howard Hinnant's algorithm).
-fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+pub(crate) fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let y = if m <= 2 { y - 1 } else { y };
     let era = y.div_euclid(400);
     let yoe = y - era * 400;

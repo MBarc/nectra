@@ -594,26 +594,51 @@ fn terminal_limit(
     Some(limit)
 }
 
-/// A limit in the last Codex error cell (`■ …`) below this launch's prompt,
-/// which names `marker` (its handoff directory). Codex draws every tool call
-/// and reply as a `•` cell, so none above the error means no work ran.
+/// A limit in the last Codex error cell (`■ …`) below this launch's prompt
+/// echo, which names `marker` (its handoff directory); with no echo on screen,
+/// none (an older cell may be resumed history). Safe to retry only when the
+/// echo, the limit cell and Codex's empty composer are all there is: any other
+/// line may be work, whatever glyph Codex drew it with.
 fn screen_limit(screen: &str, marker: &str) -> Option<crate::limits::RateLimited> {
-    let lines: Vec<&str> = screen.lines().collect();
-    let prompt = lines.iter().rposition(|l| l.contains(marker));
-    let lines = &lines[prompt.map_or(0, |i| i + 1)..];
-    let at = lines
-        .iter()
-        .rposition(|l| l.trim_start().starts_with('■'))?;
-    let message: Vec<&str> = std::iter::once(lines[at].trim_start().trim_start_matches('■'))
-        .chain(
-            lines[at + 1..]
+    let lines: Vec<&str> = screen.lines().map(str::trim_end).collect();
+    let blank = |l: &&str| l.is_empty();
+    // A `›` line and its indented continuation; the path may wrap mid-marker.
+    let block = |i: usize| {
+        i + 1
+            + lines[i + 1..]
                 .iter()
-                .copied()
-                .take_while(|l| l.starts_with(' ') && !l.trim().is_empty()),
-        )
-        .map(str::trim)
+                .take_while(|l| l.starts_with(' ') && !blank(l))
+                .count()
+    };
+    let echo = (0..lines.len())
+        .filter(|&i| lines[i].starts_with('›'))
+        .map(|i| (i, block(i)))
+        .find(|&(i, end)| {
+            lines[i..end]
+                .iter()
+                .map(|l| l.trim())
+                .collect::<String>()
+                .contains(marker)
+        })?
+        .1;
+    let lines = &lines[echo..];
+    let at = lines.iter().rposition(|l| l.starts_with('■'))?;
+    // Codex wraps an error cell flush left; it ends at a blank line or its composer.
+    let end = at
+        + 1
+        + lines[at + 1..]
+            .iter()
+            .take_while(|l| !blank(l) && !l.starts_with('›'))
+            .count();
+    let message: Vec<&str> = lines[at..end]
+        .iter()
+        .map(|l| l.trim_start_matches('■').trim())
         .collect();
-    let quiet = prompt.is_some() && !lines[..at].iter().any(|l| l.trim_start().starts_with('•'));
+    let quiet = lines[..at].iter().all(blank)
+        && lines[end..]
+            .iter()
+            .find(|l| !blank(l))
+            .is_none_or(|l| l.starts_with('›'));
     crate::limits::RateLimited::from_error(&json!({"message": message.join(" ")}), quiet)
 }
 
@@ -1054,10 +1079,9 @@ mod access_handoff_tests {
         let capture = Capture::default();
         let limit = terminal_limit("codex", &ended(&worked, false), &capture, MARKER).unwrap();
         assert!(!limit.safe_to_retry);
-        // Our prompt scrolled away: what ran before the error can't be seen.
+        // Our prompt scrolled away: the error may be resumed history, so it is none.
         let unseen = LIMITED.replace(MARKER, "elsewhere");
-        let limit = terminal_limit("codex", &ended(&unseen, false), &capture, MARKER).unwrap();
-        assert!(!limit.safe_to_retry);
+        assert!(terminal_limit("codex", &ended(&unseen, false), &capture, MARKER).is_none());
         // A completed Codex turn means work ran in this launch.
         let answered = Capture {
             revision: 1,
@@ -1088,6 +1112,77 @@ mod access_handoff_tests {
             "",
         );
         assert!(screen_limit(&old, MARKER).is_none());
+    }
+
+    /// Codex's real screen on 2026-10-22, its prompt and error cell both wrapped.
+    const REAL: &str = include_str!("../../tests/fixtures/codex-limit-screen.txt");
+    const REAL_MARKER: &str = "nectra-terminal-qHQPgn";
+
+    #[test]
+    fn the_real_codex_limit_screen_falls_back_in_turn() {
+        // Ends the turn while Codex waits at its composer.
+        assert!(screen_limit(REAL, REAL_MARKER).is_some());
+        let limit = terminal_limit(
+            "codex",
+            &ended(REAL, false),
+            &Capture::default(),
+            REAL_MARKER,
+        )
+        .expect("usage limit on screen");
+        assert!(limit.safe_to_retry && limit.provider_wide);
+        // The flush-left continuation carries the reset: 2026-10-27 05:37 local,
+        // taken at its earliest instant anywhere (UTC+14).
+        let reset =
+            crate::limits::days_from_civil(2026, 10, 27) * 86400 + (5 * 60 + 37) * 60 - 14 * 3600;
+        let now = 1_792_670_400; // 2026-10-22T12:00:00Z
+        assert_eq!(
+            crate::limits::reset_in(&limit.message, now),
+            Some((reset - now as i64) as u64)
+        );
+    }
+
+    #[test]
+    fn any_other_line_before_the_limit_cell_is_not_safe() {
+        for work in [
+            "⚡ Running cargo build",
+            "✓ apply_patch",
+            "• Ran ls",
+            "thinking…",
+        ] {
+            let screen = REAL.replace("\n■", &format!("\n{work}\n■"));
+            let limit = terminal_limit(
+                "codex",
+                &ended(&screen, false),
+                &Capture::default(),
+                REAL_MARKER,
+            )
+            .unwrap();
+            assert!(!limit.safe_to_retry, "{work}");
+        }
+        // Nor a cell between the limit and Codex's composer.
+        let screen = REAL.replace("AM.\n›", "AM.\n\n✓ apply_patch\n›");
+        let limit = terminal_limit(
+            "codex",
+            &ended(&screen, false),
+            &Capture::default(),
+            REAL_MARKER,
+        )
+        .unwrap();
+        assert!(!limit.safe_to_retry);
+    }
+
+    #[test]
+    fn the_prompt_is_found_when_a_narrow_pane_wraps_its_path() {
+        let wrapped = REAL.replace("nectra-terminal-", "nectra-\n  terminal-");
+        assert!(wrapped.contains("nectra-\n  terminal-qHQPgn"));
+        let limit = terminal_limit(
+            "codex",
+            &ended(&wrapped, false),
+            &Capture::default(),
+            REAL_MARKER,
+        )
+        .unwrap();
+        assert!(limit.safe_to_retry);
     }
 
     #[test]

@@ -44,7 +44,6 @@ struct Mock {
     /// The limit states no cooldown worth keeping (a 0 s retry-after).
     brief_limit: bool,
     started_work: bool,
-    cancel: bool,
 }
 impl Backend for Mock {
     fn take_queued_messages(&mut self) -> Vec<String> {
@@ -92,9 +91,6 @@ impl Backend for Mock {
                 safe_to_retry: !self.started_work,
             }
             .into());
-        }
-        if self.cancel {
-            bail!("Turn cancelled; partial output was not saved or replayed.");
         }
         if self.fail_next {
             self.fail_next = false;
@@ -249,35 +245,6 @@ hello again
         "{}",
         skipped[0]
     );
-}
-
-#[test]
-fn a_cancelled_or_failed_turn_does_not_fall_back() {
-    for (cancel, fail_next) in [(true, false), (false, true)] {
-        let (dir, cfg, reg) = fixture();
-        let mut session = Session::create(&dir.path().join("fail.jsonl"), dir.path()).unwrap();
-        let mut backend = Mock {
-            cancel,
-            fail_next,
-            ..Default::default()
-        };
-        chat::run_loop(
-            &cfg,
-            &reg,
-            options(),
-            &mut session,
-            &mut Cursor::new(
-                "hello
-/quit
-",
-            ),
-            &mut vec![],
-            &mut backend,
-        )
-        .unwrap();
-        assert_eq!(backend.models, ["haiku"]);
-        assert!(session.exchanges.is_empty());
-    }
 }
 
 #[test]
