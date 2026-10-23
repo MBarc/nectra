@@ -17,7 +17,7 @@ fn permissions_are_translated_per_runtime_and_never_persisted() {
             ProviderArg::Openai,
             "--dangerously-bypass-approvals-and-sandbox",
         ),
-        (ProviderArg::Google, "--approval-mode=yolo"),
+        (ProviderArg::Google, "--dangerously-skip-permissions"),
     ] {
         let decision =
             router::route("hello", &cfg, &reg, Mode::Best, Some(provider), None).unwrap();
@@ -87,7 +87,7 @@ fn a_read_only_launch_drops_every_configured_permission() {
     }
 }
 #[test]
-fn gemini_dependency_is_checked_only_when_selected() {
+fn google_dependency_is_checked_only_when_selected() {
     let dir = tempfile::tempdir().unwrap();
     let mut checked = vec![];
     nectra::setup::configure(
@@ -101,7 +101,7 @@ fn gemini_dependency_is_checked_only_when_selected() {
         },
     )
     .unwrap();
-    assert_eq!(checked, ["gemini"]);
+    assert_eq!(checked, ["agy"]);
     let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
     let reg = Registry::load(&cfg).unwrap();
     assert!(reg

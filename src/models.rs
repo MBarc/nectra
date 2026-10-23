@@ -30,7 +30,10 @@ pub enum Runtime {
     Claude,
     Codex,
     Ollama,
+    /// The retired Gemini CLI, kept as an API-key fallback (docs/reference.md).
     Gemini,
+    /// Antigravity CLI: Google's runtime now that Gemini CLI rejects personal sign-in.
+    Agy,
 }
 impl Runtime {
     pub fn as_str(&self) -> &'static str {
@@ -39,6 +42,7 @@ impl Runtime {
             Self::Codex => "codex",
             Self::Ollama => "ollama",
             Self::Gemini => "gemini",
+            Self::Agy => "agy",
         }
     }
 }
@@ -166,7 +170,7 @@ impl Registry {
                 model.enabled &= providers.iter().any(|p| p == model.provider.as_str());
             }
         }
-        // Gemini is declared in the registry like every other model, but stays
+        // Google is declared in the registry like every other model, but stays
         // opt-in: a configuration that never selected google must not route to it.
         let google_selected = cfg
             .inner
@@ -216,7 +220,7 @@ impl Registry {
                 (Provider::Anthropic, Runtime::Claude)
                 | (Provider::Openai, Runtime::Codex)
                 | (Provider::Ollama, Runtime::Ollama)
-                | (Provider::Google, Runtime::Gemini) => {}
+                | (Provider::Google, Runtime::Gemini | Runtime::Agy) => {}
                 _ => bail!("fail-closed provider/runtime violation for model {}", m.id),
             }
             let c = &m.capabilities;

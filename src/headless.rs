@@ -210,6 +210,24 @@ fn codex_usage(u: &Value) -> Usage {
     }
 }
 
+/// agy's usage object, and whether every field is known. Thinking tokens
+/// are billed as output, so they join it. Whether `input_tokens` already holds
+/// the cached part is not documented (every sample so far had none), so a
+/// call with cached or thinking tokens is not claimed complete.
+fn agy_usage(u: &Value) -> (Usage, bool) {
+    let n = |k: &str| u[k].as_u64().unwrap_or(0);
+    let usage = Usage {
+        input: n("input_tokens"),
+        cache_read: n("cache_read_tokens"),
+        output: n("output_tokens") + n("thinking_tokens"),
+        ..Usage::default()
+    };
+    (
+        usage,
+        n("cache_read_tokens") == 0 && n("thinking_tokens") == 0,
+    )
+}
+
 /// One model call (Claude), log record (Codex) or per-model total (Gemini).
 /// `complete` is false when the provider never gave the call's final count.
 struct Call {
@@ -272,6 +290,8 @@ struct Ledger {
     /// sign-in or an unavailable model), so it cost nothing.
     rejected: bool,
     rollout: Rollout,
+    /// agy: model calls counted from this attempt's steps.
+    steps: usize,
     /// Claude Code's own `total_cost_usd`, for cross-checking: on a resumed
     /// session it covers the whole session.
     provider_cost: Option<f64>,
@@ -285,6 +305,7 @@ impl Ledger {
         self.resumed = thread.is_some();
         self.rejected = false;
         self.rollout = Rollout::default();
+        self.steps = 0;
         self.rollout.based = thread.is_none();
         if d.runtime == "codex" && logged {
             self.rollout.thread = Some(thread.unwrap_or_default().to_string());
@@ -319,6 +340,36 @@ impl Ledger {
                 }
                 self.read_rollout(d, true);
             }
+            // agy's `result` usage is the conversation's running total, so a
+            // resumed turn would count its history again: each step's own
+            // usage is counted instead.
+            "agy" => match event["event"].as_str().unwrap_or("") {
+                "step_update" => {
+                    let step = &event["step_update"];
+                    if matches!(step["step_type"].as_str(), Some("agent_response" | "tool")) {
+                        self.worked = true;
+                    }
+                    if step["state"] == "DONE" && step["usage"].is_object() {
+                        let (t, complete) = agy_usage(&step["usage"]);
+                        self.call(d, &d.model, t, complete);
+                        self.steps += 1;
+                    }
+                }
+                "result" => {
+                    let r = &event["result"];
+                    if self.steps == 0 && !self.resumed && r["usage"].is_object() {
+                        let (t, complete) = agy_usage(&r["usage"]);
+                        if t != Usage::default() {
+                            self.call(d, &d.model, t, complete);
+                            self.steps += 1;
+                        }
+                    }
+                    if self.steps > 0 {
+                        self.reported = Some(Usage::default());
+                    }
+                }
+                _ => {}
+            },
             "gemini" => match kind {
                 "result" => {
                     let models = event["stats"]["models"].as_object();
@@ -589,6 +640,23 @@ fn tools(runtime: &str, event: &Value, names: &mut HashMap<String, String>) -> V
                     "end"
                 };
                 found.push(json!({"phase":phase,"name":item["type"],"id":item["id"]}));
+            }
+        }
+        ("agy", _) => {
+            let step = &event["step_update"];
+            if event["event"] == "step_update" && step["step_type"] == "tool" {
+                // Steps have an index, not a tool id.
+                let id = step["step_index"].to_string();
+                match step["state"].as_str() {
+                    Some("ACTIVE") => {
+                        names.insert(id.clone(), s(&step["tool_name"]));
+                        found.push(json!({"phase":"start","name":step["tool_name"],"id":id}));
+                    }
+                    Some("DONE") => found.push(
+                        json!({"phase":"end","name":names.get(&id),"id":id,"is_error":false}),
+                    ),
+                    _ => {}
+                }
             }
         }
         ("gemini", "tool_use") => {
@@ -965,6 +1033,7 @@ pub fn run(
             let command = match decision.runtime.as_str() {
                 "claude" => &cfg.inner.claude.command,
                 "codex" => &cfg.inner.codex.command,
+                "agy" => &cfg.inner.agy.command,
                 _ => &cfg.inner.gemini.command,
             };
             // A missing CLI is Nectra's environment, not the agent: try another.
@@ -1607,6 +1676,40 @@ mod tests {
         assert!(!models[1].2, "Gemini leaves out thinking tokens");
         // Gemini has no price: the total is not claimed as complete.
         assert!(!l.cost().1);
+    }
+
+    #[test]
+    fn agy_counts_each_step_once_so_a_resumed_turn_skips_its_history() {
+        let d = decision("agy", "gemini-3.8-flash-low");
+        let mut l = Ledger::default();
+        l.begin(&d, Some("conv"), false);
+        let step = json!({"event":"step_update","step_update":{"state":"DONE","step_type":"agent_response","usage":{"input_tokens":7000,"output_tokens":3,"thinking_tokens":0,"cache_read_tokens":0}}});
+        l.observe(&d, &step);
+        // The result's total covers the whole conversation, history too.
+        l.observe(&d, &json!({"event":"result","result":{"status":"SUCCESS","usage":{"input_tokens":20701,"output_tokens":47}}}));
+        l.finish(&d);
+        let (usage, done) = (l.models()[0].1, l.models()[0].2);
+        assert_eq!((usage.input, usage.output), (7000, 3));
+        assert!(done);
+        assert!(l.cost().1, "priced and complete");
+        // Cached or thinking tokens: counted, not claimed complete.
+        let (_, exact) = agy_usage(&json!({"input_tokens":1,"thinking_tokens":5}));
+        assert!(!exact);
+    }
+
+    #[test]
+    fn an_agy_tool_step_is_a_start_then_an_end() {
+        let mut names = HashMap::new();
+        let step = |state: &str| json!({"event":"step_update","step_update":{"step_index":2,"state":state,"step_type":"tool","tool_name":"write_file"}});
+        assert_eq!(
+            tools("agy", &step("ACTIVE"), &mut names)[0]["phase"],
+            "start"
+        );
+        let end = tools("agy", &step("DONE"), &mut names);
+        assert_eq!(
+            (end[0]["phase"].as_str(), end[0]["name"].as_str()),
+            (Some("end"), Some("write_file"))
+        );
     }
 
     #[test]

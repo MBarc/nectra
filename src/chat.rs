@@ -76,6 +76,7 @@ impl Backend for NativeBackend {
             Runtime::Codex => &cfg.inner.codex.command,
             Runtime::Ollama => return cfg.inner.ollama.is_some(),
             Runtime::Gemini => &cfg.inner.gemini.command,
+            Runtime::Agy => &cfg.inner.agy.command,
         };
         executor::launch(command).is_ok()
     }
@@ -235,7 +236,7 @@ pub fn run_loop(
         )?;
     }
     if cfg.skip_permissions {
-        writeln!(output, "Permission bypass ON for this launch: Claude/Gemini auto-approve tools; Codex also disables its sandbox. Ollama remains chat-only.")?;
+        writeln!(output, "Permission bypass ON for this launch: Claude/Gemini/agy auto-approve tools; Codex also disables its sandbox. Ollama remains chat-only.")?;
     }
     if session.recovered_tail {
         writeln!(output, "Recovered the log up to its last complete record.")?;
@@ -355,7 +356,7 @@ pub fn run_loop(
                     let provider = match value {
                         "claude" => "anthropic",
                         "codex" => "openai",
-                        "gemini" => "google",
+                        "gemini" | "agy" => "google",
                         p => p,
                     };
                     output.flush()?;

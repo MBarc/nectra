@@ -4,6 +4,16 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Google now runs through the Antigravity CLI (`agy`): Google ended personal-account
+  sign-in for Gemini CLI. New runtime `agy`; bundled models
+  `gemini-3.8-flash-high|medium|low` replace `gemini-2.5-*` (capability scores are
+  unmeasured placeholders), priced from Google's published `gemini-3.8-flash` rates
+  (`eval/chat-savings/prices.json`). `nectra run` sessions resume via agy's
+  conversation id. `/login google` opens `agy`. The `gemini` runtime stays only for
+  API-key setups that declare their own models. agy's quota and sign-in errors are
+  classified as `rate_limited` / `auth`; the strings are from Google's docs and agy's
+  binary, not a live capture (`tests/fixtures/agy-limit-and-auth.jsonl`).
+
 - Laya: `laya_timeout_ms` now bounds inference only; the load and ONNX Runtime
   first-run setup happen before the engine is used. The route line says why
   keywords answered: `keywords · Laya still loading`, `keywords · Laya failed to

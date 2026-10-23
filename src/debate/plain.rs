@@ -62,7 +62,9 @@ pub fn provider_args(decision: &Decision) -> Result<Vec<String>> {
             "Codex CLI cannot join a debate: it has no tool-less mode, and its \
              read-only sandbox permits deletion. Choose another provider."
         ),
-        "gemini" => bail!("Gemini is not yet verified as tool-less and cannot join a debate."),
+        "gemini" | "agy" => {
+            bail!("Google's CLI is not yet verified as tool-less and cannot join a debate.")
+        }
         other => bail!("unsupported debate runtime {other}"),
     }
 }
@@ -358,5 +360,6 @@ mod tests {
         assert!(supports(Runtime::Ollama));
         assert!(!supports(Runtime::Codex));
         assert!(!supports(Runtime::Gemini));
+        assert!(!supports(Runtime::Agy));
     }
 }

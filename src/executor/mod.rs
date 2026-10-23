@@ -36,7 +36,15 @@ pub fn resolve(command: &str) -> Result<PathBuf> {
         bail!("runtime executable not found or not native: {command}");
     }
     let path = env::var_os("PATH").unwrap_or_default();
-    for dir in env::split_paths(&path).filter(|p| p.is_absolute()) {
+    // agy's installer puts it in %LOCALAPPDATA%gyin and does not always
+    // add that to PATH, so a fresh install would look missing.
+    let agy_home = (command == "agy")
+        .then(|| env::var_os("LOCALAPPDATA").map(|d| Path::new(&d).join("agy/bin")))
+        .flatten();
+    for dir in env::split_paths(&path)
+        .chain(agy_home)
+        .filter(|p| p.is_absolute())
+    {
         let exact = dir.join(command);
         if exact.is_file() && native(&exact) {
             return Ok(exact);
@@ -125,9 +133,9 @@ pub fn login(provider: &str, cfg: &Config) -> Result<()> {
     let (runtime, args): (&str, &[&str]) = match provider {
         "anthropic" | "claude" => (&cfg.inner.claude.command, &["auth", "login"]),
         "openai" | "codex" => (&cfg.inner.codex.command, &["login"]),
-        "google" | "gemini" => {
-            crate::terminal::line("Opening Gemini CLI. Use /auth to sign in again, then /quit to return to Nectra.")?;
-            (&cfg.inner.gemini.command, &[])
+        "google" | "gemini" | "agy" => {
+            crate::terminal::line("Opening Antigravity (agy). Sign in there, then exit it to return to Nectra.")?;
+            (&cfg.inner.agy.command, &[])
         }
         "ollama" => bail!("local Ollama needs no provider login. For a protected server, update the environment variable named by ollama.token_env and restart Nectra"),
         _ => bail!("login is supported for anthropic, openai, and google"),
@@ -180,12 +188,30 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
             "--output-format".into(),
             "text".into(),
         ],
+        // `-p` takes the next argument as the prompt, so `--print=` (empty) it
+        // is, and the prompt travels on stdin as a stream-json user message.
+        "agy" => {
+            let mut args = vec![
+                "--print=".into(),
+                "--input-format".into(),
+                "stream-json".into(),
+                "--model".into(),
+                d.model.clone().into(),
+                "--output-format".into(),
+                "text".into(),
+            ];
+            if !d.effort.is_empty() {
+                args.extend(["--effort".into(), d.effort.clone().into()]);
+            }
+            args
+        }
         _ => bail!("unsupported runtime"),
     };
     let runtime = match d.runtime.as_str() {
         "claude" => &cfg.inner.claude,
         "codex" => &cfg.inner.codex,
         "gemini" => &cfg.inner.gemini,
+        "agy" => &cfg.inner.agy,
         _ => bail!("unsupported runtime"),
     };
     // Both replace the configured permissions with their own.
@@ -247,6 +273,7 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
                 "claude" => "--dangerously-skip-permissions",
                 "codex" => "--dangerously-bypass-approvals-and-sandbox",
                 "gemini" => "--approval-mode=yolo",
+                "agy" => "--dangerously-skip-permissions",
                 _ => unreachable!(),
             }
             .into(),
@@ -265,13 +292,13 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
 pub struct ProviderSession {
     /// Continue this existing session instead of starting a new one.
     pub resume: bool,
-    /// Claude: assigned before launch. Codex: captured from the provider's events.
+    /// Claude: assigned before launch. Codex, agy: captured from the provider's events.
     pub id: Option<String>,
 }
 impl ProviderSession {
-    /// Only Claude and Codex expose a session id Nectra can target safely.
+    /// Claude, Codex and agy expose a session id Nectra can target safely.
     pub fn supported(runtime: &str) -> bool {
-        matches!(runtime, "claude" | "codex")
+        matches!(runtime, "claude" | "codex" | "agy")
     }
     pub fn start(runtime: &str) -> Self {
         Self {
@@ -388,6 +415,8 @@ pub fn session_arguments(
             args.extend([id.into(), stdin]);
         }
         ("codex", None) if session.resume => bail!("codex session id missing"),
+        ("agy", Some(id)) if session.resume => args.extend(["--conversation".into(), id.into()]),
+        ("agy", None) if session.resume => bail!("agy conversation id missing"),
         _ => {}
     }
     Ok(args)
@@ -402,6 +431,11 @@ pub fn execute(d: &Decision, prompt: &str, cfg: &Config) -> Result<i32> {
     if d.runtime == "ollama" {
         let mut stdout = std::io::stdout();
         crate::ollama::conversation(&d.model, prompt, cfg, &mut activity.writer(&mut stdout))?;
+        return Ok(0);
+    }
+    if d.runtime == "agy" {
+        // Its input is a JSON message and its output events: the stream path parses both.
+        conversation(d, prompt, cfg, &mut std::io::stdout())?;
         return Ok(0);
     }
     let runtime = match d.runtime.as_str() {
@@ -534,7 +568,7 @@ pub fn doctor(cfg: &Config) -> Result<()> {
     for (id, name, runtime) in [
         ("anthropic", "Claude Code", &cfg.inner.claude),
         ("openai", "Codex CLI", &cfg.inner.codex),
-        ("google", "Gemini CLI", &cfg.inner.gemini),
+        ("google", "Antigravity CLI (agy)", &cfg.inner.agy),
     ] {
         if id == "google" && cfg.inner.providers.is_none() {
             continue;

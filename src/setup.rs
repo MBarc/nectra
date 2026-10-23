@@ -30,7 +30,11 @@ pub const PROVIDERS: &[ProviderChoice] = &[
         "requires Claude Code CLI"
     ),
     provider!("openai", "OpenAI", "requires Codex CLI"),
-    provider!("google", "Google / Gemini", "requires Gemini CLI"),
+    provider!(
+        "google",
+        "Google / Gemini",
+        "requires Antigravity CLI (agy)"
+    ),
     provider!(
         "ollama",
         "Ollama (local or your own server)",
@@ -161,7 +165,7 @@ fn validate_connections(
     for (id, name, command) in [
         ("anthropic", "Claude Code", &cfg.inner.claude.command),
         ("openai", "Codex CLI", &cfg.inner.codex.command),
-        ("google", "Gemini CLI", &cfg.inner.gemini.command),
+        ("google", "Antigravity CLI (agy)", &cfg.inner.agy.command),
     ] {
         if id == "google" && cfg.inner.providers.is_none() {
             continue;

@@ -293,6 +293,19 @@ pub fn event_phase(runtime: &str, event: &Value) -> Option<Phase> {
             "turn.completed" => Some(Phase::Finishing),
             _ => None,
         },
+        "agy" => match event["event"].as_str()? {
+            "init" => Some(Phase::Waiting),
+            "step_update" => match event["step_update"]["step_type"].as_str() {
+                Some("tool") if event["step_update"]["state"] == "ACTIVE" => Some(Phase::Tools),
+                Some("tool") => Some(Phase::Waiting),
+                Some("agent_response") if event["step_update"]["text_delta"].is_string() => {
+                    Some(Phase::Replying)
+                }
+                _ => None,
+            },
+            "result" => Some(Phase::Finishing),
+            _ => None,
+        },
         "gemini" => match kind {
             "init" => Some(Phase::Waiting),
             "tool_use" => Some(Phase::Tools),
@@ -359,6 +372,13 @@ mod tests {
         );
         assert_eq!(
             event_phase("gemini", &json!({"type":"tool_use"})),
+            Some(Phase::Tools)
+        );
+        assert_eq!(
+            event_phase(
+                "agy",
+                &json!({"event":"step_update","step_update":{"step_type":"tool","state":"ACTIVE"}})
+            ),
             Some(Phase::Tools)
         );
         assert_eq!(

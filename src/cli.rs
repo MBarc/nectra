@@ -32,7 +32,7 @@ pub enum ClassifierCommands {
 #[command(
     name = "nectra",
     version,
-    about = "Route conversations to Claude Code, Codex CLI, Gemini CLI, or Ollama"
+    about = "Route conversations to Claude Code, Codex CLI, Antigravity (agy), or Ollama"
 )]
 pub struct Cli {
     /// Show the real provider terminal in interactive chat, or use structured streams.

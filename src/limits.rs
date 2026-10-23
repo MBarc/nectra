@@ -70,6 +70,10 @@ impl RateLimited {
                 "too many requests",
                 "quota exceeded",
                 "hit your limit",
+                // Google's wording (agy, and the Gemini API behind it).
+                "exceeded your current quota",
+                "exhausted your capacity",
+                "resource has been exhausted",
             ]
             .iter()
             .any(|s| lower.contains(s));

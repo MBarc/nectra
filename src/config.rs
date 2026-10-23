@@ -105,6 +105,8 @@ pub struct ConfigFile {
     pub classifier: ClassifierConfig,
     #[serde(default = "default_gemini")]
     pub gemini: RuntimeConfig,
+    #[serde(default = "default_agy")]
+    pub agy: RuntimeConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ollama: Option<crate::ollama::OllamaConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -134,6 +136,13 @@ pub struct Config {
 fn default_gemini() -> RuntimeConfig {
     RuntimeConfig {
         command: "gemini".into(),
+        extra_args: vec![],
+    }
+}
+
+fn default_agy() -> RuntimeConfig {
+    RuntimeConfig {
+        command: "agy".into(),
         extra_args: vec![],
     }
 }
@@ -228,7 +237,12 @@ impl Config {
         {
             bail!("confidence_margin must be finite and between 0 and 1");
         }
-        for runtime in [&self.inner.claude, &self.inner.codex, &self.inner.gemini] {
+        for runtime in [
+            &self.inner.claude,
+            &self.inner.codex,
+            &self.inner.gemini,
+            &self.inner.agy,
+        ] {
             if runtime.command.trim().is_empty() {
                 bail!("runtime command cannot be empty");
             }

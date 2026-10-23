@@ -516,12 +516,15 @@ an explicitly supplied config). Provider configuration and sessions are untouche
 Color controls and `NO_COLOR` apply to every theme; model reply text keeps its
 normal terminal style. The activity indicator follows the selected theme.
 
-`nectra provider add google` validates Gemini CLI and enables bootstrap profiles
-for `gemini-2.5-pro` and `gemini-2.5-flash`. Define Google/Gemini entries in models.toml
-to replace these defaults. Their scores are editable heuristics, not benchmark claims.
-On Windows, npm installs are launched through Node.js and the Gemini JS entry point,
-without passing prompts through cmd.exe. Configure `[gemini].command` for other installs.
-Gemini uses stdin and stream-json for shared chat; its CLI may retain its own logs.
+`nectra provider add google` validates the Antigravity CLI (`agy`, found on PATH or in
+`%LOCALAPPDATA%gyin`) and enables the `gemini-3.8-flash-{high,medium,low}` profiles
+(the ids `agy models` lists). Their scores are unmeasured placeholders, not benchmark
+claims. agy takes the prompt as a stream-json message on stdin (`--print=
+--input-format stream-json`), resumes with `--conversation <id>`, and always runs in
+stream view; its CLI keeps its own logs. Google ended personal-account sign-in for Gemini
+CLI (2026-10), so the old `gemini` runtime is no longer routed to by the bundled registry;
+it stays for an API-key setup that declares `runtime = "gemini"` models itself.
+Configure `[agy].command` for other installs.
 
 Human UI uses cyan navigation, purple Claude, green OpenAI, blue Gemini, teal Ollama,
 green success, amber warnings/cooldowns, and red errors. Model reply text keeps the
@@ -538,14 +541,14 @@ nectra provider login google
 
 The permission flag applies to every CLI call and fallback for that launch, mapping
 to Claude `--dangerously-skip-permissions`, Codex
-`--dangerously-bypass-approvals-and-sandbox` (also disables its sandbox), and Gemini
-`--approval-mode=yolo`. It overrides conflicting approval/sandbox extra_args, is not
+`--dangerously-bypass-approvals-and-sandbox` (also disables its sandbox), Antigravity
+`--dangerously-skip-permissions`, and the old Gemini CLI `--approval-mode=yolo`. It overrides conflicting approval/sandbox extra_args, is not
 saved in configuration or sessions, and must be supplied again when resuming.
 Provider-enforced organizational policies still apply. Ollama remains chat-only.
 
 Use `/login PROVIDER` inside a chat when authentication expires. Claude opens
-`auth login`; Codex opens `login`; Gemini opens its interactive CLI, where `/auth`
-changes authentication and `/quit` returns to Nectra. Nectra does not store credentials,
+`auth login`; Codex opens `login`; Google opens `agy` interactively: sign in there, then
+exit it to return to Nectra. Nectra does not store credentials,
 automatically log out, or replay interrupted work. Recognized structured authentication
 errors exclude the provider until its login workflow closes successfully; the next
 message verifies actual access. Opaque stderr-only errors may require manual login.

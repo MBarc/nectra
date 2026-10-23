@@ -51,10 +51,10 @@ pub enum ProviderView {
 }
 
 /// Whether this runtime's turn runs in the provider's own terminal.
-/// Ollama has none. Gemini CLI 0.64+ loads per-launch settings, and so Nectra's
+/// Ollama has none, and agy's hook mechanism is unverified. Gemini CLI 0.64+ loads per-launch settings, and so Nectra's
 /// hooks, only from admin-owned files, so its turns use stream view.
 pub fn enabled(cfg: &Config, runtime: &str) -> Result<bool> {
-    if matches!(runtime, "ollama" | "gemini") {
+    if matches!(runtime, "ollama" | "gemini" | "agy") {
         return Ok(false);
     }
     let interactive = io::stdin().is_terminal()
