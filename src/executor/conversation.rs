@@ -157,13 +157,8 @@ pub fn conversation_observed(
     // `nectra usage` finds them through it.
     let mut thread = None;
     // agy reads one NDJSON message per line; a newline inside the text is escaped by JSON.
-    let message = (d.runtime == "agy").then(|| {
-        format!(
-            "{}
-",
-            json!({"event":"user","message":{"content":prompt}})
-        )
-    });
+    let message = (d.runtime == "agy")
+        .then(|| format!("{}\n", json!({"event":"user","message":{"content":prompt}})));
     let reply = run_command(
         d,
         message.as_deref().unwrap_or(prompt),

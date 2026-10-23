@@ -36,7 +36,7 @@ pub enum Runtime {
     Agy,
 }
 /// The CLI Google models run on: the Gemini API-key runtime only when the
-/// registry declares Google models for it and none for agy.
+/// registry enables Google models for it and none for agy.
 pub fn google_runtime(cfg: &Config) -> Runtime {
     let Ok(registry) = Registry::load(cfg) else {
         return Runtime::Agy;
@@ -45,7 +45,7 @@ pub fn google_runtime(cfg: &Config) -> Runtime {
         registry
             .models
             .iter()
-            .any(|m| m.provider == Provider::Google && m.runtime == r)
+            .any(|m| m.enabled && m.provider == Provider::Google && m.runtime == r)
     };
     if uses(Runtime::Gemini) && !uses(Runtime::Agy) {
         Runtime::Gemini
