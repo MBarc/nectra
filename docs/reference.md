@@ -517,7 +517,7 @@ Color controls and `NO_COLOR` apply to every theme; model reply text keeps its
 normal terminal style. The activity indicator follows the selected theme.
 
 `nectra provider add google` validates the Antigravity CLI (`agy`, found on PATH or in
-`%LOCALAPPDATA%gyin`) and enables the `gemini-3.8-flash-{high,medium,low}` profiles
+`%LOCALAPPDATA%/agy/bin`) and enables the `gemini-3.8-flash-{high,medium,low}` profiles
 (the ids `agy models` lists). Their scores are unmeasured placeholders, not benchmark
 claims. agy takes the prompt as a stream-json message on stdin (`--print=
 --input-format stream-json`), resumes with `--conversation <id>`, and always runs in

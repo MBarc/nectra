@@ -165,7 +165,11 @@ fn validate_connections(
     for (id, name, command) in [
         ("anthropic", "Claude Code", &cfg.inner.claude.command),
         ("openai", "Codex CLI", &cfg.inner.codex.command),
-        ("google", "Antigravity CLI (agy)", &cfg.inner.agy.command),
+        (
+            "google",
+            executor::google_name(cfg),
+            &executor::google_config(cfg).command,
+        ),
     ] {
         if id == "google" && cfg.inner.providers.is_none() {
             continue;

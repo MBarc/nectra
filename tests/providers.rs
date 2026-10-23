@@ -58,7 +58,7 @@ fn a_read_only_launch_drops_every_configured_permission() {
         // Resuming the outgoing session is how a handoff note is asked for.
         let session = executor::ProviderSession {
             resume: true,
-            id: Some("s1".into()),
+            id: Some("a1b2c3d4-0000-4000-8000-000000000002".into()),
         };
         executor::session_arguments(args, &d.runtime, &session)
             .unwrap()

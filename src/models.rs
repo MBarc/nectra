@@ -35,6 +35,25 @@ pub enum Runtime {
     /// Antigravity CLI: Google's runtime now that Gemini CLI rejects personal sign-in.
     Agy,
 }
+/// The CLI Google models run on: the Gemini API-key runtime only when the
+/// registry declares Google models for it and none for agy.
+pub fn google_runtime(cfg: &Config) -> Runtime {
+    let Ok(registry) = Registry::load(cfg) else {
+        return Runtime::Agy;
+    };
+    let uses = |r| {
+        registry
+            .models
+            .iter()
+            .any(|m| m.provider == Provider::Google && m.runtime == r)
+    };
+    if uses(Runtime::Gemini) && !uses(Runtime::Agy) {
+        Runtime::Gemini
+    } else {
+        Runtime::Agy
+    }
+}
+
 impl Runtime {
     pub fn as_str(&self) -> &'static str {
         match self {

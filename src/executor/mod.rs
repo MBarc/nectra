@@ -36,7 +36,7 @@ pub fn resolve(command: &str) -> Result<PathBuf> {
         bail!("runtime executable not found or not native: {command}");
     }
     let path = env::var_os("PATH").unwrap_or_default();
-    // agy's installer puts it in %LOCALAPPDATA%gyin and does not always
+    // agy's installer puts it in %LOCALAPPDATA%/agy/bin and does not always
     // add that to PATH, so a fresh install would look missing.
     let agy_home = (command == "agy")
         .then(|| env::var_os("LOCALAPPDATA").map(|d| Path::new(&d).join("agy/bin")))
@@ -133,10 +133,16 @@ pub fn login(provider: &str, cfg: &Config) -> Result<()> {
     let (runtime, args): (&str, &[&str]) = match provider {
         "anthropic" | "claude" => (&cfg.inner.claude.command, &["auth", "login"]),
         "openai" | "codex" => (&cfg.inner.codex.command, &["login"]),
-        "google" | "gemini" | "agy" => {
-            crate::terminal::line("Opening Antigravity (agy). Sign in there, then exit it to return to Nectra.")?;
-            (&cfg.inner.agy.command, &[])
-        }
+        "google" | "gemini" | "agy" => match crate::models::google_runtime(cfg) {
+            crate::models::Runtime::Gemini => {
+                crate::terminal::line("Opening Gemini CLI. Use /auth to sign in again, then /quit to return to Nectra.")?;
+                (&cfg.inner.gemini.command, &[])
+            }
+            _ => {
+                crate::terminal::line("Opening Antigravity (agy). Sign in there, then exit it to return to Nectra.")?;
+                (&cfg.inner.agy.command, &[])
+            }
+        },
         "ollama" => bail!("local Ollama needs no provider login. For a protected server, update the environment variable named by ollama.token_env and restart Nectra"),
         _ => bail!("login is supported for anthropic, openai, and google"),
     };
@@ -354,12 +360,27 @@ pub fn new_session_id() -> String {
     )
 }
 
+/// Codex and agy ids go on the command line: only a UUID-shaped one (hex and
+/// `-`, never leading with `-`) can't be read as a flag.
+fn flag_safe(id: &str) -> Result<()> {
+    if id.is_empty()
+        || id.starts_with('-')
+        || !id.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+    {
+        bail!("not a provider session id: {id}");
+    }
+    Ok(())
+}
+
 /// Adds session flags to `arguments` output for a print-mode launch.
 pub fn session_arguments(
     mut args: Vec<OsString>,
     runtime: &str,
     session: &ProviderSession,
 ) -> Result<Vec<OsString>> {
+    if let ("codex" | "agy", Some(id), true) = (runtime, &session.id, session.resume) {
+        flag_safe(id)?;
+    }
     match (runtime, &session.id) {
         ("claude", Some(id)) => {
             let flag = if session.resume {
@@ -546,6 +567,20 @@ pub fn check_runtime(command: &str) -> Result<std::path::PathBuf> {
     }
 }
 
+/// The runtime (and its name) that Google's models launch.
+pub fn google_config(cfg: &Config) -> &crate::config::RuntimeConfig {
+    match crate::models::google_runtime(cfg) {
+        crate::models::Runtime::Gemini => &cfg.inner.gemini,
+        _ => &cfg.inner.agy,
+    }
+}
+pub fn google_name(cfg: &Config) -> &'static str {
+    match crate::models::google_runtime(cfg) {
+        crate::models::Runtime::Gemini => "Gemini CLI",
+        _ => "Antigravity CLI (agy)",
+    }
+}
+
 pub fn doctor(cfg: &Config) -> Result<()> {
     let mut ok = true;
     if cfg.ollama_enabled() {
@@ -568,7 +603,7 @@ pub fn doctor(cfg: &Config) -> Result<()> {
     for (id, name, runtime) in [
         ("anthropic", "Claude Code", &cfg.inner.claude),
         ("openai", "Codex CLI", &cfg.inner.codex),
-        ("google", "Antigravity CLI (agy)", &cfg.inner.agy),
+        ("google", google_name(cfg), google_config(cfg)),
     ] {
         if id == "google" && cfg.inner.providers.is_none() {
             continue;
@@ -629,7 +664,12 @@ mod tests {
             codex
         );
         assert_eq!(
-            session_arguments(codex, "codex", &ProviderSession::resume("t1")).unwrap(),
+            session_arguments(
+                codex,
+                "codex",
+                &ProviderSession::resume("a1b2c3d4-0000-4000-8000-000000000001")
+            )
+            .unwrap(),
             os(&[
                 "exec",
                 "resume",
@@ -637,7 +677,7 @@ mod tests {
                 "gpt-5.6-sol",
                 "--json",
                 "--",
-                "t1",
+                "a1b2c3d4-0000-4000-8000-000000000001",
                 "-"
             ])
         );
@@ -655,7 +695,12 @@ mod tests {
             "-",
         ]);
         assert_eq!(
-            session_arguments(sandboxed, "codex", &ProviderSession::resume("t1")).unwrap(),
+            session_arguments(
+                sandboxed,
+                "codex",
+                &ProviderSession::resume("a1b2c3d4-0000-4000-8000-000000000001")
+            )
+            .unwrap(),
             os(&[
                 "exec",
                 "resume",
@@ -668,7 +713,7 @@ mod tests {
                 "--config",
                 "sandbox_mode=\"danger-full-access\"",
                 "--",
-                "t1",
+                "a1b2c3d4-0000-4000-8000-000000000001",
                 "-"
             ])
         );

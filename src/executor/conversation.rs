@@ -559,9 +559,19 @@ impl StreamState {
                 }
                 let reply = result["response"].as_str().unwrap_or_default();
                 // Headless agy auto-denies a tool that needs approval and still
-                // reports SUCCESS, with nothing to say.
-                if reply.trim().is_empty() && result["denied_actions"].is_array() {
-                    bail!("agy was denied permission to act: rerun with --dangerously-skip-permissions");
+                // reports SUCCESS, with or without text: the work was not done.
+                if let Some(denied) = result["denied_actions"]
+                    .as_array()
+                    .filter(|a| !a.is_empty())
+                {
+                    let names: Vec<&str> = denied
+                        .iter()
+                        .filter_map(|a| a["display_name"].as_str().or(a["action"].as_str()))
+                        .collect();
+                    bail!(
+                        "agy was denied permission to act ({}): rerun with --dangerously-skip-permissions",
+                        names.join(", ")
+                    );
                 }
                 self.completed = true;
                 self.reply = Some(reply.to_string());
@@ -662,6 +672,11 @@ mod tests {
         assert!(denied
             .to_string()
             .contains("--dangerously-skip-permissions"));
+        let partial = r#"{"event":"result","result":{"status":"SUCCESS","response":"I wrote it.","denied_actions":[{"action":"command","display_name":"RunCommand"}]}}"#;
+        assert!(agy_run(partial)
+            .unwrap_err()
+            .to_string()
+            .contains("RunCommand"));
         // Not captured live: see the fixture's first line.
         let lines: Vec<&str> = include_str!("../../tests/fixtures/agy-limit-and-auth.jsonl")
             .lines()
@@ -677,6 +692,26 @@ mod tests {
             let limit = agy_run(limited).unwrap_err();
             let limit = limit.downcast_ref::<crate::limits::RateLimited>().unwrap();
             assert!(limit.safe_to_retry, "{limited}");
+        }
+    }
+    #[test]
+    fn a_session_id_cannot_become_a_flag() {
+        for runtime in ["agy", "codex"] {
+            let args = vec!["exec".into(), "--".into(), "-".into()];
+            for bad in ["--add-dir", "-x", "a b", ""] {
+                assert!(crate::executor::session_arguments(
+                    args.clone(),
+                    runtime,
+                    &crate::executor::ProviderSession::resume(bad)
+                )
+                .is_err());
+            }
+            assert!(crate::executor::session_arguments(
+                args.clone(),
+                runtime,
+                &crate::executor::ProviderSession::resume("d9945309-f13f-4e6c-963f-94f5a6fe5332")
+            )
+            .is_ok());
         }
     }
     #[test]

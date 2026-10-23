@@ -28,7 +28,13 @@ const PRICES: &str = include_str!("../eval/chat-savings/prices.json");
 /// (`claude-opus-5-5`); those listed under `_aliases` resolve to their short
 /// ids, and any other version has no price.
 pub fn price(model: &str) -> Option<[f64; 4]> {
-    let n = |k: &str| price_of(model, k);
+    price_on(model, &today())
+}
+/// `price` on an ISO date: a model with an `_effective` schedule in prices.json
+/// (`[{"until":..},{"from":..}]`, bounds inclusive) is priced by the entry
+/// covering that date, and has no price on a date none covers.
+pub fn price_on(model: &str, date: &str) -> Option<[f64; 4]> {
+    let n = |k: &str| price_of(model, k, date);
     Some([
         n("input")?,
         n("cache_read")?,
@@ -39,12 +45,37 @@ pub fn price(model: &str) -> Option<[f64; 4]> {
 /// USD per million tokens of a 5-minute cache write (Claude), where `cache_write`
 /// is the 1-hour rate; the same as `cache_write` for models without the split.
 pub fn price_cache_write_5m(model: &str) -> Option<f64> {
-    price_of(model, "cache_write_5m").or_else(|| price_of(model, "cache_write"))
+    let date = today();
+    price_of(model, "cache_write_5m", &date).or_else(|| price_of(model, "cache_write", &date))
 }
-fn price_of(model: &str, key: &str) -> Option<f64> {
+fn price_of(model: &str, key: &str, date: &str) -> Option<f64> {
     let prices: Value = serde_json::from_str(PRICES).ok()?;
     let id = prices["_aliases"][model].as_str().unwrap_or(model);
-    prices[id][key].as_f64()
+    match prices["_effective"][id].as_array() {
+        Some(schedule) => schedule.iter().find(|e| {
+            e["from"].as_str().is_none_or(|f| f <= date)
+                && e["until"].as_str().is_none_or(|u| date <= u)
+        })?[key]
+            .as_f64(),
+        None => prices[id][key].as_f64(),
+    }
+}
+/// Today's UTC date as `YYYY-MM-DD`.
+fn today() -> String {
+    let days = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() / 86400) as i64;
+    // Civil date from days since 1970-01-01 (Hinnant).
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 /// The log (rollout) Codex keeps of thread `id`, once it has written one.
@@ -564,6 +595,16 @@ pub fn render(report: &Report, baseline: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gemini_flash_is_priced_by_date_across_the_2027_increase() {
+        let m = "gemini-3.8-flash-low";
+        assert_eq!(price_on(m, "2026-12-31"), Some([0.75, 0.075, 0.0, 3.75]));
+        assert_eq!(price_on(m, "2027-01-01"), Some([1.50, 0.15, 0.0, 7.50]));
+        assert!(price(m).is_some());
+        let t = today();
+        assert!(t.len() == 10 && t.as_str() > "2026-10-01", "{t}");
+    }
 
     #[test]
     fn only_listed_model_versions_get_a_price() {
