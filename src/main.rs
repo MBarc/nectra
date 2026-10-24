@@ -197,13 +197,22 @@ fn app() -> Result<i32> {
         Some(Commands::Eval { corpus }) => return evaluate(corpus, &cfg),
         _ => {}
     }
-    if let Some(index) = cli
+    // `run --events jsonl` reports a refused index as its result, like any
+    // other setup failure; everything else stops here.
+    let knowledge = match cli
         .knowledge
         .as_ref()
         .or(cfg.inner.knowledge.index.as_ref())
     {
-        cfg.knowledge = Some(nectra::knowledge::load(index)?);
-    }
+        Some(index) => nectra::knowledge::load(index).map(|block| cfg.knowledge = Some(block)),
+        None => Ok(()),
+    };
+    let headless = matches!(&cli.command, Some(Commands::Run { headless, .. })
+        if headless.events.is_some() && !cli.dry_run);
+    let knowledge = match headless {
+        true => knowledge,
+        false => Ok(knowledge?),
+    };
     let registry = models::Registry::load(&cfg)?;
     if cli.continue_latest && !chatting {
         bail!("--continue applies to chat only: run `nectra -c` or `nectra chat -c`");
@@ -247,7 +256,7 @@ Registry: {}",
     if let Some(Commands::Run { prompt, headless }) = &cli.command {
         // Headless reads its own prompt, inside its deadline.
         if headless.events.is_some() && !cli.dry_run {
-            return nectra::headless::run(&cli, &cfg, &registry, prompt, headless);
+            return nectra::headless::run(&cli, &cfg, &registry, prompt, headless, knowledge);
         }
     }
     let prompt = if cli.stdin {

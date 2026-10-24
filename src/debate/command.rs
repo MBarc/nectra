@@ -192,7 +192,7 @@ pub fn turn(
 ///
 /// Costs one small model call, which is why it sits behind `--live`.
 fn live_tool_inventory(cfg: &Config, probe: &crate::router::Decision) -> Result<Vec<String>> {
-    let args = plain::provider_args(probe)?;
+    let args = plain::provider_args(probe, cfg.knowledge.as_deref())?;
     let mut child = std::process::Command::new(&cfg.inner.claude.command)
         .args(&args)
         .stdin(std::process::Stdio::piped())
@@ -268,7 +268,7 @@ pub fn one_shot(
             reason: String::new(),
             candidates: vec![],
         };
-        let args = plain::provider_args(&probe)?;
+        let args = plain::provider_args(&probe, cfg.knowledge.as_deref())?;
         let tools = args
             .iter()
             .position(|a| a == "--tools")

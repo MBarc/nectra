@@ -767,13 +767,19 @@ struct Request {
 }
 
 /// One task, or with `--serve` one per request line until stdin closes.
+/// A failed `setup` (a refused knowledge index) is one `harness_error` result,
+/// before `ready`. A server keeps the index it started with.
 pub fn run(
     cli: &Cli,
     cfg: &Config,
     registry: &Registry,
     words: &[String],
     args: &Args,
+    setup: Result<()>,
 ) -> Result<i32> {
+    if let Err(e) = setup {
+        return task(cli, cfg, registry, &[], args, Some(Err(e)));
+    }
     if !args.serve {
         return task(cli, cfg, registry, words, args, None);
     }

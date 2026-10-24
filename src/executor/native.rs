@@ -870,6 +870,41 @@ mod tests {
             );
         }
     }
+    /// The terminal view of Claude keeps the index as a system prompt.
+    #[test]
+    fn the_terminal_view_keeps_the_knowledge_index() {
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.claude.command = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        cfg.knowledge = Some("<block>".into());
+        let d = Decision {
+            task: "general".into(),
+            provider: "anthropic".into(),
+            runtime: "claude".into(),
+            model: "test-model".into(),
+            effort: String::new(),
+            mode: crate::cli::Mode::Balanced,
+            score: 0.0,
+            score_margin: None,
+            ambiguous: false,
+            overridden: true,
+            reason: String::new(),
+            candidates: vec![],
+        };
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("context.txt"), one_shot_context("hi")).unwrap();
+        let cmd = command(&d, &cfg, root.path(), None).unwrap();
+        let argv = cmd.get_argv();
+        let at = argv
+            .iter()
+            .position(|a| a == "--append-system-prompt")
+            .expect("--append-system-prompt");
+        assert_eq!(argv[at + 1], "<block>");
+        // Before `--`, so it is read as a flag and not as the prompt.
+        assert!(at < argv.iter().position(|a| a == "--").unwrap());
+    }
     #[test]
     fn explicit_settings_and_profile_notifications_are_preserved() {
         let mut args = vec![

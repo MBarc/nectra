@@ -401,24 +401,42 @@ index = "/usr/share/pons/knowledge/INDEX.md"
 
 `--knowledge PATH` does the same for one launch and takes precedence. Unset
 (the default), nothing is added. When set, the file's text goes to every
-provider, for every chat message and `run` task, `--no-tools` and `--serve`
-included, as delimited system context (`<system-context source="knowledge
-index">`), never as the user's words:
+provider, for every chat message, `run` task and debate turn, `--no-tools` and
+`--serve` included, as one delimited block. The block's tag,
+`<system-context-RANDOM source="knowledge index">`, is new in every Nectra
+process, so text from anywhere else can't close it or open one like it:
 
 | Runtime | How it is given |
 |---|---|
-| Claude Code | `--append-system-prompt`, a launch flag, so `--no-tools` still loads no settings files |
-| Ollama | Added to its system message |
-| Codex, agy, Gemini CLI | In front of the prompt; not again when a provider session is resumed |
+| Claude Code | `--append-system-prompt`: system context, apart from the user's turn. It is a launch flag, so `--no-tools` still loads no settings files |
+| Ollama | Added to its system message, apart from the user's turn |
+| Codex, agy, Gemini CLI | In front of the prompt, in the same user turn, since Nectra has no system-prompt flag for these. The random tag marks where it ends, and any `<system-context` in the prompt (any case or spacing) is sent as `&lt;system-context`. It isn't sent again when a provider session is resumed |
 
 The file steers every agent, so it is read only when nobody but an administrator
-can change it. On Linux and macOS, the file and its directory must be owned by
-root and not writable by group or others; on Windows, owned by SYSTEM,
-Administrators or TrustedInstaller, with write access for no one else. It must
-be UTF-8, at most 16 KiB, and can't contain `</system-context>`. Otherwise
-Nectra stops with an error naming the file and the reason; it never skips the
-file silently. Only that one file is sent: topic files it lists are not, so a
-model with tools reads them itself.
+can change it or anything on its path:
+
+- **The path** must be absolute, with no `..` and no symbolic link anywhere in
+  it (on Windows, no junction or other reparse point either, and on a local
+  disk). Each directory is opened from the one before it, and the checks and
+  the read go through the same open handles.
+- **Linux and macOS:** `/`, every directory under it on the way and the file
+  are owned by root and not writable by group or others. A sticky directory
+  such as `/tmp` doesn't pass.
+- **Windows:** every directory on the way and the file are owned by SYSTEM,
+  Administrators or TrustedInstaller. Nobody else may write, delete or
+  re-permission the file, or delete, rename or re-permission a directory on the
+  way, or what is in it. Adding new folders is allowed (`C:\` lets every
+  signed-in user do it), since that can't replace anything on the path.
+- **The file** is a regular file (a FIFO or device is refused without waiting
+  on it), UTF-8, at most 16 KiB, with no `<system-context` tag of its own. On
+  Windows its quoted block must also fit a command line (24,000 characters).
+
+Otherwise Nectra stops with an error naming the file and the reason; it never
+skips the file silently. `run --events jsonl`, `--serve` included, reports it
+as one `harness_error` result. The file is read when Nectra starts, so a
+running `--serve` or chat keeps the text it loaded; restart it to pick up a
+change. Only that one file is sent: topic files it lists are not, so a model
+with tools reads them itself.
 
 ## Execution and trust
 

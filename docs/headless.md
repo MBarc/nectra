@@ -356,7 +356,11 @@ each in its own group) and Nectra exits 130 within about two seconds, after its
 
 The image's `/etc/pons/nectra/config.toml` sets `[knowledge] index =
 "/usr/share/pons/knowledge/INDEX.md"`, so every task and Ask Nectra question
-starts with the index. With `--mcp-config` doing the mapping, `extra_args` no longer needs `--mcp-config`
+starts with the index. It is read only when root alone can change it and every
+directory above it (`/usr/share/pons` included), so ship it with the packaging
+that makes those root's. A refused index is one `harness_error` result before
+`ready`. `--serve` keeps the index it started with; restart the unit after
+changing the file. With `--mcp-config` doing the mapping, `extra_args` no longer needs `--mcp-config`
 or `--strict-mcp-config`. Map `error_class` straight to the task outcome, the
 `route` event to `task.routed`, and `result.usage`/`cost_usd` to `metadata.usage`.
 
