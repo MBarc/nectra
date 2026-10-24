@@ -98,6 +98,14 @@ impl Default for ClassifierConfig {
         }
     }
 }
+/// Machine facts every provider gets as system context (`crate::knowledge`).
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct KnowledgeConfig {
+    /// Read only when it and its directory are root's alone (administrators'
+    /// on Windows). Unset: nothing is added.
+    pub index: Option<PathBuf>,
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigFile {
@@ -116,6 +124,8 @@ pub struct ConfigFile {
     pub codex: RuntimeConfig,
     #[serde(default)]
     pub routing: RoutingConfig,
+    #[serde(default)]
+    pub knowledge: KnowledgeConfig,
 }
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -132,6 +142,8 @@ pub struct Config {
     pub mcp_home: Option<PathBuf>,
     /// `nectra run --mcp-config`: exactly these servers, in place of sharing.
     pub mcp_config: Option<crate::mcp::Explicit>,
+    /// The loaded `[knowledge] index`, delimited, ready to send.
+    pub knowledge: Option<String>,
     pub path: PathBuf,
     pub inner: ConfigFile,
     pub embedded: bool,
@@ -167,6 +179,7 @@ impl Config {
             no_tools: false,
             mcp_home: None,
             mcp_config: None,
+            knowledge: None,
             inner: toml::from_str(DEFAULT_CONFIG)?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -193,6 +206,7 @@ impl Config {
             no_tools: false,
             mcp_home: None,
             mcp_config: None,
+            knowledge: None,
             inner: toml::from_str(DEFAULT_CONFIG).context("parsing embedded config")?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -210,6 +224,7 @@ impl Config {
             no_tools: false,
             mcp_home: None,
             mcp_config: None,
+            knowledge: None,
             inner: toml::from_str(&text).context("parsing config")?,
             path: path.to_path_buf(),
             embedded: false,

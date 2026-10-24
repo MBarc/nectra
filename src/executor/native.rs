@@ -510,7 +510,11 @@ pub fn conversation_with_session(
     let root = tempfile::Builder::new()
         .prefix("nectra-terminal-")
         .tempdir()?;
-    fs::write(root.path().join("context.txt"), prompt)?;
+    let resume = session.as_deref().is_some_and(|s| s.resume);
+    fs::write(
+        root.path().join("context.txt"),
+        super::with_knowledge(&d.runtime, prompt, cfg, resume).as_bytes(),
+    )?;
     let cmd = command(d, cfg, root.path(), session.as_deref())?;
     let marker = root
         .path()

@@ -109,6 +109,8 @@ pub fn conversation_observed(
         bail!("Turn cancelled; partial output was not saved or replayed.");
     }
     let persist = session.is_some();
+    let resume = session.as_deref().is_some_and(|s| s.resume);
+    let prompt = &*super::with_knowledge(&d.runtime, prompt, cfg, resume);
     let command = match d.runtime.as_str() {
         "claude" => &cfg.inner.claude.command,
         "codex" => &cfg.inner.codex.command,

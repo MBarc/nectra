@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 21] = [
+    let scenarios: [(&str, fn()); 22] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -54,6 +54,10 @@ fn main() {
         ),
         ("--serve --no-tools answers from Ollama alone", serve_ollama),
         ("--serve answers a bad line and reads on", serve_bad_lines),
+        (
+            "--no-tools --serve gives Claude the knowledge index",
+            serve_knowledge,
+        ),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -623,6 +627,89 @@ fn no_tools() {
         assert!(String::from_utf8_lossy(&out.stderr).contains("cannot be used with"));
     }
     assert_eq!(env.launches().len(), 0);
+}
+
+/// A file only root (administrators, on Windows) can change stands in for
+/// PonsOS's INDEX.md; one the user can write is refused before any launch.
+fn serve_knowledge() {
+    #[cfg(unix)]
+    let index = std::path::PathBuf::from("/etc/passwd");
+    #[cfg(windows)]
+    let index = Path::new(&std::env::var("SystemRoot").unwrap()).join("win.ini");
+    let first = fs::read_to_string(&index).unwrap();
+    let first = first.lines().find(|l| !l.trim().is_empty()).unwrap().trim();
+    let env = Env::new();
+    let mut child = env
+        .command()
+        .arg("--knowledge")
+        .arg(&index)
+        .args([
+            "--model",
+            "haiku",
+            "run",
+            "--events",
+            "jsonl",
+            "--no-session",
+            "--serve",
+            "--no-tools",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(
+            b"{\"prompt\":\"hi\"}
+{\"prompt\":\"again\"}
+",
+        )
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stdout}");
+    let launches = env.launches();
+    assert_eq!(launches.len(), 2, "{stdout}");
+    for (launch, prompt) in launches.iter().zip(["hi", "again"]) {
+        assert_eq!(launch["prompt"], prompt, "never the user's words");
+        let launched = args(launch);
+        let at = launched
+            .iter()
+            .position(|a| a == "--append-system-prompt")
+            .unwrap();
+        let block = &launched[at + 1];
+        assert!(block.starts_with("<system-context"), "{block}");
+        assert!(block.contains(first), "{block}");
+        let sources = launched
+            .iter()
+            .position(|a| a == "--setting-sources")
+            .unwrap();
+        assert_eq!(launched[sources + 1], "", "still no settings files");
+    }
+    // In the temp directory: the user can write it, so it is never read.
+    let open = env.dir.path().join("INDEX.md");
+    fs::write(&open, "facts").unwrap();
+    let out = env
+        .command()
+        .arg("--knowledge")
+        .arg(&open)
+        .args([
+            "--model",
+            "haiku",
+            "run",
+            "--events",
+            "jsonl",
+            "--no-tools",
+            "hi",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("refusing knowledge index"), "{stderr}");
+    assert_eq!(env.launches().len(), 2, "nothing launched");
 }
 
 /// Invalid UTF-8 and an oversized line each get an error result, an unknown

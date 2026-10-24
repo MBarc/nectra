@@ -392,6 +392,34 @@ PowerShell/batch shim. Relative PATH entries are ignored.
 Trusted `extra_args` can set runtime options, but cannot replace Nectra's model,
 effort, provider-selection flags or prompt transport.
 
+### Knowledge index
+
+```toml
+[knowledge]
+index = "/usr/share/pons/knowledge/INDEX.md"
+```
+
+`--knowledge PATH` does the same for one launch and takes precedence. Unset
+(the default), nothing is added. When set, the file's text goes to every
+provider, for every chat message and `run` task, `--no-tools` and `--serve`
+included, as delimited system context (`<system-context source="knowledge
+index">`), never as the user's words:
+
+| Runtime | How it is given |
+|---|---|
+| Claude Code | `--append-system-prompt`, a launch flag, so `--no-tools` still loads no settings files |
+| Ollama | Added to its system message |
+| Codex, agy, Gemini CLI | In front of the prompt; not again when a provider session is resumed |
+
+The file steers every agent, so it is read only when nobody but an administrator
+can change it. On Linux and macOS, the file and its directory must be owned by
+root and not writable by group or others; on Windows, owned by SYSTEM,
+Administrators or TrustedInstaller, with write access for no one else. It must
+be UTF-8, at most 16 KiB, and can't contain `</system-context>`. Otherwise
+Nectra stops with an error naming the file and the reason; it never skips the
+file silently. Only that one file is sent: topic files it lists are not, so a
+model with tools reads them itself.
+
 ## Execution and trust
 
 Nectra passes arguments directly to the child process and sends prompt text over

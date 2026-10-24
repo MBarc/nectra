@@ -4,6 +4,13 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- `[knowledge] index = "PATH"` and the global `--knowledge PATH`: that file goes
+  to every provider as delimited system context, `run --no-tools` and `--serve`
+  included (Claude through `--append-system-prompt`, Ollama in its system message,
+  Codex, agy and Gemini in front of the prompt). It is read only when it and its
+  directory are root's alone (administrators' on Windows), at most 16 KiB;
+  otherwise Nectra stops with an error. See
+  [docs/reference.md](docs/reference.md#knowledge-index).
 - `nectra run --events jsonl --serve`: one process answers request after request
   (`{"prompt": "..."}` per stdin line, the usual events per request), loading Laya
   once instead of once per prompt. New `ready` event, written only by `--serve`.

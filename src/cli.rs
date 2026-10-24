@@ -61,6 +61,10 @@ pub struct Cli {
     /// Use this configuration file instead of the installed one.
     #[arg(global = true, long)]
     pub config: Option<PathBuf>,
+    /// Give every provider this file as system context, in place of
+    /// `[knowledge] index` (docs/reference.md).
+    #[arg(global = true, long, value_name = "PATH")]
+    pub knowledge: Option<PathBuf>,
     /// Print the routing decision and its basis to stderr before running.
     #[arg(global = true, long)]
     pub explain: bool,

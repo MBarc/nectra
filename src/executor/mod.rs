@@ -311,10 +311,33 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
             .into(),
         );
     }
+    // A CLI flag, not a settings file: `--setting-sources ""` stays as it is.
+    if let (Some(block), "claude") = (&cfg.knowledge, d.runtime.as_str()) {
+        args.extend(["--append-system-prompt".into(), block.into()]);
+    }
     if d.runtime == "codex" {
         args.extend(["--".into(), "-".into()]);
     }
     Ok(args)
+}
+/// The prompt with the knowledge block in front, for the CLIs Nectra has no
+/// system-prompt flag for. Claude takes it in `arguments` and Ollama in its
+/// system message; a resumed session has it already.
+pub fn with_knowledge<'a>(
+    runtime: &str,
+    prompt: &'a str,
+    cfg: &Config,
+    resume: bool,
+) -> std::borrow::Cow<'a, str> {
+    match &cfg.knowledge {
+        Some(block) if !resume && matches!(runtime, "codex" | "gemini" | "agy") => format!(
+            "{block}
+
+{prompt}"
+        )
+        .into(),
+        _ => prompt.into(),
+    }
 }
 /// Whether `--no-tools` can hold this runtime to answers. Claude has a tool-less
 /// launch and Ollama is chat-only. Codex's read-only sandbox still reads files
@@ -503,7 +526,7 @@ pub fn execute(d: &Decision, prompt: &str, cfg: &Config) -> Result<i32> {
         launch(&runtime.command)?
             .args(arguments(d, cfg)?)
             .envs(crate::mcp::for_launch(&d.runtime, cfg).1),
-        prompt,
+        &with_knowledge(&d.runtime, prompt, cfg, false),
     )
 }
 fn run_child(command: &mut Command, prompt: &str) -> Result<i32> {
@@ -671,6 +694,78 @@ pub fn doctor(cfg: &Config) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    /// Each provider gets the knowledge block once: Claude as a system prompt,
+    /// Ollama in its system message, the rest in front of the prompt.
+    #[test]
+    fn knowledge_reaches_every_provider() {
+        let block = "<system-context>facts</system-context>";
+        let mut cfg = crate::config::Config::from_defaults().unwrap();
+        cfg.knowledge = Some(block.into());
+        let decision = |runtime: &str| crate::router::Decision {
+            task: "general".into(),
+            provider: String::new(),
+            runtime: runtime.into(),
+            model: "m".into(),
+            effort: String::new(),
+            mode: crate::cli::Mode::Fast,
+            score: 1.0,
+            score_margin: None,
+            ambiguous: false,
+            overridden: false,
+            reason: String::new(),
+            candidates: vec![],
+        };
+        let flag = |args: &[std::ffi::OsString]| {
+            args.iter()
+                .position(|a| a == "--append-system-prompt")
+                .map(|i| args[i + 1].clone())
+        };
+        let claude = super::arguments(&decision("claude"), &cfg).unwrap();
+        assert_eq!(flag(&claude), Some(block.into()));
+        assert_eq!(super::with_knowledge("claude", "hi", &cfg, false), "hi");
+        for runtime in ["codex", "gemini", "agy"] {
+            let args = super::arguments(&decision(runtime), &cfg).unwrap();
+            assert_eq!(flag(&args), None, "{runtime}");
+            assert!(!args.iter().any(|a| a.to_string_lossy().contains("facts")));
+            assert_eq!(
+                super::with_knowledge(runtime, "hi", &cfg, false),
+                format!(
+                    "{block}
+
+hi"
+                )
+            );
+            // A resumed session already has it.
+            assert_eq!(super::with_knowledge(runtime, "hi", &cfg, true), "hi");
+        }
+        // Codex's prompt still comes after `--`, from stdin.
+        let codex = super::arguments(&decision("codex"), &cfg).unwrap();
+        assert_eq!(codex[codex.len() - 2..], ["--", "-"]);
+        assert_eq!(super::with_knowledge("ollama", "hi", &cfg, false), "hi");
+        let messages = crate::ollama::messages("hi", cfg.knowledge.as_deref()).unwrap();
+        assert_eq!(messages.len(), 2);
+        assert!(messages[0]["content"].as_str().unwrap().ends_with(block));
+        assert_eq!(
+            messages[1],
+            serde_json::json!({"role":"user","content":"hi"})
+        );
+        // --no-tools still loads no settings files, and the block isn't one.
+        cfg.no_tools = true;
+        let claude = super::arguments(&decision("claude"), &cfg).unwrap();
+        assert_eq!(flag(&claude), Some(block.into()));
+        let sources = claude
+            .iter()
+            .position(|a| a == "--setting-sources")
+            .unwrap();
+        assert_eq!(claude[sources + 1], "");
+        // Unset, nothing is added anywhere.
+        cfg.knowledge = None;
+        assert_eq!(
+            flag(&super::arguments(&decision("claude"), &cfg).unwrap()),
+            None
+        );
+        assert_eq!(super::with_knowledge("codex", "hi", &cfg, false), "hi");
+    }
     #[test]
     fn session_flags_start_and_resume_each_provider() {
         use super::{session_arguments, ProviderSession};

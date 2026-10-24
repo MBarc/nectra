@@ -8,7 +8,7 @@ fn ollama_preserves_roles_from_the_actual_shared_session() {
     session.begin("Remember cobalt", "test-model").unwrap();
     session.complete("Remembered").unwrap();
     let (prompt, _) = session.prompt("What color?", 128 * 1024).unwrap();
-    let messages = ollama::messages(&prompt).unwrap();
+    let messages = ollama::messages(&prompt, None).unwrap();
     assert_eq!(messages.len(), 4);
     assert_eq!(messages[1]["role"], "user");
     assert_eq!(messages[1]["content"], "Remember cobalt");

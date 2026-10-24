@@ -17,7 +17,9 @@ event bumps it and gets a changelog entry.
 
 Global flags apply per task: `--model ID` pins a model (routing off), `--mode
 fast|balanced|best`, `--provider anthropic|openai|google`, `--stdin`,
-`--config FILE`, `--dangerously-skip-permissions`. These need `--events jsonl`:
+`--config FILE`, `--dangerously-skip-permissions`, `--knowledge FILE` (system
+context for every provider; [reference](reference.md#knowledge-index)). These
+need `--events jsonl`:
 
 | Flag | Meaning |
 |---|---|
@@ -327,6 +329,10 @@ block setting `ANTHROPIC_BASE_URL`, Bedrock, Vertex or a proxy, or a user
 `apiKeyHelper`. To use one of those, set its variables in Nectra's environment
 instead.
 
+A `[knowledge] index` still reaches the model under `--no-tools`: Claude gets it
+through `--append-system-prompt`, which is a flag, not a settings file, and
+Ollama in its system message.
+
 Refused models aren't routed to or failed over to; pinning one with `--model`
 fails with `no_model` before anything is launched. `--no-tools` can't be combined
 with `--resume` or `--mcp-config`. Checked live (Claude Code 2.1.310): from a
@@ -348,7 +354,9 @@ each in its own group) and Nectra exits 130 within about two seconds, after its
   --mcp-config /etc/pons/mcp.json --no-mcp-share [--mode fast|balanced|best]
 ```
 
-With `--mcp-config` doing the mapping, `extra_args` no longer needs `--mcp-config`
+The image's `/etc/pons/nectra/config.toml` sets `[knowledge] index =
+"/usr/share/pons/knowledge/INDEX.md"`, so every task and Ask Nectra question
+starts with the index. With `--mcp-config` doing the mapping, `extra_args` no longer needs `--mcp-config`
 or `--strict-mcp-config`. Map `error_class` straight to the task outcome, the
 `route` event to `task.routed`, and `result.usage`/`cost_usd` to `metadata.usage`.
 

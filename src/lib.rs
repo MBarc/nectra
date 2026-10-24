@@ -8,6 +8,7 @@ pub mod debate;
 pub mod executor;
 pub mod headless;
 pub mod jev;
+pub mod knowledge;
 pub mod laya;
 pub mod limits;
 pub mod mcp;

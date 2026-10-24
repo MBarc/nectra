@@ -197,6 +197,13 @@ fn app() -> Result<i32> {
         Some(Commands::Eval { corpus }) => return evaluate(corpus, &cfg),
         _ => {}
     }
+    if let Some(index) = cli
+        .knowledge
+        .as_ref()
+        .or(cfg.inner.knowledge.index.as_ref())
+    {
+        cfg.knowledge = Some(nectra::knowledge::load(index)?);
+    }
     let registry = models::Registry::load(&cfg)?;
     if cli.continue_latest && !chatting {
         bail!("--continue applies to chat only: run `nectra -c` or `nectra chat -c`");
