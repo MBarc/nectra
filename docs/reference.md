@@ -404,20 +404,24 @@ index = "/usr/share/pons/knowledge/INDEX.md"
 provider, for every chat message, `run` task and debate turn, `--no-tools` and
 `--serve` included, as one delimited block. The block's tag,
 `<system-context-RANDOM source="knowledge index">`, is new in every Nectra
-process, so text from anywhere else can't close it or open one like it:
+process, so text from anywhere else can't close it or open one like it. The tag
+is not a secret (Claude's command line shows it to local users), so whenever an
+index is set, any `<system-context` in a prompt or earlier turn (any case or
+spacing) is sent to every provider as `&lt;system-context`:
 
 | Runtime | How it is given |
 |---|---|
 | Claude Code | `--append-system-prompt`: system context, apart from the user's turn. It is a launch flag, so `--no-tools` still loads no settings files |
 | Ollama | Added to its system message, apart from the user's turn |
-| Codex, agy, Gemini CLI | In front of the prompt, in the same user turn, since Nectra has no system-prompt flag for these. The random tag marks where it ends, and any `<system-context` in the prompt (any case or spacing) is sent as `&lt;system-context`. It isn't sent again when a provider session is resumed |
+| Codex, agy, Gemini CLI | In front of the prompt, in the same user turn, since Nectra has no system-prompt flag for these. The random tag marks where it ends. It isn't sent again when a provider session is resumed |
 
 The file steers every agent, so it is read only when nobody but an administrator
 can change it or anything on its path:
 
 - **The path** must be absolute, with no `..` and no symbolic link anywhere in
-  it (on Windows, no junction or other reparse point either, and on a local
-  disk). Each directory is opened from the one before it, and the checks and
+  it. On Windows it must also be a drive-letter path (`C:\...`), with no
+  junction or other reparse point and no `:` in a name (an alternate data
+  stream). Each directory is opened from the one before it, and the checks and
   the read go through the same open handles.
 - **Linux and macOS:** `/`, every directory under it on the way and the file
   are owned by root and not writable by group or others. A sticky directory

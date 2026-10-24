@@ -7,8 +7,8 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 - `[knowledge] index = "PATH"` and the global `--knowledge PATH`: that file goes
   to every provider as a block with a random per-process tag, `run --no-tools`,
   `--serve` and debate included (Claude through `--append-system-prompt`, Ollama
-  in its system message, Codex, agy and Gemini in front of the prompt, where a
-  `<system-context` in the prompt is neutralised). It is read only when the file
+  in its system message, Codex, agy and Gemini in front of the prompt; for all of
+  them a `<system-context` in the prompt is neutralised). It is read only when the file
   and every directory above it are root's alone (administrators' on Windows),
   with no symlink or junction on the path, at most 16 KiB; otherwise Nectra stops
   with an error, and `run --events jsonl` reports a `harness_error` result. See

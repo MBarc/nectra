@@ -226,7 +226,11 @@ fn open_sealed(path: &Path, _owner: u32) -> Result<File, String> {
                 shown.push(part);
                 continue;
             }
-            Component::Prefix(_) => return Err("not on a local disk".into()),
+            Component::Prefix(_) => return Err("not a drive-letter path".into()),
+            // `name:stream` opens an alternate data stream, with its own contents.
+            Component::Normal(name) if name.to_string_lossy().contains(':') => {
+                return Err("has a `:` in a name (an alternate data stream)".into())
+            }
             Component::RootDir | Component::Normal(_) => shown.push(part),
             _ => return Err("not a plain path (it has `..`)".into()),
         }
@@ -564,6 +568,9 @@ mod tests {
             "{:#}",
             load(Path::new(r"\\server\share\INDEX.md")).unwrap_err()
         );
-        assert!(error.contains("not on a local disk"), "{error}");
+        assert!(error.contains("not a drive-letter path"), "{error}");
+        let stream = Path::new(&windows).join("win.ini:hidden");
+        let error = format!("{:#}", load(&stream).unwrap_err());
+        assert!(error.contains("alternate data stream"), "{error}");
     }
 }

@@ -104,6 +104,10 @@ impl<'a> PlainBackend<'a> {
         // carries the shared transcript and would exceed the Windows
         // command-line limit.
         let mut stdin = child.stdin.take().context("provider stdin")?;
+        let prompt = match self.cfg.knowledge {
+            Some(_) => crate::knowledge::neutralise(prompt),
+            None => prompt.into(),
+        };
         stdin.write_all(prompt.as_bytes())?;
         drop(stdin);
 
