@@ -283,8 +283,10 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
         args.extend(flags.iter().map(OsString::from));
         if cfg.no_tools {
             // Settings run shell of their own: hooks, apiKeyHelper and the like.
-            // No user, project or local settings, no hooks even from managed
-            // ones, and no slash commands or skills (a command's `!` lines run).
+            // No user, project or local settings, no hooks from those, and no
+            // slash commands or skills (a command's `!` lines run). Managed
+            // (admin) settings still apply, hooks included: they are part of
+            // the machine's image, not something a request controls.
             // Checked live on 2.1.310: a project UserPromptSubmit hook didn't run.
             args.extend(
                 [

@@ -313,9 +313,19 @@ launch flags, never by prompt text. A runtime that can't be held to that is refu
 | agy, Gemini CLI | Refused: plan mode still reads files |
 
 Claude's settings and project files run shell of their own (hooks, `apiKeyHelper`,
-a command's `!` lines), so none are loaded: no user, project or local settings, no
-hooks even from managed settings, no slash commands or skills, and a working
-directory with no `.claude/` or CLAUDE.md. Managed settings otherwise still apply.
+a command's `!` lines), so none that a request could control are loaded: no
+user, project or local settings or their hooks, no slash commands or skills, and
+a working directory with no `.claude/` or CLAUDE.md. Managed (admin) settings,
+such as `/etc/claude-code/managed-settings.json` on Linux, still apply, including
+their hooks and `apiKeyHelper`. They are part of the machine's image, not of the
+request.
+
+Sign-in under `--no-tools`: Claude's stored OAuth login works (it is what the live
+check below used). So does `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in
+Nectra's environment. Auth that comes from user settings does not work: an `env`
+block setting `ANTHROPIC_BASE_URL`, Bedrock, Vertex or a proxy, or a user
+`apiKeyHelper`. To use one of those, set its variables in Nectra's environment
+instead.
 
 Refused models aren't routed to or failed over to; pinning one with `--model`
 fails with `no_model` before anything is launched. `--no-tools` can't be combined
