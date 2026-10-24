@@ -141,9 +141,20 @@ fn open_sealed(path: &Path, owner: u32) -> Result<File, String> {
         };
         if fd < 0 {
             let error = std::io::Error::last_os_error();
-            return Err(match error.raw_os_error() {
-                Some(libc::ELOOP) => "is a symbolic link".into(),
-                _ => error.to_string(),
+            // With O_DIRECTORY, Linux reports a symlink as ENOTDIR, not ELOOP.
+            let mut st: libc::stat = unsafe { std::mem::zeroed() };
+            let link = unsafe {
+                libc::fstatat(
+                    dir.map_or(libc::AT_FDCWD, |d| d.as_raw_fd()),
+                    name.as_ptr(),
+                    &mut st,
+                    libc::AT_SYMLINK_NOFOLLOW,
+                )
+            } == 0
+                && st.st_mode & libc::S_IFMT == libc::S_IFLNK;
+            return Err(match link {
+                true => "is a symbolic link".into(),
+                false => error.to_string(),
             });
         }
         Ok(unsafe { File::from_raw_fd(fd) })
