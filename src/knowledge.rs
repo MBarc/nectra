@@ -437,25 +437,31 @@ mod tests {
         );
     }
 
-    /// A directory under target/, so every ancestor is the user's or root's
-    /// and, normally, not group-writable; None where that doesn't hold.
+    /// A new directory whose every ancestor is root's or the user's and not
+    /// group-writable: under target/ or, failing that, the home directory.
+    /// None, said on stderr, where neither holds (a umask of 002).
     #[cfg(unix)]
     fn sealed_root(me: u32) -> Option<tempfile::TempDir> {
         use std::os::unix::fs::PermissionsExt;
-        let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("target");
-        std::fs::create_dir_all(&base).unwrap();
-        let dir = tempfile::tempdir_in(&base).unwrap();
-        std::fs::set_permissions(dir.path(), PermissionsExt::from_mode(0o755)).unwrap();
-        let probe = dir.path().join("probe");
-        std::fs::write(&probe, "x").unwrap();
-        std::fs::set_permissions(&probe, PermissionsExt::from_mode(0o644)).unwrap();
-        match open_sealed(&probe, me) {
-            Ok(_) => Some(dir),
-            Err(why) => {
-                eprintln!("skipped: {why}");
-                None
+        let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("target");
+        for base in [Some(target), std::env::var_os("HOME").map(PathBuf::from)]
+            .into_iter()
+            .flatten()
+        {
+            let Ok(dir) = tempfile::tempdir_in(&base) else {
+                continue;
+            };
+            std::fs::set_permissions(dir.path(), PermissionsExt::from_mode(0o755)).unwrap();
+            let probe = dir.path().join("probe");
+            std::fs::write(&probe, "x").unwrap();
+            std::fs::set_permissions(&probe, PermissionsExt::from_mode(0o644)).unwrap();
+            match open_sealed(&probe, me) {
+                Ok(_) => return Some(dir),
+                Err(why) => eprintln!("not under {}: {why}", base.display()),
             }
         }
+        eprintln!("skipped: no directory with sealed ancestors");
+        None
     }
 
     #[cfg(unix)]
