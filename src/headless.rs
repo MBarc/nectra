@@ -57,6 +57,10 @@ pub struct Args {
     /// `{"prompt": "..."}`, each answered with its events. Laya loads once.
     #[arg(long, requires = "events", conflicts_with = "resume")]
     pub serve: bool,
+    /// Answers only: no tools, files or shell, held by each CLI's own flags.
+    /// Only Claude and Ollama models can be held to that; others are refused.
+    #[arg(long, requires = "events")]
+    pub no_tools: bool,
 }
 
 fn positive(s: &str) -> Result<f64, String> {
@@ -697,6 +701,9 @@ fn classify(error: &anyhow::Error, cancel: &CancellationToken) -> (&'static str,
     if let Some(e) = error.downcast_ref::<crate::limits::RateLimited>() {
         return ("rate_limited", e.safe_to_retry);
     }
+    if let Some(e) = error.downcast_ref::<crate::ollama::Unavailable>() {
+        return ("model_unavailable", e.safe_to_retry);
+    }
     ("agent_error", false)
 }
 /// Nectra's own failures exit 1, like any other Nectra error; the agent's 3.
@@ -899,6 +906,7 @@ fn task(
     let started = Instant::now();
     let until = args.deadline.map(|d| started + d);
     let mut cfg = cfg.clone();
+    cfg.no_tools = args.no_tools;
     if args.no_mcp_share {
         cfg.mcp_home = None;
     }
@@ -1017,6 +1025,19 @@ fn task(
             .unwrap_or_default();
         let mut tried: Vec<String> = vec![];
         let mut names = HashMap::new();
+        if let Some(m) = registry
+            .models
+            .iter()
+            .find(|m| args.no_tools && cli.model.as_ref() == Some(&m.id))
+            .filter(|m| !executor::answers_only(m.runtime.as_str()))
+        {
+            let e = anyhow::anyhow!(
+                "--no-tools: {} runs on {}, which can't be launched without tools",
+                m.id,
+                m.runtime.as_str()
+            );
+            return fail("no_model", e);
+        }
         loop {
             let available = Registry {
                 models: registry
@@ -1024,8 +1045,10 @@ fn task(
                     .iter()
                     .filter(|m| {
                         let runtime = m.runtime.as_str();
-                        // Ollama runs no tools and reports no usage: not an agent.
-                        runtime != "ollama"
+                        // Ollama runs no tools and reports no usage: it answers
+                        // a front end, but takes no agent's task.
+                        (runtime != "ollama" || args.serve || args.no_tools)
+                            && (!args.no_tools || executor::answers_only(runtime))
                             && !tried.contains(&m.id)
                             && cooldowns.remaining(&m.id, m.provider.as_str()).is_none()
                             && cfg.mcp_config.as_ref().is_none_or(|e| e.supports(runtime))
@@ -1103,7 +1126,11 @@ fn task(
                 _ => &cfg.inner.gemini.command,
             };
             // A missing CLI is Nectra's environment, not the agent: try another.
-            if let Err(e) = executor::launch(command) {
+            // Ollama is reached over HTTP, not launched.
+            if let Err(e) = (decision.runtime != "ollama")
+                .then(|| executor::launch(command))
+                .transpose()
+            {
                 attempts.push(json!({"model": decision.model, "error_class": "harness_error", "error": error(&e)}));
                 last = Some(decision);
                 if pinned.is_none() {
@@ -1122,31 +1149,43 @@ fn task(
                 true => Ok(()),
                 false => emit("text", json!({"model": decision.model, "text": text})),
             };
-            let result = executor::conversation_observed(
-                &decision,
-                &prompt,
-                &cfg,
-                &mut std::io::sink(),
-                cancel,
-                provider_session.as_mut(),
-                remaining,
-                &mut |event, text| {
-                    ledger.observe(&decision, event);
-                    if let Some(text) = text {
-                        show(reply.push(text))?;
-                    }
-                    // Not flushed for a tool event: that would cut a credential
-                    // the reply is in the middle of (a subagent's tools interleave).
-                    for mut tool in tools(&decision.runtime, event, &mut names) {
-                        tool["model"] = json!(decision.model);
-                        emit("tool", tool)?;
-                    }
-                    match args.max_cost_usd {
-                        Some(max) if ledger.cost().0 > max => Err(CostLimit(max).into()),
-                        _ => Ok(()),
-                    }
-                },
-            );
+            let result = if decision.runtime == "ollama" {
+                let (model, prompt, cfg) = (decision.model.clone(), prompt.clone(), cfg.clone());
+                // ponytail: the answer arrives as one text event; stream it if a front end needs it.
+                bounded(until, cancel, Duration::ZERO, move |_| {
+                    crate::ollama::conversation(&model, &prompt, &cfg, &mut std::io::sink())
+                })
+                .and_then(|text| {
+                    show(reply.push(&text))?;
+                    Ok(text)
+                })
+            } else {
+                executor::conversation_observed(
+                    &decision,
+                    &prompt,
+                    &cfg,
+                    &mut std::io::sink(),
+                    cancel,
+                    provider_session.as_mut(),
+                    remaining,
+                    &mut |event, text| {
+                        ledger.observe(&decision, event);
+                        if let Some(text) = text {
+                            show(reply.push(text))?;
+                        }
+                        // Not flushed for a tool event: that would cut a credential
+                        // the reply is in the middle of (a subagent's tools interleave).
+                        for mut tool in tools(&decision.runtime, event, &mut names) {
+                            tool["model"] = json!(decision.model);
+                            emit("tool", tool)?;
+                        }
+                        match args.max_cost_usd {
+                            Some(max) if ledger.cost().0 > max => Err(CostLimit(max).into()),
+                            _ => Ok(()),
+                        }
+                    },
+                )
+            };
             show(reply.flush())?;
             ledger.rejected = result.as_ref().is_err_and(|e| classify(e, cancel).1);
             ledger.finish(&decision);

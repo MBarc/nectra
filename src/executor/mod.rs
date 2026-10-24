@@ -164,6 +164,14 @@ pub fn login(provider: &str, cfg: &Config) -> Result<()> {
 
 /// Prompts travel over stdin: no shell interpolation, flag injection or command-line length limit.
 pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
+    if cfg.no_tools && !answers_only(&d.runtime) {
+        bail!(
+            "--no-tools: {} can't be launched without tools, so it is refused",
+            d.runtime
+        );
+    }
+    // Claude's read-only launch is already tool-less.
+    let read_only = cfg.read_only || cfg.no_tools;
     let mut args: Vec<OsString> = match d.runtime.as_str() {
         "claude" => {
             let mut args = vec![
@@ -221,10 +229,10 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
         _ => bail!("unsupported runtime"),
     };
     // Both replace the configured permissions with their own.
-    let override_permissions = cfg.skip_permissions || cfg.read_only;
+    let override_permissions = cfg.skip_permissions || read_only;
     // Any extra argument could reopen a tool surface (`--mcp-config` adds servers
     // that `--strict-mcp-config` then keeps), so a read-only Claude launch takes none.
-    let extras: &[String] = if cfg.read_only && d.runtime == "claude" {
+    let extras: &[String] = if read_only && d.runtime == "claude" {
         &[]
     } else {
         &runtime.extra_args
@@ -263,7 +271,7 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
         args.push(arg.into());
     }
     args.extend(crate::mcp::for_launch(&d.runtime, cfg).0);
-    if cfg.read_only {
+    if read_only {
         // Claude gets no tools at all: `--tools ""` alone still leaves every MCP
         // server's tools (seen live on 2.1.302). Codex has no tool-less mode, so
         // it gets its read-only sandbox (which on Windows still permits deletion).
@@ -290,6 +298,14 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
     }
     Ok(args)
 }
+/// Whether `--no-tools` can hold this runtime to answers. Claude has a tool-less
+/// launch and Ollama is chat-only. Codex's read-only sandbox still reads files
+/// and runs commands (with its tool features off it still offered a shell call,
+/// on 0.162.1), and agy's and Gemini's plan modes still read files.
+pub fn answers_only(runtime: &str) -> bool {
+    matches!(runtime, "claude" | "ollama")
+}
+
 /// A provider-side conversation Nectra can continue on the next turn.
 ///
 /// Resuming keeps the provider's own context (files read, tool output) and its

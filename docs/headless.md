@@ -29,6 +29,7 @@ fast|balanced|best`, `--provider anthropic|openai|google`, `--stdin`,
 | `--mcp-config FILE` | Give the agent exactly the servers in FILE (standard `{"mcpServers": {...}}`). See [MCP](#mcp-servers). |
 | `--no-mcp-share` | Don't add servers from the user's other CLI configs (Nectra's [sharing](reference.md)). |
 | `--serve` | Answer many tasks in one process, reading requests from stdin. See [Many tasks in one process](#many-tasks-in-one-process---serve). |
+| `--no-tools` | Answers only: no tools, files or shell. See [Answers only](#answers-only---no-tools). |
 
 ## Events
 
@@ -243,7 +244,9 @@ With `--mcp-config FILE`, exactly the servers in FILE are given to the agent:
   route). With `--mcp-config`, Gemini models aren't routed to, so a task never runs
   without its tools.
 
-Ollama is never used headless: it runs no tools and reports no usage.
+Ollama is used headless only with `--serve` or `--no-tools`: it runs no tools and
+reports no usage (its `cost_usd` is 0), so it answers a front end but takes no
+agent's task.
 
 ## Credentials and the environment
 
@@ -287,11 +290,29 @@ nectra run --events jsonl --no-session --serve
   isn't available; each request is routed afresh, so send earlier exchanges in the
   prompt.
 - It runs the same agents as one-shot headless runs, with their permission
-  defaults ([below](#credentials-and-the-environment)). Ollama is not used.
+  defaults ([below](#credentials-and-the-environment)), and Ollama models too, so
+  an Ollama-only machine works. An Ollama answer arrives as one `text` event.
+  For a front end that must run nothing, add `--no-tools`.
 - Closing stdin ends it with exit code 0. SIGTERM during a task cancels it, writes
   its `cancelled` result and exits 130; between tasks it exits 143 at once. Ctrl+C
   during a task cancels only that task and the next request is read; between tasks
   it exits 130.
+
+## Answers only: `--no-tools`
+
+The agent gets no tool use, no file access and no shell, enforced by the CLI's own
+launch flags, never by prompt text. A runtime that can't be held to that is refused:
+
+| Runtime | Under `--no-tools` |
+|---|---|
+| Claude Code | `--tools "" --strict-mcp-config`, no MCP servers, none of `claude.extra_args`, no permission flags |
+| Ollama | Chat only already; a reply that asks for tools fails |
+| Codex | Refused: its read-only sandbox still reads files and runs commands |
+| agy, Gemini CLI | Refused: plan mode still reads files |
+
+Refused models aren't routed to; pinning one with `--model` fails with `no_model`
+before anything is launched. Checked live (Claude Code 2.1.310): asked to create a
+file, Claude printed a tool call as text and nothing was created.
 
 ## Signals
 

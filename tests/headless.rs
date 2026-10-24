@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 18] = [
+    let scenarios: [(&str, fn()); 20] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -48,6 +48,11 @@ fn main() {
         ),
         ("a hung `codex mcp list` meets the deadline", hung_mcp_probe),
         ("--serve answers request after request", serve),
+        (
+            "--no-tools launches Claude tool-less, refuses Codex",
+            no_tools,
+        ),
+        ("--serve --no-tools answers from Ollama alone", serve_ollama),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -562,6 +567,126 @@ not json
     assert_eq!(events.last().unwrap()["type"], "result");
     let prompts: Vec<_> = env.launches().iter().map(|l| l["prompt"].clone()).collect();
     assert_eq!(prompts, ["fix the typo", "and another"]);
+}
+
+fn no_tools() {
+    let env = Env::new();
+    let (out, events) = env.run(&["--no-session", "--no-tools", "make a file"]);
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(events[0]["model"], "haiku", "Codex is never routed to");
+    let launched = args(&env.launches()[0]);
+    let tools = launched.iter().position(|a| a == "--tools").unwrap();
+    assert_eq!(launched[tools + 1], "");
+    let (out, events) = env.run(&["--no-tools", "--model", "gpt-5.6-luna", "hi"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(result(&events)["error_class"], "no_model");
+    assert!(result(&events)["error"]
+        .as_str()
+        .unwrap()
+        .contains("--no-tools"));
+    assert_eq!(env.launches().len(), 1);
+}
+
+/// An Ollama-only machine: a stub Ollama answers each `/api/show` and `/api/chat`.
+fn serve_ollama() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = std::thread::spawn(move || {
+        let show = json!({"capabilities":["completion"],"model_info":{"test.context_length":8192}});
+        let chat = "{\"message\":{\"content\":\"Hello\"},\"done\":false}
+{\"message\":{\"content\":\"!\"},\"done\":true}
+";
+        let mut paths = vec![];
+        for _ in 0..4 {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = std::io::BufReader::new(socket.try_clone().unwrap());
+            let mut first = String::new();
+            std::io::BufRead::read_line(&mut reader, &mut first).unwrap();
+            let mut length = 0;
+            loop {
+                let mut line = String::new();
+                std::io::BufRead::read_line(&mut reader, &mut line).unwrap();
+                if line.trim().is_empty() {
+                    break;
+                }
+                if let Some(n) = line.to_lowercase().strip_prefix("content-length:") {
+                    length = n.trim().parse().unwrap();
+                }
+            }
+            reader.read_exact(&mut vec![0; length]).unwrap();
+            let body = match first.contains("/api/show") {
+                true => show.to_string(),
+                false => chat.to_string(),
+            };
+            paths.push(first.split(' ').nth(1).unwrap().to_string());
+            let head = format!(
+                "HTTP/1.1 200 OK
+Content-Length: {}
+Connection: close
+
+",
+                body.len()
+            );
+            socket.write_all((head + &body).as_bytes()).unwrap();
+        }
+        paths
+    });
+    let env = Env::new();
+    let config = env.dir.path().join("config.toml");
+    let text = fs::read_to_string(&config).unwrap().replace(
+        r#"providers = ["anthropic", "openai"]"#,
+        r#"providers = ["ollama"]"#,
+    );
+    let ollama = format!(
+        "[ollama]
+base_url = \"{url}\"
+models = [{{name = \"test:latest\", context_tokens = 8192}}]
+"
+    );
+    fs::write(&config, text + &ollama).unwrap();
+    let mut child = env
+        .command()
+        .args([
+            "run",
+            "--events",
+            "jsonl",
+            "--no-session",
+            "--serve",
+            "--no-tools",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(
+            b"{\"prompt\":\"hi\"}
+{\"prompt\":\"again\"}
+",
+        )
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stdout}");
+    let events: Vec<Value> = stdout
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(events[0]["type"], "ready");
+    let results: Vec<_> = events.iter().filter(|e| e["type"] == "result").collect();
+    assert_eq!(results.len(), 2, "{stdout}");
+    for r in results {
+        assert_eq!(r["is_error"], false, "{r}");
+        assert_eq!(r["text"], "Hello!");
+        assert_eq!(r["model"], "ollama/test:latest");
+    }
+    assert_eq!(
+        server.join().unwrap(),
+        ["/api/show", "/api/chat", "/api/show", "/api/chat"]
+    );
 }
 
 fn per_task_flags() {

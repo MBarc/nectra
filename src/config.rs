@@ -124,6 +124,9 @@ pub struct Config {
     /// Launch with no write access whatever the configured permissions, e.g.
     /// to ask the outgoing agent for a handoff note.
     pub read_only: bool,
+    /// Answers only: no tool use, file or shell access, enforced by the CLI's
+    /// own flags. A runtime that can't be held to that is refused.
+    pub no_tools: bool,
     /// Home whose MCP servers are shared between the CLIs at launch; set by the
     /// binary, so library callers and tests never read the user's configs.
     pub mcp_home: Option<PathBuf>,
@@ -161,6 +164,7 @@ impl Config {
             provider_view: Default::default(),
             skip_permissions: false,
             read_only: false,
+            no_tools: false,
             mcp_home: None,
             mcp_config: None,
             inner: toml::from_str(DEFAULT_CONFIG)?,
@@ -186,6 +190,7 @@ impl Config {
             provider_view: Default::default(),
             skip_permissions: false,
             read_only: false,
+            no_tools: false,
             mcp_home: None,
             mcp_config: None,
             inner: toml::from_str(DEFAULT_CONFIG).context("parsing embedded config")?,
@@ -202,6 +207,7 @@ impl Config {
             provider_view: Default::default(),
             skip_permissions: false,
             read_only: false,
+            no_tools: false,
             mcp_home: None,
             mcp_config: None,
             inner: toml::from_str(&text).context("parsing config")?,
