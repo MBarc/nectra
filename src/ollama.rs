@@ -348,11 +348,7 @@ pub fn conversation(
 pub fn messages(prompt: &str, knowledge: Option<&str>) -> Result<Vec<Value>> {
     let mut system = "Continue the shared Nectra conversation. Earlier assistants may be different models. Answer the latest user. You are a chat-only model: you cannot inspect files, edit files, or run commands. Do not claim to have performed those actions.".to_string();
     if let Some(block) = knowledge {
-        system = format!(
-            "{system}
-
-{block}"
-        );
+        system = format!("{system}\n\n{block}");
     }
     let mut messages = vec![json!({"role":"system","content":system})];
     if let Some((prefix, data)) = prompt.split_once('\n').filter(|(prefix, _)| {

@@ -330,12 +330,9 @@ pub fn with_knowledge<'a>(
     resume: bool,
 ) -> std::borrow::Cow<'a, str> {
     match &cfg.knowledge {
-        Some(block) if !resume && matches!(runtime, "codex" | "gemini" | "agy") => format!(
-            "{block}
-
-{prompt}"
-        )
-        .into(),
+        Some(block) if !resume && matches!(runtime, "codex" | "gemini" | "agy") => {
+            format!("{block}\n\n{prompt}").into()
+        }
         _ => prompt.into(),
     }
 }
@@ -729,11 +726,7 @@ mod tests {
             assert!(!args.iter().any(|a| a.to_string_lossy().contains("facts")));
             assert_eq!(
                 super::with_knowledge(runtime, "hi", &cfg, false),
-                format!(
-                    "{block}
-
-hi"
-                )
+                format!("{block}\n\nhi")
             );
             // A resumed session already has it.
             assert_eq!(super::with_knowledge(runtime, "hi", &cfg, true), "hi");
