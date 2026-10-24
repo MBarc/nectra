@@ -53,6 +53,10 @@ pub struct Args {
     /// Don't share MCP servers between the provider CLIs' own configs.
     #[arg(long, requires = "events")]
     pub no_mcp_share: bool,
+    /// Answer many tasks in one process: one JSON request per line on stdin,
+    /// `{"prompt": "..."}`, each answered with its events. Laya loads once.
+    #[arg(long, requires = "events", conflicts_with = "resume")]
+    pub serve: bool,
 }
 
 fn positive(s: &str) -> Result<f64, String> {
@@ -706,27 +710,83 @@ fn exit_code(class: Option<&str>) -> i32 {
     }
 }
 
+#[cfg(unix)]
+static TERM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// The turn SIGTERM cancels; none between `--serve` tasks.
+#[cfg(unix)]
+static TURN: std::sync::Mutex<Option<CancellationToken>> = std::sync::Mutex::new(None);
+
 /// On Unix, SIGTERM (systemd stopping the unit) cancels the turn like Ctrl+C,
-/// which stops the provider's whole process group.
+/// which stops the provider's whole process group. Between tasks it exits.
 #[cfg(unix)]
 fn cancel_on_sigterm(token: &CancellationToken) {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    static TERM: AtomicBool = AtomicBool::new(false);
-    extern "C" fn handle(_: libc::c_int) {
-        TERM.store(true, Ordering::SeqCst);
-    }
-    // SAFETY: the handler only stores to an atomic, which is async-signal-safe.
-    unsafe {
-        libc::signal(libc::SIGTERM, handle as *const () as libc::sighandler_t);
-    }
-    let token = token.clone();
-    std::thread::spawn(move || loop {
-        if TERM.load(Ordering::SeqCst) {
-            token.cancel();
-            return;
+    use std::sync::atomic::Ordering;
+    *TURN.lock().unwrap_or_else(|e| e.into_inner()) = Some(token.clone());
+    static WATCH: std::sync::Once = std::sync::Once::new();
+    WATCH.call_once(|| {
+        extern "C" fn handle(_: libc::c_int) {
+            TERM.store(true, Ordering::SeqCst);
         }
-        std::thread::sleep(Duration::from_millis(20));
+        // SAFETY: the handler only stores to an atomic, which is async-signal-safe.
+        unsafe {
+            libc::signal(libc::SIGTERM, handle as *const () as libc::sighandler_t);
+        }
+        std::thread::spawn(|| loop {
+            if TERM.load(Ordering::SeqCst) {
+                match TURN.lock().unwrap_or_else(|e| e.into_inner()).take() {
+                    Some(token) => token.cancel(),
+                    None => crate::laya::exit(143),
+                }
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        });
     });
+}
+
+fn terminated() -> bool {
+    #[cfg(unix)]
+    return TERM.load(std::sync::atomic::Ordering::SeqCst);
+    #[cfg(not(unix))]
+    false
+}
+
+#[derive(Deserialize)]
+struct Request {
+    prompt: String,
+}
+
+/// One task, or with `--serve` one per request line until stdin closes.
+pub fn run(
+    cli: &Cli,
+    cfg: &Config,
+    registry: &Registry,
+    words: &[String],
+    args: &Args,
+) -> Result<i32> {
+    if !args.serve {
+        return task(cli, cfg, registry, words, args, None);
+    }
+    if cli.stdin || !words.is_empty() {
+        bail!("--serve reads its prompts from stdin, one JSON request per line");
+    }
+    crate::laya::preload(cfg);
+    emit("ready", json!({}))?;
+    for line in std::io::stdin().lines() {
+        let line = line.context("reading a request")?;
+        let line = line.trim_start_matches('\u{feff}').trim();
+        if line.is_empty() {
+            continue;
+        }
+        let prompt = serde_json::from_str::<Request>(line)
+            .map(|r| r.prompt)
+            .context(r#"a request is one JSON object on one line: {"prompt": "..."}"#);
+        let code = task(cli, cfg, registry, &[], args, Some(prompt))?;
+        if terminated() {
+            return Ok(code);
+        }
+    }
+    Ok(0)
 }
 
 /// The session id to report: the resumed one, or a new record for this task,
@@ -826,12 +886,15 @@ fn settle<T>(setup: &Result<T>, run: impl FnOnce(&T) -> Result<Outcome>) -> Outc
     }
 }
 
-pub fn run(
+/// `given` is a `--serve` request's prompt, or None to read it from `words`
+/// or stdin.
+fn task(
     cli: &Cli,
     cfg: &Config,
     registry: &Registry,
     words: &[String],
     args: &Args,
+    given: Option<Result<String>>,
 ) -> Result<i32> {
     let started = Instant::now();
     let until = args.deadline.map(|d| started + d);
@@ -854,14 +917,17 @@ pub fn run(
         class @ ("cancelled" | "deadline") => class,
         _ => "harness_error",
     };
+    let mut given = given;
     let mut run = || -> Result<Outcome> {
         let fail = |class, e: anyhow::Error| Ok(Err((class, error(&e))));
-        let prompt = match (cli.stdin, words.is_empty()) {
-            (true, false) => {
+        let prompt = match (given.take(), cli.stdin, words.is_empty()) {
+            (Some(Ok(prompt)), _, _) => prompt,
+            (Some(Err(e)), _, _) => return fail("harness_error", e),
+            (None, true, false) => {
                 let e = anyhow::anyhow!("use either --stdin or positional prompt text");
                 return fail("harness_error", e);
             }
-            (true, true) => {
+            (None, true, true) => {
                 // A blocked read can't be stopped and owns nothing: no grace.
                 let read = bounded(until, cancel, Duration::ZERO, |_| {
                     let mut text = String::new();
@@ -874,7 +940,7 @@ pub fn run(
                     Err(e) => return fail(early(&e), e),
                 }
             }
-            (false, _) => words.join(" "),
+            (None, false, _) => words.join(" "),
         };
         if prompt.trim().is_empty() {
             return fail("harness_error", anyhow::anyhow!("prompt cannot be empty"));
@@ -1179,7 +1245,9 @@ pub fn run(
             "exit_code": code,
         }),
     )?;
-    // Until the result is out, a Ctrl+C cancels rather than exits.
+    // Until the result is out, a Ctrl+C or SIGTERM cancels rather than exits.
+    #[cfg(unix)]
+    TURN.lock().unwrap_or_else(|e| e.into_inner()).take();
     drop(turn);
     Ok(code)
 }

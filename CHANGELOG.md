@@ -4,6 +4,14 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- `nectra run --events jsonl --serve`: one process answers request after request
+  (`{"prompt": "..."}` per stdin line, the usual events per request), loading Laya
+  once instead of once per prompt. New `ready` event, written only by `--serve`.
+  See [docs/headless.md](docs/headless.md#many-tasks-in-one-process---serve).
+- Laya: `nectra classifier laya` no longer panics on Linux ("Failed to load ONNX
+  Runtime dylib"). Every load now opens ONNX Runtime from the checked model
+  directory by its full path, and a runtime that won't load is an error.
+
 - Google now runs through the Antigravity CLI (`agy`): Google ended personal-account
   sign-in for Gemini CLI. New runtime `agy`; bundled models
   `gemini-3.8-flash-high|medium|low` replace `gemini-2.5-*` (capability scores are

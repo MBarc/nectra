@@ -162,24 +162,12 @@ fn resolved(dir: &Path) -> PathBuf {
     dir.to_path_buf()
 }
 
-/// ort reads `ORT_DYLIB_PATH` when it first loads the runtime library: always
-/// the one the pins check, never another found through the environment. Set
-/// before the loader thread exists (`set_var` is not safe beside other threads).
-fn point_ort_at_runtime(cfg: &Config) {
-    if let (Some(dir), Some((runtime, _, _))) = (model_dir(cfg), RUNTIME) {
-        std::env::set_var("ORT_DYLIB_PATH", resolved(&dir).join(runtime));
-    }
-}
-
 /// Loaded once per process; a failure is remembered so every message falls
 /// back to keywords instead of retrying the load. The model's files must match
 /// their pins unless `allow_unpinned_model` says otherwise. One throwaway
 /// message is answered before the engine is published, so ONNX Runtime's
 /// first-run setup is part of the load and never of a message's budget.
 fn engine(cfg: &Config) -> &'static std::result::Result<LayaEngine, String> {
-    if !WARMING.load(Ordering::SeqCst) {
-        point_ort_at_runtime(cfg);
-    }
     ENGINE.get_or_init(|| {
         let engine = model_dir(cfg)
             .context("cannot find a data directory")
@@ -204,7 +192,6 @@ pub fn warm(cfg: &Config) {
     {
         return;
     }
-    point_ort_at_runtime(cfg);
     let cfg = cfg.clone();
     let busy = Busy::enter();
     std::thread::spawn(move || {
@@ -219,6 +206,15 @@ pub fn warm(cfg: &Config) {
             let _ = ENGINE.set(Err(format!("loader panicked: {why}")));
         }
     });
+}
+
+/// Loads the model now, on this thread, for a process that answers many
+/// prompts (`run --serve`): none of them routes with keywords while it loads.
+pub fn preload(cfg: &Config) {
+    if cfg.inner.classifier.backend == crate::config::ClassifierBackend::Laya {
+        let _busy = Busy::enter();
+        let _ = engine(cfg);
+    }
 }
 
 /// The default per-message budget for this machine: a slow one (2 or fewer
@@ -401,6 +397,11 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
         .into_iter()
         .partition(|(path, _, _)| *path == "model.onnx.data");
     let mut unpinned = check_pins(dir, &rest, allow_unpinned, &stamp)?;
+    // Always the runtime the pins checked, by its full path: left to itself,
+    // ort would look for it on the library path (or `ORT_DYLIB_PATH`), and
+    // panic where that fails, inside a call that can't unwind.
+    let _environment = ort::init_from(dir.join(runtime))
+        .with_context(|| format!("loading ONNX Runtime from {}", dir.display()))?;
     let engine = std::thread::scope(|s| {
         let weights = s.spawn(|| check_pins(dir, &weights, allow_unpinned, &stamp));
         let engine = LayaEngine::create(LayaOptions {
@@ -892,6 +893,23 @@ Connection: close
         assert!(check_pins(dir.path(), &[&pin], false, &[])
             .unwrap()
             .is_empty());
+    }
+    #[test]
+    fn a_runtime_that_wont_load_is_an_error_not_a_panic() {
+        if RUNTIME.is_none() {
+            return;
+        }
+        // Past the pins (allowed unpinned), so ONNX Runtime itself is loaded:
+        // from this directory, and a failure comes back as an error.
+        let dir = tempfile::tempdir().unwrap();
+        for (path, _, _) in MODEL_FILES.iter().chain(RUNTIME.as_ref()) {
+            let target = dir.path().join(path);
+            fs::create_dir_all(target.parent().unwrap()).unwrap();
+            fs::write(target, b"not a library").unwrap();
+        }
+        let err = load(dir.path(), true, false).err().expect("must fail");
+        let err = format!("{err:#}");
+        assert!(err.contains("loading ONNX Runtime from"), "{err}");
     }
     #[test]
     fn a_failed_load_is_not_a_timeout() {

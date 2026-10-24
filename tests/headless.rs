@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 17] = [
+    let scenarios: [(&str, fn()); 18] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -47,6 +47,7 @@ fn main() {
             codex_mcp_with_extra_args,
         ),
         ("a hung `codex mcp list` meets the deadline", hung_mcp_probe),
+        ("--serve answers request after request", serve),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -56,6 +57,8 @@ fn main() {
     {
         sigterm();
         println!("ok: SIGTERM");
+        sigterm_between_serve_tasks();
+        println!("ok: SIGTERM between --serve tasks");
     }
 }
 
@@ -506,6 +509,61 @@ fn no_model() {
     assert!(env.launches().is_empty());
 }
 
+fn serve() {
+    let env = Env::new();
+    let mut child = env
+        .command()
+        .args([
+            "--model",
+            "haiku",
+            "run",
+            "--events",
+            "jsonl",
+            "--no-session",
+            "--serve",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let requests = "{\"prompt\":\"fix the typo\"}
+
+not json
+{\"prompt\":\"and another\"}
+";
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(requests.as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let events: Vec<Value> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(events[0]["type"], "ready");
+    let results: Vec<_> = events.iter().filter(|e| e["type"] == "result").collect();
+    assert_eq!(
+        results.len(),
+        3,
+        "one result per request, blank lines skipped"
+    );
+    assert_eq!(results[0]["text"], "all done");
+    assert!(results[0]["cost_usd"].as_f64().unwrap() > 0.0);
+    assert_eq!(results[1]["error_class"], "harness_error");
+    assert!(results[1]["error"]
+        .as_str()
+        .unwrap()
+        .contains("one JSON object"));
+    assert_eq!(results[2]["text"], "all done");
+    assert_eq!(events.last().unwrap()["type"], "result");
+    let prompts: Vec<_> = env.launches().iter().map(|l| l["prompt"].clone()).collect();
+    assert_eq!(prompts, ["fix the typo", "and another"]);
+}
+
 fn per_task_flags() {
     let env = Env::new();
     let (out, events) = env.run(&[
@@ -910,6 +968,73 @@ fn redaction() {
         shown.starts_with("the key is [redacted], one Bearer [redacted] two Bearer [redacted] "),
         "{shown}"
     );
+}
+
+/// Idle between requests, SIGTERM ends the server instead of being ignored.
+#[cfg(unix)]
+fn sigterm_between_serve_tasks() {
+    use std::io::BufRead;
+    let env = Env::new();
+    let mut child = env
+        .command()
+        .args(["run", "--events", "jsonl", "--no-session", "--serve"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = std::io::BufReader::new(child.stdout.take().unwrap());
+    writeln!(stdin, "{{\"prompt\":\"hi\"}}").unwrap();
+    let mut line = String::new();
+    while !line.contains("\"result\"") {
+        line.clear();
+        assert!(
+            stdout.read_line(&mut line).unwrap() > 0,
+            "server ended early"
+        );
+    }
+    unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
+    let started = Instant::now();
+    let status = child.wait().unwrap();
+    assert!(started.elapsed() < Duration::from_secs(10));
+    assert_eq!(status.code(), Some(143));
+    drop(stdin);
+
+    // During a task it cancels the task and ends the server after its result.
+    let mut child = env
+        .command()
+        .args([
+            "--model",
+            "haiku",
+            "run",
+            "--events",
+            "jsonl",
+            "--no-session",
+            "--serve",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    writeln!(stdin, "{{\"prompt\":\"a slow task\"}}").unwrap();
+    while env.launches().len() < 2 {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
+    let started = Instant::now();
+    let out = child.wait_with_output().unwrap();
+    assert!(started.elapsed() < Duration::from_secs(10));
+    assert_eq!(
+        out.status.code(),
+        Some(130),
+        "{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let last: Value = serde_json::from_str(stdout.lines().last().unwrap()).unwrap();
+    assert_eq!(last["error_class"], "cancelled");
+    drop(stdin);
 }
 
 #[cfg(unix)]

@@ -28,6 +28,7 @@ fast|balanced|best`, `--provider anthropic|openai|google`, `--stdin`,
 | `--state-dir DIR` | Keep session records (`DIR/runs/ID.json`) and cooldowns (`DIR/cooldowns.json`) here. Default: the user data directory's `nectra` folder, the same cooldowns chat uses. |
 | `--mcp-config FILE` | Give the agent exactly the servers in FILE (standard `{"mcpServers": {...}}`). See [MCP](#mcp-servers). |
 | `--no-mcp-share` | Don't add servers from the user's other CLI configs (Nectra's [sharing](reference.md)). |
+| `--serve` | Answer many tasks in one process, reading requests from stdin. See [Many tasks in one process](#many-tasks-in-one-process---serve). |
 
 ## Events
 
@@ -263,6 +264,34 @@ Approvals are the CLI's own non-interactive defaults: without
 `--dangerously-skip-permissions`, Claude denies a tool that needs approval and
 Codex stays in its sandbox, neither asks. Nectra adds no permission flags the
 caller didn't pass.
+
+## Many tasks in one process: `--serve`
+
+For a front end that asks question after question (a chat window), one process per
+prompt pays the Laya load every time: about 13 s and 850 MiB on 2 vCPU. With
+`--serve` the process stays up, loads Laya once and answers each request:
+
+```sh
+nectra run --events jsonl --no-session --serve
+```
+
+- Laya (when `classifier.backend = "laya"`) loads before the first request is
+  read, then `{"v":1,"type":"ready"}` is written. Requests sent earlier wait in
+  stdin, so none routes with keywords. Start the process when the window opens.
+- Each stdin line is one request, `{"prompt": "..."}`; blank lines are skipped.
+  Each is answered with the usual events, `route`, `text`, `tool`, ending in exactly
+  one `result` (with `usage` and `cost_usd`), before the next line is read. A line
+  that isn't a request gets a `result` with `error_class` `harness_error`.
+- Every flag applies to every task: `--model`, `--mode`, `--provider`,
+  `--deadline` (per task), `--max-cost-usd` (per task), `--mcp-config`. `--resume`
+  isn't available; each request is routed afresh, so send earlier exchanges in the
+  prompt.
+- It runs the same agents as one-shot headless runs, with their permission
+  defaults ([below](#credentials-and-the-environment)). Ollama is not used.
+- Closing stdin ends it with exit code 0. SIGTERM during a task cancels it, writes
+  its `cancelled` result and exits 130; between tasks it exits 143 at once. Ctrl+C
+  during a task cancels only that task and the next request is read; between tasks
+  it exits 130.
 
 ## Signals
 
