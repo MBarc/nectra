@@ -9,8 +9,13 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
   once instead of once per prompt. New `ready` event, written only by `--serve`.
   See [docs/headless.md](docs/headless.md#many-tasks-in-one-process---serve).
   `--serve` also answers from Ollama models, so an Ollama-only machine works.
+  A line that isn't UTF-8 or is over 1 MiB gets an error result instead of ending
+  the server.
 - `nectra run --events jsonl --no-tools`: answers only, no tools, files or shell,
   enforced by each CLI's flags. Claude runs with `--tools "" --strict-mcp-config`;
+  Claude also gets `--setting-sources "" --settings '{"disableAllHooks":true}'
+  --disable-slash-commands` and an empty working directory, so no hook, helper or
+  command runs shell. It conflicts with `--resume` and `--mcp-config`.
   Ollama is chat-only; Codex, agy and Gemini are refused. See
   [docs/headless.md](docs/headless.md#answers-only---no-tools).
 - Laya: `nectra classifier laya` no longer panics on Linux ("Failed to load ONNX

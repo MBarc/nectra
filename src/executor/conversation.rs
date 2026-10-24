@@ -153,6 +153,12 @@ pub fn conversation_observed(
     command
         .args(args)
         .envs(crate::mcp::for_launch(&d.runtime, cfg).1);
+    // A tool-less launch starts in an empty directory, so no project file
+    // (`.claude/`, CLAUDE.md) in Nectra's own directory applies.
+    let neutral = cfg.no_tools.then(tempfile::tempdir).transpose()?;
+    if let Some(dir) = &neutral {
+        command.current_dir(dir.path());
+    }
     // The thread id is kept even when the turn fails: it spent tokens, and
     // `nectra usage` finds them through it.
     let mut thread = None;

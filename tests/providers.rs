@@ -104,6 +104,15 @@ fn no_tools_locks_claude_down_and_refuses_every_other_cli() {
     let tools = claude.iter().position(|a| a == "--tools").unwrap();
     assert_eq!(claude[tools + 1], "");
     assert!(claude.contains(&"--strict-mcp-config".to_string()));
+    // Settings, hooks and slash commands run shell of their own.
+    let sources = claude
+        .iter()
+        .position(|a| a == "--setting-sources")
+        .unwrap();
+    assert_eq!(claude[sources + 1], "");
+    let settings = claude.iter().position(|a| a == "--settings").unwrap();
+    assert_eq!(claude[settings + 1], r#"{"disableAllHooks":true}"#);
+    assert!(claude.contains(&"--disable-slash-commands".to_string()));
     assert!(
         !claude
             .iter()

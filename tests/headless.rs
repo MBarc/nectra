@@ -14,7 +14,7 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 20] = [
+    let scenarios: [(&str, fn()); 21] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
@@ -53,6 +53,7 @@ fn main() {
             no_tools,
         ),
         ("--serve --no-tools answers from Ollama alone", serve_ollama),
+        ("--serve answers a bad line and reads on", serve_bad_lines),
     ];
     for (name, scenario) in scenarios {
         scenario();
@@ -79,8 +80,9 @@ fn fake(log: &Path) {
     let n = fs::read_dir(log).unwrap().count();
     fs::write(
         log.join(format!("launch-{n}.json")),
-        json!({"args": args, "prompt": prompt, "env": std::env::var("PONS_MCP_TOKEN").ok()})
-            .to_string(),
+        json!({"args": args, "prompt": prompt, "env": std::env::var("PONS_MCP_TOKEN").ok(),
+            "cwd": std::env::current_dir().unwrap()})
+        .to_string(),
     )
     .unwrap();
     let say = |v: Value| println!("{v}");
@@ -574,9 +576,29 @@ fn no_tools() {
     let (out, events) = env.run(&["--no-session", "--no-tools", "make a file"]);
     assert_eq!(out.status.code(), Some(0));
     assert_eq!(events[0]["model"], "haiku", "Codex is never routed to");
-    let launched = args(&env.launches()[0]);
+    let launch = &env.launches()[0];
+    let launched = args(launch);
     let tools = launched.iter().position(|a| a == "--tools").unwrap();
     assert_eq!(launched[tools + 1], "");
+    assert!(launched.contains(&"--disable-slash-commands".to_string()));
+    // Not resumable from its throwaway directory, so no session is started.
+    assert!(
+        !launched.contains(&"--session-id".to_string()),
+        "{launched:?}"
+    );
+    // Launched away from the caller's directory and its `.claude/`.
+    let cwd = Path::new(launch["cwd"].as_str().unwrap());
+    assert!(!cwd.starts_with(env.dir.path()), "{cwd:?}");
+    assert!(!cwd.exists(), "the directory is removed after the run");
+    // Rate-limited Claude fails over only to a model that can be locked down.
+    let env = Env::new();
+    let (out, events) = env.run(&["--no-session", "--no-tools", "hit the limit"]);
+    assert_eq!(out.status.code(), Some(1), "{events:?}");
+    let r = result(&events);
+    assert_eq!(r["attempts"][0]["error_class"], "rate_limited");
+    assert_eq!(r["error_class"], "no_model");
+    assert_eq!(env.launches().len(), 1, "Codex never launched");
+    let env = Env::new();
     let (out, events) = env.run(&["--no-tools", "--model", "gpt-5.6-luna", "hi"]);
     assert_eq!(out.status.code(), Some(1));
     assert_eq!(result(&events)["error_class"], "no_model");
@@ -584,7 +606,68 @@ fn no_tools() {
         .as_str()
         .unwrap()
         .contains("--no-tools"));
-    assert_eq!(env.launches().len(), 1);
+    assert_eq!(env.launches().len(), 0);
+    // A resumed session or explicit MCP servers would bring tools back.
+    for extra in [
+        ["--resume", "a1b2c3d4-0000-4000-8000-000000000002"],
+        ["--mcp-config", "servers.json"],
+    ] {
+        let out = env
+            .command()
+            .args(["run", "--events", "jsonl", "--no-tools"])
+            .args(extra)
+            .arg("hi")
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(2), "{extra:?}");
+        assert!(String::from_utf8_lossy(&out.stderr).contains("cannot be used with"));
+    }
+    assert_eq!(env.launches().len(), 0);
+}
+
+/// Invalid UTF-8 and an oversized line each get an error result, an unknown
+/// field is ignored, and the requests after them are still answered.
+fn serve_bad_lines() {
+    let env = Env::new();
+    let mut child = env
+        .command()
+        .args([
+            "--model",
+            "haiku",
+            "run",
+            "--events",
+            "jsonl",
+            "--no-session",
+            "--serve",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut requests = b"{\"prompt\":\"first\",\"model\":\"gpt-5.6-luna\"}\n\xff\xfe\n".to_vec();
+    requests.extend(vec![b'x'; 3 << 20]);
+    requests.extend(b"\n{\"prompt\":\"last\"}\n");
+    let mut stdin = child.stdin.take().unwrap();
+    let writer = std::thread::spawn(move || stdin.write_all(&requests).unwrap());
+    let out = child.wait_with_output().unwrap();
+    writer.join().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let results: Vec<Value> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|e| e["type"] == "result")
+        .collect();
+    assert_eq!(results.len(), 4);
+    assert_eq!(
+        results[0]["model"], "haiku",
+        "a request can't pick its model"
+    );
+    assert!(results[1]["error"].as_str().unwrap().contains("UTF-8"));
+    assert!(results[2]["error"].as_str().unwrap().contains("at most"));
+    assert_eq!(results[3]["text"], "all done");
+    let prompts: Vec<_> = env.launches().iter().map(|l| l["prompt"].clone()).collect();
+    assert_eq!(prompts, ["first", "last"]);
 }
 
 /// An Ollama-only machine: a stub Ollama answers each `/api/show` and `/api/chat`.

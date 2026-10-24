@@ -281,10 +281,12 @@ nectra run --events jsonl --no-session --serve
 - Laya (when `classifier.backend = "laya"`) loads before the first request is
   read, then `{"v":1,"type":"ready"}` is written. Requests sent earlier wait in
   stdin, so none routes with keywords. Start the process when the window opens.
-- Each stdin line is one request, `{"prompt": "..."}`; blank lines are skipped.
-  Each is answered with the usual events, `route`, `text`, `tool`, ending in exactly
-  one `result` (with `usage` and `cost_usd`), before the next line is read. A line
-  that isn't a request gets a `result` with `error_class` `harness_error`.
+- Each stdin line is one request, `{"prompt": "..."}`; blank lines are skipped
+  and other fields are ignored (a request can't choose its model). Each is answered
+  with the usual events, `route`, `text`, `tool`, ending in exactly one `result`
+  (with `usage` and `cost_usd`), before the next line is read. A line that isn't a
+  request, isn't UTF-8 or is over 1 MiB gets a `result` with `error_class`
+  `harness_error`, and the server reads on.
 - Every flag applies to every task: `--model`, `--mode`, `--provider`,
   `--deadline` (per task), `--max-cost-usd` (per task), `--mcp-config`. `--resume`
   isn't available; each request is routed afresh, so send earlier exchanges in the
@@ -305,14 +307,22 @@ launch flags, never by prompt text. A runtime that can't be held to that is refu
 
 | Runtime | Under `--no-tools` |
 |---|---|
-| Claude Code | `--tools "" --strict-mcp-config`, no MCP servers, none of `claude.extra_args`, no permission flags |
+| Claude Code | `--tools "" --strict-mcp-config --setting-sources "" --settings '{"disableAllHooks":true}' --disable-slash-commands`, started in a new empty directory; no MCP servers, none of `claude.extra_args`, no permission flags, no session |
 | Ollama | Chat only already; a reply that asks for tools fails |
 | Codex | Refused: its read-only sandbox still reads files and runs commands |
 | agy, Gemini CLI | Refused: plan mode still reads files |
 
-Refused models aren't routed to; pinning one with `--model` fails with `no_model`
-before anything is launched. Checked live (Claude Code 2.1.310): asked to create a
-file, Claude printed a tool call as text and nothing was created.
+Claude's settings and project files run shell of their own (hooks, `apiKeyHelper`,
+a command's `!` lines), so none are loaded: no user, project or local settings, no
+hooks even from managed settings, no slash commands or skills, and a working
+directory with no `.claude/` or CLAUDE.md. Managed settings otherwise still apply.
+
+Refused models aren't routed to or failed over to; pinning one with `--model`
+fails with `no_model` before anything is launched. `--no-tools` can't be combined
+with `--resume` or `--mcp-config`. Checked live (Claude Code 2.1.310): from a
+directory whose `.claude/settings.json` has SessionStart and UserPromptSubmit
+hooks, `--serve --no-tools` ran neither (without `--no-tools`, both ran), and
+Claude, asked to create a file, printed a tool call as text and created nothing.
 
 ## Signals
 

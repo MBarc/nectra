@@ -326,7 +326,10 @@ file is checked against hashes pinned in the binary. It is checked on
 download and again on every load, wherever `model_dir` points (a root-owned
 install verified once by `nectra classifier laya --verify-only` skips the
 re-hashing; see `docs/design/LAYA-MEMORY.md`). Prompts
-never leave the machine.
+never leave the machine. ONNX Runtime is opened by the absolute path of the file
+that was checked. A file swapped between its check and that load would not be
+caught. That is not a privilege boundary: whoever can swap files in `model_dir` could
+already run code as the user, and a root-owned system directory can't be swapped.
 
 ```toml
 [classifier]

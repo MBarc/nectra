@@ -59,7 +59,7 @@ pub struct Args {
     pub serve: bool,
     /// Answers only: no tools, files or shell, held by each CLI's own flags.
     /// Only Claude and Ollama models can be held to that; others are refused.
-    #[arg(long, requires = "events")]
+    #[arg(long, requires = "events", conflicts_with_all = ["resume", "mcp_config"])]
     pub no_tools: bool,
 }
 
@@ -758,6 +758,9 @@ fn terminated() -> bool {
     false
 }
 
+/// The longest request line `--serve` reads, newline included.
+const MAX_REQUEST: u64 = 1 << 20;
+
 #[derive(Deserialize)]
 struct Request {
     prompt: String,
@@ -779,21 +782,55 @@ pub fn run(
     }
     crate::laya::preload(cfg);
     emit("ready", json!({}))?;
-    for line in std::io::stdin().lines() {
-        let line = line.context("reading a request")?;
-        let line = line.trim_start_matches('\u{feff}').trim();
-        if line.is_empty() {
-            continue;
-        }
-        let prompt = serde_json::from_str::<Request>(line)
-            .map(|r| r.prompt)
-            .context(r#"a request is one JSON object on one line: {"prompt": "..."}"#);
+    let mut stdin = std::io::stdin().lock();
+    let mut line = vec![];
+    let mut read = |line: &mut Vec<u8>| {
+        line.clear();
+        std::io::BufRead::read_until(
+            &mut std::io::Read::take(&mut stdin, MAX_REQUEST + 1),
+            b'\n',
+            line,
+        )
+        .context("reading a request")
+    };
+    while read(&mut line)? > 0 {
+        let prompt = if line.len() as u64 > MAX_REQUEST {
+            // Skipped to its end, never held whole.
+            while !line.ends_with(b"\n") && read(&mut line)? > 0 {}
+            Err(anyhow::anyhow!(
+                "a request line is at most {MAX_REQUEST} bytes"
+            ))
+        } else if let Ok(text) = std::str::from_utf8(&line) {
+            let text = text.trim_start_matches('\u{feff}').trim();
+            if text.is_empty() {
+                continue;
+            }
+            serde_json::from_str::<Request>(text)
+                .map(|r| r.prompt)
+                .context(r#"a request is one JSON object on one line: {"prompt": "..."}"#)
+        } else {
+            Err(anyhow::anyhow!("a request is UTF-8 text"))
+        };
         let code = task(cli, cfg, registry, &[], args, Some(prompt))?;
         if terminated() {
             return Ok(code);
         }
     }
     Ok(0)
+}
+
+/// Discards what it's given, and fails once its token is cancelled.
+struct Stoppable<'a>(&'a CancellationToken);
+impl std::io::Write for Stoppable<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self.0.is_cancelled() {
+            true => Err(std::io::Error::other("cancelled")),
+            false => Ok(buf.len()),
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 /// The session id to report: the resumed one, or a new record for this task,
@@ -1092,7 +1129,8 @@ fn task(
                 && executor::can_resume(&decision.runtime, &cfg);
             let mut provider_session = match &resumed {
                 Some(r) => Some(ProviderSession::resume(&r.provider_session_id)),
-                None if state.is_some() && resumable => {
+                // Launched in a throwaway directory: nothing to resume there.
+                None if state.is_some() && resumable && !args.no_tools => {
                     Some(ProviderSession::start(&decision.runtime))
                 }
                 None => None,
@@ -1151,9 +1189,13 @@ fn task(
             };
             let result = if decision.runtime == "ollama" {
                 let (model, prompt, cfg) = (decision.model.clone(), prompt.clone(), cfg.clone());
+                // A stopped request ends at its next piece, or at Ollama's own
+                // timeout, before the next request starts.
+                let grace =
+                    Duration::from_secs(cfg.inner.ollama.as_ref().map_or(0, |o| o.timeout_seconds));
                 // ponytail: the answer arrives as one text event; stream it if a front end needs it.
-                bounded(until, cancel, Duration::ZERO, move |_| {
-                    crate::ollama::conversation(&model, &prompt, &cfg, &mut std::io::sink())
+                bounded(until, cancel, grace, move |stop| {
+                    crate::ollama::conversation(&model, &prompt, &cfg, &mut Stoppable(stop))
                 })
                 .and_then(|text| {
                     show(reply.push(&text))?;

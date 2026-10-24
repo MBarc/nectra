@@ -281,6 +281,22 @@ pub fn arguments(d: &Decision, cfg: &Config) -> Result<Vec<OsString>> {
             _ => bail!("{} has no read-only launch", d.runtime),
         };
         args.extend(flags.iter().map(OsString::from));
+        if cfg.no_tools {
+            // Settings run shell of their own: hooks, apiKeyHelper and the like.
+            // No user, project or local settings, no hooks even from managed
+            // ones, and no slash commands or skills (a command's `!` lines run).
+            // Checked live on 2.1.310: a project UserPromptSubmit hook didn't run.
+            args.extend(
+                [
+                    "--setting-sources",
+                    "",
+                    "--settings",
+                    r#"{"disableAllHooks":true}"#,
+                    "--disable-slash-commands",
+                ]
+                .map(OsString::from),
+            );
+        }
     } else if cfg.skip_permissions {
         args.push(
             match d.runtime.as_str() {

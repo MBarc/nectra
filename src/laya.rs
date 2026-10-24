@@ -153,13 +153,14 @@ pub fn exit(code: i32) -> ! {
 }
 
 /// The directory to load from: where it really is, so a symlink or rename
-/// after the checks cannot point the load somewhere else.
+/// after the checks cannot point the load somewhere else. Always absolute:
+/// ort tries a relative runtime path against its own exe's directory first.
 fn resolved(dir: &Path) -> PathBuf {
     #[cfg(unix)]
     if let Ok(real) = fs::canonicalize(dir) {
         return real;
     }
-    dir.to_path_buf()
+    std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf())
 }
 
 /// Loaded once per process; a failure is remembered so every message falls
@@ -196,16 +197,21 @@ pub fn warm(cfg: &Config) {
     let busy = Busy::enter();
     std::thread::spawn(move || {
         let _busy = busy;
-        // A panic would leave the cell empty and "still loading" forever.
-        if let Err(panic) = std::panic::catch_unwind(|| engine(&cfg)) {
-            let why = panic
-                .downcast_ref::<String>()
-                .map(String::as_str)
-                .or_else(|| panic.downcast_ref::<&str>().copied())
-                .unwrap_or("unknown panic");
-            let _ = ENGINE.set(Err(format!("loader panicked: {why}")));
-        }
+        guarded(&cfg);
     });
+}
+
+/// [`engine`], with a panic remembered as a failed load: otherwise the cell
+/// stays empty and "still loading" forever, and messages use keywords.
+fn guarded(cfg: &Config) {
+    if let Err(panic) = std::panic::catch_unwind(|| engine(cfg)) {
+        let why = panic
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| panic.downcast_ref::<&str>().copied())
+            .unwrap_or("unknown panic");
+        let _ = ENGINE.set(Err(format!("loader panicked: {why}")));
+    }
 }
 
 /// Loads the model now, on this thread, for a process that answers many
@@ -213,7 +219,7 @@ pub fn warm(cfg: &Config) {
 pub fn preload(cfg: &Config) {
     if cfg.inner.classifier.backend == crate::config::ClassifierBackend::Laya {
         let _busy = Busy::enter();
-        let _ = engine(cfg);
+        guarded(cfg);
     }
 }
 
@@ -895,8 +901,29 @@ Connection: close
             .is_empty());
     }
     #[test]
+    fn a_relative_model_dir_loads_by_its_absolute_path() {
+        assert!(resolved(Path::new("laya-model")).is_absolute());
+    }
+    #[test]
     fn a_runtime_that_wont_load_is_an_error_not_a_panic() {
         if RUNTIME.is_none() {
+            return;
+        }
+        // ort remembers the first runtime it loads for the whole process, so
+        // the check runs in a fresh one whatever other tests loaded.
+        if std::env::var_os("NECTRA_ORT_CHILD").is_none() {
+            let out = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "laya::tests::a_runtime_that_wont_load_is_an_error_not_a_panic",
+                    "--test-threads=1",
+                ])
+                .env("NECTRA_ORT_CHILD", "1")
+                .output()
+                .unwrap();
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            assert!(out.status.success(), "{stdout}");
+            assert!(stdout.contains("1 passed"), "{stdout}");
             return;
         }
         // Past the pins (allowed unpinned), so ONNX Runtime itself is loaded:
