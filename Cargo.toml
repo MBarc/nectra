@@ -1,6 +1,6 @@
 [package]
 name = "nectra"
-version = "0.5.0-alpha.1"
+version = "0.5.0-alpha.2"
 edition = "2021"
 rust-version = "1.89"
 description = "Local conversation router for Claude Code, Codex, Gemini CLI, and Ollama"
@@ -33,7 +33,7 @@ sha2 = "0.10"
 maintainer = "MBarc <michaelb4185@gmail.com>"
 section = "utils"
 depends = "$auto, nectra-archive-keyring (>= 1)"
-breaks = "nectra-laya (<< 1~alpha.1)"
+breaks = "nectra-laya (<< 1~alpha.2)"
 assets = [
     ["target/release/nectra", "usr/bin/", "755"],
     ["config/models.toml", "usr/share/nectra/", "644"],

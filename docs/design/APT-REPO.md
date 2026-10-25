@@ -11,9 +11,9 @@ yet. Decided going in: Debian packages, a static signed repo, two packages
 `nectra-archive-keyring`), the PonsOS installer's "Laya vs Jev" question
 installs or omits `nectra-laya`.
 
-**Alpha channel.** Nectra `0.5.0-alpha.1` (deb `0.5.0~alpha.1`, which sorts
-before `0.5.0`) pins Laya `laya-model-1-alpha.1`, packaged as `nectra-laya`
-`1~alpha.1`. Tags with a `-` are GitHub prereleases and go only into the
+**Alpha channel.** Nectra `0.5.0-alpha.2` (deb `0.5.0~alpha.2`, which sorts
+before `0.5.0`) pins Laya `laya-model-1-alpha.2`, packaged as `nectra-laya`
+`1~alpha.2` (`0.5.0-alpha.1` pinned `laya-model-1-alpha.1`). Tags with a `-` are GitHub prereleases and go only into the
 `alpha` suite; `stable` gets non-prereleases. `alpha` also carries stable
 releases, so an alpha machine moves on to `0.5.0` without a sources change.
 `packaging/nectra.sources` points at `alpha` until then.

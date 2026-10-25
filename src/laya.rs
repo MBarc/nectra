@@ -24,7 +24,7 @@ use std::{
 
 /// Each retrained model gets a new release tag; its files are pinned below.
 /// `NECTRA_LAYA_RELEASE` names a mirror instead: the pins still apply.
-const RELEASE: &str = "https://github.com/MBarc/nectra/releases/download/laya-model-1-alpha.1";
+const RELEASE: &str = "https://github.com/MBarc/nectra/releases/download/laya-model-1-alpha.2";
 
 /// Where the nectra-laya package keeps the model, used when the config names none.
 const SYSTEM_MODEL_DIR: &str = "/usr/lib/nectra/laya";
@@ -34,17 +34,17 @@ const MODEL_FILES: &[(&str, &str, &str)] = &[
     (
         "model.onnx",
         "model.onnx",
-        "ccbfb5b0f5d284ace041eb579be5f5008181b8c92eae91f72a79771d7085d9ff",
+        "4e3c05b03761f4b8c40de6d50656c06153d2d9b34d09c593b8688ce006d81ab8",
     ),
     (
         "model.onnx.data",
         "model.onnx.data",
-        "21941c6610821126b30ad3cf83c01556e0131be6b35f05f7d9c98fc4cbe0d5d3",
+        "f3f862bde4de1a7a638244dcd2dcfc0b1b5b85aa6ee9e7ae4eeba3cd8e853848",
     ),
     (
         "rl_agent_config.json",
         "rl_agent_config.json",
-        "0d19b2d11e67ded687edf10333f4d26421434662f835cec8b2e53f1b5acc58a3",
+        "8d1770285b84b6206a2c20ac0fa46112cca51ab4357ae7a2edf75e495d1ea590",
     ),
     (
         "tokenizer/tokenizer.json",

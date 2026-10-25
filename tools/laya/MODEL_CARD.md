@@ -1,5 +1,17 @@
 # Laya model card: Nectra task classifier (laya-model-1)
 
+**laya-model-1-alpha.2** is run `20261023-204433`: laya-model-1 fine-tuned for
+2 more epochs on the round 2 data plus 969 `retrain --stakes` examples (long
+task specs and short requests, high-stakes against routine), so the
+difficulty and role heads learn spec shape. Same architecture, tokenizer and
+ONNX Runtime. Task accuracy, alpha.1 -> alpha.2: fresh-test-3 97.67% -> 98.06%
+(1011/1031), fresh-test-2 96.3% -> 97.8%, dev 95.1% -> 96.3%, fresh-test
+96.0% -> 96.9%, old60 93.3% -> 98.3%. Demanding routing on the held-out
+`eval/laya/long-spec-heldout.json` (40, 20 demanding): the router picks the
+demanding model for 6 of 20 (alpha.1: 0) with 2 false escalations of 20.
+`long-spec-tuning.json` shaped the stakes data, so its numbers are not held
+out. The rest of this card describes laya-model-1 (alpha.1).
+
 **What it is.** A prompt-to-task classifier for routing. Nectra asks it which of
 ten task labels a message is (`eval/laya/criteria.json`: code_generation,
 debugging, refactoring, code_review, architecture, research, writing,

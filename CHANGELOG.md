@@ -4,6 +4,11 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Laya `laya-model-1-alpha.2` (`nectra-laya` `1~alpha.2`): routes more hard,
+  high-stakes specs to the demanding model and improves task accuracy on every
+  held-out set; see tools/laya/MODEL_CARD.md. The high-stakes keyword rule is
+  gone. `nectra eval` reports tier accuracy, demanding-routing errors and
+  keyword fallbacks for corpora with `tier` labels.
 - `[knowledge] index = "PATH"` and the global `--knowledge PATH`: that file goes
   to every provider as a block with a random per-process tag, `run --no-tools`,
   `--serve` and debate included (Claude through `--append-system-prompt`, Ollama
