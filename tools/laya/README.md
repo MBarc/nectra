@@ -89,6 +89,8 @@ Training needs Python, the generator CLI and ssh. No GPU is required.
 | `--generator CMD` | `claude -p --model sonnet` | Any command that reads a prompt on stdin and prints the answer on stdout. Writes and labels the data. |
 | `--regenerate` | off | Rebuild data even if the criteria are unchanged. |
 | `--per-batch N`, `--parallel N` | 40, 4 | Data size (100 batches) and concurrent generator calls. |
+| `--stakes N` | 0 | Add N prompts per (`STAKES_STYLES` style, task) batch: long task specs and short requests, high-stakes (untrusted input, auth, side effects that must not repeat, data loss, races) against routine work that only mentions security. Cached apart from the main data as `stakes-<hash>.json`. These ask difficulty and role on every example. |
+| `--replay N` | all | Train on a random N of the main examples, to fine-tune an earlier run's `ckpt` (`--base`) on new data without paying for the whole set. |
 | `--host USER@HOST` | local | Train over ssh on a Linux host. |
 | `--threads N` | 8 | `OMP_NUM_THREADS` on the training host. On builder (16 vCPU Opteron 6272, 8 FPUs) 8 threads ran 16 s/step, 16 threads 36 s, 4 threads 22 s. |
 | `--python`, `--laya-src` | this python, none | Local training: python with laya installed, and a laya checkout for the exporter. |
@@ -131,7 +133,7 @@ or publish it as a new release, update the hashes in `src/laya.rs`, and let
 tuned against it or selected by it. The generator never sees it, and
 near-duplicates of it (and of `dev.json`, `fresh-test-3.json` and the older
 sets) are filtered out of generated prompts and their follow-ups.
-`fresh-test-3.json` is never run by `retrain`; it was evaluated once, by hand. `dev.json` is the model-selection set: training prints its
+`fresh-test-3.json` is never run by `retrain`; it was evaluated once, by hand. `long-spec.json` (long specs and their short forms, gold `tier` labels) is held out the same way; `nectra eval` reports its tier accuracy and demanding-route errors. `dev.json` is the model-selection set: training prints its
 task accuracy and confusion after every epoch. `fresh-test.json`, the first
 bar, is reported only, because its failures have been seen. Don't edit its labels to make a model pass. See
 `eval/laya/fresh-test.README.md`.

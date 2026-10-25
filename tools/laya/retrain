@@ -35,7 +35,7 @@ GATE = "fresh-test-2.json"
 # fresh-test.json was the first bar and has been seen; old60 was tuned on earlier.
 REPORTED = ["dev.json", "fresh-test.json", "old60-rubric.json"]
 # Held out from every run: evaluated once, by hand (eval/laya/fresh-test.README.md).
-HELD_OUT = ["fresh-test-3.json"]
+HELD_OUT = ["fresh-test-3.json", "long-spec.json"]
 
 STYLES = [
     "terse lowercase messages typed into a terminal by developers, some with typos",
@@ -54,6 +54,45 @@ STYLES = [
     "messages that borrow another label's verb ('review', 'analyze', 'check', 'plan', 'write', 'fix') for what is "
     "clearly this label's deliverable under the rubric",
     "messages that give background about code, logs, data or an incident before asking for this label's deliverable",
+]
+
+
+# --stakes: what the difficulty head never saw. Every training prompt above is
+# at most a few sentences, so the model scored long specs by their framing and
+# never answered "hard" for a security or side-effect spec (eval/laya/long-spec.json:
+# 0 of 22). Each style is written for the tasks listed with it.
+STAKES_STYLES = [
+    ("task specs for a coding agent, 5-12 sentences or a numbered list of requirements (600-2500 characters), "
+     "for HIGH-STAKES work where a subtle mistake is a security hole, a repeated side effect or lost data: "
+     "untrusted input (archives, paths, uploads, parsers), authentication, sessions and tokens, signatures, "
+     "payments and webhooks that must never run twice, concurrency between workers, migrations that can lose data, "
+     "privilege boundaries. Vary the domain; some mention tests to write, some open with repo context",
+     ["code_generation", "debugging", "refactoring", "code_review", "architecture", "planning"]),
+    ("task specs for a coding agent, 5-12 sentences or a numbered list of requirements (600-2500 characters), "
+     "for ROUTINE work a mid-tier model does reliably: UI changes, small features, docs, renames, config, "
+     "test additions, build scripts. About half mention passwords, secrets, security, rate limits or auth only "
+     "in passing (a password field's placeholder, a FAQ about passwords, a log line on rate limits, a typo in "
+     "SECURITY.md), without the work itself being security-critical",
+     ["code_generation", "debugging", "refactoring", "code_review", "writing", "planning", "general"]),
+    ("one or two sentences asking to build or fix something high-stakes: verify webhook signatures, make a "
+     "payment job idempotent, rotate session tokens, extract user zips safely, add CSRF state and PKCE, "
+     "stop a race that double-charges, sanitise file paths from users",
+     ["code_generation", "debugging", "refactoring", "code_review"]),
+    ("one or two sentences asking for a routine change that merely mentions a security word: a typo in "
+     "SECURITY.md, a README section on credentials, a placeholder for a password field, a log line when a "
+     "rate limit is hit, moving the secret-key input to another component, a question about what TLS is",
+     ["code_generation", "debugging", "refactoring", "writing", "general"]),
+    # Real dispatches open with repo, branch and review context, which the styles above lack.
+    ("an orchestrator's dispatch to a coding agent (600-2500 characters): repo and branch or head commit, then "
+     "review findings to fix (P1, H1, M2...) or a feature to build, with coordinator decisions. HIGH-STAKES: "
+     "protocol and auth implementations (Kerberos, LDAP binds, OAuth, TLS), packaging that installs services as "
+     "root, schema migrations, concurrent workers, anything where a subtle mistake is a security hole or lost data",
+     ["code_generation", "debugging", "refactoring", "planning", "architecture"]),
+    ("an orchestrator's dispatch to a coding agent (600-2500 characters): repo and branch or head commit, then "
+     "small follow-ups or a polish round: LOW review items, UI and theme tweaks from the owner's screenshot, a "
+     "default value change, docs, a test VM to create or delete with explicit rules. ROUTINE work, however "
+     "official the framing",
+     ["code_generation", "debugging", "refactoring", "writing", "planning"]),
 ]
 
 
@@ -137,8 +176,13 @@ task — one of:
 Rubric (apply its tie-breaks in order):
 {rubric}
 
-difficulty — how capable a model the task needs: 0 = easy (a small fast model handles it),
-1 = moderate (a mid-tier model), 2 = hard (needs the strongest model).
+difficulty — how capable a model the task needs, judged by the work and its stakes, not its length or vocabulary:
+0 = easy: a small fast model handles it (chat, facts, short edits, docs, copy, small contained changes,
+    including ones that only mention passwords, secrets or security in passing);
+1 = moderate: regular engineering a mid-tier model does reliably (features, debugging, refactors, reviews);
+2 = hard: needs the strongest model: multi-step designs, or building, fixing or reviewing code where a subtle
+    mistake is a security hole, a repeated side effect (double charge, replayed request), lost data or a race:
+    untrusted input, authentication, sessions and tokens, signatures, payments, concurrency, privilege boundaries.
 
 role — which kind of model should handle it, one of:
 {roles}
@@ -215,6 +259,49 @@ def make_data(args, criteria, work):
     return data
 
 
+def make_stakes_data(args, criteria, work):
+    """STAKES_STYLES examples, cached under their own hash so the main data is reused."""
+    rubric = (LAYA / "RUBRIC.md").read_text(encoding="utf-8")
+    key = hashlib.sha256(json.dumps([criteria, rubric, STAKES_STYLES, args.stakes], sort_keys=True).encode()).hexdigest()[:16]
+    path = work / f"stakes-{key}.json"
+    if path.exists() and not args.regenerate:
+        log(f"reusing {path}")
+        return json.loads(path.read_text(encoding="utf-8"))
+    guarded = [set(norm(c["prompt"]).split()) for f in [GATE] + REPORTED + HELD_OUT
+               for c in json.loads((LAYA / f).read_text(encoding="utf-8"))]
+    jobs = [(t, s) for s, tasks in STAKES_STYLES for t in tasks]
+    log(f"writing {len(jobs)} stakes batches of {args.stakes} prompts")
+    written = []
+    with concurrent.futures.ThreadPoolExecutor(args.parallel) as pool:
+        futures = {pool.submit(write_prompts, args.generator, criteria, rubric, t, s, args.stakes): t for t, s in jobs}
+        for f in concurrent.futures.as_completed(futures):
+            try:
+                written += [dict(x, intended=futures[f]) for x in f.result()]
+            except RuntimeError as e:  # one failed batch costs its examples, not the run
+                log(f"stakes batch dropped: {e}")
+    seen, kept = set(), []
+    for x in written:
+        n = norm(x["prompt"])
+        if n not in seen and not near_duplicate(x["prompt"], guarded):
+            seen.add(n)
+            kept.append(x)
+    # Long prompts: smaller labelling batches.
+    batches = [[(i, x["prompt"]) for i, x in list(enumerate(kept))[j : j + 25]] for j in range(0, len(kept), 25)]
+    labels = {}
+    with concurrent.futures.ThreadPoolExecutor(args.parallel) as pool:
+        for got in pool.map(lambda b: label_prompts(args.generator, criteria, rubric, b), batches):
+            labels.update(got)
+    roles = [k for k, _ in criteria["roles"]]
+    data = [dict(prompt=x["prompt"], followup="", task=a["task"], difficulty=a["difficulty"], role=a["role"], stakes=True)
+            for i, x in enumerate(kept)
+            if (a := labels.get(i)) and a.get("task") == x["intended"]
+            and a.get("role") in roles and a.get("difficulty") in (0, 1, 2)]
+    log(f"stakes: {len(written)} written, {len(kept)} unique, {len(data)} kept after blind labelling; "
+        f"difficulty 0/1/2: {[sum(d['difficulty'] == k for d in data) for k in (0, 1, 2)]}")
+    path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    return data
+
+
 def registry_roles(path):
     """Roles some enabled model claims (`prefers`), the subset Nectra offers."""
     import tomllib
@@ -256,7 +343,8 @@ def to_laya_items(data, criteria, claimed):
     rng = random.Random(1)
     out = []
     for i, d in enumerate(data):
-        if i % 2:
+        # Stakes examples exist to teach difficulty and role: ask them every time.
+        if i % 2 and not d.get("stakes"):
             out.append({"state": d["prompt"], "questions": questions("task"), "expected": {"task": d["task"]}})
         else:
             options = roles
@@ -469,6 +557,10 @@ def main(argv=None):
     p.add_argument("--bar", type=float, default=0.95, help="fresh-set accuracy the model must beat")
     p.add_argument("--max-ms", type=float, default=300, help="slowest acceptable ms per message")
     p.add_argument("--latency-runs", type=int, default=3, help="time the fresh set this many times and keep the fastest")
+    p.add_argument("--stakes", type=int, default=0, metavar="N",
+                   help="add N prompts per (STAKES_STYLES style, task) batch: long specs, high-stakes vs routine work")
+    p.add_argument("--replay", type=int, default=None, metavar="N",
+                   help="train on a random N of the main examples (for fine-tuning from --base on new data)")
     p.add_argument("--data-only", action="store_true", help="stop after building training data")
     args = p.parse_args(argv)
 
@@ -487,6 +579,11 @@ def main(argv=None):
             model_dir = Path(args.model).resolve()
         else:
             data = make_data(args, criteria, work)
+            if args.replay is not None:
+                data = random.Random(2).sample(data, min(args.replay, len(data)))
+            if args.stakes:
+                data = data + make_stakes_data(args, criteria, work)
+                random.Random(3).shuffle(data)
             claimed = registry_roles(args.registry)
             items = to_laya_items(data, criteria, claimed)
             items_path = run_dir / "train.jsonl"

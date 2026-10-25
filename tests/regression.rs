@@ -232,6 +232,35 @@ fn cli_uses_configured_mode_and_cli_override() {
     }
 }
 #[test]
+fn eval_scores_tiers_where_labelled() {
+    let (dir, cfg, _) = fixture();
+    let corpus = concat!(env!("CARGO_MANIFEST_DIR"), "/eval/laya/long-spec.json");
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_str(&fs::read_to_string(corpus).unwrap()).unwrap();
+    assert!(cases.iter().all(|c| {
+        ["simple", "normal", "demanding"].contains(&c["tier"].as_str().unwrap_or_default())
+    }));
+    let out = binary()
+        .current_dir(dir.path())
+        .env_remove("TYPESAFE_API_KEY")
+        .arg("--config")
+        .arg(&cfg.path)
+        .args(["eval", corpus])
+        .output()
+        .unwrap();
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let tier = &report["tier"];
+    assert_eq!(tier["total"], cases.len());
+    let gold = cases.iter().filter(|c| c["tier"] == "demanding").count();
+    assert_eq!(
+        tier["demanding_tp"].as_u64().unwrap() + tier["demanding_fn"].as_u64().unwrap(),
+        gold as u64
+    );
+    // Only labelled tasks are scored.
+    let tasks = cases.iter().filter(|c| c.get("task").is_some()).count();
+    assert_eq!(report["total"], tasks);
+}
+#[test]
 fn stdin_route_and_conflicting_input() {
     let (_dir, cfg, _) = fixture();
     let mut child = binary()
@@ -483,6 +512,29 @@ fn demanding_work_is_never_sent_cheap_first() {
     )
     .unwrap();
     assert_eq!(d.model, "gpt-5.6-sol", "{}", d.reason);
+    // Filed under a writer's or a cheap role, demanding work goes to the
+    // demanding model, never the writer (Laya: a security spec as "general").
+    for role in ["general", "simple", "simple-coding"] {
+        let jev = Classification {
+            task: TaskType::General,
+            req: classifier::requirements(TaskType::General),
+            tier: Some(Tier::Demanding),
+            why: "test".into(),
+            new_task: None,
+            role: Some(role.into()),
+        };
+        let d = router::route_with(
+            jev,
+            "route file pointers safely",
+            &cfg,
+            &reg,
+            Mode::Balanced,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(d.model, "gpt-6-astra", "{role}: {}", d.reason);
+    }
     // No model claims "demanding": demanding words keep the strong coder.
     let mut reg = reg;
     reg.models.retain(|m| m.id != "gpt-6-astra");

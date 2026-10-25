@@ -268,11 +268,19 @@ Registry: {}",
     }
     executor::execute(&decision, &prompt, &cfg)
 }
+/// One labelled prompt. `task` is scored when present; `tier` (simple,
+/// normal or demanding) scores difficulty and whether the prompt routes to
+/// the demanding role.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EvalCase {
     prompt: String,
-    task: String,
+    task: Option<String>,
+    tier: Option<String>,
+    /// Where the prompt came from; informational.
+    #[serde(default)]
+    #[allow(dead_code)]
+    source: Option<String>,
 }
 #[derive(Serialize)]
 struct Failure {
@@ -285,6 +293,23 @@ struct EvalReport {
     total: usize,
     passed: usize,
     accuracy: f64,
+    /// Prompts routed to the demanding role (a Demanding tier or the
+    /// demanding role), labelled or not: how often the strongest model runs.
+    demanding: usize,
+    failures: Vec<Failure>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tier: Option<TierReport>,
+}
+#[derive(Serialize, Default)]
+struct TierReport {
+    total: usize,
+    passed: usize,
+    accuracy: f64,
+    /// Routed to the demanding role (a Demanding tier or the demanding role)
+    /// against gold `demanding`: what decides whether the strongest model runs.
+    demanding_tp: usize,
+    demanding_fp: usize,
+    demanding_fn: usize,
     failures: Vec<Failure>,
 }
 fn evaluate(path: &std::path::Path, cfg: &config::Config) -> Result<i32> {
@@ -293,27 +318,66 @@ fn evaluate(path: &std::path::Path, cfg: &config::Config) -> Result<i32> {
     if cases.is_empty() {
         bail!("evaluation corpus is empty");
     }
-    let total = cases.len();
-    let failures: Vec<_> = cases
-        .into_iter()
-        .filter_map(|c| {
-            let actual = nectra::jev::classify(&c.prompt, cfg).task.to_string();
-            (actual != c.task).then_some(Failure {
-                prompt: c.prompt,
-                expected: c.task,
-                actual,
-            })
-        })
-        .collect();
+    let mut failures = Vec::new();
+    let (mut total, mut demanding, mut tiers) = (0, 0, None::<TierReport>);
+    for c in cases {
+        // Every role offered, and no file lookups: the prompt alone decides.
+        let got = nectra::jev::classify_turn_in(&c.prompt, None, cfg, &nectra::policy::ROLES, None);
+        let actual_tier = got
+            .tier
+            .map_or("none".to_string(), |t| format!("{t:?}").to_lowercase());
+        let routed = actual_tier == "demanding" || got.role.as_deref() == Some("demanding");
+        demanding += usize::from(routed);
+        if let Some(task) = c.task {
+            total += 1;
+            let actual = got.task.to_string();
+            if actual != task {
+                failures.push(Failure {
+                    prompt: c.prompt.clone(),
+                    expected: task,
+                    actual,
+                });
+            }
+        }
+        if let Some(tier) = c.tier {
+            let t = tiers.get_or_insert_with(TierReport::default);
+            t.total += 1;
+            match (tier == "demanding", routed) {
+                (true, true) => t.demanding_tp += 1,
+                (false, true) => t.demanding_fp += 1,
+                (true, false) => t.demanding_fn += 1,
+                (false, false) => {}
+            }
+            if actual_tier == tier {
+                t.passed += 1;
+            } else {
+                t.failures.push(Failure {
+                    prompt: c.prompt,
+                    expected: tier,
+                    actual: actual_tier,
+                });
+            }
+        }
+    }
+    if let Some(t) = &mut tiers {
+        t.accuracy = t.passed as f64 / t.total as f64;
+    }
     let passed = total - failures.len();
+    let all_passed = passed == total && tiers.as_ref().is_none_or(|t| t.passed == t.total);
     println!(
         "{}",
         serde_json::to_string_pretty(&EvalReport {
             total,
             passed,
-            accuracy: passed as f64 / total as f64,
-            failures
+            accuracy: if total == 0 {
+                0.0
+            } else {
+                passed as f64 / total as f64
+            },
+            demanding,
+            failures,
+            tier: tiers,
         })?
     );
-    Ok(if passed == total { 0 } else { 1 })
+    Ok(if all_passed { 0 } else { 1 })
 }

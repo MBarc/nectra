@@ -131,10 +131,15 @@ pub fn route_summarized(
     let role = jev_role
         .as_deref()
         .unwrap_or_else(|| policy::preferred_role(task, prompt, mode, tier));
-    let role = if demanding {
+    let role = if !demanding {
+        policy::cheap_first(role, mode, &eligible, declarative)
+    } else if matches!(role, "coding" | "planning") {
+        // The strong coder or planner may take demanding work in its field.
         role
     } else {
-        policy::cheap_first(role, mode, &eligible, declarative)
+        // A hard task Jev files under "general" or a cheap role still needs
+        // the strongest model, not the writer.
+        "demanding"
     };
     // Demanding work that no model claims is scored for capability alone, so a
     // registry without a demanding model sends it to its strongest one (Opus
