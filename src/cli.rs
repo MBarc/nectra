@@ -18,11 +18,21 @@ pub enum ProviderArg {
     Google,
 }
 
+#[derive(Subcommand, Debug, Clone)]
+pub enum ClassifierCommands {
+    /// Download the Laya model into DIR and check every file against the
+    /// hashes built into this binary; changes no config (the nectra-laya package).
+    Fetch {
+        #[arg(long)]
+        dir: PathBuf,
+    },
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "nectra",
     version,
-    about = "Route conversations to Claude Code, Codex CLI, Gemini CLI, or Ollama"
+    about = "Route conversations to Claude Code, Codex CLI, Antigravity (agy), or Ollama"
 )]
 pub struct Cli {
     /// Show the real provider terminal in interactive chat, or use structured streams.
@@ -51,6 +61,10 @@ pub struct Cli {
     /// Use this configuration file instead of the installed one.
     #[arg(global = true, long)]
     pub config: Option<PathBuf>,
+    /// Give every provider this file as system context, in place of
+    /// `[knowledge] index` (docs/reference.md).
+    #[arg(global = true, long, value_name = "PATH")]
+    pub knowledge: Option<PathBuf>,
     /// Print the routing decision and its basis to stderr before running.
     #[arg(global = true, long)]
     pub explain: bool,
@@ -92,9 +106,20 @@ pub enum Commands {
     /// Choose how messages are classified: `laya` downloads a free local model
     /// (about 750 MB, nothing leaves the machine), `auto` uses Jev when a
     /// TypeSafe key is set, `keywords` uses keywords only.
+    #[command(args_conflicts_with_subcommands = true, subcommand_negates_reqs = true)]
     Classifier {
-        #[arg(value_enum)]
-        backend: crate::config::ClassifierBackend,
+        #[arg(value_enum, required = true)]
+        backend: Option<crate::config::ClassifierBackend>,
+        #[command(subcommand)]
+        command: Option<ClassifierCommands>,
+        /// With `laya`: use this model directory instead of `classifier.model_dir`.
+        #[arg(long)]
+        model_dir: Option<PathBuf>,
+        /// With `laya`: hash every file already in the model directory against its
+        /// pin and write the verification stamp. Downloads nothing and leaves the
+        /// configuration alone; run as root, since only root's stamp is trusted.
+        #[arg(long)]
+        verify_only: bool,
     },
     /// Configure an Ollama server and selected local models without prompts.
     Ollama {

@@ -323,15 +323,24 @@ difficulty tier only applies when some enabled model claims its role.
 
 `nectra classifier laya` downloads a local model, about 750 MB, and every
 file is checked against hashes pinned in the binary. It is checked on
-download and again on every load, wherever `model_dir` points. Prompts
-never leave the machine.
+download and again on every load, wherever `model_dir` points (a root-owned
+install verified once by `nectra classifier laya --verify-only` skips the
+re-hashing; see `docs/design/LAYA-MEMORY.md`). Prompts
+never leave the machine. ONNX Runtime is opened by the absolute path of the file
+that was checked. A file swapped between its check and that load would not be
+caught. That is not a privilege boundary: whoever can swap files in `model_dir` could
+already run code as the user, and a root-owned system directory can't be swapped.
 
 ```toml
 [classifier]
 backend = "laya"
 # model_dir = "D:/models/laya"      # where the model lives (default: per-user data dir)
 # allow_unpinned_model = false      # true loads your own retrained model; warns on every load
-laya_timeout_ms = 1000              # per message; slower answers fall back to keywords
+# laya_timeout_ms = 1000            # per message; slower answers fall back to keywords.
+                                    # Unset: 5000 with 2 or fewer cores or no AVX2, else 1000
+# laya_prepacking = false           # false keeps the weights in the mapped file: half the
+                                    # private memory, 0-15% slower. Unset: false on Linux
+                                    # with under 4 GiB RAM, true elsewhere
 ```
 
 - **Chat** loads the model in the background at start, which takes about
@@ -382,6 +391,56 @@ files, including the npm Codex package's native payload, without invoking its
 PowerShell/batch shim. Relative PATH entries are ignored.
 Trusted `extra_args` can set runtime options, but cannot replace Nectra's model,
 effort, provider-selection flags or prompt transport.
+
+### Knowledge index
+
+```toml
+[knowledge]
+index = "/usr/share/pons/knowledge/INDEX.md"
+```
+
+`--knowledge PATH` does the same for one launch and takes precedence. Unset
+(the default), nothing is added. When set, the file's text goes to every
+provider, for every chat message, `run` task and debate turn, `--no-tools` and
+`--serve` included, as one delimited block. The block's tag,
+`<system-context-RANDOM source="knowledge index">`, is new in every Nectra
+process, so text from anywhere else can't close it or open one like it. The tag
+is not a secret (Claude's command line shows it to local users), so whenever an
+index is set, any `<system-context` in a prompt or earlier turn (any case or
+spacing) is sent to every provider as `&lt;system-context`:
+
+| Runtime | How it is given |
+|---|---|
+| Claude Code | `--append-system-prompt`: system context, apart from the user's turn. It is a launch flag, so `--no-tools` still loads no settings files |
+| Ollama | Added to its system message, apart from the user's turn |
+| Codex, agy, Gemini CLI | In front of the prompt, in the same user turn, since Nectra has no system-prompt flag for these. The random tag marks where it ends. It isn't sent again when a provider session is resumed |
+
+The file steers every agent, so it is read only when nobody but an administrator
+can change it or anything on its path:
+
+- **The path** must be absolute, with no `..` and no symbolic link anywhere in
+  it. On Windows it must also be a drive-letter path (`C:\...`), with no
+  junction or other reparse point and no `:` in a name (an alternate data
+  stream). Each directory is opened from the one before it, and the checks and
+  the read go through the same open handles.
+- **Linux and macOS:** `/`, every directory under it on the way and the file
+  are owned by root and not writable by group or others. A sticky directory
+  such as `/tmp` doesn't pass.
+- **Windows:** every directory on the way and the file are owned by SYSTEM,
+  Administrators or TrustedInstaller. Nobody else may write, delete or
+  re-permission the file, or delete, rename or re-permission a directory on the
+  way, or what is in it. Adding new folders is allowed (`C:\` lets every
+  signed-in user do it), since that can't replace anything on the path.
+- **The file** is a regular file (a FIFO or device is refused without waiting
+  on it), UTF-8, at most 16 KiB, with no `<system-context` tag of its own. On
+  Windows its quoted block must also fit a command line (24,000 characters).
+
+Otherwise Nectra stops with an error naming the file and the reason; it never
+skips the file silently. `run --events jsonl`, `--serve` included, reports it
+as one `harness_error` result. The file is read when Nectra starts, so a
+running `--serve` or chat keeps the text it loaded; restart it to pick up a
+change. Only that one file is sent: topic files it lists are not, so a model
+with tools reads them itself.
 
 ## Execution and trust
 
@@ -510,12 +569,15 @@ an explicitly supplied config). Provider configuration and sessions are untouche
 Color controls and `NO_COLOR` apply to every theme; model reply text keeps its
 normal terminal style. The activity indicator follows the selected theme.
 
-`nectra provider add google` validates Gemini CLI and enables bootstrap profiles
-for `gemini-2.5-pro` and `gemini-2.5-flash`. Define Google/Gemini entries in models.toml
-to replace these defaults. Their scores are editable heuristics, not benchmark claims.
-On Windows, npm installs are launched through Node.js and the Gemini JS entry point,
-without passing prompts through cmd.exe. Configure `[gemini].command` for other installs.
-Gemini uses stdin and stream-json for shared chat; its CLI may retain its own logs.
+`nectra provider add google` validates the Antigravity CLI (`agy`, found on PATH or in
+`%LOCALAPPDATA%/agy/bin`) and enables the `gemini-3.8-flash-{high,medium,low}` profiles
+(the ids `agy models` lists). Their scores are unmeasured placeholders, not benchmark
+claims. agy takes the prompt as a stream-json message on stdin (`--print=
+--input-format stream-json`), resumes with `--conversation <id>`, and always runs in
+stream view; its CLI keeps its own logs. Google ended personal-account sign-in for Gemini
+CLI (2026-10), so the old `gemini` runtime is no longer routed to by the bundled registry;
+it stays for an API-key setup that declares `runtime = "gemini"` models itself.
+Configure `[agy].command` for other installs.
 
 Human UI uses cyan navigation, purple Claude, green OpenAI, blue Gemini, teal Ollama,
 green success, amber warnings/cooldowns, and red errors. Model reply text keeps the
@@ -532,14 +594,14 @@ nectra provider login google
 
 The permission flag applies to every CLI call and fallback for that launch, mapping
 to Claude `--dangerously-skip-permissions`, Codex
-`--dangerously-bypass-approvals-and-sandbox` (also disables its sandbox), and Gemini
-`--approval-mode=yolo`. It overrides conflicting approval/sandbox extra_args, is not
+`--dangerously-bypass-approvals-and-sandbox` (also disables its sandbox), Antigravity
+`--dangerously-skip-permissions`, and the old Gemini CLI `--approval-mode=yolo`. It overrides conflicting approval/sandbox extra_args, is not
 saved in configuration or sessions, and must be supplied again when resuming.
 Provider-enforced organizational policies still apply. Ollama remains chat-only.
 
 Use `/login PROVIDER` inside a chat when authentication expires. Claude opens
-`auth login`; Codex opens `login`; Gemini opens its interactive CLI, where `/auth`
-changes authentication and `/quit` returns to Nectra. Nectra does not store credentials,
+`auth login`; Codex opens `login`; Google opens `agy` interactively: sign in there, then
+exit it to return to Nectra. Nectra does not store credentials,
 automatically log out, or replay interrupted work. Recognized structured authentication
 errors exclude the provider until its login workflow closes successfully; the next
 message verifies actual access. Opaque stderr-only errors may require manual login.

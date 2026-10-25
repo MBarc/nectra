@@ -22,6 +22,8 @@ impl ModelUnavailable {
             "unknown model",
             "invalid model",
             "model_not_available",
+            // agy: `model nope-9 is not recognized as a known model`
+            "is not recognized as a known model",
         ]
         .iter()
         .any(|s| text.contains(s))

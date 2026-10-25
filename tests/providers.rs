@@ -17,7 +17,7 @@ fn permissions_are_translated_per_runtime_and_never_persisted() {
             ProviderArg::Openai,
             "--dangerously-bypass-approvals-and-sandbox",
         ),
-        (ProviderArg::Google, "--approval-mode=yolo"),
+        (ProviderArg::Google, "--dangerously-skip-permissions"),
     ] {
         let decision =
             router::route("hello", &cfg, &reg, Mode::Best, Some(provider), None).unwrap();
@@ -58,7 +58,7 @@ fn a_read_only_launch_drops_every_configured_permission() {
         // Resuming the outgoing session is how a handoff note is asked for.
         let session = executor::ProviderSession {
             resume: true,
-            id: Some("s1".into()),
+            id: Some("a1b2c3d4-0000-4000-8000-000000000002".into()),
         };
         executor::session_arguments(args, &d.runtime, &session)
             .unwrap()
@@ -87,7 +87,48 @@ fn a_read_only_launch_drops_every_configured_permission() {
     }
 }
 #[test]
-fn gemini_dependency_is_checked_only_when_selected() {
+fn no_tools_locks_claude_down_and_refuses_every_other_cli() {
+    let mut cfg = Config::from_defaults().unwrap();
+    cfg.inner.providers = Some(vec!["anthropic".into()]);
+    cfg.inner.claude.extra_args = vec!["--mcp-config".into(), "servers.json".into()];
+    cfg.skip_permissions = true;
+    cfg.no_tools = true;
+    cfg.mcp_home = Some("home".into());
+    let reg = Registry::load(&cfg).unwrap();
+    let mut d = router::route("hello", &cfg, &reg, Mode::Best, None, None).unwrap();
+    let claude: Vec<_> = executor::arguments(&d, &cfg)
+        .unwrap()
+        .iter()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    let tools = claude.iter().position(|a| a == "--tools").unwrap();
+    assert_eq!(claude[tools + 1], "");
+    assert!(claude.contains(&"--strict-mcp-config".to_string()));
+    // Settings, hooks and slash commands run shell of their own.
+    let sources = claude
+        .iter()
+        .position(|a| a == "--setting-sources")
+        .unwrap();
+    assert_eq!(claude[sources + 1], "");
+    let settings = claude.iter().position(|a| a == "--settings").unwrap();
+    assert_eq!(claude[settings + 1], r#"{"disableAllHooks":true}"#);
+    assert!(claude.contains(&"--disable-slash-commands".to_string()));
+    assert!(
+        !claude
+            .iter()
+            .any(|a| a.contains("dangerously") || a.contains("mcp-config=") || a == "servers.json"),
+        "{claude:?}"
+    );
+    assert!(nectra::mcp::for_launch("claude", &cfg).0.is_empty());
+    for runtime in ["codex", "agy", "gemini"] {
+        d.runtime = runtime.into();
+        let e = executor::arguments(&d, &cfg).unwrap_err().to_string();
+        assert!(e.contains("--no-tools") && e.contains(runtime), "{e}");
+    }
+    assert!(executor::answers_only("ollama"));
+}
+#[test]
+fn google_dependency_is_checked_only_when_selected() {
     let dir = tempfile::tempdir().unwrap();
     let mut checked = vec![];
     nectra::setup::configure(
@@ -101,7 +142,7 @@ fn gemini_dependency_is_checked_only_when_selected() {
         },
     )
     .unwrap();
-    assert_eq!(checked, ["gemini"]);
+    assert_eq!(checked, ["agy"]);
     let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
     let reg = Registry::load(&cfg).unwrap();
     assert!(reg

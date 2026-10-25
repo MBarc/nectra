@@ -1,0 +1,89 @@
+# Publishes the signed apt repository, https://mbarc.github.io/nectra/apt, to
+# GitHub Pages from the debs release.yml attached to the v* releases. Design:
+# docs/design/APT-REPO.md.
+#
+# workflow_dispatch only, in the `apt-publish` environment, which holds the
+# signing key. The guard that matters is that environment's settings on GitHub
+# (deployment branches: master only; a required reviewer): the `if:` below is
+# only in this file, and a branch could carry a copy without it. A tag-push
+# trigger would run the workflow file as it is at the tag, so a pushed tag never
+# reaches the key. Third-party actions are pinned by commit.
+#
+# Stateless: every run rebuilds both suites from scratch (scripts/apt_plan.py).
+#   stable  the last 3 v* releases
+#   alpha   those, plus the last 3 v* prereleases
+# A release whose title or notes contain [yanked] is skipped. Every deb must come
+# from a tag on master, match the .sha256 next to it and carry release.yml's
+# build provenance for that tag, or nothing is published.
+name: apt-publish
+on: workflow_dispatch
+permissions: {}
+concurrency: apt-publish
+jobs:
+  build:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: apt-publish
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch and verify the debs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" > releases.json
+          python3 scripts/apt_plan.py < releases.json > plan
+          cat plan
+          [ -s plan ] || { echo "no debs to publish"; exit 1; }
+          while read -r suite tag asset <&3; do
+            git merge-base --is-ancestor "$tag" origin/master || { echo "$tag is not on master"; exit 1; }
+            mkdir -p "dl/$tag" "debs/$suite"
+            gh release download "$tag" --pattern "$asset" --pattern "$asset.sha256" --dir "dl/$tag"
+            (cd "dl/$tag" && sha256sum --check --strict -- "$asset.sha256")
+            # The .sha256 sits in the same mutable release; the attestation is
+            # what ties the bytes to release.yml running on that tag.
+            gh attestation verify "dl/$tag/$asset" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-ref "refs/tags/$tag" --deny-self-hosted-runners
+            cp "dl/$tag/$asset" "debs/$suite/"
+          done 3< plan
+      - name: Build and sign the repository
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          APT_SIGNING_PASSPHRASE: ${{ secrets.APT_SIGNING_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          command -v apt-ftparchive >/dev/null || sudo apt-get install -y apt-utils
+          export GNUPGHOME=$(mktemp -d)
+          trap 'rm -rf "$GNUPGHOME"' EXIT
+          gpg --batch --import <<< "$APT_SIGNING_KEY"
+          printf %s "$APT_SIGNING_PASSPHRASE" > "$GNUPGHOME/passphrase"
+          export APT_KEY=$(gpg --list-secret-keys --with-colons | awk -F: '$1 == "fpr" { print $10; exit }')
+          [ -n "$APT_KEY" ] || { echo "APT_SIGNING_KEY holds no secret key"; exit 1; }
+          # Only a key that nectra-archive-keyring ships may sign.
+          shipped=$(gpg --show-keys --with-colons packaging/nectra-archive-keyring.gpg)
+          grep -qF ":$APT_KEY:" <<< "$shipped" \
+            || { echo "signing key $APT_KEY is not in packaging/nectra-archive-keyring.gpg"; exit 1; }
+          APT_PASSPHRASE_FILE=$GNUPGHOME/passphrase bash packaging/build-apt-repo.sh debs site/apt
+          cp packaging/nectra-archive-keyring.gpg packaging/nectra.sources site/apt/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}apt/
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -1,10 +1,18 @@
 {
+  "_note_gemini": "gemini-3.8-flash: Google's own page https://ai.google.dev/gemini-api/docs/pricing, Standard paid tier, fetched 2026-10-23: input $0.75, cached input $0.075, output (thinking tokens included) $3.75 per 1M, valid through 2026-12-31; from 2027-01-01 the page lists $1.50 / $0.15 / $7.50. Both are in _effective, which usage::price_on picks by date (the plain entry is the current one, for report.py). No prompt-length tiers. The three agy ids (thinking levels) share one price. Context caching is implicit, with no write charge (storage is billed separately, not modelled).",
   "_note": "USD per million tokens. Third-party sources, checked 2026-10-16; confirm on the providers' pricing pages. Claude cache_write is the 1-hour rate (2x input), cache_write_5m the 5-minute rate (1.25x input). Haiku 5.5 cache rates assume Anthropic's usual multipliers (read 0.1x, 1h write 2x input). _aliases maps the full model names providers report to these ids; other versions are unpriced.",
-  "_aliases": {"claude-opus-5-5": "opus", "claude-sonnet-5-5": "sonnet", "claude-haiku-5-5": "haiku"},
+  "_aliases": {"claude-opus-5-5": "opus", "claude-sonnet-5-5": "sonnet", "claude-haiku-5-5": "haiku", "gemini-3.8-flash-high": "gemini-3.8-flash", "gemini-3.8-flash-medium": "gemini-3.8-flash", "gemini-3.8-flash-low": "gemini-3.8-flash"},
   "opus":         {"input": 4.00, "cache_read": 0.20, "cache_write": 8.00, "cache_write_5m": 5.00, "output": 20.00},
   "sonnet":       {"input": 2.00, "cache_read": 0.20, "cache_write": 4.00, "cache_write_5m": 2.50, "output": 10.00},
   "haiku":        {"input": 0.10, "cache_read": 0.01, "cache_write": 0.20, "cache_write_5m": 0.125, "output": 0.50},
   "gpt-5.6-sol":  {"input": 5.00, "cache_read": 0.50, "cache_write": 0.00, "output": 30.00},
   "gpt-5.6-luna": {"input": 0.20, "cache_read": 0.02, "cache_write": 0.00, "output": 1.20},
-  "gpt-6-astra":  {"input": 10.00, "cache_read": 1.00, "cache_write": 0.00, "output": 50.00}
+  "gpt-6-astra":  {"input": 10.00, "cache_read": 1.00, "cache_write": 0.00, "output": 50.00},
+  "gemini-3.8-flash": {"input": 0.75, "cache_read": 0.075, "cache_write": 0.00, "output": 3.75},
+  "_effective": {
+    "gemini-3.8-flash": [
+      {"until": "2026-12-31", "input": 0.75, "cache_read": 0.075, "cache_write": 0.00, "output": 3.75},
+      {"from": "2027-01-01", "input": 1.50, "cache_read": 0.15, "cache_write": 0.00, "output": 7.50}
+    ]
+  }
 }

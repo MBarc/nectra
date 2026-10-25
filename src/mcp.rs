@@ -220,7 +220,7 @@ pub fn for_launch(
     runtime: &str,
     cfg: &crate::config::Config,
 ) -> (Vec<OsString>, Vec<(String, String)>) {
-    if cfg.read_only {
+    if cfg.read_only || cfg.no_tools {
         return (vec![], vec![]);
     }
     if let Some(explicit) = &cfg.mcp_config {

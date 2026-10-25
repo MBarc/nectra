@@ -53,6 +53,14 @@ pub struct Args {
     /// Don't share MCP servers between the provider CLIs' own configs.
     #[arg(long, requires = "events")]
     pub no_mcp_share: bool,
+    /// Answer many tasks in one process: one JSON request per line on stdin,
+    /// `{"prompt": "..."}`, each answered with its events. Laya loads once.
+    #[arg(long, requires = "events", conflicts_with = "resume")]
+    pub serve: bool,
+    /// Answers only: no tools, files or shell, held by each CLI's own flags.
+    /// Only Claude and Ollama models can be held to that; others are refused.
+    #[arg(long, requires = "events", conflicts_with_all = ["resume", "mcp_config"])]
+    pub no_tools: bool,
 }
 
 fn positive(s: &str) -> Result<f64, String> {
@@ -210,6 +218,24 @@ fn codex_usage(u: &Value) -> Usage {
     }
 }
 
+/// agy's usage object, and whether every field is known. Thinking tokens
+/// are billed as output, so they join it. Whether `input_tokens` already holds
+/// the cached part is not documented (every sample so far had none), so a
+/// call with cached or thinking tokens is not claimed complete.
+fn agy_usage(u: &Value) -> (Usage, bool) {
+    let n = |k: &str| u[k].as_u64().unwrap_or(0);
+    let usage = Usage {
+        input: n("input_tokens"),
+        cache_read: n("cache_read_tokens"),
+        output: n("output_tokens") + n("thinking_tokens"),
+        ..Usage::default()
+    };
+    (
+        usage,
+        n("cache_read_tokens") == 0 && n("thinking_tokens") == 0,
+    )
+}
+
 /// One model call (Claude), log record (Codex) or per-model total (Gemini).
 /// `complete` is false when the provider never gave the call's final count.
 struct Call {
@@ -272,6 +298,8 @@ struct Ledger {
     /// sign-in or an unavailable model), so it cost nothing.
     rejected: bool,
     rollout: Rollout,
+    /// agy: model calls counted from this attempt's steps.
+    steps: usize,
     /// Claude Code's own `total_cost_usd`, for cross-checking: on a resumed
     /// session it covers the whole session.
     provider_cost: Option<f64>,
@@ -285,6 +313,7 @@ impl Ledger {
         self.resumed = thread.is_some();
         self.rejected = false;
         self.rollout = Rollout::default();
+        self.steps = 0;
         self.rollout.based = thread.is_none();
         if d.runtime == "codex" && logged {
             self.rollout.thread = Some(thread.unwrap_or_default().to_string());
@@ -319,6 +348,36 @@ impl Ledger {
                 }
                 self.read_rollout(d, true);
             }
+            // agy's `result` usage is the conversation's running total, so a
+            // resumed turn would count its history again: each step's own
+            // usage is counted instead.
+            "agy" => match event["event"].as_str().unwrap_or("") {
+                "step_update" => {
+                    let step = &event["step_update"];
+                    if matches!(step["step_type"].as_str(), Some("agent_response" | "tool")) {
+                        self.worked = true;
+                    }
+                    if step["state"] == "DONE" && step["usage"].is_object() {
+                        let (t, complete) = agy_usage(&step["usage"]);
+                        self.call(d, &d.model, t, complete);
+                        self.steps += 1;
+                    }
+                }
+                "result" => {
+                    let r = &event["result"];
+                    if self.steps == 0 && !self.resumed && r["usage"].is_object() {
+                        let (t, complete) = agy_usage(&r["usage"]);
+                        if t != Usage::default() {
+                            self.call(d, &d.model, t, complete);
+                            self.steps += 1;
+                        }
+                    }
+                    if self.steps > 0 {
+                        self.reported = Some(Usage::default());
+                    }
+                }
+                _ => {}
+            },
             "gemini" => match kind {
                 "result" => {
                     let models = event["stats"]["models"].as_object();
@@ -591,6 +650,23 @@ fn tools(runtime: &str, event: &Value, names: &mut HashMap<String, String>) -> V
                 found.push(json!({"phase":phase,"name":item["type"],"id":item["id"]}));
             }
         }
+        ("agy", _) => {
+            let step = &event["step_update"];
+            if event["event"] == "step_update" && step["step_type"] == "tool" {
+                // Steps have an index, not a tool id.
+                let id = step["step_index"].to_string();
+                match step["state"].as_str() {
+                    Some("ACTIVE") => {
+                        names.insert(id.clone(), s(&step["tool_name"]));
+                        found.push(json!({"phase":"start","name":step["tool_name"],"id":id}));
+                    }
+                    Some("DONE") => found.push(
+                        json!({"phase":"end","name":names.get(&id),"id":id,"is_error":false}),
+                    ),
+                    _ => {}
+                }
+            }
+        }
         ("gemini", "tool_use") => {
             names.insert(s(&event["tool_id"]), s(&event["tool_name"]));
             found.push(json!({"phase":"start","name":event["tool_name"],"id":event["tool_id"]}));
@@ -625,6 +701,9 @@ fn classify(error: &anyhow::Error, cancel: &CancellationToken) -> (&'static str,
     if let Some(e) = error.downcast_ref::<crate::limits::RateLimited>() {
         return ("rate_limited", e.safe_to_retry);
     }
+    if let Some(e) = error.downcast_ref::<crate::ollama::Unavailable>() {
+        return ("model_unavailable", e.safe_to_retry);
+    }
     ("agent_error", false)
 }
 /// Nectra's own failures exit 1, like any other Nectra error; the agent's 3.
@@ -638,27 +717,126 @@ fn exit_code(class: Option<&str>) -> i32 {
     }
 }
 
+#[cfg(unix)]
+static TERM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// The turn SIGTERM cancels; none between `--serve` tasks.
+#[cfg(unix)]
+static TURN: std::sync::Mutex<Option<CancellationToken>> = std::sync::Mutex::new(None);
+
 /// On Unix, SIGTERM (systemd stopping the unit) cancels the turn like Ctrl+C,
-/// which stops the provider's whole process group.
+/// which stops the provider's whole process group. Between tasks it exits.
 #[cfg(unix)]
 fn cancel_on_sigterm(token: &CancellationToken) {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    static TERM: AtomicBool = AtomicBool::new(false);
-    extern "C" fn handle(_: libc::c_int) {
-        TERM.store(true, Ordering::SeqCst);
-    }
-    // SAFETY: the handler only stores to an atomic, which is async-signal-safe.
-    unsafe {
-        libc::signal(libc::SIGTERM, handle as *const () as libc::sighandler_t);
-    }
-    let token = token.clone();
-    std::thread::spawn(move || loop {
-        if TERM.load(Ordering::SeqCst) {
-            token.cancel();
-            return;
+    use std::sync::atomic::Ordering;
+    *TURN.lock().unwrap_or_else(|e| e.into_inner()) = Some(token.clone());
+    static WATCH: std::sync::Once = std::sync::Once::new();
+    WATCH.call_once(|| {
+        extern "C" fn handle(_: libc::c_int) {
+            TERM.store(true, Ordering::SeqCst);
         }
-        std::thread::sleep(Duration::from_millis(20));
+        // SAFETY: the handler only stores to an atomic, which is async-signal-safe.
+        unsafe {
+            libc::signal(libc::SIGTERM, handle as *const () as libc::sighandler_t);
+        }
+        std::thread::spawn(|| loop {
+            if TERM.load(Ordering::SeqCst) {
+                match TURN.lock().unwrap_or_else(|e| e.into_inner()).take() {
+                    Some(token) => token.cancel(),
+                    None => crate::laya::exit(143),
+                }
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        });
     });
+}
+
+fn terminated() -> bool {
+    #[cfg(unix)]
+    return TERM.load(std::sync::atomic::Ordering::SeqCst);
+    #[cfg(not(unix))]
+    false
+}
+
+/// The longest request line `--serve` reads, newline included.
+const MAX_REQUEST: u64 = 1 << 20;
+
+#[derive(Deserialize)]
+struct Request {
+    prompt: String,
+}
+
+/// One task, or with `--serve` one per request line until stdin closes.
+/// A failed `setup` (a refused knowledge index) is one `harness_error` result,
+/// before `ready`. A server keeps the index it started with.
+pub fn run(
+    cli: &Cli,
+    cfg: &Config,
+    registry: &Registry,
+    words: &[String],
+    args: &Args,
+    setup: Result<()>,
+) -> Result<i32> {
+    if let Err(e) = setup {
+        return task(cli, cfg, registry, &[], args, Some(Err(e)));
+    }
+    if !args.serve {
+        return task(cli, cfg, registry, words, args, None);
+    }
+    if cli.stdin || !words.is_empty() {
+        bail!("--serve reads its prompts from stdin, one JSON request per line");
+    }
+    crate::laya::preload(cfg);
+    emit("ready", json!({}))?;
+    let mut stdin = std::io::stdin().lock();
+    let mut line = vec![];
+    let mut read = |line: &mut Vec<u8>| {
+        line.clear();
+        std::io::BufRead::read_until(
+            &mut std::io::Read::take(&mut stdin, MAX_REQUEST + 1),
+            b'\n',
+            line,
+        )
+        .context("reading a request")
+    };
+    while read(&mut line)? > 0 {
+        let prompt = if line.len() as u64 > MAX_REQUEST {
+            // Skipped to its end, never held whole.
+            while !line.ends_with(b"\n") && read(&mut line)? > 0 {}
+            Err(anyhow::anyhow!(
+                "a request line is at most {MAX_REQUEST} bytes"
+            ))
+        } else if let Ok(text) = std::str::from_utf8(&line) {
+            let text = text.trim_start_matches('\u{feff}').trim();
+            if text.is_empty() {
+                continue;
+            }
+            serde_json::from_str::<Request>(text)
+                .map(|r| r.prompt)
+                .context(r#"a request is one JSON object on one line: {"prompt": "..."}"#)
+        } else {
+            Err(anyhow::anyhow!("a request is UTF-8 text"))
+        };
+        let code = task(cli, cfg, registry, &[], args, Some(prompt))?;
+        if terminated() {
+            return Ok(code);
+        }
+    }
+    Ok(0)
+}
+
+/// Discards what it's given, and fails once its token is cancelled.
+struct Stoppable<'a>(&'a CancellationToken);
+impl std::io::Write for Stoppable<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self.0.is_cancelled() {
+            true => Err(std::io::Error::other("cancelled")),
+            false => Ok(buf.len()),
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 /// The session id to report: the resumed one, or a new record for this task,
@@ -758,16 +936,20 @@ fn settle<T>(setup: &Result<T>, run: impl FnOnce(&T) -> Result<Outcome>) -> Outc
     }
 }
 
-pub fn run(
+/// `given` is a `--serve` request's prompt, or None to read it from `words`
+/// or stdin.
+fn task(
     cli: &Cli,
     cfg: &Config,
     registry: &Registry,
     words: &[String],
     args: &Args,
+    given: Option<Result<String>>,
 ) -> Result<i32> {
     let started = Instant::now();
     let until = args.deadline.map(|d| started + d);
     let mut cfg = cfg.clone();
+    cfg.no_tools = args.no_tools;
     if args.no_mcp_share {
         cfg.mcp_home = None;
     }
@@ -786,14 +968,17 @@ pub fn run(
         class @ ("cancelled" | "deadline") => class,
         _ => "harness_error",
     };
+    let mut given = given;
     let mut run = || -> Result<Outcome> {
         let fail = |class, e: anyhow::Error| Ok(Err((class, error(&e))));
-        let prompt = match (cli.stdin, words.is_empty()) {
-            (true, false) => {
+        let prompt = match (given.take(), cli.stdin, words.is_empty()) {
+            (Some(Ok(prompt)), _, _) => prompt,
+            (Some(Err(e)), _, _) => return fail("harness_error", e),
+            (None, true, false) => {
                 let e = anyhow::anyhow!("use either --stdin or positional prompt text");
                 return fail("harness_error", e);
             }
-            (true, true) => {
+            (None, true, true) => {
                 // A blocked read can't be stopped and owns nothing: no grace.
                 let read = bounded(until, cancel, Duration::ZERO, |_| {
                     let mut text = String::new();
@@ -806,7 +991,7 @@ pub fn run(
                     Err(e) => return fail(early(&e), e),
                 }
             }
-            (false, _) => words.join(" "),
+            (None, false, _) => words.join(" "),
         };
         if prompt.trim().is_empty() {
             return fail("harness_error", anyhow::anyhow!("prompt cannot be empty"));
@@ -883,6 +1068,19 @@ pub fn run(
             .unwrap_or_default();
         let mut tried: Vec<String> = vec![];
         let mut names = HashMap::new();
+        if let Some(m) = registry
+            .models
+            .iter()
+            .find(|m| args.no_tools && cli.model.as_ref() == Some(&m.id))
+            .filter(|m| !executor::answers_only(m.runtime.as_str()))
+        {
+            let e = anyhow::anyhow!(
+                "--no-tools: {} runs on {}, which can't be launched without tools",
+                m.id,
+                m.runtime.as_str()
+            );
+            return fail("no_model", e);
+        }
         loop {
             let available = Registry {
                 models: registry
@@ -890,8 +1088,10 @@ pub fn run(
                     .iter()
                     .filter(|m| {
                         let runtime = m.runtime.as_str();
-                        // Ollama runs no tools and reports no usage: not an agent.
-                        runtime != "ollama"
+                        // Ollama runs no tools and reports no usage: it answers
+                        // a front end, but takes no agent's task.
+                        (runtime != "ollama" || args.serve || args.no_tools)
+                            && (!args.no_tools || executor::answers_only(runtime))
                             && !tried.contains(&m.id)
                             && cooldowns.remaining(&m.id, m.provider.as_str()).is_none()
                             && cfg.mcp_config.as_ref().is_none_or(|e| e.supports(runtime))
@@ -935,7 +1135,8 @@ pub fn run(
                 && executor::can_resume(&decision.runtime, &cfg);
             let mut provider_session = match &resumed {
                 Some(r) => Some(ProviderSession::resume(&r.provider_session_id)),
-                None if state.is_some() && resumable => {
+                // Launched in a throwaway directory: nothing to resume there.
+                None if state.is_some() && resumable && !args.no_tools => {
                     Some(ProviderSession::start(&decision.runtime))
                 }
                 None => None,
@@ -965,10 +1166,15 @@ pub fn run(
             let command = match decision.runtime.as_str() {
                 "claude" => &cfg.inner.claude.command,
                 "codex" => &cfg.inner.codex.command,
+                "agy" => &cfg.inner.agy.command,
                 _ => &cfg.inner.gemini.command,
             };
             // A missing CLI is Nectra's environment, not the agent: try another.
-            if let Err(e) = executor::launch(command) {
+            // Ollama is reached over HTTP, not launched.
+            if let Err(e) = (decision.runtime != "ollama")
+                .then(|| executor::launch(command))
+                .transpose()
+            {
                 attempts.push(json!({"model": decision.model, "error_class": "harness_error", "error": error(&e)}));
                 last = Some(decision);
                 if pinned.is_none() {
@@ -987,31 +1193,47 @@ pub fn run(
                 true => Ok(()),
                 false => emit("text", json!({"model": decision.model, "text": text})),
             };
-            let result = executor::conversation_observed(
-                &decision,
-                &prompt,
-                &cfg,
-                &mut std::io::sink(),
-                cancel,
-                provider_session.as_mut(),
-                remaining,
-                &mut |event, text| {
-                    ledger.observe(&decision, event);
-                    if let Some(text) = text {
-                        show(reply.push(text))?;
-                    }
-                    // Not flushed for a tool event: that would cut a credential
-                    // the reply is in the middle of (a subagent's tools interleave).
-                    for mut tool in tools(&decision.runtime, event, &mut names) {
-                        tool["model"] = json!(decision.model);
-                        emit("tool", tool)?;
-                    }
-                    match args.max_cost_usd {
-                        Some(max) if ledger.cost().0 > max => Err(CostLimit(max).into()),
-                        _ => Ok(()),
-                    }
-                },
-            );
+            let result = if decision.runtime == "ollama" {
+                let (model, prompt, cfg) = (decision.model.clone(), prompt.clone(), cfg.clone());
+                // A stopped request ends at its next piece, or at Ollama's own
+                // timeout, before the next request starts.
+                let grace =
+                    Duration::from_secs(cfg.inner.ollama.as_ref().map_or(0, |o| o.timeout_seconds));
+                // ponytail: the answer arrives as one text event; stream it if a front end needs it.
+                bounded(until, cancel, grace, move |stop| {
+                    crate::ollama::conversation(&model, &prompt, &cfg, &mut Stoppable(stop))
+                })
+                .and_then(|text| {
+                    show(reply.push(&text))?;
+                    Ok(text)
+                })
+            } else {
+                executor::conversation_observed(
+                    &decision,
+                    &prompt,
+                    &cfg,
+                    &mut std::io::sink(),
+                    cancel,
+                    provider_session.as_mut(),
+                    remaining,
+                    &mut |event, text| {
+                        ledger.observe(&decision, event);
+                        if let Some(text) = text {
+                            show(reply.push(text))?;
+                        }
+                        // Not flushed for a tool event: that would cut a credential
+                        // the reply is in the middle of (a subagent's tools interleave).
+                        for mut tool in tools(&decision.runtime, event, &mut names) {
+                            tool["model"] = json!(decision.model);
+                            emit("tool", tool)?;
+                        }
+                        match args.max_cost_usd {
+                            Some(max) if ledger.cost().0 > max => Err(CostLimit(max).into()),
+                            _ => Ok(()),
+                        }
+                    },
+                )
+            };
             show(reply.flush())?;
             ledger.rejected = result.as_ref().is_err_and(|e| classify(e, cancel).1);
             ledger.finish(&decision);
@@ -1110,7 +1332,9 @@ pub fn run(
             "exit_code": code,
         }),
     )?;
-    // Until the result is out, a Ctrl+C cancels rather than exits.
+    // Until the result is out, a Ctrl+C or SIGTERM cancels rather than exits.
+    #[cfg(unix)]
+    TURN.lock().unwrap_or_else(|e| e.into_inner()).take();
     drop(turn);
     Ok(code)
 }
@@ -1607,6 +1831,40 @@ mod tests {
         assert!(!models[1].2, "Gemini leaves out thinking tokens");
         // Gemini has no price: the total is not claimed as complete.
         assert!(!l.cost().1);
+    }
+
+    #[test]
+    fn agy_counts_each_step_once_so_a_resumed_turn_skips_its_history() {
+        let d = decision("agy", "gemini-3.8-flash-low");
+        let mut l = Ledger::default();
+        l.begin(&d, Some("conv"), false);
+        let step = json!({"event":"step_update","step_update":{"state":"DONE","step_type":"agent_response","usage":{"input_tokens":7000,"output_tokens":3,"thinking_tokens":0,"cache_read_tokens":0}}});
+        l.observe(&d, &step);
+        // The result's total covers the whole conversation, history too.
+        l.observe(&d, &json!({"event":"result","result":{"status":"SUCCESS","usage":{"input_tokens":20701,"output_tokens":47}}}));
+        l.finish(&d);
+        let (usage, done) = (l.models()[0].1, l.models()[0].2);
+        assert_eq!((usage.input, usage.output), (7000, 3));
+        assert!(done);
+        assert!(l.cost().1, "priced and complete");
+        // Cached or thinking tokens: counted, not claimed complete.
+        let (_, exact) = agy_usage(&json!({"input_tokens":1,"thinking_tokens":5}));
+        assert!(!exact);
+    }
+
+    #[test]
+    fn an_agy_tool_step_is_a_start_then_an_end() {
+        let mut names = HashMap::new();
+        let step = |state: &str| json!({"event":"step_update","step_update":{"step_index":2,"state":state,"step_type":"tool","tool_name":"write_file"}});
+        assert_eq!(
+            tools("agy", &step("ACTIVE"), &mut names)[0]["phase"],
+            "start"
+        );
+        let end = tools("agy", &step("DONE"), &mut names);
+        assert_eq!(
+            (end[0]["phase"].as_str(), end[0]["name"].as_str()),
+            (Some("end"), Some("write_file"))
+        );
     }
 
     #[test]

@@ -90,3 +90,36 @@ fn a_current_registry_reports_nothing() {
     let (_dir, registry) = load(include_str!("../config/models.toml"), None);
     assert!(nectra::models::legacy_registry_notice(&registry).is_none());
 }
+
+#[test]
+fn google_runtime_follows_the_enabled_google_models() {
+    use nectra::models::{google_runtime, Runtime};
+    let disabled = |e: String| e.replace("enabled = true", "enabled = false");
+    let cases = [
+        (entry("g", "google", "gemini"), Runtime::Gemini),
+        (
+            [entry("g", "google", "gemini"), entry("a", "google", "agy")].concat(),
+            Runtime::Agy,
+        ),
+        (
+            [
+                entry("g", "google", "gemini"),
+                disabled(entry("a", "google", "agy")),
+            ]
+            .concat(),
+            Runtime::Gemini,
+        ),
+    ];
+    for (registry, expected) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        let config = format!(
+            "providers = [\"google\"]
+{}",
+            include_str!("../config/nectra.toml")
+        );
+        fs::write(dir.path().join("config.toml"), config).unwrap();
+        fs::write(dir.path().join("models.toml"), registry).unwrap();
+        let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
+        assert_eq!(google_runtime(&cfg), expected);
+    }
+}

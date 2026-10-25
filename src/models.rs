@@ -30,8 +30,30 @@ pub enum Runtime {
     Claude,
     Codex,
     Ollama,
+    /// The retired Gemini CLI, kept as an API-key fallback (docs/reference.md).
     Gemini,
+    /// Antigravity CLI: Google's runtime now that Gemini CLI rejects personal sign-in.
+    Agy,
 }
+/// The CLI Google models run on: the Gemini API-key runtime only when the
+/// registry enables Google models for it and none for agy.
+pub fn google_runtime(cfg: &Config) -> Runtime {
+    let Ok(registry) = Registry::load(cfg) else {
+        return Runtime::Agy;
+    };
+    let uses = |r| {
+        registry
+            .models
+            .iter()
+            .any(|m| m.enabled && m.provider == Provider::Google && m.runtime == r)
+    };
+    if uses(Runtime::Gemini) && !uses(Runtime::Agy) {
+        Runtime::Gemini
+    } else {
+        Runtime::Agy
+    }
+}
+
 impl Runtime {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -39,6 +61,7 @@ impl Runtime {
             Self::Codex => "codex",
             Self::Ollama => "ollama",
             Self::Gemini => "gemini",
+            Self::Agy => "agy",
         }
     }
 }
@@ -166,7 +189,7 @@ impl Registry {
                 model.enabled &= providers.iter().any(|p| p == model.provider.as_str());
             }
         }
-        // Gemini is declared in the registry like every other model, but stays
+        // Google is declared in the registry like every other model, but stays
         // opt-in: a configuration that never selected google must not route to it.
         let google_selected = cfg
             .inner
@@ -216,7 +239,7 @@ impl Registry {
                 (Provider::Anthropic, Runtime::Claude)
                 | (Provider::Openai, Runtime::Codex)
                 | (Provider::Ollama, Runtime::Ollama)
-                | (Provider::Google, Runtime::Gemini) => {}
+                | (Provider::Google, Runtime::Gemini | Runtime::Agy) => {}
                 _ => bail!("fail-closed provider/runtime violation for model {}", m.id),
             }
             let c = &m.capabilities;

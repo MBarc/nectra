@@ -17,7 +17,9 @@ event bumps it and gets a changelog entry.
 
 Global flags apply per task: `--model ID` pins a model (routing off), `--mode
 fast|balanced|best`, `--provider anthropic|openai|google`, `--stdin`,
-`--config FILE`, `--dangerously-skip-permissions`. These need `--events jsonl`:
+`--config FILE`, `--dangerously-skip-permissions`, `--knowledge FILE` (system
+context for every provider; [reference](reference.md#knowledge-index)). These
+need `--events jsonl`:
 
 | Flag | Meaning |
 |---|---|
@@ -28,6 +30,8 @@ fast|balanced|best`, `--provider anthropic|openai|google`, `--stdin`,
 | `--state-dir DIR` | Keep session records (`DIR/runs/ID.json`) and cooldowns (`DIR/cooldowns.json`) here. Default: the user data directory's `nectra` folder, the same cooldowns chat uses. |
 | `--mcp-config FILE` | Give the agent exactly the servers in FILE (standard `{"mcpServers": {...}}`). See [MCP](#mcp-servers). |
 | `--no-mcp-share` | Don't add servers from the user's other CLI configs (Nectra's [sharing](reference.md)). |
+| `--serve` | Answer many tasks in one process, reading requests from stdin. See [Many tasks in one process](#many-tasks-in-one-process---serve). |
+| `--no-tools` | Answers only: no tools, files or shell. See [Answers only](#answers-only---no-tools). |
 
 ## Events
 
@@ -242,7 +246,9 @@ With `--mcp-config FILE`, exactly the servers in FILE are given to the agent:
   route). With `--mcp-config`, Gemini models aren't routed to, so a task never runs
   without its tools.
 
-Ollama is never used headless: it runs no tools and reports no usage.
+Ollama is used headless only with `--serve` or `--no-tools`: it runs no tools and
+reports no usage (its `cost_usd` is 0), so it answers a front end but takes no
+agent's task.
 
 ## Credentials and the environment
 
@@ -264,6 +270,76 @@ Approvals are the CLI's own non-interactive defaults: without
 Codex stays in its sandbox, neither asks. Nectra adds no permission flags the
 caller didn't pass.
 
+## Many tasks in one process: `--serve`
+
+For a front end that asks question after question (a chat window), one process per
+prompt pays the Laya load every time: about 13 s and 850 MiB on 2 vCPU. With
+`--serve` the process stays up, loads Laya once and answers each request:
+
+```sh
+nectra run --events jsonl --no-session --serve
+```
+
+- Laya (when `classifier.backend = "laya"`) loads before the first request is
+  read, then `{"v":1,"type":"ready"}` is written. Requests sent earlier wait in
+  stdin, so none routes with keywords. Start the process when the window opens.
+- Each stdin line is one request, `{"prompt": "..."}`; blank lines are skipped
+  and other fields are ignored (a request can't choose its model). Each is answered
+  with the usual events, `route`, `text`, `tool`, ending in exactly one `result`
+  (with `usage` and `cost_usd`), before the next line is read. A line that isn't a
+  request, isn't UTF-8 or is over 1 MiB gets a `result` with `error_class`
+  `harness_error`, and the server reads on.
+- Every flag applies to every task: `--model`, `--mode`, `--provider`,
+  `--deadline` (per task), `--max-cost-usd` (per task), `--mcp-config`. `--resume`
+  isn't available; each request is routed afresh, so send earlier exchanges in the
+  prompt.
+- It runs the same agents as one-shot headless runs, with their permission
+  defaults ([below](#credentials-and-the-environment)), and Ollama models too, so
+  an Ollama-only machine works. An Ollama answer arrives as one `text` event.
+  For a front end that must run nothing, add `--no-tools`.
+- Closing stdin ends it with exit code 0. SIGTERM during a task cancels it, writes
+  its `cancelled` result and exits 130; between tasks it exits 143 at once. Ctrl+C
+  during a task cancels only that task and the next request is read; between tasks
+  it exits 130.
+
+## Answers only: `--no-tools`
+
+The agent gets no tool use, no file access and no shell, enforced by the CLI's own
+launch flags, never by prompt text. A runtime that can't be held to that is refused:
+
+| Runtime | Under `--no-tools` |
+|---|---|
+| Claude Code | `--tools "" --strict-mcp-config --setting-sources "" --settings '{"disableAllHooks":true}' --disable-slash-commands`, started in a new empty directory; no MCP servers, none of `claude.extra_args`, no permission flags, no session |
+| Ollama | Chat only already; a reply that asks for tools fails |
+| Codex | Refused: its read-only sandbox still reads files and runs commands |
+| agy, Gemini CLI | Refused: plan mode still reads files |
+
+Claude's settings and project files run shell of their own (hooks, `apiKeyHelper`,
+a command's `!` lines), so none that a request could control are loaded: no
+user, project or local settings or their hooks, no slash commands or skills, and
+a working directory with no `.claude/` or CLAUDE.md. Managed (admin) settings,
+such as `/etc/claude-code/managed-settings.json` on Linux, still apply, including
+their hooks and `apiKeyHelper`. They are part of the machine's image, not of the
+request.
+
+Sign-in under `--no-tools`: Claude's stored OAuth login works (it is what the live
+check below used). So does `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in
+Nectra's environment. Auth that comes from user settings does not work: an `env`
+block setting `ANTHROPIC_BASE_URL`, Bedrock, Vertex or a proxy, or a user
+`apiKeyHelper`. To use one of those, set its variables in Nectra's environment
+instead.
+
+A `[knowledge] index` still reaches the model under `--no-tools`: Claude gets it
+through `--append-system-prompt`, which is a flag, not a settings file, and
+Ollama in its system message.
+
+Refused models aren't routed to or failed over to; pinning one with `--model`
+fails with `no_model` before anything is launched. `--no-tools` can't be combined
+with `--resume` or `--mcp-config`. Checked live (Claude Code 2.1.310): from a
+directory whose `.claude/settings.json` has SessionStart and UserPromptSubmit
+hooks, `--serve --no-tools` ran neither (without `--no-tools`, both ran), and
+Claude, asked to create a file, printed a tool call as text and created nothing.
+
 ## Signals
 
 On Unix, SIGTERM or SIGINT stops the provider's whole process group (Nectra starts
@@ -278,7 +354,13 @@ each in its own group) and Nectra exits 130 within about two seconds, after its
   --mcp-config /etc/pons/mcp.json --no-mcp-share [--mode fast|balanced|best]
 ```
 
-With `--mcp-config` doing the mapping, `extra_args` no longer needs `--mcp-config`
+The image's `/etc/pons/nectra/config.toml` sets `[knowledge] index =
+"/usr/share/pons/knowledge/INDEX.md"`, so every task and Ask Nectra question
+starts with the index. It is read only when root alone can change it and every
+directory above it (`/usr/share/pons` included), so ship it with the packaging
+that makes those root's. A refused index is one `harness_error` result before
+`ready`. `--serve` keeps the index it started with; restart the unit after
+changing the file. With `--mcp-config` doing the mapping, `extra_args` no longer needs `--mcp-config`
 or `--strict-mcp-config`. Map `error_class` straight to the task outcome, the
 `route` event to `task.routed`, and `result.usage`/`cost_usd` to `metadata.usage`.
 

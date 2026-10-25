@@ -319,7 +319,7 @@ pub fn conversation(
     if model.context_tokens > capacity {
         bail!("configured context exceeds model capacity; rerun Ollama setup");
     }
-    let messages = messages(prompt)?;
+    let messages = messages(prompt, cfg.knowledge.as_deref())?;
     let size = serde_json::to_vec(&messages)?.len();
     if size > model.context_tokens.saturating_sub(INPUT_RESERVE_BYTES) {
         bail!("message exceeds conservative Ollama context budget; shorten the message");
@@ -343,10 +343,18 @@ pub fn conversation(
     stream(BufReader::new(response), output)
 }
 
-pub fn messages(prompt: &str) -> Result<Vec<Value>> {
-    let mut messages = vec![
-        json!({"role":"system","content":"Continue the shared Nectra conversation. Earlier assistants may be different models. Answer the latest user. You are a chat-only model: you cannot inspect files, edit files, or run commands. Do not claim to have performed those actions."}),
-    ];
+/// `knowledge` (the `[knowledge] index` block) is folded into the one system
+/// message: some models' templates read only the first.
+pub fn messages(prompt: &str, knowledge: Option<&str>) -> Result<Vec<Value>> {
+    let mut system = "Continue the shared Nectra conversation. Earlier assistants may be different models. Answer the latest user. You are a chat-only model: you cannot inspect files, edit files, or run commands. Do not claim to have performed those actions.".to_string();
+    // Nothing in a user's or earlier assistant's turn may pass for the block.
+    let mut neutral = std::borrow::Cow::Borrowed(prompt);
+    if let Some(block) = knowledge {
+        system = format!("{system}\n\n{block}");
+        neutral = crate::knowledge::neutralise(prompt);
+    }
+    let prompt = &*neutral;
+    let mut messages = vec![json!({"role":"system","content":system})];
     if let Some((prefix, data)) = prompt.split_once('\n').filter(|(prefix, _)| {
         prefix.starts_with("Continue this shared Nectra conversation.")
             || prefix.starts_with(

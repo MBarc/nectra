@@ -30,8 +30,9 @@ pub fn supports(runtime: Runtime) -> bool {
     matches!(runtime, Runtime::Claude | Runtime::Ollama)
 }
 
-/// Launch arguments for a participant, with the tool surface emptied.
-pub fn provider_args(decision: &Decision) -> Result<Vec<String>> {
+/// Launch arguments for a participant, with the tool surface emptied, and the
+/// `[knowledge] index` block as a system prompt when there is one.
+pub fn provider_args(decision: &Decision, knowledge: Option<&str>) -> Result<Vec<String>> {
     if decision.model.is_empty() || decision.model.starts_with('-') {
         bail!("invalid debate model");
     }
@@ -57,12 +58,19 @@ pub fn provider_args(decision: &Decision) -> Result<Vec<String>> {
         .iter()
         .map(|s| s.to_string())
         .chain([decision.model.clone()])
+        .chain(
+            knowledge
+                .into_iter()
+                .flat_map(|k| ["--append-system-prompt".to_string(), k.to_string()]),
+        )
         .collect()),
         "codex" => bail!(
             "Codex CLI cannot join a debate: it has no tool-less mode, and its \
              read-only sandbox permits deletion. Choose another provider."
         ),
-        "gemini" => bail!("Gemini is not yet verified as tool-less and cannot join a debate."),
+        "gemini" | "agy" => {
+            bail!("Google's CLI is not yet verified as tool-less and cannot join a debate.")
+        }
         other => bail!("unsupported debate runtime {other}"),
     }
 }
@@ -82,7 +90,7 @@ impl<'a> PlainBackend<'a> {
         prompt: &str,
         cancel: &CancellationToken,
     ) -> Result<String> {
-        let args = provider_args(decision)?;
+        let args = provider_args(decision, self.cfg.knowledge.as_deref())?;
         let command = &self.cfg.inner.claude.command;
         let mut child = Command::new(command)
             .args(&args)
@@ -96,6 +104,10 @@ impl<'a> PlainBackend<'a> {
         // carries the shared transcript and would exceed the Windows
         // command-line limit.
         let mut stdin = child.stdin.take().context("provider stdin")?;
+        let prompt = match self.cfg.knowledge {
+            Some(_) => crate::knowledge::neutralise(prompt),
+            None => prompt.into(),
+        };
         stdin.write_all(prompt.as_bytes())?;
         drop(stdin);
 
@@ -241,7 +253,7 @@ mod tests {
 
     #[test]
     fn a_claude_participant_is_launched_with_an_empty_tool_set() {
-        let args = provider_args(&decision("claude", "sonnet")).unwrap();
+        let args = provider_args(&decision("claude", "sonnet"), None).unwrap();
         let tools = args.iter().position(|a| a == "--tools").expect("--tools");
         assert_eq!(args[tools + 1], "", "the tool set must be empty");
         assert!(args.contains(&"--strict-mcp-config".to_string()));
@@ -249,7 +261,7 @@ mod tests {
 
     #[test]
     fn no_bypass_or_mutating_flag_is_ever_passed() {
-        let args = provider_args(&decision("claude", "sonnet")).unwrap();
+        let args = provider_args(&decision("claude", "sonnet"), None).unwrap();
         for forbidden in [
             "--dangerously-skip-permissions",
             "--add-dir",
@@ -267,8 +279,17 @@ mod tests {
     }
 
     #[test]
+    fn a_claude_participant_gets_the_knowledge_index() {
+        let args = provider_args(&decision("claude", "sonnet"), Some("<block>")).unwrap();
+        let at = args.iter().position(|a| a == "--append-system-prompt");
+        assert_eq!(args[at.expect("--append-system-prompt") + 1], "<block>");
+        let tools = args.iter().position(|a| a == "--tools").unwrap();
+        assert_eq!(args[tools + 1], "");
+    }
+
+    #[test]
     fn codex_is_refused_with_the_reason() {
-        let error = provider_args(&decision("codex", "gpt-5.6-sol")).unwrap_err();
+        let error = provider_args(&decision("codex", "gpt-5.6-sol"), None).unwrap_err();
         assert!(format!("{error}").contains("no tool-less mode"));
     }
 
@@ -358,5 +379,6 @@ mod tests {
         assert!(supports(Runtime::Ollama));
         assert!(!supports(Runtime::Codex));
         assert!(!supports(Runtime::Gemini));
+        assert!(!supports(Runtime::Agy));
     }
 }

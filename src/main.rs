@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use nectra::{
     chat,
-    cli::{Cli, Commands},
+    cli::{ClassifierCommands, Cli, Commands},
     config, executor, models, router,
 };
 use serde::{Deserialize, Serialize};
@@ -10,10 +10,10 @@ use std::io::{IsTerminal, Read, Write};
 
 fn main() {
     match app() {
-        Ok(code) => std::process::exit(code),
+        Ok(code) => nectra::laya::exit(code),
         Err(error) => {
             nectra::terminal::error(&format!("nectra: {error:#}"));
-            std::process::exit(1);
+            nectra::laya::exit(1);
         }
     }
 }
@@ -52,8 +52,25 @@ fn app() -> Result<i32> {
         Some(theme) => theme,
         None => nectra::terminal::load_theme(&theme_path)?,
     });
-    if let Some(Commands::Classifier { backend }) = &cli.command {
-        nectra::setup::classifier_setup(cli.config.as_deref(), *backend)?;
+    if let Some(Commands::Classifier {
+        backend,
+        command,
+        model_dir,
+        verify_only,
+    }) = &cli.command
+    {
+        match (backend, command) {
+            (_, Some(ClassifierCommands::Fetch { dir })) => {
+                nectra::laya::fetch_to(dir, &mut nectra::terminal::stdout())?
+            }
+            (Some(backend), None) => nectra::setup::classifier_setup(
+                cli.config.as_deref(),
+                *backend,
+                model_dir.as_deref(),
+                *verify_only,
+            )?,
+            (None, None) => unreachable!("clap requires a backend"),
+        }
         return Ok(0);
     }
     if let Some(Commands::Ollama {
@@ -180,6 +197,22 @@ fn app() -> Result<i32> {
         Some(Commands::Eval { corpus }) => return evaluate(corpus, &cfg),
         _ => {}
     }
+    // `run --events jsonl` reports a refused index as its result, like any
+    // other setup failure; everything else stops here.
+    let knowledge = match cli
+        .knowledge
+        .as_ref()
+        .or(cfg.inner.knowledge.index.as_ref())
+    {
+        Some(index) => nectra::knowledge::load(index).map(|block| cfg.knowledge = Some(block)),
+        None => Ok(()),
+    };
+    let headless = matches!(&cli.command, Some(Commands::Run { headless, .. })
+        if headless.events.is_some() && !cli.dry_run);
+    let knowledge = match headless {
+        true => knowledge,
+        false => Ok(knowledge?),
+    };
     let registry = models::Registry::load(&cfg)?;
     if cli.continue_latest && !chatting {
         bail!("--continue applies to chat only: run `nectra -c` or `nectra chat -c`");
@@ -223,7 +256,7 @@ Registry: {}",
     if let Some(Commands::Run { prompt, headless }) = &cli.command {
         // Headless reads its own prompt, inside its deadline.
         if headless.events.is_some() && !cli.dry_run {
-            return nectra::headless::run(&cli, &cfg, &registry, prompt, headless);
+            return nectra::headless::run(&cli, &cfg, &registry, prompt, headless, knowledge);
         }
     }
     let prompt = if cli.stdin {

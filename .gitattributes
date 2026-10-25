@@ -1,2 +1,3 @@
-# Fixtures are matched byte for byte; keep LF on Windows checkouts too.
-tests/fixtures/** text eol=lf
+*.gpg binary
+tests/fixtures/*.txt text eol=lf
+tests/fixtures/*.jsonl text eol=lf

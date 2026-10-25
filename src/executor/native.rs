@@ -51,10 +51,10 @@ pub enum ProviderView {
 }
 
 /// Whether this runtime's turn runs in the provider's own terminal.
-/// Ollama has none. Gemini CLI 0.64+ loads per-launch settings, and so Nectra's
+/// Ollama has none, and agy's hook mechanism is unverified. Gemini CLI 0.64+ loads per-launch settings, and so Nectra's
 /// hooks, only from admin-owned files, so its turns use stream view.
 pub fn enabled(cfg: &Config, runtime: &str) -> Result<bool> {
-    if matches!(runtime, "ollama" | "gemini") {
+    if matches!(runtime, "ollama" | "gemini" | "agy") {
         return Ok(false);
     }
     let interactive = io::stdin().is_terminal()
@@ -510,7 +510,11 @@ pub fn conversation_with_session(
     let root = tempfile::Builder::new()
         .prefix("nectra-terminal-")
         .tempdir()?;
-    fs::write(root.path().join("context.txt"), prompt)?;
+    let resume = session.as_deref().is_some_and(|s| s.resume);
+    fs::write(
+        root.path().join("context.txt"),
+        super::with_knowledge(&d.runtime, prompt, cfg, resume).as_bytes(),
+    )?;
     let cmd = command(d, cfg, root.path(), session.as_deref())?;
     let marker = root
         .path()
@@ -865,6 +869,41 @@ mod tests {
                 "{runtime} one-shot command must build"
             );
         }
+    }
+    /// The terminal view of Claude keeps the index as a system prompt.
+    #[test]
+    fn the_terminal_view_keeps_the_knowledge_index() {
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.claude.command = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        cfg.knowledge = Some("<block>".into());
+        let d = Decision {
+            task: "general".into(),
+            provider: "anthropic".into(),
+            runtime: "claude".into(),
+            model: "test-model".into(),
+            effort: String::new(),
+            mode: crate::cli::Mode::Balanced,
+            score: 0.0,
+            score_margin: None,
+            ambiguous: false,
+            overridden: true,
+            reason: String::new(),
+            candidates: vec![],
+        };
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("context.txt"), one_shot_context("hi")).unwrap();
+        let cmd = command(&d, &cfg, root.path(), None).unwrap();
+        let argv = cmd.get_argv();
+        let at = argv
+            .iter()
+            .position(|a| a == "--append-system-prompt")
+            .expect("--append-system-prompt");
+        assert_eq!(argv[at + 1], "<block>");
+        // Before `--`, so it is read as a flag and not as the prompt.
+        assert!(at < argv.iter().position(|a| a == "--").unwrap());
     }
     #[test]
     fn explicit_settings_and_profile_notifications_are_preserved() {

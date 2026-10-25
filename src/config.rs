@@ -75,8 +75,13 @@ pub struct ClassifierConfig {
     /// including the ONNX Runtime library: for your own retrained model.
     pub allow_unpinned_model: bool,
     /// Longest the local model may take per message before Nectra uses
-    /// keywords for that message instead.
-    pub laya_timeout_ms: u64,
+    /// keywords for that message instead. Unset: 5000 on a machine with 2 or
+    /// fewer cores or no AVX2, 1000 elsewhere.
+    pub laya_timeout_ms: Option<u64>,
+    /// Build ONNX Runtime's prepacked weight copies. Off keeps the weights in
+    /// the memory-mapped model file: half the private memory, about 15%
+    /// slower messages. Unset: off on Linux with under 4 GiB of RAM.
+    pub laya_prepacking: Option<bool>,
 }
 impl Default for ClassifierConfig {
     fn default() -> Self {
@@ -88,9 +93,18 @@ impl Default for ClassifierConfig {
             demanding_above: 0.6,
             model_dir: None,
             allow_unpinned_model: false,
-            laya_timeout_ms: 1000,
+            laya_timeout_ms: None,
+            laya_prepacking: None,
         }
     }
+}
+/// Machine facts every provider gets as system context (`crate::knowledge`).
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct KnowledgeConfig {
+    /// Read only when it and its directory are root's alone (administrators'
+    /// on Windows). Unset: nothing is added.
+    pub index: Option<PathBuf>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -99,6 +113,8 @@ pub struct ConfigFile {
     pub classifier: ClassifierConfig,
     #[serde(default = "default_gemini")]
     pub gemini: RuntimeConfig,
+    #[serde(default = "default_agy")]
+    pub agy: RuntimeConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ollama: Option<crate::ollama::OllamaConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -108,6 +124,8 @@ pub struct ConfigFile {
     pub codex: RuntimeConfig,
     #[serde(default)]
     pub routing: RoutingConfig,
+    #[serde(default)]
+    pub knowledge: KnowledgeConfig,
 }
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -116,11 +134,16 @@ pub struct Config {
     /// Launch with no write access whatever the configured permissions, e.g.
     /// to ask the outgoing agent for a handoff note.
     pub read_only: bool,
+    /// Answers only: no tool use, file or shell access, enforced by the CLI's
+    /// own flags. A runtime that can't be held to that is refused.
+    pub no_tools: bool,
     /// Home whose MCP servers are shared between the CLIs at launch; set by the
     /// binary, so library callers and tests never read the user's configs.
     pub mcp_home: Option<PathBuf>,
     /// `nectra run --mcp-config`: exactly these servers, in place of sharing.
     pub mcp_config: Option<crate::mcp::Explicit>,
+    /// The loaded `[knowledge] index`, delimited, ready to send.
+    pub knowledge: Option<String>,
     pub path: PathBuf,
     pub inner: ConfigFile,
     pub embedded: bool,
@@ -128,6 +151,13 @@ pub struct Config {
 fn default_gemini() -> RuntimeConfig {
     RuntimeConfig {
         command: "gemini".into(),
+        extra_args: vec![],
+    }
+}
+
+fn default_agy() -> RuntimeConfig {
+    RuntimeConfig {
+        command: "agy".into(),
         extra_args: vec![],
     }
 }
@@ -146,8 +176,10 @@ impl Config {
             provider_view: Default::default(),
             skip_permissions: false,
             read_only: false,
+            no_tools: false,
             mcp_home: None,
             mcp_config: None,
+            knowledge: None,
             inner: toml::from_str(DEFAULT_CONFIG)?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -171,8 +203,10 @@ impl Config {
             provider_view: Default::default(),
             skip_permissions: false,
             read_only: false,
+            no_tools: false,
             mcp_home: None,
             mcp_config: None,
+            knowledge: None,
             inner: toml::from_str(DEFAULT_CONFIG).context("parsing embedded config")?,
             path: PathBuf::from("<embedded>"),
             embedded: true,
@@ -187,8 +221,10 @@ impl Config {
             provider_view: Default::default(),
             skip_permissions: false,
             read_only: false,
+            no_tools: false,
             mcp_home: None,
             mcp_config: None,
+            knowledge: None,
             inner: toml::from_str(&text).context("parsing config")?,
             path: path.to_path_buf(),
             embedded: false,
@@ -222,7 +258,12 @@ impl Config {
         {
             bail!("confidence_margin must be finite and between 0 and 1");
         }
-        for runtime in [&self.inner.claude, &self.inner.codex, &self.inner.gemini] {
+        for runtime in [
+            &self.inner.claude,
+            &self.inner.codex,
+            &self.inner.gemini,
+            &self.inner.agy,
+        ] {
             if runtime.command.trim().is_empty() {
                 bail!("runtime command cannot be empty");
             }

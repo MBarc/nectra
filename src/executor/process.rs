@@ -53,7 +53,7 @@ impl InterruptGuard {
                     if let Some(flag) = flag {
                         flag.store(true, Ordering::SeqCst);
                     } else {
-                        std::process::exit(130);
+                        crate::laya::exit(130);
                     }
                 })
                 .map_err(|e| e.to_string())
