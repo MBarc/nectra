@@ -35,7 +35,9 @@ GATE = "fresh-test-2.json"
 # fresh-test.json was the first bar and has been seen; old60 was tuned on earlier.
 REPORTED = ["dev.json", "fresh-test.json", "old60-rubric.json"]
 # Held out from every run: evaluated once, by hand (eval/laya/fresh-test.README.md).
-HELD_OUT = ["fresh-test-3.json", "long-spec.json"]
+# long-spec-tuning.json shaped STAKES_STYLES (paraphrases pass the near-duplicate
+# filter), so it is not held out; long-spec-heldout.json was written after, apart.
+HELD_OUT = ["fresh-test-3.json", "long-spec-tuning.json", "long-spec-heldout.json"]
 
 STYLES = [
     "terse lowercase messages typed into a terminal by developers, some with typos",
@@ -59,7 +61,7 @@ STYLES = [
 
 # --stakes: what the difficulty head never saw. Every training prompt above is
 # at most a few sentences, so the model scored long specs by their framing and
-# never answered "hard" for a security or side-effect spec (eval/laya/long-spec.json:
+# never answered "hard" for a security or side-effect spec (eval/laya/long-spec-tuning.json:
 # 0 of 22). Each style is written for the tasks listed with it.
 STAKES_STYLES = [
     ("task specs for a coding agent, 5-12 sentences or a numbered list of requirements (600-2500 characters), "
@@ -402,9 +404,9 @@ def ssh(host, script, **kw):
 def train_remote(args, items_path, run_dir, run_id):
     host, remote = args.host, f"nectra-laya/runs/{run_id}"
     ssh(host, HOST_SETUP)
-    session = args.session or f"laya-{run_id}"
+    session = shlex.quote(args.session or f"laya-{run_id}")
     ssh(host, f"mkdir -p ~/{remote}")
-    if not args.resume:  # a resumed run keeps the train.jsonl its checkpoint was trained on
+    if args.upload_data:  # a resumed run keeps the train.jsonl its checkpoint was trained on, unless it changed
         run(["scp", "-q", items_path, f"{host}:{remote}/train.jsonl"])
     run(["scp", "-q", Path(__file__).parent / "resumable_train.py", run_dir / "dev.jsonl", f"{host}:{remote}/"])
     cmd = train_cmd("../../venv/bin/python", args, "resumable_train.py", "train.jsonl", "ckpt", "dev.jsonl")
@@ -569,6 +571,11 @@ def main(argv=None):
     out = Path(args.out).resolve() if args.out else work / "model"
     exe = "nectra.exe" if os.name == "nt" else "nectra"
     args.nectra = args.nectra or str(REPO / "target" / "release" / exe)
+    # Both end up in remote shell commands and tmux session names.
+    for name in ("resume", "session"):
+        value = getattr(args, name)
+        if value is not None and not re.fullmatch(r"[A-Za-z0-9._-]+", value):
+            p.error(f"--{name} may only contain letters, digits, '.', '_' and '-'")
     run_id = args.resume or time.strftime("%Y%m%d-%H%M%S")
     run_dir = work / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=bool(args.resume))
@@ -587,7 +594,13 @@ def main(argv=None):
             claimed = registry_roles(args.registry)
             items = to_laya_items(data, criteria, claimed)
             items_path = run_dir / "train.jsonl"
-            items_path.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items), encoding="utf-8")
+            text = "".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items)
+            changed = items_path.exists() and items_path.read_text(encoding="utf-8") != text
+            if args.resume and changed:
+                log("warning: training data differs from the run being resumed (--stakes or --replay changed?); "
+                    "uploading it: the checkpoint continues on the new data")
+            args.upload_data = not args.resume or changed
+            items_path.write_text(text, encoding="utf-8")
             (run_dir / "dev.jsonl").write_text(
                 "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in dev_rows(criteria)), encoding="utf-8")
             summary.update(examples=len(data), train_items=len(items), claimed_roles=sorted(claimed))

@@ -133,7 +133,7 @@ or publish it as a new release, update the hashes in `src/laya.rs`, and let
 tuned against it or selected by it. The generator never sees it, and
 near-duplicates of it (and of `dev.json`, `fresh-test-3.json` and the older
 sets) are filtered out of generated prompts and their follow-ups.
-`fresh-test-3.json` is never run by `retrain`; it was evaluated once, by hand. `long-spec.json` (long specs and their short forms, gold `tier` labels) is held out the same way; `nectra eval` reports its tier accuracy and demanding-route errors. `dev.json` is the model-selection set: training prints its
+`fresh-test-3.json` is never run by `retrain`; it was evaluated once, by hand. `long-spec-tuning.json` (long specs and their short forms, gold `tier` labels) is **not** held out: `STAKES_STYLES` were written from its prompts, and their paraphrases pass the near-duplicate filter, so its tier and demanding numbers are optimistic. `long-spec-heldout.json` (40 specs and requests, half needing the demanding model, written after training from sources the styles never saw) is the held-out demanding-routing set. `nectra eval` reports tier accuracy, demanding TP/FP/FN for both the classifier's tier and the model the router picks, and how many prompts fell back to keywords; `--min-tier-accuracy` makes tier misses fail the run. `dev.json` is the model-selection set: training prints its
 task accuracy and confusion after every epoch. `fresh-test.json`, the first
 bar, is reported only, because its failures have been seen. Don't edit its labels to make a model pass. See
 `eval/laya/fresh-test.README.md`.

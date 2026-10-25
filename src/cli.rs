@@ -175,7 +175,13 @@ pub enum Commands {
     /// List configured models.
     Models,
     /// Evaluate task classification against a local JSON corpus (uses Jev when TYPESAFE_API_KEY is set).
-    Eval { corpus: PathBuf },
+    Eval {
+        corpus: PathBuf,
+        /// Fail (exit 1) when tier accuracy is below this fraction; tiers
+        /// never fail the run without it.
+        #[arg(long, value_name = "FRACTION")]
+        min_tier_accuracy: Option<f64>,
+    },
     /// Tokens and API-equivalent cost per model across your Nectra chats, from
     /// the providers' own logs.
     Usage {

@@ -234,31 +234,65 @@ fn cli_uses_configured_mode_and_cli_override() {
 #[test]
 fn eval_scores_tiers_where_labelled() {
     let (dir, cfg, _) = fixture();
-    let corpus = concat!(env!("CARGO_MANIFEST_DIR"), "/eval/laya/long-spec.json");
-    let cases: Vec<serde_json::Value> =
-        serde_json::from_str(&fs::read_to_string(corpus).unwrap()).unwrap();
-    assert!(cases.iter().all(|c| {
-        ["simple", "normal", "demanding"].contains(&c["tier"].as_str().unwrap_or_default())
-    }));
-    let out = binary()
-        .current_dir(dir.path())
-        .env_remove("TYPESAFE_API_KEY")
-        .arg("--config")
-        .arg(&cfg.path)
-        .args(["eval", corpus])
-        .output()
-        .unwrap();
-    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let tier = &report["tier"];
-    assert_eq!(tier["total"], cases.len());
-    let gold = cases.iter().filter(|c| c["tier"] == "demanding").count();
+    let eval = |args: &[&str]| {
+        binary()
+            .current_dir(dir.path())
+            .env_remove("TYPESAFE_API_KEY")
+            .arg("--config")
+            .arg(&cfg.path)
+            .arg("eval")
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    for corpus in [
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/eval/laya/long-spec-tuning.json"
+        ),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/eval/laya/long-spec-heldout.json"
+        ),
+    ] {
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_str(&fs::read_to_string(corpus).unwrap()).unwrap();
+        let out = eval(&[corpus]);
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let tier = &report["tier"];
+        assert_eq!(tier["total"], cases.len());
+        // No model and no key: every prompt fell back to keywords, and is counted.
+        assert_eq!(report["keyword_fallbacks"], cases.len());
+        let gold = cases.iter().filter(|c| c["tier"] == "demanding").count() as u64;
+        for kind in ["demanding_tier", "demanding_model"] {
+            let c = &tier[kind];
+            assert_eq!(
+                c["tp"].as_u64().unwrap() + c["fn"].as_u64().unwrap(),
+                gold,
+                "{kind}"
+            );
+        }
+        // Only labelled tasks are scored.
+        let tasks = cases.iter().filter(|c| c.get("task").is_some()).count();
+        assert_eq!(report["total"], tasks);
+    }
+    // Missed tiers fail the run only against --min-tier-accuracy.
+    let corpus = dir.path().join("tiers.json");
+    fs::write(
+        &corpus,
+        r#"[{"prompt": "write a hello world script", "tier": "simple"}]"#,
+    )
+    .unwrap();
+    let corpus = corpus.to_str().unwrap();
+    assert_eq!(eval(&[corpus]).status.code(), Some(0));
     assert_eq!(
-        tier["demanding_tp"].as_u64().unwrap() + tier["demanding_fn"].as_u64().unwrap(),
-        gold as u64
+        eval(&[corpus, "--min-tier-accuracy", "1"]).status.code(),
+        Some(1)
     );
-    // Only labelled tasks are scored.
-    let tasks = cases.iter().filter(|c| c.get("task").is_some()).count();
-    assert_eq!(report["total"], tasks);
+    assert_eq!(
+        eval(&[corpus, "--min-tier-accuracy", "0"]).status.code(),
+        Some(0)
+    );
 }
 #[test]
 fn stdin_route_and_conflicting_input() {

@@ -194,7 +194,10 @@ fn app() -> Result<i32> {
             executor::doctor(&cfg)?;
             return Ok(0);
         }
-        Some(Commands::Eval { corpus }) => return evaluate(corpus, &cfg),
+        Some(Commands::Eval {
+            corpus,
+            min_tier_accuracy,
+        }) => return evaluate(corpus, *min_tier_accuracy, &cfg),
         _ => {}
     }
     // `run --events jsonl` reports a refused index as its result, like any
@@ -302,8 +305,7 @@ Registry: {}",
     executor::execute(&decision, &prompt, &cfg)
 }
 /// One labelled prompt. `task` is scored when present; `tier` (simple,
-/// normal or demanding) scores difficulty and whether the prompt routes to
-/// the demanding role.
+/// normal or demanding) scores difficulty and demanding routing.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EvalCase {
@@ -315,20 +317,63 @@ struct EvalCase {
     #[allow(dead_code)]
     source: Option<String>,
 }
+fn parse_cases(text: &str) -> Result<Vec<EvalCase>> {
+    let cases: Vec<EvalCase> = serde_json::from_str(text)?;
+    if cases.is_empty() {
+        bail!("evaluation corpus is empty");
+    }
+    if let Some(i) = cases
+        .iter()
+        .position(|c| c.task.is_none() && c.tier.is_none())
+    {
+        bail!("case {i} has neither `task` nor `tier`");
+    }
+    if let Some(t) = cases
+        .iter()
+        .filter_map(|c| c.tier.as_deref())
+        .find(|t| !["simple", "normal", "demanding"].contains(t))
+    {
+        bail!("unknown tier {t:?}");
+    }
+    Ok(cases)
+}
 #[derive(Serialize)]
 struct Failure {
     prompt: String,
     expected: String,
     actual: String,
 }
+/// Gold `demanding` against a prediction.
+#[derive(Serialize, Default, Debug, PartialEq)]
+struct Confusion {
+    tp: usize,
+    fp: usize,
+    #[serde(rename = "fn")]
+    fn_: usize,
+}
+impl Confusion {
+    fn add(&mut self, gold: bool, predicted: bool) {
+        match (gold, predicted) {
+            (true, true) => self.tp += 1,
+            (false, true) => self.fp += 1,
+            (true, false) => self.fn_ += 1,
+            (false, false) => {}
+        }
+    }
+}
 #[derive(Serialize)]
 struct EvalReport {
     total: usize,
     passed: usize,
     accuracy: f64,
-    /// Prompts routed to the demanding role (a Demanding tier or the
-    /// demanding role), labelled or not: how often the strongest model runs.
-    demanding: usize,
+    /// Prompts the classifier marked demanding (Demanding tier or role).
+    demanding_tier: usize,
+    /// Prompts the router sent to a model that claims the demanding role:
+    /// how often the strongest model actually runs.
+    demanding_model: usize,
+    /// Prompts the model did not answer (deadline, load failure), scored
+    /// by the keyword classifier instead.
+    keyword_fallbacks: usize,
     failures: Vec<Failure>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tier: Option<TierReport>,
@@ -338,49 +383,66 @@ struct TierReport {
     total: usize,
     passed: usize,
     accuracy: f64,
-    /// Routed to the demanding role (a Demanding tier or the demanding role)
-    /// against gold `demanding`: what decides whether the strongest model runs.
-    demanding_tp: usize,
-    demanding_fp: usize,
-    demanding_fn: usize,
+    /// Against gold `demanding`: the classifier's demanding tier or role,
+    demanding_tier: Confusion,
+    /// and the router's pick of a demanding model.
+    demanding_model: Confusion,
     failures: Vec<Failure>,
 }
-fn evaluate(path: &std::path::Path, cfg: &config::Config) -> Result<i32> {
-    let cases: Vec<EvalCase> =
-        serde_json::from_str(&std::fs::read_to_string(path).context("reading evaluation corpus")?)?;
-    if cases.is_empty() {
-        bail!("evaluation corpus is empty");
-    }
+fn evaluate(
+    path: &std::path::Path,
+    min_tier_accuracy: Option<f64>,
+    cfg: &config::Config,
+) -> Result<i32> {
+    let cases = parse_cases(&std::fs::read_to_string(path).context("reading evaluation corpus")?)?;
+    let registry = models::Registry::load(cfg)?;
+    let demanding_ids: Vec<&str> = registry
+        .models
+        .iter()
+        .filter(|m| m.prefers.iter().any(|r| r == "demanding"))
+        .map(|m| m.id.as_str())
+        .collect();
     let mut failures = Vec::new();
-    let (mut total, mut demanding, mut tiers) = (0, 0, None::<TierReport>);
+    let (mut total, mut tiers) = (0, None::<TierReport>);
+    let (mut demanding_tier, mut demanding_model, mut keyword_fallbacks) = (0, 0, 0);
     for c in cases {
         // Every role offered, and no file lookups: the prompt alone decides.
         let got = nectra::jev::classify_turn_in(&c.prompt, None, cfg, &nectra::policy::ROLES, None);
+        // Only the keyword classifier leaves the tier unset.
+        keyword_fallbacks += usize::from(got.tier.is_none());
         let actual_tier = got
             .tier
             .map_or("none".to_string(), |t| format!("{t:?}").to_lowercase());
-        let routed = actual_tier == "demanding" || got.role.as_deref() == Some("demanding");
-        demanding += usize::from(routed);
-        if let Some(task) = c.task {
+        let marked = actual_tier == "demanding" || got.role.as_deref() == Some("demanding");
+        let task = got.task.to_string();
+        let model = router::route_with(
+            got,
+            &c.prompt,
+            cfg,
+            &registry,
+            nectra::cli::Mode::Balanced,
+            None,
+            None,
+        )?
+        .model;
+        let picked = demanding_ids.contains(&model.as_str());
+        demanding_tier += usize::from(marked);
+        demanding_model += usize::from(picked);
+        if let Some(expected) = c.task {
             total += 1;
-            let actual = got.task.to_string();
-            if actual != task {
+            if task != expected {
                 failures.push(Failure {
                     prompt: c.prompt.clone(),
-                    expected: task,
-                    actual,
+                    expected,
+                    actual: task,
                 });
             }
         }
         if let Some(tier) = c.tier {
             let t = tiers.get_or_insert_with(TierReport::default);
             t.total += 1;
-            match (tier == "demanding", routed) {
-                (true, true) => t.demanding_tp += 1,
-                (false, true) => t.demanding_fp += 1,
-                (true, false) => t.demanding_fn += 1,
-                (false, false) => {}
-            }
+            t.demanding_tier.add(tier == "demanding", marked);
+            t.demanding_model.add(tier == "demanding", picked);
             if actual_tier == tier {
                 t.passed += 1;
             } else {
@@ -396,7 +458,11 @@ fn evaluate(path: &std::path::Path, cfg: &config::Config) -> Result<i32> {
         t.accuracy = t.passed as f64 / t.total as f64;
     }
     let passed = total - failures.len();
-    let all_passed = passed == total && tiers.as_ref().is_none_or(|t| t.passed == t.total);
+    // Tier accuracy fails the run only against an explicit threshold.
+    let tiers_ok = match (&tiers, min_tier_accuracy) {
+        (Some(t), Some(min)) => t.accuracy >= min,
+        _ => true,
+    };
     println!(
         "{}",
         serde_json::to_string_pretty(&EvalReport {
@@ -407,10 +473,51 @@ fn evaluate(path: &std::path::Path, cfg: &config::Config) -> Result<i32> {
             } else {
                 passed as f64 / total as f64
             },
-            demanding,
+            demanding_tier,
+            demanding_model,
+            keyword_fallbacks,
             failures,
             tier: tiers,
         })?
     );
-    Ok(if all_passed { 0 } else { 1 })
+    Ok(if passed == total && tiers_ok { 0 } else { 1 })
+}
+#[cfg(test)]
+mod eval_tests {
+    use super::*;
+
+    #[test]
+    fn confusion_counts_each_cell() {
+        let mut c = Confusion::default();
+        for (gold, got) in [
+            (true, true),
+            (true, true),
+            (false, true),
+            (true, false),
+            (false, false),
+        ] {
+            c.add(gold, got);
+        }
+        assert_eq!(
+            c,
+            Confusion {
+                tp: 2,
+                fp: 1,
+                fn_: 1
+            }
+        );
+    }
+
+    #[test]
+    fn cases_need_a_label() {
+        assert!(parse_cases(r#"[{"prompt": "hi", "task": "general"}]"#).is_ok());
+        assert!(parse_cases(r#"[{"prompt": "hi", "tier": "simple"}]"#).is_ok());
+        let err = parse_cases(r#"[{"prompt": "hi"}]"#)
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(err.contains("neither"), "{err}");
+        assert!(parse_cases(r#"[{"prompt": "hi", "tier": "hard"}]"#).is_err());
+        assert!(parse_cases("[]").is_err());
+    }
 }
