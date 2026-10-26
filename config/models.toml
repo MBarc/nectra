@@ -1,5 +1,5 @@
-# Bootstrap heuristic scores, intentionally editable without recompilation.
-# They are product policy, not benchmark claims. Tune with your own evaluation corpus.
+# Capability scores are hand-set estimates, product policy and not benchmark claims,
+# until a calibration run measures them. Editable without recompiling.
 
 [[model]]
 id = "opus"
@@ -150,3 +150,60 @@ writing=0.8
 tool_use=0.8
 speed=0.9
 cost_efficiency=0.9
+
+# Claude's top tier (claude --help lists it). It claims `demanding` beside
+# gpt-6-astra, so hard work still reaches a frontier model when only Claude is
+# set up; with both, the scores below (above Opus on reasoning, below it on
+# speed and cost) pick between them.
+[[model]]
+id = "fable"
+provider = "anthropic"
+runtime = "claude"
+enabled = true
+effort = ""
+prefers = ["demanding"]
+[model.capabilities]
+coding=0.98
+reasoning=1.0
+long_context=0.99
+writing=0.99
+tool_use=0.99
+speed=0.45
+cost_efficiency=0.38
+
+# `codex debug models`, 2026-10-26: gpt-6.1-sol is the current workhorse
+# ("near-Astra performance at a lower cost") and gpt-6-luna the current fast
+# model. Scores sit between their siblings. The coding roles stay with the
+# gpt-5.6 pair, whose cost eval/chat-savings measured, until calibration
+# measures these two.
+[[model]]
+id = "gpt-6.1-sol"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "high"
+prefers = []
+[model.capabilities]
+coding=0.99
+reasoning=0.99
+long_context=0.93
+writing=0.93
+tool_use=0.99
+speed=0.62
+cost_efficiency=0.55
+
+[[model]]
+id = "gpt-6-luna"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "medium"
+prefers = []
+[model.capabilities]
+coding=0.89
+reasoning=0.86
+long_context=0.86
+writing=0.87
+tool_use=0.90
+speed=0.97
+cost_efficiency=0.93

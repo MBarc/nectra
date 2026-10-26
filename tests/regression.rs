@@ -571,7 +571,8 @@ fn demanding_work_is_never_sent_cheap_first() {
     }
     // No model claims "demanding": demanding words keep the strong coder.
     let mut reg = reg;
-    reg.models.retain(|m| m.id != "gpt-6-astra");
+    reg.models
+        .retain(|m| m.id != "gpt-6-astra" && m.id != "fable");
     let d = router::route(
         "complex end to end rewrite of the scheduler code",
         &cfg,
@@ -583,7 +584,7 @@ fn demanding_work_is_never_sent_cheap_first() {
     .unwrap();
     // Scored for capability: a strong model, never the cheap coder.
     assert!(
-        ["opus", "gpt-5.6-sol"].contains(&d.model.as_str()),
+        ["opus", "gpt-6.1-sol", "gpt-5.6-sol"].contains(&d.model.as_str()),
         "{}",
         d.model
     );
@@ -594,6 +595,19 @@ fn demanding_work_goes_to_the_strongest_model_when_no_role_catches_it() {
     let (_dir, cfg, reg) = fixture();
     let mut reg = reg;
     reg.models.retain(|m| m.provider.as_str() == "anthropic");
+    // Claude-only: fable claims demanding work.
+    let d = router::route(
+        "complex end to end rewrite of the scheduler",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(d.model, "fable", "{}", d.reason);
+    // Without fable, no model claims it.
+    reg.models.retain(|m| m.id != "fable");
     let route = |p: &str| {
         router::route(p, &cfg, &reg, Mode::Balanced, None, None)
             .unwrap()
