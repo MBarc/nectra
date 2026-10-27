@@ -31,7 +31,9 @@ impl RateLimited {
         // Judge only the fields that carry provider meaning. Matching the whole
         // serialized event turns any incidental "429" -- an output_tokens count of
         // 4290, a path, an echoed prompt -- into a spurious rate limit.
-        let message = ["message", "detail", "error_description"]
+        // agy states its error as a bare string: `error` in its result,
+        // `short_error` in the AGY_ERROR object it writes to stderr.
+        let message = ["message", "detail", "error_description", "error", "short_error"]
             .iter()
             .find_map(|k| Self::field(event, k).and_then(Value::as_str))
             .unwrap_or_default()
@@ -49,7 +51,7 @@ impl RateLimited {
             }
         }
         let kind = codes.join(" ").to_lowercase();
-        let status = ["status", "status_code", "code"]
+        let status = ["status", "status_code", "code", "error_code"]
             .iter()
             .find_map(|k| Self::field(event, k).and_then(Value::as_u64));
 
@@ -69,6 +71,7 @@ impl RateLimited {
                 "usage limit",
                 "too many requests",
                 "quota exceeded",
+                "quota reached",
                 "hit your limit",
                 // Google's wording (agy, and the Gemini API behind it).
                 "exceeded your current quota",
@@ -89,6 +92,8 @@ impl RateLimited {
         // account_id field is metadata, not a statement that every model of
         // this provider is exhausted.
         let says = |s: &&str| kind.contains(s) || lower.contains(s);
+        // A stated wait: agy's "Resets in 79h35m25s".
+        let stated = resets_after(&message);
         // An exhausted plan or spend cap lasts hours; an organization's
         // per-minute rate limit is provider-wide but clears within a minute.
         let exhausted = [
@@ -96,13 +101,16 @@ impl RateLimited {
             "usage limit",
             "spend_limit",
             "hit your limit",
+            "quota reached",
         ]
         .iter()
-        .any(says);
+        .any(says)
+            || stated.is_some_and(|s| s >= 3600);
         let provider_wide = exhausted || says(&"organization");
         let seconds = event["retry_after"]
             .as_u64()
             .or_else(|| event["error"]["retry_after"].as_u64())
+            .or(stated)
             .or_else(|| {
                 let reset = event["resetsAt"]
                     .as_u64()
@@ -132,6 +140,34 @@ impl RateLimited {
 
 /// A weekly plan limit, with a day to spare.
 const MAX_COOLDOWN: u64 = 8 * 86400;
+
+/// Seconds in a wait stated as a duration: "Resets in 79h35m25s" (agy) or
+/// "Your quota will reset after 3s" (Gemini).
+fn resets_after(message: &str) -> Option<u64> {
+    let lower = message.to_lowercase();
+    let rest = ["resets in ", "reset after "]
+        .iter()
+        .find_map(|p| lower.split(p).nth(1))?;
+    let token = rest.split(|c: char| c.is_whitespace() || c == '.').next()?;
+    let (mut total, mut number) = (0u64, String::new());
+    for c in token.chars() {
+        if c.is_ascii_digit() {
+            number.push(c);
+            continue;
+        }
+        let unit = match c {
+            'd' => 86400,
+            'h' => 3600,
+            'm' => 60,
+            's' => 1,
+            _ => return None,
+        };
+        total += number.parse::<u64>().ok()? * unit;
+        number.clear();
+    }
+    // A bare number or nothing parsed is no duration.
+    (number.is_empty() && total > 0).then_some(total)
+}
 
 /// Seconds until a reset Codex states as a date: "try again at Oct 27th, 2026 3:04 PM".
 ///
@@ -267,6 +303,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!(limit.retry_after.as_secs(), MAX_COOLDOWN);
+    }
+
+    #[test]
+    fn agy_quota_is_an_exhausted_plan_with_its_stated_reset() {
+        // Live agy output (exit 3): the AGY_ERROR object on stderr and the final
+        // result's error, which the agy runtime passes on as `message`.
+        let stderr = serde_json::json!({"short_error":"RESOURCE_EXHAUSTED (code 429): Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 79h35m25s.","status":"RESOURCE_EXHAUSTED","error_code":429,"code_kind":"http","retryable":true});
+        let result = serde_json::json!({"status":"ERROR","response":"","error":"Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 79h35m25s.","duration_seconds":0,"num_turns":1});
+        let message = serde_json::json!({"type":"error","message": result["error"]});
+        for event in [stderr, result, message] {
+            let limit = RateLimited::from_error(&event, true).expect("agy quota is a limit");
+            assert!(limit.provider_wide, "{event}");
+            assert_eq!(limit.retry_after.as_secs(), 79 * 3600 + 35 * 60 + 25);
+            assert!(limit.to_string().contains("Individual quota reached"));
+        }
+        // The numeric code alone still counts.
+        assert!(RateLimited::from_error(&serde_json::json!({"error_code": 429}), true).is_some());
+        assert_eq!(resets_after("Your quota will reset after 3s."), Some(3));
+        assert_eq!(resets_after("Resets in 2d4h."), Some(2 * 86400 + 4 * 3600));
+        assert_eq!(resets_after("Resets in soon"), None);
+        assert_eq!(resets_after("resets in 15"), None);
     }
 
     #[test]

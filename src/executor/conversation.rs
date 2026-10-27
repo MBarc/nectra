@@ -696,6 +696,11 @@ mod tests {
             let limit = limit.downcast_ref::<crate::limits::RateLimited>().unwrap();
             assert!(limit.safe_to_retry, "{limited}");
         }
+        // The live quota error is the whole account's, until its stated reset.
+        let quota = agy_run(lines[3]).unwrap_err();
+        let quota = quota.downcast_ref::<crate::limits::RateLimited>().unwrap();
+        assert!(quota.provider_wide);
+        assert_eq!(quota.retry_after.as_secs(), 79 * 3600 + 35 * 60 + 25);
     }
     #[test]
     fn a_session_id_cannot_become_a_flag() {
