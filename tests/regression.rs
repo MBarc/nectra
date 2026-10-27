@@ -526,7 +526,8 @@ fn demanding_work_is_never_sent_cheap_first() {
         jev::{Classification, Tier},
     };
     let (_dir, cfg, reg) = fixture();
-    // Jev chose the plain coding role but judged the work demanding.
+    // Jev chose the plain coding role but judged the work demanding: the
+    // demanding model takes it, not the strong coder.
     let jev = Classification {
         task: TaskType::CodeGeneration,
         req: classifier::requirements(TaskType::CodeGeneration),
@@ -545,7 +546,7 @@ fn demanding_work_is_never_sent_cheap_first() {
         None,
     )
     .unwrap();
-    assert_eq!(d.model, "gpt-5.6-sol", "{}", d.reason);
+    assert_eq!(d.model, "gpt-6-astra", "{}", d.reason);
     // Filed under a writer's or a cheap role, demanding work goes to the
     // demanding model, never the writer (Laya: a security spec as "general").
     for role in ["general", "simple", "simple-coding"] {

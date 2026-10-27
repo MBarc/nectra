@@ -31,7 +31,9 @@ fallbacks. Fast mode prefers Haiku for nontechnical tasks and Luna for technical
 ones. Balanced mode also sends ordinary coding to the `simple-coding` model first,
 because in [`eval/chat-savings`](../eval/chat-savings/RESULTS.md) it passed every
 check at 3-4% of the strong coders' cost. Explicit demanding-task signals (or a
-demanding Jev difficulty) take precedence over both.
+demanding Jev difficulty) take precedence over both. Demanding work goes to the
+`demanding` model whatever role the classifier filed it under, coding included;
+only demanding planning stays with the `planning` model.
 
 Demanding signals: complex, difficult, hardest, multi-step, multistep, end-to-end,
 escalate, deep reasoning. Light-task signals: quick, simple, brief, briefly,

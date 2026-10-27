@@ -133,12 +133,13 @@ pub fn route_summarized(
         .unwrap_or_else(|| policy::preferred_role(task, prompt, mode, tier));
     let role = if !demanding {
         policy::cheap_first(role, mode, &eligible, declarative)
-    } else if matches!(role, "coding" | "planning") {
-        // The strong coder or planner may take demanding work in its field.
+    } else if role == "planning" {
+        // The strong planner may take demanding design work.
         role
     } else {
-        // A hard task Jev files under "general" or a cheap role still needs
-        // the strongest model, not the writer.
+        // Hard code goes to the demanding model, not the coder: Laya files
+        // most hard specs under "coding" (eval/laya/long-spec-tuning.json).
+        // A hard task filed under "general" or a cheap role needs it too.
         "demanding"
     };
     // Demanding work that no model claims is scored for capability alone, so a
