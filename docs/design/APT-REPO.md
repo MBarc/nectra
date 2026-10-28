@@ -117,15 +117,21 @@ URL: `https://mbarc.github.io/nectra/apt` (or a custom domain later).
 - One dedicated **ed25519** key, `Nectra APT signing`, 2-year expiry, signing
   only. Debian 13's apt (sqv) accepts ed25519. RSA-4096 is the fallback only
   if some client's gpgv rejects it.
-- Private key and passphrase in **hush at `Nectra/apt-signing`** (a credential:
-  username = fingerprint, password = passphrase, notes = armored secret key
-  and revocation certificate). Generated 2026-10-22 in tmpfs on builder, never
-  written to disk. Fingerprint
+- The passphrase is in **hush at `Nectra/apt-signing`** (a credential:
+  username = fingerprint, password = passphrase, notes empty). The armored
+  secret key and its revocation certificate are a separate secret, in the
+  value of **`Nectra/apt-signing-key`**. Until 2026-10-25 they sat in the
+  credential's notes, which hush's `/api/v1/list` returns to any trusted
+  device, so they were moved out. Generated 2026-10-22 in tmpfs on builder,
+  never written to disk. Fingerprint
   **`18C46D9FDD3A411C3DB663FFA1A6F3C961636194`**, expires 2028-10-21.
-- An **offline backup key**, made the same way, in hush at
-  **`Nectra/apt-signing-backup`**: fingerprint
+- An **offline backup key**, stored the same way: the credential
+  **`Nectra/apt-signing-backup`** and the armored key in
+  **`Nectra/apt-signing-backup-key`**. Fingerprint
   **`80E3F18B9A0C4923ABFB47AC88B1854B1AD53937`**, expires 2028-10-21. It never
   goes to CI while the primary is usable.
+- Hush gotcha: `hush cred set` with only some flags erases the other fields.
+  Update a credential through the HTTP API with every field present.
 - Both public keys are in `packaging/nectra-archive-keyring.gpg` (and belong in
   the PonsOS repo), so apt accepts a Release signed by either.
 - CI gets the primary as an **environment secret** (never a repository secret)
