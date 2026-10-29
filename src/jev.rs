@@ -21,6 +21,20 @@ use std::{
 pub const KEY_ENV: &str = "TYPESAFE_API_KEY";
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
 
+#[cfg(test)]
+thread_local! {
+    /// Where this test thread's Jev requests go instead of TypeSafe.
+    static TEST_ENDPOINT: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+fn endpoint() -> String {
+    #[cfg(test)]
+    if let Some(url) = TEST_ENDPOINT.with(|e| e.borrow().clone()) {
+        return url;
+    }
+    ENDPOINT.to_string()
+}
+
 /// How much model a prompt needs; drives the cheap/strong routing roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier {
@@ -219,7 +233,9 @@ fn text_file_inside(root: &Path, word: &str) -> Option<PathBuf> {
 }
 
 /// `classify_turn`, with the directory pointed-at files are read from
-/// (`None` reads none: `nectra eval` scores the prompt alone).
+/// (`None` reads none: `nectra eval` scores the prompt alone). `--no-tools`
+/// reads none either: that turn promises no file access, and Jev would carry
+/// the file heads off the machine.
 pub fn classify_turn_in(
     prompt: &str,
     previous: Option<&str>,
@@ -227,7 +243,7 @@ pub fn classify_turn_in(
     roles: &[Role],
     root: Option<&Path>,
 ) -> Classification {
-    let (text, note) = match root {
+    let (text, note) = match root.filter(|_| !cfg.no_tools) {
         Some(root) => with_referenced_files(prompt, root),
         None => (Cow::Borrowed(prompt), String::new()),
     };
@@ -458,7 +474,7 @@ fn ask(
     let resp: Value = reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(timeout_ms))
         .build()?
-        .post(ENDPOINT)
+        .post(endpoint())
         .bearer_auth(key)
         .json(&body)
         .send()?
@@ -617,6 +633,75 @@ mod tests {
         let c = turn(POINTER, dir.path());
         assert_eq!(c.task, classify_local(POINTER, None).task);
         assert!(!c.why.contains("content of"));
+    }
+    #[test]
+    fn no_tools_never_reads_pointed_at_files() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("secrets.json"), r#"{"token": "hunter2"}"#).unwrap();
+        std::env::remove_var(KEY_ENV);
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.no_tools = true;
+        let c = classify_turn_in("Read secrets.json", None, &cfg, &[], Some(dir.path()));
+        assert!(!c.why.contains("secrets.json"), "{}", c.why);
+        cfg.no_tools = false;
+        let c = classify_turn_in("Read secrets.json", None, &cfg, &[], Some(dir.path()));
+        assert!(c.why.contains("secrets.json"), "{}", c.why);
+    }
+    /// The body of one HTTP request to `server`, answered with a 500 so
+    /// classification falls back to keywords.
+    fn capture_request(server: &std::net::TcpListener) -> String {
+        use std::io::Write;
+        let (mut s, _) = server.accept().unwrap();
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        loop {
+            let n = s.read(&mut chunk).unwrap();
+            buf.extend_from_slice(&chunk[..n]);
+            let text = String::from_utf8_lossy(&buf).to_string();
+            let Some(end) = text.find("\r\n\r\n") else {
+                continue;
+            };
+            let len = text
+                .lines()
+                .find_map(|l| {
+                    l.to_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|v| v.trim().parse().unwrap())
+                })
+                .unwrap_or(0);
+            if n == 0 || buf.len() >= end + 4 + len {
+                s.write_all(b"HTTP/1.1 500 x\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+                    .unwrap();
+                return text;
+            }
+        }
+    }
+    #[test]
+    fn no_tools_jev_request_carries_no_file_content() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("secrets.json"), r#"{"token": "hunter2"}"#).unwrap();
+        fs::write(dir.path().join("typesafe.key"), "test-key").unwrap();
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.path = dir.path().join("config.toml");
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", server.local_addr().unwrap());
+        TEST_ENDPOINT.with(|e| *e.borrow_mut() = Some(url));
+        let body = |cfg: &Config| {
+            std::thread::scope(|s| {
+                let got = s.spawn(|| capture_request(&server));
+                classify_turn_in("Read secrets.json", None, cfg, &[], Some(dir.path()));
+                got.join().unwrap()
+            })
+        };
+        // With tools the file goes to Jev, so the intercept can see a leak.
+        assert!(body(&cfg).contains("hunter2"));
+        cfg.no_tools = true;
+        let sent = body(&cfg);
+        assert!(
+            sent.contains("Read secrets.json") && !sent.contains("hunter2"),
+            "{sent}"
+        );
+        TEST_ENDPOINT.with(|e| *e.borrow_mut() = None);
     }
     #[test]
     fn oversized_files_are_truncated() {
