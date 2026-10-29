@@ -23,7 +23,11 @@ The bundled registry declares these roles:
 | `general` | Conversation, writing, research synthesis | sonnet |
 | `planning` | Planning and architecture | opus |
 | `coding` | Coding in best mode, or in balanced when nobody claims `simple-coding` | gpt-5.6-sol |
-| `demanding` | Explicitly demanding or complex tasks | gpt-6-astra |
+| `demanding` | Explicitly demanding or complex tasks | gpt-6-astra, fable |
+
+When two models declare a role, the higher-scoring one leads and the other is the
+nearest fallback. With `demanding`, a Claude-only setup sends hard work to fable,
+and a mixed setup falls back from Astra to fable when Codex is rate-limited.
 
 These are product routing preferences, not measured capability claims. Preferences
 add 0.30 to the existing quality/speed/cost score; other eligible models remain
@@ -39,8 +43,10 @@ Demanding signals: complex, difficult, hardest, multi-step, multistep, end-to-en
 escalate, deep reasoning. Light-task signals: quick, simple, brief, briefly,
 short, trivial, minor. These describe the size of the work, not its kind:
 "summarize" and "extract" name a task and no longer count, because summarising a
-large document is not cheap work. Without Jev, a non-coding message of four words or fewer ("thanks, that worked") also counts as light. Classification remains local keyword matching, not a semantic
-AI judge. Physical building prompts such as "plan how to build a shed" classify
+large document is not cheap work. Without Jev, a non-coding message of four words or fewer ("thanks, that worked") also counts as light. These keyword signals are the `keywords` backend and the
+fallback whenever the model is unavailable. With `[classifier] backend = "laya"`
+the local Laya model classifies each message's task, difficulty and role instead.
+It runs on this machine, so nothing leaves it. See [the model card](../tools/laya/MODEL_CARD.md). Physical building prompts such as "plan how to build a shed" classify
 as planning rather than coding. Responsibilities are defined in src/policy.rs;
 capability estimates remain editable in the registry.
 
