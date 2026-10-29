@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Sweep the code-only Laya stakes weight on the tuning corpus."""
+
+import argparse
+import json
+from pathlib import Path
+import re
+import subprocess
+
+
+def run(cmd: list[str], root: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(cmd, cwd=root, text=True, capture_output=True, check=False)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--corpus", default="eval/laya/long-spec-tuning.json")
+    parser.add_argument("--step", type=float, default=0.025)
+    parser.add_argument("--max", type=float, default=0.6)
+    args = parser.parse_args()
+
+    root = Path(__file__).resolve().parents[2]
+    corpus = (root / args.corpus).resolve()
+    expected = (root / "eval/laya/long-spec-tuning.json").resolve()
+    if corpus != expected:
+        raise SystemExit(f"refusing non-tuning corpus: {corpus}")
+
+    source = root / "src/jev.rs"
+    original = source.read_text()
+    pattern = re.compile(r"const LAYA_STAKES_WEIGHT: f64 = [0-9.]+;")
+    if len(pattern.findall(original)) != 1:
+        raise SystemExit("could not find the unique stakes weight")
+
+    rows = []
+    try:
+        count = round(args.max / args.step)
+        for index in range(count + 1):
+            weight = round(index * args.step, 6)
+            source.write_text(
+                pattern.sub(f"const LAYA_STAKES_WEIGHT: f64 = {weight};", original)
+            )
+            built = run(["cargo", "build", "--release"], root)
+            if built.returncode:
+                raise SystemExit(built.stderr)
+            evaluated = run(
+                [
+                    str(root / "target/release/nectra"),
+                    "--config",
+                    args.config,
+                    "eval",
+                    str(corpus),
+                ],
+                root,
+            )
+            try:
+                report = json.loads(evaluated.stdout)
+            except json.JSONDecodeError as error:
+                raise SystemExit(evaluated.stderr or str(error)) from error
+            tier = report["tier"]
+            row = {
+                "weight": weight,
+                "tier_accuracy": tier["accuracy"],
+                "classifier": tier["demanding_tier"],
+                "router": tier["demanding_model"],
+                "task_accuracy": report["accuracy"],
+                "keyword_fallbacks": report["keyword_fallbacks"],
+            }
+            rows.append(row)
+            print(json.dumps(row), flush=True)
+    finally:
+        source.write_text(original)
+
+    baseline_fp = rows[0]["router"]["fp"]
+    eligible = [row for row in rows if row["router"]["fp"] <= baseline_fp]
+    chosen = max(
+        eligible,
+        key=lambda row: (
+            row["router"]["tp"],
+            row["classifier"]["tp"],
+            -row["weight"],
+        ),
+    )
+    print(json.dumps({"baseline_router_fp": baseline_fp, "chosen": chosen}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
