@@ -394,6 +394,7 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
     if !dir.join(runtime).is_file() || !dir.join("model.onnx").is_file() {
         bail!("local model not downloaded; run `nectra classifier laya`");
     }
+    let staged_runtime = stage_runtime(dir, runtime, pin.2, allow_unpinned)?;
     let all: Vec<&Pin> = MODEL_FILES.iter().chain([&pin]).collect();
     let stamp = read_stamp(dir, stamp_trusted(dir, &all));
     // Everything ONNX Runtime parses or runs is checked before it loads. The
@@ -403,6 +404,9 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
         .into_iter()
         .partition(|(path, _, _)| *path == "model.onnx.data");
     let mut unpinned = check_pins(dir, &rest, allow_unpinned, &stamp)?;
+    if hash_file(&staged_runtime)? != pin.2 {
+        unpinned.push(runtime.to_string());
+    }
     // Always the runtime the pins checked, by its full path: left to itself,
     // ort would look for it on the library path (or `ORT_DYLIB_PATH`), and
     // panic where that fails, inside a call that can't unwind.
@@ -411,10 +415,6 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
     // directory and bind ORT to that artifact for the lifetime of the engine.
     // This closes the verify-then-replace window for native code; model data is
     // still checked while the engine is constructed below.
-    let staged = tempfile::tempdir().context("creating verified runtime staging directory")?;
-    let staged_runtime = staged.path().join(runtime);
-    std::fs::copy(dir.join(runtime), &staged_runtime)
-        .with_context(|| format!("staging verified runtime from {}", dir.display()))?;
     let _environment = ort::init_from(&staged_runtime)
         .with_context(|| format!("loading ONNX Runtime from {}", dir.display()))?;
     let engine = std::thread::scope(|s| {
@@ -435,6 +435,42 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
         );
     }
     Ok(engine)
+}
+
+/// Copy the native runtime before hashing it. The cache is keyed by the
+/// resulting hash, so a replacement between verification and loading cannot
+/// silently turn into a different native library. Unlike TempDir, the cache
+/// survives Windows DLL unload semantics.
+fn stage_runtime(
+    dir: &Path,
+    runtime: &str,
+    expected: &str,
+    allow_unpinned: bool,
+) -> Result<PathBuf> {
+    let actual_source = dir.join(runtime);
+    let cache = dirs::cache_dir()
+        .context("no per-user cache directory for ONNX Runtime")?
+        .join("nectra/laya/ort");
+    fs::create_dir_all(&cache)?;
+    let expected_target = cache.join(format!("{expected}-{runtime}"));
+    if expected_target.is_file() && hash_file(&expected_target)? == expected {
+        return Ok(expected_target);
+    }
+    let tmp = cache.join(format!(".{runtime}.{}.tmp", std::process::id()));
+    fs::copy(&actual_source, &tmp)
+        .with_context(|| format!("staging verified runtime from {}", actual_source.display()))?;
+    let actual = hash_file(&tmp)?;
+    if actual != expected && !allow_unpinned {
+        let _ = fs::remove_file(&tmp);
+        bail!("checksum mismatch: expected {expected}, got {actual}");
+    }
+    let target = cache.join(format!("{actual}-{runtime}"));
+    if !target.is_file() {
+        fs::rename(&tmp, &target)?;
+    } else {
+        let _ = fs::remove_file(&tmp);
+    }
+    Ok(target)
 }
 
 /// Hashes every file already in `dir` against its pin and writes the stamp
