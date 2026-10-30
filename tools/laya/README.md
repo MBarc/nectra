@@ -162,11 +162,16 @@ permissions. It:
    (`scripts/update_laya_pins.py`). Only the model files (`model*`,
    `tokenizer/*`, `rl_agent_config.json`) are repinned; the staged ONNX Runtime
    binaries and `ONNXRUNTIME-LICENSE` must match their existing pins, or the run
-   stops here. Upgrading the runtime is a reviewed source change, not a retrain;
-3. builds Nectra and evaluates the model on a held-out set
-   (`scripts/laya_gate.py`, default `fresh-test-3.json`). It fails if accuracy is
-   below the current model's (`fresh-test-3-result.json`, 97.7%) or below
-   `min_accuracy`;
+   stops here. It also sets Cargo.toml's `breaks = "nectra-laya (<< V)"` to the
+   new model's package version, and the run checks the two agree. Upgrading the
+   runtime is a reviewed source change, not a retrain;
+3. builds Nectra and evaluates the model (`scripts/laya_gate.py`). It fails if
+   - task accuracy on `eval_set` (default `fresh-test-3.json`) is below the
+     current model's (`fresh-test-3-result.json`, 97.7%) or below `min_accuracy`;
+   - on `long-spec-heldout.json`, tier accuracy or the hard specs the router
+     sends to the demanding model fall below the current model's
+     (`long-spec-heldout-result.json`), or false escalations rise above it;
+   - any prompt in either set fell back to keywords instead of the model;
 4. pushes `laya-pins-N` and opens a PR with the eval numbers;
 5. creates the `laya-model-N` release with `scripts/release-laya.sh`, which
    re-checks every file against the new pins and adds `SHA256SUMS`. Merge the

@@ -83,6 +83,9 @@ jobs:
           print(f"Pins `src/laya.rs` at the new `{__import__('os').environ['TAG']}` release.\n")
           print(f"Eval gate, `{g['set']}`: **{g['passed']}/{g['total']} = {g['accuracy']:.2%}**")
           print(f"(required {g['required']:.2%}: current model {g['current_model']:.2%}, floor {g['floor']:.2%}).\n")
+          d, c = g["demanding_model"], g["tier_current_model"]
+          print(f"Difficulty, `{g['tier_set']}`: tier accuracy **{g['tier_accuracy']:.2%}** (current {c['accuracy']:.2%});")
+          print(f"router demanding TP/FP/FN **{d['tp']}/{d['fp']}/{d['fn']}** (current {c['demanding_model']['tp']}/{c['demanding_model']['fp']}/{c['demanding_model']['fn']}); keyword fallbacks {g['keyword_fallbacks']}.\n")
           print("Review the model card and the release assets, then merge.")
           PY
           branch="laya-pins-${TAG#laya-model-}"
