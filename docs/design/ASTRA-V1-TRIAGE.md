@@ -4,18 +4,20 @@
 
 Validated by source inspection: the runtime was verified from the configured
 directory and then loaded by pathname. This was real. The loader now copies the
-verified native runtime into a private temporary staging directory and loads
-that copy, so replacing the configured runtime after verification cannot change
-the native library being loaded.
+runtime before hashing it, hashes the staged bytes, and loads a per-user cache
+entry named by that hash. Replacing the configured runtime after staging cannot
+change the native library being loaded. Model files remain loaded by path and
+are still checked during engine construction.
 
 ## M9 — Windows descendant cleanup
 
 Validated by source inspection: the ordinary child path spawned first and only
 then assigned the child to a Windows job. This was real. Ordinary provider
 launches now use `CREATE_SUSPENDED`, assign the process to its kill-on-close job,
-and resume it afterward. Native PTY launch remains dependent on the PTY API's
-child-creation behavior and is covered by the existing Windows compatibility
-runner; no live Windows race reproduction was available on the builder.
+and resume it afterward. Native PTY launches are explicitly not covered by this
+ordering because portable-pty does not expose suspended creation; their cleanup
+race remains a documented limitation until that API can be extended. No live
+Windows race reproduction was available on the builder.
 
 ## M10 — agy repeated-step accounting
 

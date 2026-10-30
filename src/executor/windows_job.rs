@@ -8,31 +8,50 @@ use std::{
 use windows_sys::Win32::{
     Foundation::HANDLE,
     System::{
+        Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
+        },
         JobObjects::{
             AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
             SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
             JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
         },
-        Threading::{OpenProcess, PROCESS_SET_QUOTA, PROCESS_SUSPEND_RESUME, PROCESS_TERMINATE},
+        Threading::{
+            OpenProcess, OpenThread, ResumeThread, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
+            THREAD_SUSPEND_RESUME,
+        },
     },
 };
 
 pub(super) fn resume(pid: u32) -> Result<()> {
-    let process = unsafe {
-        OpenProcess(
-            PROCESS_SET_QUOTA | PROCESS_SUSPEND_RESUME | PROCESS_TERMINATE,
-            0,
-            pid,
-        )
-    };
-    if process.is_null() {
-        return Err(io::Error::last_os_error()).context("opening suspended provider process");
+    // ResumeThread takes a THREAD handle, not the process handle returned by
+    // OpenProcess. Enumerate the suspended process's threads and resume each.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) };
+    if snapshot == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error()).context("listing suspended provider threads");
     }
-    // SAFETY: the handle refers to the suspended child created by Nectra.
-    let status = unsafe { windows_sys::Win32::System::Threading::ResumeThread(process) };
-    unsafe { windows_sys::Win32::Foundation::CloseHandle(process) };
-    if status == u32::MAX {
-        return Err(io::Error::last_os_error()).context("resuming provider process");
+    let mut entry: THREADENTRY32 = unsafe { mem::zeroed() };
+    entry.dwSize = mem::size_of::<THREADENTRY32>() as u32;
+    let mut found = false;
+    let mut ok = unsafe { Thread32First(snapshot, &mut entry) } != 0;
+    while ok {
+        if entry.th32OwnerProcessID == pid {
+            found = true;
+            let thread = unsafe { OpenThread(THREAD_SUSPEND_RESUME, 0, entry.th32ThreadID) };
+            if !thread.is_null() {
+                let status = unsafe { ResumeThread(thread) };
+                unsafe { windows_sys::Win32::Foundation::CloseHandle(thread) };
+                if status == u32::MAX {
+                    unsafe { windows_sys::Win32::Foundation::CloseHandle(snapshot) };
+                    return Err(io::Error::last_os_error()).context("resuming provider thread");
+                }
+            }
+        }
+        ok = unsafe { Thread32Next(snapshot, &mut entry) } != 0;
+    }
+    unsafe { windows_sys::Win32::Foundation::CloseHandle(snapshot) };
+    if !found {
+        return Err(io::Error::last_os_error()).context("suspended provider has no thread");
     }
     Ok(())
 }

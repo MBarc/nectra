@@ -916,4 +916,19 @@ mod tests {
             .env("NECTRA_TEST_CHILD", "early_exit");
         assert_eq!(run_child(&mut cmd, &"x".repeat(1000000)).unwrap(), 23);
     }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_output_until_resumes_a_job_owned_child() {
+        let mut cmd = Command::new(env::current_exe().unwrap());
+        cmd.args(["--exact", "executor::tests::child_fixture", "--ignored"])
+            .env("NECTRA_TEST_CHILD", "early_exit");
+        let output = output_until(
+            &mut cmd,
+            Some(Instant::now() + Duration::from_secs(5)),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+        assert_eq!(output.status.code(), Some(23));
+    }
 }
