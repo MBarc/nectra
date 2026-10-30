@@ -405,7 +405,7 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
         .partition(|(path, _, _)| *path == "model.onnx.data");
     let mut unpinned = check_pins(dir, &rest, allow_unpinned, &stamp)?;
     if hash_file(&staged_runtime)? != pin.2 {
-        unpinned.push(runtime.to_string());
+        unpinned.push(runtime);
     }
     // Always the runtime the pins checked, by its full path: left to itself,
     // ort would look for it on the library path (or `ORT_DYLIB_PATH`), and

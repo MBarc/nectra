@@ -348,7 +348,7 @@ pub fn conversation(
 pub fn messages(prompt: &str, knowledge: Option<&str>) -> Result<Vec<Value>> {
     let mut system = "Continue the shared Nectra conversation. Earlier assistants may be different models. Answer the latest user. You are a chat-only model: you cannot inspect files, edit files, or run commands. Do not claim to have performed those actions.".to_string();
     // Nothing in a user's or earlier assistant's turn may pass for the block.
-    let mut neutral = crate::knowledge::neutralise(prompt);
+    let neutral = crate::knowledge::neutralise(prompt);
     if let Some(block) = knowledge {
         system = format!("{system}\n\n{block}");
     }
