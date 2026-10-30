@@ -21,9 +21,6 @@ use std::{
 pub const KEY_ENV: &str = "TYPESAFE_API_KEY";
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
 
-// Fitted on eval/laya/long-spec-tuning.json by tools/laya/sweep-stakes.
-const LAYA_STAKES_WEIGHT: f64 = 0.30;
-
 /// A small prompt-only signal for work whose consequences or coordination are
 /// easy for the three-way difficulty head to understate. This deliberately
 /// rewards combinations of spec shape and concrete risk language; length by
@@ -356,15 +353,18 @@ fn classify_text(
             new_task,
             role,
         }) => {
-            let stakes = (source == "laya").then(|| stakes_score(text));
+            // `[routing] stakes_weight`, fitted on eval/laya/long-spec-tuning.json
+            // by tools/laya/sweep-stakes; 0 turns the signal off.
+            let weight = cfg.inner.routing.stakes_weight;
+            let stakes = (source == "laya" && weight > 0.0).then(|| stakes_score(text));
             let difficulty = stakes.map_or(raw_difficulty, |score| {
-                (raw_difficulty + LAYA_STAKES_WEIGHT * score).min(1.0)
+                (raw_difficulty + weight * score).min(1.0)
             });
             let difficulty_summary = stakes.map_or_else(
                 || format!("{difficulty:.2}"),
                 |score| {
                     format!(
-                        "{raw_difficulty:.2} + {LAYA_STAKES_WEIGHT:.3} x stakes {score:.2} = {difficulty:.2}"
+                        "{raw_difficulty:.2} + {weight:.3} x stakes {score:.2} = {difficulty:.2}"
                     )
                 },
             );

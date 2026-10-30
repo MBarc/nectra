@@ -26,28 +26,30 @@ def main() -> None:
     if corpus != expected:
         raise SystemExit(f"refusing non-tuning corpus: {corpus}")
 
-    source = root / "src/jev.rs"
-    original = source.read_text()
-    pattern = re.compile(r"const LAYA_STAKES_WEIGHT: f64 = [0-9.]+;")
-    if len(pattern.findall(original)) != 1:
-        raise SystemExit("could not find the unique stakes weight")
+    built = run(["cargo", "build", "--release"], root)
+    if built.returncode:
+        raise SystemExit(built.stderr)
+    # A sibling copy of the config, so its relative registry path still resolves.
+    config = Path(args.config).resolve()
+    original = re.sub(r"(?m)^stakes_weight\s*=.*\n", "", config.read_text())
+    swept = config.with_name(config.stem + ".stakes-sweep.toml")
 
     rows = []
     try:
         count = round(args.max / args.step)
         for index in range(count + 1):
             weight = round(index * args.step, 6)
-            source.write_text(
-                pattern.sub(f"const LAYA_STAKES_WEIGHT: f64 = {weight};", original)
-            )
-            built = run(["cargo", "build", "--release"], root)
-            if built.returncode:
-                raise SystemExit(built.stderr)
+            line = f"stakes_weight = {weight}\n"
+            if re.search(r"(?m)^\[routing\]\s*$", original):
+                text = re.sub(r"(?m)^\[routing\]\s*\n", "[routing]\n" + line, original, count=1)
+            else:
+                text = original + "\n[routing]\n" + line
+            swept.write_text(text)
             evaluated = run(
                 [
                     str(root / "target/release/nectra"),
                     "--config",
-                    args.config,
+                    str(swept),
                     "eval",
                     str(corpus),
                 ],
@@ -69,7 +71,7 @@ def main() -> None:
             rows.append(row)
             print(json.dumps(row), flush=True)
     finally:
-        source.write_text(original)
+        swept.unlink(missing_ok=True)
 
     baseline_fp = rows[0]["router"]["fp"]
     eligible = [row for row in rows if row["router"]["fp"] <= baseline_fp]
