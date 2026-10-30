@@ -221,10 +221,7 @@ fn task_part(file: &str) -> (&str, bool) {
 /// first two words of a short prompt. Questions ("why does config.toml fail
 /// to parse", with or without "?") never expand. Never follows URLs, network
 /// paths or symlinks.
-fn with_referenced_files<'a>(
-    prompt: &'a str,
-    root: &Path,
-) -> (Cow<'a, str>, String, Cow<'a, str>) {
+fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String, Cow<'a, str>) {
     let unchanged = || (Cow::Borrowed(prompt), String::new(), Cow::Borrowed(prompt));
     let words: Vec<&str> = prompt.split_whitespace().collect();
     let first = words.first().map(|w| w.to_lowercase()).unwrap_or_default();
@@ -701,7 +698,10 @@ mod tests {
         let risky = "Fix the handler; it must never double charge.";
         let base = stakes_score(risky);
         // Lines starting with a year or a decimal are not numbered requirements.
-        assert_eq!(stakes_score(&format!("{risky}\n2026. was a good year\n3.14 is pi")), base);
+        assert_eq!(
+            stakes_score(&format!("{risky}\n2026. was a good year\n3.14 is pi")),
+            base
+        );
         assert!(stakes_score(&format!("{risky}\n1. one\n2) two")) > base);
         // "and/or", "I/O" and URLs are not paths; two real paths are.
         let paths = |words: &str| stakes_score(&format!("{risky} {words}")) > base;
@@ -711,7 +711,10 @@ mod tests {
         // Client and server are one system, not two components.
         assert!(!paths("the client and the server"));
         // Everyday words alone stay under the cap.
-        assert_eq!(stakes_score(&"Add a migration and a transaction for concurrent jobs. ".repeat(30)), 0.20);
+        assert_eq!(
+            stakes_score(&"Add a migration and a transaction for concurrent jobs. ".repeat(30)),
+            0.20
+        );
         assert!(stakes_score("Add a migration") < 0.05);
     }
     #[test]
@@ -745,7 +748,11 @@ mod tests {
         cfg.inner.routing.stakes_weight = 0.0;
         let off = tier(&cfg);
         assert_eq!(off.tier, Some(Tier::Normal), "{}", off.why);
-        assert!(off.why.contains("difficulty 0.50 -> Normal") && !off.why.contains("stakes"), "{}", off.why);
+        assert!(
+            off.why.contains("difficulty 0.50 -> Normal") && !off.why.contains("stakes"),
+            "{}",
+            off.why
+        );
     }
     #[test]
     fn parses_a_real_response_shape() {
@@ -973,7 +980,10 @@ mod tests {
         fs::create_dir(dir.path().join(".orca-task")).unwrap();
         fs::write(dir.path().join(".orca-task/dispatch-x.md"), &file).unwrap();
         let (text, note, stakes) = with_referenced_files(POINTER, dir.path());
-        assert!(text.starts_with(task) && !text.contains("orca orchestration send --type"), "{text}");
+        assert!(
+            text.starts_with(task) && !text.contains("orca orchestration send --type"),
+            "{text}"
+        );
         assert!(note.contains("TASK"), "{note}");
         assert_eq!(stakes.trim(), task);
         // Laya sees the task; stakes scores it, not the preamble's boilerplate.
@@ -983,10 +993,18 @@ mod tests {
         let c = classify_turn_in(POINTER, None, &cfg, &[], Some(dir.path()));
         let seen = TEST_LAYA.with(|l| l.borrow_mut().take().unwrap().1);
         assert!(seen[0].starts_with(task), "{}", seen[0]);
-        assert!(c.why.contains(&format!("stakes {:.2}", stakes_score(task))), "{}", c.why);
+        assert!(
+            c.why.contains(&format!("stakes {:.2}", stakes_score(task))),
+            "{}",
+            c.why
+        );
         assert_eq!(c.tier, Some(Tier::Demanding));
         // A plain file is read for Laya, but stakes scores the prompt alone.
-        fs::write(dir.path().join(".orca-task/dispatch-x.md"), file.replace(TASK_MARKER, "TASK")).unwrap();
+        fs::write(
+            dir.path().join(".orca-task/dispatch-x.md"),
+            file.replace(TASK_MARKER, "TASK"),
+        )
+        .unwrap();
         let (text, _, stakes) = with_referenced_files(POINTER, dir.path());
         assert!(text.starts_with("You are an Orca worker.") && stakes == POINTER);
     }

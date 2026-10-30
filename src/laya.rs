@@ -1279,13 +1279,19 @@ Connection: close
         std::thread::sleep(Duration::from_millis(600));
         assert!(!ran.load(Ordering::SeqCst), "refused work must never run");
         // Once it finishes, inference is accepted again.
-        assert_eq!(within_on(&FLAG, Duration::from_millis(500), || Ok(3)).unwrap(), 3);
+        assert_eq!(
+            within_on(&FLAG, Duration::from_millis(500), || Ok(3)).unwrap(),
+            3
+        );
     }
     #[test]
     fn back_to_back_answers_are_never_refused_as_busy() {
         static FLAG: AtomicBool = AtomicBool::new(false);
         for i in 0..200 {
-            assert_eq!(within_on(&FLAG, Duration::from_secs(5), move || Ok(i)).unwrap(), i);
+            assert_eq!(
+                within_on(&FLAG, Duration::from_secs(5), move || Ok(i)).unwrap(),
+                i
+            );
         }
     }
     /// The whole fetch path against a local copy of the release:
