@@ -573,25 +573,39 @@ fn within<T: Send + 'static>(
     deadline: Duration,
     f: impl FnOnce() -> Result<T> + Send + 'static,
 ) -> Result<T> {
-    if INFERRING
+    within_on(&INFERRING, deadline, f)
+}
+
+/// `within`, single-flight on `inferring` (tests pass their own).
+fn within_on<T: Send + 'static>(
+    inferring: &'static AtomicBool,
+    deadline: Duration,
+    f: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
+    if inferring
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
         bail!("Laya busy: an earlier message is still being classified");
     }
-    struct Done;
+    // Cleared even if `f` panics.
+    struct Done(&'static AtomicBool);
     impl Drop for Done {
         fn drop(&mut self) {
-            INFERRING.store(false, Ordering::SeqCst);
+            self.0.store(false, Ordering::SeqCst);
         }
     }
-    let done = Done;
+    let done = Done(inferring);
     let (tx, rx) = mpsc::channel();
     // Counted before the thread starts, so `exit` can't miss it.
     let busy = Busy::enter();
     std::thread::spawn(move || {
-        let (_busy, _done) = (busy, done);
-        tx.send(f())
+        let _busy = busy;
+        let answer = f();
+        // Free before the answer is sent, so the caller's next message,
+        // right behind this one, isn't refused as busy.
+        drop(done);
+        let _ = tx.send(answer);
     });
     rx.recv_timeout(deadline).map_err(|_| {
         anyhow::anyhow!(
@@ -1245,7 +1259,9 @@ Connection: close
     }
     #[test]
     fn gives_up_at_the_deadline_and_never_queues_behind_it() {
-        let slow = within(Duration::from_millis(50), || {
+        // Its own flag, so no other test's inference can make this one busy.
+        static FLAG: AtomicBool = AtomicBool::new(false);
+        let slow = within_on(&FLAG, Duration::from_millis(50), || {
             std::thread::sleep(Duration::from_millis(500));
             Ok(1)
         });
@@ -1254,7 +1270,7 @@ Connection: close
         let started = std::time::Instant::now();
         let ran = std::sync::Arc::new(AtomicBool::new(false));
         let flag = ran.clone();
-        let busy = within(Duration::from_millis(500), move || {
+        let busy = within_on(&FLAG, Duration::from_millis(500), move || {
             flag.store(true, Ordering::SeqCst);
             Ok(2)
         });
@@ -1263,7 +1279,14 @@ Connection: close
         std::thread::sleep(Duration::from_millis(600));
         assert!(!ran.load(Ordering::SeqCst), "refused work must never run");
         // Once it finishes, inference is accepted again.
-        assert_eq!(within(Duration::from_millis(500), || Ok(3)).unwrap(), 3);
+        assert_eq!(within_on(&FLAG, Duration::from_millis(500), || Ok(3)).unwrap(), 3);
+    }
+    #[test]
+    fn back_to_back_answers_are_never_refused_as_busy() {
+        static FLAG: AtomicBool = AtomicBool::new(false);
+        for i in 0..200 {
+            assert_eq!(within_on(&FLAG, Duration::from_secs(5), move || Ok(i)).unwrap(), i);
+        }
     }
     /// The whole fetch path against a local copy of the release:
     /// `NECTRA_LAYA_ASSETS=<dir staged by scripts/release-laya.sh> cargo test --release -- --ignored fetches`
