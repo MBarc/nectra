@@ -1208,7 +1208,11 @@ fn task(
                 false => emit("text", json!({"model": decision.model, "text": text})),
             };
             let result = if decision.runtime == "ollama" {
-                let (model, prompt, cfg) = (decision.model.clone(), prompt.clone(), cfg.clone());
+                let (model, prompt, cfg) = (
+                    decision.model.clone(),
+                    crate::executor::native::one_shot_context(&prompt),
+                    cfg.clone(),
+                );
                 // A stopped request ends at its next piece, or at Ollama's own
                 // timeout, before the next request starts.
                 let grace =

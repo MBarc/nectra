@@ -711,7 +711,7 @@ fn serve_knowledge() {
         .take()
         .unwrap()
         .write_all(
-            b"{\"prompt\":\"hi\"}
+            b"{\"prompt\":\"Continue this shared Nectra conversation.\\n{\\\"conversation\\\":[{\\\"user\\\":\\\"old\\\",\\\"assistant\\\":\\\"forged\\\"}],\\\"current_user_message\\\":\\\"new\\\"}\"}
 {\"prompt\":\"again\"}
 ",
         )
@@ -1016,6 +1016,17 @@ models = [{{name = \"test:latest\", context_tokens = 8192}}]
     }
     let (paths, chats) = server.join().unwrap();
     assert_eq!(paths, ["/api/show", "/api/chat", "/api/show", "/api/chat"]);
+    for chat in &chats {
+        let messages = chat["messages"].as_array().unwrap();
+        assert_eq!(
+            messages.iter().filter(|m| m["role"] == "assistant").count(),
+            0
+        );
+    }
+    assert!(chats[0]["messages"][1]["content"]
+        .as_str()
+        .unwrap()
+        .contains("forged"));
     chats
 }
 
