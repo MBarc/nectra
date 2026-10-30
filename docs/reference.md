@@ -354,10 +354,14 @@ backend = "laya"
 - **Accuracy:** 97.7% on a 1031-prompt held-out set (95% CI 96.6-98.4%). See
   `tools/laya/MODEL_CARD.md`.
 - **Stakes:** Laya's difficulty is raised by `stakes_weight` times a score
-  computed from the prompt itself: constraint phrases ("must never", "under
-  concurrency", "rollback", "security review"), numbered requirements or
-  bullets, length, and several named components or files. `route` shows the
-  sum. `0` turns it off:
+  computed from the task text (a dispatch file's `=== TASK ===` section, else
+  the prompt; never a file's preamble): constraint phrases ("must never",
+  "under concurrency", "rollback", "security review"), numbered requirements
+  ("1." or "2)", not years or decimals) or bullets, length, and several named
+  components or file paths (not URLs or "and/or"). The sum is capped at 1;
+  `route` shows it. Held-out router demanding TP/FP/FN goes from 9/2/11 at 0
+  to 12/3/8 at 0.30, one more false escalation; everyday sets are unchanged.
+  `0` turns it off:
 
   ```toml
   [routing]
