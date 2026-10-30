@@ -516,7 +516,24 @@ fn a_partial_config_section_takes_defaults() {
     assert!(!cfg.inner.routing.sticky);
     assert!(cfg.inner.routing.resume_sessions);
     assert_eq!(cfg.inner.routing.confidence_margin, 0.035);
+    assert_eq!(cfg.inner.routing.stakes_weight, 0.30);
     assert_eq!(cfg.inner.classifier.timeout_ms, 1500);
+}
+
+#[test]
+fn stakes_weight_is_configurable_and_bounded() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    let with = |w: &str| {
+        fs::write(
+            &path,
+            format!("registry = \"models.toml\"\n[claude]\ncommand = \"claude\"\n[codex]\ncommand = \"codex\"\n[routing]\nstakes_weight = {w}\n"),
+        )
+        .unwrap();
+        Config::from_path(&path)
+    };
+    assert_eq!(with("0").unwrap().inner.routing.stakes_weight, 0.0);
+    assert!(with("1.5").is_err() && with("-0.1").is_err() && with("nan").is_err());
 }
 
 #[test]

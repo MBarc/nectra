@@ -561,17 +561,36 @@ pub fn verify_dir(dir: &Path, output: &mut dyn Write) -> Result<()> {
     Ok(())
 }
 
+/// Set while an inference thread runs, timed out or not.
+static INFERRING: AtomicBool = AtomicBool::new(false);
+
 /// Runs `f` on its own thread and gives up after `deadline`. A late answer
 /// is dropped; inference can't be interrupted, so the thread finishes alone.
+/// One at a time: while an earlier `f` still runs, the call fails at once
+/// (and the message falls back to keywords) instead of queueing a thread
+/// behind it, so a stalled model can't pile up threads in `--serve`.
 fn within<T: Send + 'static>(
     deadline: Duration,
     f: impl FnOnce() -> Result<T> + Send + 'static,
 ) -> Result<T> {
+    if INFERRING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        bail!("Laya busy: an earlier message is still being classified");
+    }
+    struct Done;
+    impl Drop for Done {
+        fn drop(&mut self) {
+            INFERRING.store(false, Ordering::SeqCst);
+        }
+    }
+    let done = Done;
     let (tx, rx) = mpsc::channel();
     // Counted before the thread starts, so `exit` can't miss it.
     let busy = Busy::enter();
     std::thread::spawn(move || {
-        let _busy = busy;
+        let (_busy, _done) = (busy, done);
         tx.send(f())
     });
     rx.recv_timeout(deadline).map_err(|_| {
@@ -1225,13 +1244,26 @@ Connection: close
         assert!(auto_prepacking(None));
     }
     #[test]
-    fn gives_up_at_the_deadline() {
+    fn gives_up_at_the_deadline_and_never_queues_behind_it() {
         let slow = within(Duration::from_millis(50), || {
             std::thread::sleep(Duration::from_millis(500));
             Ok(1)
         });
         assert!(format!("{:#}", slow.unwrap_err()).contains("50 ms"));
-        assert_eq!(within(Duration::from_millis(500), || Ok(2)).unwrap(), 2);
+        // The timed-out work still runs: a new call is refused, not queued.
+        let started = std::time::Instant::now();
+        let ran = std::sync::Arc::new(AtomicBool::new(false));
+        let flag = ran.clone();
+        let busy = within(Duration::from_millis(500), move || {
+            flag.store(true, Ordering::SeqCst);
+            Ok(2)
+        });
+        assert!(format!("{:#}", busy.unwrap_err()).contains("busy"));
+        assert!(started.elapsed() < Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(600));
+        assert!(!ran.load(Ordering::SeqCst), "refused work must never run");
+        // Once it finishes, inference is accepted again.
+        assert_eq!(within(Duration::from_millis(500), || Ok(3)).unwrap(), 3);
     }
     /// The whole fetch path against a local copy of the release:
     /// `NECTRA_LAYA_ASSETS=<dir staged by scripts/release-laya.sh> cargo test --release -- --ignored fetches`

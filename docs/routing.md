@@ -47,7 +47,12 @@ short, trivial, minor. These describe the size of the work, not its kind:
 large document is not cheap work. Without Jev, a non-coding message of four words or fewer ("thanks, that worked") also counts as light. These keyword signals are the `keywords` backend and the
 fallback whenever the model is unavailable. With `[classifier] backend = "laya"`
 the local Laya model classifies each message's task, difficulty and role instead.
-It runs on this machine, so nothing leaves it. See [the model card](../tools/laya/MODEL_CARD.md). Physical building prompts such as "plan how to build a shed" classify
+It runs on this machine, so nothing leaves it. See [the model card](../tools/laya/MODEL_CARD.md).
+Laya tends to rate long, risky specs as moderate, so `[routing] stakes_weight`
+(default 0.30, 0 turns it off) adds a score computed from the prompt itself:
+constraint phrases such as "must never" or "rollback", numbered requirements,
+and several named components. It applies only to Laya's difficulty, and was
+fitted on `eval/laya/long-spec-tuning.json` with `tools/laya/sweep-stakes`. Physical building prompts such as "plan how to build a shed" classify
 as planning rather than coding. Responsibilities are defined in src/policy.rs;
 capability estimates remain editable in the registry.
 

@@ -63,6 +63,9 @@ jobs:
       - name: Pin the staged files
         run: python3 scripts/update_laya_pins.py "$TAG" SHA256SUMS
       - run: cargo build --release --locked
+      - name: Pins and package metadata agree
+        # Before the PR and the release: the deb's Breaks must name this model.
+        run: cargo test --release --locked --lib laya::tests::nectra_deb_breaks_older_models
       - name: Eval gate
         env:
           EVAL_SET: ${{ inputs.eval_set || 'fresh-test-3.json' }}
