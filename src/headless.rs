@@ -13,7 +13,7 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::Write,
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -300,6 +300,9 @@ struct Ledger {
     rollout: Rollout,
     /// agy: model calls counted from this attempt's steps.
     steps: usize,
+    /// Stable agy step identities already charged in this attempt. Providers
+    /// may repeat DONE updates or replay them when a conversation resumes.
+    agy_steps: HashSet<String>,
     /// Claude Code's own `total_cost_usd`, for cross-checking: on a resumed
     /// session it covers the whole session.
     provider_cost: Option<f64>,
@@ -314,6 +317,7 @@ impl Ledger {
         self.rejected = false;
         self.rollout = Rollout::default();
         self.steps = 0;
+        self.agy_steps.clear();
         self.rollout.based = thread.is_none();
         if d.runtime == "codex" && logged {
             self.rollout.thread = Some(thread.unwrap_or_default().to_string());
@@ -358,6 +362,14 @@ impl Ledger {
                         self.worked = true;
                     }
                     if step["state"] == "DONE" && step["usage"].is_object() {
+                        let conversation = step["conversation_id"]
+                            .as_str()
+                            .or_else(|| event["conversation_id"].as_str())
+                            .unwrap_or("");
+                        let identity = format!("{conversation}:{}", step["step_index"]);
+                        if !self.agy_steps.insert(identity) {
+                            return;
+                        }
                         let (t, complete) = agy_usage(&step["usage"]);
                         self.call(d, &d.model, t, complete);
                         self.steps += 1;
@@ -1850,6 +1862,18 @@ mod tests {
         // Cached or thinking tokens: counted, not claimed complete.
         let (_, exact) = agy_usage(&json!({"input_tokens":1,"thinking_tokens":5}));
         assert!(!exact);
+    }
+
+    #[test]
+    fn agy_repeated_done_updates_are_charged_once_by_conversation_and_step() {
+        let d = decision("agy", "gemini-3.8-flash-low");
+        let mut l = Ledger::default();
+        l.begin(&d, None, false);
+        let step = json!({"event":"step_update","conversation_id":"c1","step_update":{"conversation_id":"c1","step_index":4,"state":"DONE","step_type":"agent_response","usage":{"input_tokens":7,"output_tokens":2}}});
+        l.observe(&d, &step);
+        l.observe(&d, &step);
+        assert_eq!(l.calls.len(), 1);
+        assert_eq!(l.steps, 1);
     }
 
     #[test]
