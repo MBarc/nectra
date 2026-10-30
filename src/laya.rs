@@ -406,7 +406,16 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
     // Always the runtime the pins checked, by its full path: left to itself,
     // ort would look for it on the library path (or `ORT_DYLIB_PATH`), and
     // panic where that fails, inside a call that can't unwind.
-    let _environment = ort::init_from(dir.join(runtime))
+    // Never hand the loader the mutable, user-controlled runtime path that was
+    // just verified. Copy the verified native library into a private staging
+    // directory and bind ORT to that artifact for the lifetime of the engine.
+    // This closes the verify-then-replace window for native code; model data is
+    // still checked while the engine is constructed below.
+    let staged = tempfile::tempdir().context("creating verified runtime staging directory")?;
+    let staged_runtime = staged.path().join(runtime);
+    std::fs::copy(dir.join(runtime), &staged_runtime)
+        .with_context(|| format!("staging verified runtime from {}", dir.display()))?;
+    let _environment = ort::init_from(&staged_runtime)
         .with_context(|| format!("loading ONNX Runtime from {}", dir.display()))?;
     let engine = std::thread::scope(|s| {
         let weights = s.spawn(|| check_pins(dir, &weights, allow_unpinned, &stamp));
