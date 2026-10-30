@@ -146,10 +146,21 @@ pub(crate) struct OwnedChild {
 impl OwnedChild {
     pub(crate) fn spawn(command: &mut Command) -> Result<Self> {
         Scope::prepare(command);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            // Descendants can escape a job if the child runs before it is
+            // assigned. Keep it suspended until the job owns the process.
+            command.creation_flags(0x00000004); // CREATE_SUSPENDED
+        }
         let child = command.spawn().context("launching chat agent")?;
         let mut owned = Self { child, scope: None };
         match Scope::attach(owned.child.id()) {
-            Ok(scope) => owned.scope = Some(scope),
+            Ok(scope) => {
+                owned.scope = Some(scope);
+                #[cfg(windows)]
+                super::windows_job::resume(owned.child.id())?;
+            }
             Err(error) => {
                 if owned.child.try_wait()?.is_none() {
                     return Err(error);
