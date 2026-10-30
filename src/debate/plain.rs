@@ -50,6 +50,11 @@ pub fn provider_args(decision: &Decision, knowledge: Option<&str>) -> Result<Vec
             "none",
             "--permission-mode",
             "manual",
+            "--setting-sources",
+            "",
+            "--settings",
+            r#"{"disableAllHooks":true}"#,
+            "--disable-slash-commands",
             "--no-session-persistence",
             "--output-format",
             "stream-json",
@@ -95,8 +100,10 @@ impl<'a> PlainBackend<'a> {
         let deadline = std::time::Instant::now() + TURN_DEADLINE;
         let command = &self.cfg.inner.claude.command;
         let mut command_line = Command::new(command);
+        let neutral = tempfile::tempdir().context("creating debate working directory")?;
         command_line
             .args(&args)
+            .current_dir(neutral.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -111,7 +118,7 @@ impl<'a> PlainBackend<'a> {
             Some(_) => crate::knowledge::neutralise(prompt).into_owned(),
             None => prompt.to_owned(),
         };
-        let (written, _written_rx) = mpsc::channel();
+        let (written, written_rx) = mpsc::channel();
         std::thread::spawn(move || {
             let mut stdin = stdin;
             let result = std::io::Write::write_all(&mut stdin, prompt.as_bytes());
@@ -147,6 +154,16 @@ impl<'a> PlainBackend<'a> {
             }
             std::thread::sleep(Duration::from_millis(50));
         };
+
+        if status.is_some() {
+            let write_result = written_rx
+                .recv_timeout(Duration::from_secs(2))
+                .context("provider stdin writer did not finish")?;
+            write_result.context("writing debate prompt")?;
+        }
+        // Close the owned process scope before collecting output. This also
+        // closes descendants' inherited pipes after a normal provider exit.
+        child.stop();
 
         let stdout = stdout_rx
             .recv_timeout(Duration::from_secs(2))
