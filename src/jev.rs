@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use std::{
     borrow::Cow,
     fs,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -355,12 +355,24 @@ pub fn verify(key: &str) -> Result<()> {
 pub fn save_key(config_path: &Path, key: &str) -> Result<PathBuf> {
     let path = key_path(config_path).context("configuration path has no directory")?;
     fs::create_dir_all(path.parent().unwrap())?;
-    fs::write(&path, key)?;
+    let tmp = path.with_file_name(format!(".typesafe.key.{}.tmp", std::process::id()));
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&tmp)?;
+    file.write_all(key.as_bytes())?;
+    file.sync_all()?;
+    drop(file);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
     }
+    fs::rename(&tmp, &path)?;
     Ok(path)
 }
 
@@ -547,6 +559,18 @@ mod tests {
         .unwrap();
         std::env::remove_var(KEY_ENV);
         assert_eq!(api_key(&cfg).as_deref(), Some("sk-test"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(key_path(&cfg).unwrap())
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
     }
     #[test]
     fn falls_back_to_local_without_key() {
