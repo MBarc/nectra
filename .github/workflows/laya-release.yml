@@ -66,6 +66,8 @@ jobs:
       - name: Pins and package metadata agree
         # Before the PR and the release: the deb's Breaks must name this model.
         run: cargo test --release --locked --lib laya::tests::nectra_deb_breaks_older_models
+      - name: Gate checks behave
+        run: python3 scripts/test_laya_gate.py
       - name: Eval gate
         env:
           EVAL_SET: ${{ inputs.eval_set || 'fresh-test-3.json' }}
