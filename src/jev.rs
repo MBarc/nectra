@@ -177,18 +177,42 @@ const FILE_HEAD: u64 = 4096;
 const TOTAL_HEAD: u64 = 8192;
 const MAX_FILES: usize = 4;
 
+/// How far into a pointed-at file classification looks for an Orca dispatch's
+/// task marker.
+const SCAN: u64 = 64 * 1024;
+/// An Orca dispatch: a long preamble of CLI instructions, then the task.
+const TASK_MARKER: &str = "=== TASK ===";
+
+/// The part of a pointed-at file that says what to do: an Orca dispatch's
+/// TASK section (to the next `=== ... ===` heading) and true, or else the
+/// whole file and false.
+fn task_part(file: &str) -> (&str, bool) {
+    let Some(at) = file.find(TASK_MARKER) else {
+        return (file, false);
+    };
+    let task = &file[at + TASK_MARKER.len()..];
+    let end = task.find("\n=== ").unwrap_or(task.len());
+    (task[..end].trim(), true)
+}
+
 /// A prompt that hands over its task as a local text file ("Read
 /// .orca-task/dispatch.md, it is your task") classifies on that file, not on
-/// the pointer sentence. Returns the head of each such file, then the prompt,
-/// plus a note for the routing reason (empty when nothing was read).
+/// the pointer sentence. Returns the head of each such file (an Orca
+/// dispatch's TASK section, never its boilerplate preamble), then the prompt;
+/// a note for the routing reason (empty when nothing was read); and the text
+/// the stakes score reads: the dispatch tasks, or else the prompt alone,
+/// since an arbitrary file's head says little about what is at stake.
 ///
 /// Conservative: only .md/.txt/.toml/.json regular files inside `root`, named
 /// within three words after read/follow/see/open/do/implement or as one of the
 /// first two words of a short prompt. Questions ("why does config.toml fail
 /// to parse", with or without "?") never expand. Never follows URLs, network
 /// paths or symlinks.
-fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String) {
-    let unchanged = || (Cow::Borrowed(prompt), String::new());
+fn with_referenced_files<'a>(
+    prompt: &'a str,
+    root: &Path,
+) -> (Cow<'a, str>, String, Cow<'a, str>) {
+    let unchanged = || (Cow::Borrowed(prompt), String::new(), Cow::Borrowed(prompt));
     let words: Vec<&str> = prompt.split_whitespace().collect();
     let first = words.first().map(|w| w.to_lowercase()).unwrap_or_default();
     let question = prompt.trim_end().ends_with('?')
@@ -227,21 +251,29 @@ fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, Str
     }
     // The file goes first: it is the task, and Laya reads the opening most.
     let mut text = String::new();
+    let mut tasks = String::new();
     let mut used = Vec::new();
     let mut budget = TOTAL_HEAD;
     for (name, path) in files {
-        let mut head = Vec::new();
-        let take = FILE_HEAD.min(budget);
-        let read = fs::File::open(&path).and_then(|f| f.take(take).read_to_end(&mut head));
+        let mut raw = Vec::new();
+        let read = fs::File::open(&path).and_then(|f| f.take(SCAN).read_to_end(&mut raw));
+        let raw = String::from_utf8_lossy(&raw);
+        let (part, dispatch) = task_part(&raw);
+        let mut take = FILE_HEAD.min(budget) as usize;
+        while !part.is_char_boundary(take.min(part.len())) {
+            take -= 1;
+        }
+        let head = &part[..take.min(part.len())];
         if read.is_ok() && !head.is_empty() {
             budget -= head.len() as u64;
-            text.push_str(&String::from_utf8_lossy(&head));
-            text.push_str(
-                "
-
-",
-            );
-            used.push(format!("{name} ({} bytes)", head.len()));
+            text.push_str(head);
+            text.push_str("\n\n");
+            if dispatch {
+                tasks.push_str(head);
+                tasks.push_str("\n\n");
+            }
+            let what = if dispatch { "TASK, " } else { "" };
+            used.push(format!("{name} ({what}{} bytes)", head.len()));
         }
         if budget == 0 {
             break;
@@ -251,6 +283,11 @@ fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, Str
         return unchanged();
     }
     text.push_str(prompt);
+    let stakes = if tasks.is_empty() {
+        Cow::Borrowed(prompt)
+    } else {
+        Cow::Owned(tasks)
+    };
     if std::env::var_os("NECTRA_DEBUG").is_some() {
         eprintln!(
             "nectra: debug: classifying with file content: {}",
@@ -258,7 +295,7 @@ fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, Str
         );
     }
     let note = format!("; classified with the content of {}", used.join(", "));
-    (Cow::Owned(text), note)
+    (Cow::Owned(text), note, stakes)
 }
 
 /// Whether `word` may be looked up on disk at all: only plain relative
@@ -313,16 +350,43 @@ pub fn classify_turn_in(
     roles: &[Role],
     root: Option<&Path>,
 ) -> Classification {
-    let (text, note) = match root.filter(|_| !cfg.no_tools) {
+    let (text, note, stakes_text) = match root.filter(|_| !cfg.no_tools) {
         Some(root) => with_referenced_files(prompt, root),
-        None => (Cow::Borrowed(prompt), String::new()),
+        None => (Cow::Borrowed(prompt), String::new(), Cow::Borrowed(prompt)),
     };
-    classify_text(&text, &note, previous, cfg, roles)
+    classify_text(&text, &note, &stakes_text, previous, cfg, roles)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A stand-in Laya for this test thread: the difficulty it answers, and
+    /// every text it was asked to classify.
+    static TEST_LAYA: std::cell::RefCell<Option<(f64, Vec<String>)>> = const { std::cell::RefCell::new(None) };
+}
+
+fn ask_laya(text: &str, previous: Option<&str>, roles: &[Role], cfg: &Config) -> Result<Answer> {
+    #[cfg(test)]
+    if let Some(difficulty) = TEST_LAYA.with(|l| {
+        l.borrow_mut().as_mut().map(|(d, seen)| {
+            seen.push(text.to_string());
+            *d
+        })
+    }) {
+        return Ok(Answer {
+            task: TaskType::CodeGeneration,
+            confidence: 1.0,
+            difficulty,
+            new_task: None,
+            role: None,
+        });
+    }
+    crate::laya::ask(text, previous, roles, cfg)
 }
 
 fn classify_text(
     text: &str,
     note: &str,
+    stakes_text: &str,
     previous: Option<&str>,
     cfg: &Config,
     roles: &[Role],
@@ -338,7 +402,7 @@ fn classify_text(
     let c = &cfg.inner.classifier;
     // The local model runs on this machine, so even a local-only setup may use it.
     let (source, answer) = if c.backend == ClassifierBackend::Laya {
-        ("laya", crate::laya::ask(text, previous, roles, cfg))
+        ("laya", ask_laya(text, previous, roles, cfg))
     } else {
         let Some(key) = api_key(&cfg.path).filter(|_| allowed(cfg)) else {
             return local();
@@ -356,7 +420,7 @@ fn classify_text(
             // `[routing] stakes_weight`, fitted on eval/laya/long-spec-tuning.json
             // by tools/laya/sweep-stakes; 0 turns the signal off.
             let weight = cfg.inner.routing.stakes_weight;
-            let stakes = (source == "laya" && weight > 0.0).then(|| stakes_score(text));
+            let stakes = (source == "laya" && weight > 0.0).then(|| stakes_score(stakes_text));
             let difficulty = stakes.map_or(raw_difficulty, |score| {
                 (raw_difficulty + weight * score).min(1.0)
             });
@@ -831,12 +895,43 @@ mod tests {
         );
         TEST_ENDPOINT.with(|e| *e.borrow_mut() = None);
     }
+    /// An Orca dispatch the size of a real one: the TASK starts past FILE_HEAD.
+    fn dispatch(task: &str) -> String {
+        let preamble = "Run `orca orchestration send --type status` to report. Never use the Bash tool; security review of the CLI is done.\n".repeat(45);
+        format!("You are an Orca worker.\n{preamble}\n=== AFTER YOU SEND worker_done ===\nStop.\n\n=== TASK ===\n{task}\n")
+    }
+    #[test]
+    fn a_dispatch_classifies_on_its_task_not_its_preamble() {
+        let task = "Implement the payment worker under concurrency. It must never double charge; make it idempotent and rollback on failure.";
+        let file = dispatch(task);
+        assert!(file.find(TASK_MARKER).unwrap() > FILE_HEAD as usize);
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join(".orca-task")).unwrap();
+        fs::write(dir.path().join(".orca-task/dispatch-x.md"), &file).unwrap();
+        let (text, note, stakes) = with_referenced_files(POINTER, dir.path());
+        assert!(text.starts_with(task) && !text.contains("orca orchestration send --type"), "{text}");
+        assert!(note.contains("TASK"), "{note}");
+        assert_eq!(stakes.trim(), task);
+        // Laya sees the task; stakes scores it, not the preamble's boilerplate.
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.classifier.backend = ClassifierBackend::Laya;
+        TEST_LAYA.with(|l| *l.borrow_mut() = Some((0.5, Vec::new())));
+        let c = classify_turn_in(POINTER, None, &cfg, &[], Some(dir.path()));
+        let seen = TEST_LAYA.with(|l| l.borrow_mut().take().unwrap().1);
+        assert!(seen[0].starts_with(task), "{}", seen[0]);
+        assert!(c.why.contains(&format!("stakes {:.2}", stakes_score(task))), "{}", c.why);
+        assert_eq!(c.tier, Some(Tier::Demanding));
+        // A plain file is read for Laya, but stakes scores the prompt alone.
+        fs::write(dir.path().join(".orca-task/dispatch-x.md"), file.replace(TASK_MARKER, "TASK")).unwrap();
+        let (text, _, stakes) = with_referenced_files(POINTER, dir.path());
+        assert!(text.starts_with("You are an Orca worker.") && stakes == POINTER);
+    }
     #[test]
     fn oversized_files_are_truncated() {
         let dir = tempfile::tempdir().unwrap();
         let big = format!("{}{SPEC}", "x".repeat(FILE_HEAD as usize));
         fs::write(dir.path().join("big.md"), big).unwrap();
-        let (text, note) = with_referenced_files("Read big.md", dir.path());
+        let (text, note, _) = with_referenced_files("Read big.md", dir.path());
         assert!(note.contains("big.md"));
         assert!(text.len() <= "Read big.md".len() + 2 + FILE_HEAD as usize);
         assert!(!text.contains("architecture"));
@@ -873,7 +968,7 @@ mod tests {
             fs::write(dir.path().join(f), "y".repeat(FILE_HEAD as usize)).unwrap();
         }
         let prompt = "Read a.md, b.md, c.md, d.md";
-        let (text, note) = with_referenced_files(prompt, dir.path());
+        let (text, note, _) = with_referenced_files(prompt, dir.path());
         assert!(
             text.len() <= prompt.len() + 4 + TOTAL_HEAD as usize,
             "{}",
