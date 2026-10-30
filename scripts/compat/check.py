@@ -12,19 +12,21 @@ keys in CI). Exits non-zero when anything fails.
 import argparse, json, os, re, shutil, subprocess, sys, tempfile, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CHEAP = {"anthropic": "haiku", "openai": "gpt-5.6-luna", "google": "gemini-2.5-flash"}
-CLI = {"anthropic": "claude", "openai": "codex", "google": "gemini"}
+CHEAP = {"anthropic": "haiku", "openai": "gpt-5.6-luna", "google": "gemini-3.8-flash-low"}
+CLI = {"anthropic": "claude", "openai": "codex", "google": "agy"}
 # Flags Nectra passes (src/executor, src/mcp.rs), by the help text that must list them.
 FLAGS = {
     ("claude", "--help"): ["-p", "--model", "--output-format", "stream-json", "--effort", "--verbose",
                            "--include-partial-messages", "--no-session-persistence", "--settings",
                            "--session-id", "--resume", "--mcp-config", "--strict-mcp-config", "--tools",
-                           "--permission-mode", "--dangerously-skip-permissions"],
+                           "--permission-mode", "--dangerously-skip-permissions", "--setting-sources",
+                           "--disable-slash-commands"],
     ("codex", "exec", "--help"): ["--model", "--config", "--json", "--ephemeral", "--sandbox",
                                   "--dangerously-bypass-approvals-and-sandbox", "read-only"],
     ("codex", "exec", "resume", "--help"): ["--model", "--config", "--json"],
     ("codex", "--help"): ["--ask-for-approval", "on-request", "--no-alt-screen", "--config"],
-    ("gemini", "--help"): ["--model", "--output-format", "stream-json", "--approval-mode"],
+    ("agy", "--help"): ["--model", "--output-format", "stream-json", "--input-format",
+                          "--print", "--dangerously-skip-permissions"],
 }
 results = []
 
@@ -141,7 +143,8 @@ def stream_cmd(runtime, model):
         "claude": ["claude", "-p", "--model", model, "--output-format", "stream-json", "--verbose",
                    "--no-session-persistence", QUESTION],
         "codex": ["codex", "exec", "--model", model, "--json", "--ephemeral", "--sandbox", "read-only", QUESTION],
-        "gemini": ["gemini", "-m", model, "-o", "stream-json", "-p", QUESTION],
+        "agy": ["agy", "--print=", "--input-format", "stream-json", "--model", model,
+                "--output-format", "stream-json"],
     }[runtime]
 
 

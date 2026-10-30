@@ -28,9 +28,9 @@ SAFETY = re.compile(r"dangerous|bypass|skip")
 STREAM_NEEDS = {
     "claude": {"result": ["result", "subtype"]},
     "codex": {"item.completed": ["item.type", "item.text"], "turn.completed": []},
-    "gemini": {"message": ["role", "content"], "result": ["status"]},
+    "agy": {"step_update": ["state", "step_type"], "result": []},
 }
-RUNTIME = {"anthropic": "claude", "openai": "codex", "google": "gemini"}
+RUNTIME = {"anthropic": "claude", "openai": "codex", "google": "agy"}
 
 
 # In check.py, beside FLAGS, so a generated flag rename updates the probes too.
@@ -132,7 +132,7 @@ def observe(providers, registry_text, state, live, work, max_probes=3):
         catalog, error = codex_catalog()
         obs["models"]["openai"] = {"catalog": catalog, "error": error}
     if "google" in providers:
-        bundle, found = gemini_bundle(), {"listed": [], "mentioned": [], "error": "Gemini CLI bundle not found"}
+        bundle, found = None, {"listed": [], "mentioned": [], "error": "agy model inventory is account-specific; configured ids are probed below"}
         if bundle:
             text = "".join(open(os.path.join(bundle, f), encoding="utf-8", errors="replace").read()
                            for f in os.listdir(bundle) if f.endswith(".js"))
