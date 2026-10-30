@@ -42,7 +42,11 @@ jobs:
           cat plan
           [ -s plan ] || { echo "no debs to publish"; exit 1; }
           while read -r suite tag asset <&3; do
-            git merge-base --is-ancestor "$tag" origin/master || { echo "$tag is not on master"; exit 1; }
+            # Resolve the tag once. Both the ancestry check and attestation
+            # check must name the same immutable commit; a mutable tag name is
+            # not sufficient provenance.
+            commit=$(git rev-parse --verify "$tag^{commit}")
+            git merge-base --is-ancestor "$commit" origin/master || { echo "$tag ($commit) is not on master"; exit 1; }
             mkdir -p "dl/$tag" "debs/$suite"
             gh release download "$tag" --pattern "$asset" --pattern "$asset.sha256" --dir "dl/$tag"
             (cd "dl/$tag" && sha256sum --check --strict -- "$asset.sha256")
@@ -50,7 +54,7 @@ jobs:
             # what ties the bytes to release.yml running on that tag.
             gh attestation verify "dl/$tag/$asset" --repo "$GITHUB_REPOSITORY" \
               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
-              --source-ref "refs/tags/$tag" --deny-self-hosted-runners
+              --source-ref "refs/tags/$tag" --source-digest "$commit" --deny-self-hosted-runners
             cp "dl/$tag/$asset" "debs/$suite/"
           done 3< plan
       - name: Build and sign the repository

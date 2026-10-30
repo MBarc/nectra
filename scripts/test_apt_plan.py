@@ -45,4 +45,10 @@ many = [rel(f"v1.{i}.0", i + 1, False, [f"nectra_1.{i}.0-1_amd64.deb", key]) for
 names = [n for _, _, n in p.plan(many)]
 assert names == [key, "nectra_1.2.0-1_amd64.deb", "nectra_1.3.0-1_amd64.deb", "nectra_1.4.0-1_amd64.deb"], names
 assert p.plan(many)[0][1] == "v1.0.0"
+
+# Publication must bind both checks to one resolved commit, never only to a
+# mutable tag name.
+workflow = (Path(__file__).parents[1] / ".github" / "workflows" / "apt-publish.yml").read_text()
+assert 'git rev-parse --verify "$tag^{commit}"' in workflow
+assert '--source-digest "$commit"' in workflow
 print("ok")
