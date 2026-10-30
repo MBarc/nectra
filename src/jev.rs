@@ -41,17 +41,20 @@ fn stakes_score(prompt: &str) -> f64 {
             let line = line.trim_start();
             line.starts_with("- ")
                 || line.starts_with("* ")
-                || line
-                    .find(['.', ')'])
-                    .is_some_and(|end| end > 0 && line[..end].chars().all(|c| c.is_ascii_digit()))
+                // "1. " or "12) ", not a year ("2026.") or a number ("3.14").
+                || line.find(['.', ')']).is_some_and(|end| {
+                    (1..=2).contains(&end)
+                        && line[..end].chars().all(|c| c.is_ascii_digit())
+                        && line[end + 1..].starts_with(' ')
+                })
         })
         .count();
     score += 0.05 * requirements.min(4) as f64;
 
     const CONSTRAINTS: &str = concat!(
-        "must never|under concurrency|concurrent|rollback|security review|security-critical|",
-        "security-relevant|idempotent|idempotency|migration|fail closed|data loss|constant time|",
-        "replay|untrusted|hostile|transaction|revoke|rotation|token issuance|path traversal|",
+        "must never|under concurrency|rollback|security review|security-critical|",
+        "security-relevant|idempotent|idempotency|fail closed|data loss|constant time|",
+        "replay|untrusted|hostile|revoke|rotation|token issuance|path traversal|",
         "zip-slip|symlink|csrf|pkce|hmac|dedupe|double-charge|double charge|double payout|",
         "processed twice|exactly once",
     );
@@ -60,23 +63,33 @@ fn stakes_score(prompt: &str) -> f64 {
         .filter(|phrase| lower.contains(*phrase))
         .count();
     score += 0.12 * constraints.min(5) as f64;
+    // Everyday words in ordinary work too ("add a migration"): a little,
+    // and never enough alone to lift the cap below.
+    let generic = ["transaction", "migration", "concurrent"]
+        .iter()
+        .filter(|w| lower.contains(*w))
+        .count();
+    score += 0.04 * generic as f64;
 
     let path_refs = lower
         .split_whitespace()
+        .map(|word| word.trim_matches(|c: char| !c.is_alphanumeric() && !"./\\~_-".contains(c)))
         .filter(|word| {
-            word.contains('/')
-                || word.contains('\\')
-                || ".rs .py .ts .tsx .js .toml .json .md"
+            // Not URLs, and not "and/or" or "i/o": a path has an extension,
+            // two separators, or a relative start.
+            !word.contains("://")
+                && !word.starts_with("www.")
+                && (".rs .py .ts .tsx .js .toml .json .md"
                     .split_whitespace()
-                    .any(|suffix| {
-                        word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.')
-                            .ends_with(suffix)
-                    })
+                    .any(|suffix| word.ends_with(suffix) && word.len() > suffix.len())
+                    || word.matches(['/', '\\']).count() >= 2
+                    || ["./", "../", "~/"].iter().any(|p| word.starts_with(p)))
         })
         .take(2)
         .count();
+    // No "client": "client and server" is one system, not two components.
     let named_components =
-        " component| module| service| worker| api| database| frontend| backend| client| server"
+        " component| module| service| worker| api| database| frontend| backend| server"
             .split('|')
             .filter(|name| lower.contains(*name))
             .take(2)
@@ -682,6 +695,57 @@ mod tests {
         assert_eq!(stakes_score(&routine), 0.20);
         assert!(stakes_score(risky) >= 0.60, "{}", stakes_score(risky));
         assert!(stakes_score("write a limerick") < 0.10);
+    }
+    #[test]
+    fn stakes_ignore_years_decimals_slashes_urls_and_everyday_words() {
+        let risky = "Fix the handler; it must never double charge.";
+        let base = stakes_score(risky);
+        // Lines starting with a year or a decimal are not numbered requirements.
+        assert_eq!(stakes_score(&format!("{risky}\n2026. was a good year\n3.14 is pi")), base);
+        assert!(stakes_score(&format!("{risky}\n1. one\n2) two")) > base);
+        // "and/or", "I/O" and URLs are not paths; two real paths are.
+        let paths = |words: &str| stakes_score(&format!("{risky} {words}")) > base;
+        assert!(!paths("and/or I/O"));
+        assert!(!paths("https://a.example/x/y.md www.example.com/a/b"));
+        assert!(paths("src/router.rs and ./scripts/gate"));
+        // Client and server are one system, not two components.
+        assert!(!paths("the client and the server"));
+        // Everyday words alone stay under the cap.
+        assert_eq!(stakes_score(&"Add a migration and a transaction for concurrent jobs. ".repeat(30)), 0.20);
+        assert!(stakes_score("Add a migration") < 0.05);
+    }
+    #[test]
+    fn stakes_and_blend_never_exceed_one() {
+        let everything = format!(
+            "{}\n1. a\n2. b\n3. c\n4. d\nsrc/a.rs src/b.rs",
+            "must never under concurrency rollback security review idempotent data loss replay hostile ".repeat(20)
+        );
+        assert_eq!(stakes_score(&everything), 1.0);
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.classifier.backend = ClassifierBackend::Laya;
+        cfg.inner.routing.stakes_weight = 1.0;
+        TEST_LAYA.with(|l| *l.borrow_mut() = Some((0.95, Vec::new())));
+        let c = classify_turn_in(&everything, None, &cfg, &[], None);
+        TEST_LAYA.with(|l| *l.borrow_mut() = None);
+        assert!(c.why.contains("= 1.00 -> Demanding"), "{}", c.why);
+    }
+    #[test]
+    fn stakes_weight_zero_leaves_laya_difficulty_alone() {
+        let risky = "Implement the payment worker under concurrency. It must never double charge; make it idempotent and rollback on failure.";
+        let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.classifier.backend = ClassifierBackend::Laya;
+        let tier = |cfg: &Config| {
+            TEST_LAYA.with(|l| *l.borrow_mut() = Some((0.5, Vec::new())));
+            let c = classify_turn_in(risky, None, cfg, &[], None);
+            TEST_LAYA.with(|l| *l.borrow_mut() = None);
+            c
+        };
+        let on = tier(&cfg);
+        assert_eq!(on.tier, Some(Tier::Demanding), "{}", on.why);
+        cfg.inner.routing.stakes_weight = 0.0;
+        let off = tier(&cfg);
+        assert_eq!(off.tier, Some(Tier::Normal), "{}", off.why);
+        assert!(off.why.contains("difficulty 0.50 -> Normal") && !off.why.contains("stakes"), "{}", off.why);
     }
     #[test]
     fn parses_a_real_response_shape() {
