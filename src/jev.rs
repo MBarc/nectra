@@ -21,6 +21,76 @@ use std::{
 pub const KEY_ENV: &str = "TYPESAFE_API_KEY";
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
 
+/// A small prompt-only signal for work whose consequences or coordination are
+/// easy for the three-way difficulty head to understate. This deliberately
+/// rewards combinations of spec shape and concrete risk language; length by
+/// itself has little effect.
+fn stakes_score(prompt: &str) -> f64 {
+    let lower = prompt.to_lowercase();
+    let length = prompt.chars().count();
+    let mut score = match length {
+        1_200.. => 0.20,
+        700.. => 0.15,
+        400.. => 0.10,
+        _ => 0.0,
+    };
+
+    let requirements = prompt
+        .lines()
+        .filter(|line| {
+            let line = line.trim_start();
+            line.starts_with("- ")
+                || line.starts_with("* ")
+                || line
+                    .find(['.', ')'])
+                    .is_some_and(|end| end > 0 && line[..end].chars().all(|c| c.is_ascii_digit()))
+        })
+        .count();
+    score += 0.05 * requirements.min(4) as f64;
+
+    const CONSTRAINTS: &str = concat!(
+        "must never|under concurrency|concurrent|rollback|security review|security-critical|",
+        "security-relevant|idempotent|idempotency|migration|fail closed|data loss|constant time|",
+        "replay|untrusted|hostile|transaction|revoke|rotation|token issuance|path traversal|",
+        "zip-slip|symlink|csrf|pkce|hmac|dedupe|double-charge|double charge|double payout|",
+        "processed twice|exactly once",
+    );
+    let constraints = CONSTRAINTS
+        .split('|')
+        .filter(|phrase| lower.contains(*phrase))
+        .count();
+    score += 0.12 * constraints.min(5) as f64;
+
+    let path_refs = lower
+        .split_whitespace()
+        .filter(|word| {
+            word.contains('/')
+                || word.contains('\\')
+                || ".rs .py .ts .tsx .js .toml .json .md"
+                    .split_whitespace()
+                    .any(|suffix| {
+                        word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.')
+                            .ends_with(suffix)
+                    })
+        })
+        .take(2)
+        .count();
+    let named_components =
+        " component| module| service| worker| api| database| frontend| backend| client| server"
+            .split('|')
+            .filter(|name| lower.contains(*name))
+            .take(2)
+            .count();
+    if path_refs + named_components >= 2 {
+        score += 0.15;
+    }
+
+    if constraints == 0 {
+        score = score.min(0.20);
+    }
+    score.min(1.0)
+}
+
 #[cfg(test)]
 thread_local! {
     /// Where this test thread's Jev requests go instead of TypeSafe.
@@ -279,10 +349,25 @@ fn classify_text(
         Ok(Answer {
             task,
             confidence,
-            difficulty,
+            difficulty: raw_difficulty,
             new_task,
             role,
         }) => {
+            // `[routing] stakes_weight`, fitted on eval/laya/long-spec-tuning.json
+            // by tools/laya/sweep-stakes; 0 turns the signal off.
+            let weight = cfg.inner.routing.stakes_weight;
+            let stakes = (source == "laya" && weight > 0.0).then(|| stakes_score(text));
+            let difficulty = stakes.map_or(raw_difficulty, |score| {
+                (raw_difficulty + weight * score).min(1.0)
+            });
+            let difficulty_summary = stakes.map_or_else(
+                || format!("{difficulty:.2}"),
+                |score| {
+                    format!(
+                        "{raw_difficulty:.2} + {weight:.3} x stakes {score:.2} = {difficulty:.2}"
+                    )
+                },
+            );
             let tier = if difficulty < c.simple_below {
                 Tier::Simple
             } else if difficulty > c.demanding_above {
@@ -295,7 +380,7 @@ fn classify_text(
                 req: classifier::requirements(task),
                 tier: Some(tier),
                 why: format!(
-                    "{source} classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty:.2} -> {tier:?}{}){}",
+                    "{source} classified prompt as {task} (confidence {confidence:.2}, difficulty {difficulty_summary} -> {tier:?}{}){}",
                     role.as_deref().map(|r| format!(", role {r}")).unwrap_or_default(),
                     note
                 ),
@@ -503,6 +588,14 @@ fn parse(resp: &Value) -> Result<Answer> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stakes_reward_risky_specs_without_treating_length_as_risk() {
+        let routine = "Update the README with a short setup example. ".repeat(30);
+        let risky = "Implement the payment worker under concurrency. The operation must never run twice; make it idempotent, use one database transaction, and rollback on failure.";
+        assert_eq!(stakes_score(&routine), 0.20);
+        assert!(stakes_score(risky) >= 0.60, "{}", stakes_score(risky));
+        assert!(stakes_score("write a limerick") < 0.10);
+    }
     #[test]
     fn parses_a_real_response_shape() {
         let resp = json!({"model":"jev-1.13.0","answers":{

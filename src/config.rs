@@ -32,6 +32,9 @@ pub struct RoutingConfig {
     /// handoff note and send that with recent turns instead of the transcript.
     #[serde(default = "enabled")]
     pub handoff_summary: bool,
+    /// How much the prompt's stakes score (constraint phrases, numbered
+    /// requirements, several components) adds to Laya's difficulty; 0 turns it off.
+    pub stakes_weight: f64,
 }
 fn enabled() -> bool {
     true
@@ -44,6 +47,7 @@ impl Default for RoutingConfig {
             resume_sessions: true,
             sticky: true,
             handoff_summary: true,
+            stakes_weight: 0.30,
         }
     }
 }
@@ -257,6 +261,9 @@ impl Config {
             || !(0.0..=1.0).contains(&self.inner.routing.confidence_margin)
         {
             bail!("confidence_margin must be finite and between 0 and 1");
+        }
+        if !(0.0..=1.0).contains(&self.inner.routing.stakes_weight) {
+            bail!("stakes_weight must be between 0 and 1");
         }
         for runtime in [
             &self.inner.claude,

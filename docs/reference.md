@@ -353,6 +353,16 @@ backend = "laya"
 - **A failed load** is remembered until Nectra restarts.
 - **Accuracy:** 97.7% on a 1031-prompt held-out set (95% CI 96.6-98.4%). See
   `tools/laya/MODEL_CARD.md`.
+- **Stakes:** Laya's difficulty is raised by `stakes_weight` times a score
+  computed from the prompt itself: constraint phrases ("must never", "under
+  concurrency", "rollback", "security review"), numbered requirements or
+  bullets, length, and several named components or files. `route` shows the
+  sum. `0` turns it off:
+
+  ```toml
+  [routing]
+  stakes_weight = 0.30   # default; 0 to 1
+  ```
 
 `nectra eval` uses the configured classifier, so the same corpus compares both.
 Difficulty saves tokens only when the registry has a cheap model claiming the
