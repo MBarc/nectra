@@ -132,8 +132,15 @@ impl SequenceBuilder {
         head_max_len: usize,
         truncate_left: bool,
     ) -> Result<(Vec<u32>, Vec<usize>)> {
-        Self::build_with_stats(tokenizer, state, question, max_len, head_max_len, truncate_left)
-            .map(|(ids, markers, _)| (ids, markers))
+        Self::build_with_stats(
+            tokenizer,
+            state,
+            question,
+            max_len,
+            head_max_len,
+            truncate_left,
+        )
+        .map(|(ids, markers, _)| (ids, markers))
     }
 
     pub(crate) fn build_with_stats(
@@ -226,7 +233,10 @@ impl SequenceBuilder {
             tokens: state_ids.len(),
             dropped: state_ids.len() - sliced.len(),
             options: {
-                let distinct = option_ids.iter().collect::<std::collections::HashSet<_>>().len();
+                let distinct = option_ids
+                    .iter()
+                    .collect::<std::collections::HashSet<_>>()
+                    .len();
                 (distinct < option_ids.len()).then_some(crate::answers::OptionUsage {
                     total: option_ids.len(),
                     distinct,

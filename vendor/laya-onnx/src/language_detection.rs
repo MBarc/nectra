@@ -502,13 +502,15 @@ impl LanguageDetection {
         let mut current = String::new();
         let mut script = None;
         let is_word = |word: &str| {
-            word.chars().count() >= 2
-                && word.chars().next().is_some_and(|c| !c.is_uppercase())
+            word.chars().count() >= 2 && word.chars().next().is_some_and(|c| !c.is_uppercase())
         };
         for ch in text.chars() {
-            if matches!(get_general_category(ch), GeneralCategory::NonspacingMark
-                | GeneralCategory::SpacingMark | GeneralCategory::EnclosingMark)
-            {
+            if matches!(
+                get_general_category(ch),
+                GeneralCategory::NonspacingMark
+                    | GeneralCategory::SpacingMark
+                    | GeneralCategory::EnclosingMark
+            ) {
                 continue;
             }
             let next = if Self::is_alpha(ch) && !Self::is_latin_codepoint(ch as u32) {
@@ -544,7 +546,8 @@ impl LanguageDetection {
         };
         let n_non_latin = (non_latin * text.chars().filter(|&c| Self::is_alpha(c)).count() as f64)
             .round_ties_even();
-        if script == "latin" && Self::has_non_latin_words(&text)
+        if script == "latin"
+            && Self::has_non_latin_words(&text)
             && (non_latin >= 0.2 || (non_latin >= 0.1 && n_non_latin >= 10.0))
         {
             // Preserve Python's first-seen tie order, rather than HashMap iteration order.

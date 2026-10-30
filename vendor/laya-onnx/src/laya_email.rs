@@ -150,9 +150,10 @@ impl LayaEmail {
                 let mut pieces = Vec::new();
                 let mut buf = String::new();
                 for line in part.lines().map(str::trim).filter(|l| !l.is_empty()) {
-                    let starts_sentence = line.chars().find(|&c| {
-                        crate::language_detection::LanguageDetection::is_alpha(c)
-                    }).is_some_and(char::is_uppercase);
+                    let starts_sentence = line
+                        .chars()
+                        .find(|&c| crate::language_detection::LanguageDetection::is_alpha(c))
+                        .is_some_and(char::is_uppercase);
                     if !buf.is_empty() && starts_sentence {
                         pieces.push(std::mem::take(&mut buf));
                     }

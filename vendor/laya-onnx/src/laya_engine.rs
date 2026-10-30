@@ -547,7 +547,9 @@ fn build_answer(question: &Question, p: &[f64], action: ActionInfo) -> Answer {
             let expected = Calibration::round4(Calibration::expected_score(p));
             Answer::Score(ScoreAnswer::new(
                 expected,
-                score.levels().iter()
+                score
+                    .levels()
+                    .iter()
                     .map(|level| Value::String(crate::python_json::PythonJson::criterion(level)))
                     .collect(),
                 probabilities,
@@ -691,12 +693,18 @@ mod tests {
     fn score_legends_render_structured_levels_as_strings() {
         let question = Question::score(
             "severity",
-            [json!({"label": "info", "cvss": 0.0}), json!({"label": "high", "cvss": 7.5})],
-        ).unwrap();
+            [
+                json!({"label": "info", "cvss": 0.0}),
+                json!({"label": "high", "cvss": 7.5}),
+            ],
+        )
+        .unwrap();
         let Answer::Score(answer) = build_answer(
             &question,
             &[0.25, 0.75],
-            ActionInfo { act_probability: 1.0 },
+            ActionInfo {
+                act_probability: 1.0,
+            },
         ) else {
             panic!("score question must produce a score answer");
         };
