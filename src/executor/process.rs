@@ -139,12 +139,12 @@ impl Scope {
     }
 }
 
-pub(super) struct OwnedChild {
+pub(crate) struct OwnedChild {
     pub child: Child,
     scope: Option<Scope>,
 }
 impl OwnedChild {
-    pub fn spawn(command: &mut Command) -> Result<Self> {
+    pub(crate) fn spawn(command: &mut Command) -> Result<Self> {
         Scope::prepare(command);
         let child = command.spawn().context("launching chat agent")?;
         let mut owned = Self { child, scope: None };
@@ -158,7 +158,7 @@ impl OwnedChild {
         }
         Ok(owned)
     }
-    pub fn stop(&mut self) {
+    pub(crate) fn stop(&mut self) {
         if let Some(scope) = self.scope.take() {
             scope.terminate();
         }

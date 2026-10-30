@@ -12,8 +12,9 @@
 use crate::{config::Config, executor::CancellationToken, models::Runtime, router::Decision};
 use anyhow::{bail, Context, Result};
 use std::{
-    io::{Read, Write},
+    io::Read,
     process::{Command, Stdio},
+    sync::mpsc,
     time::Duration,
 };
 
@@ -91,57 +92,68 @@ impl<'a> PlainBackend<'a> {
         cancel: &CancellationToken,
     ) -> Result<String> {
         let args = provider_args(decision, self.cfg.knowledge.as_deref())?;
+        let deadline = std::time::Instant::now() + TURN_DEADLINE;
         let command = &self.cfg.inner.claude.command;
-        let mut child = Command::new(command)
+        let mut command_line = Command::new(command);
+        command_line
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .stderr(Stdio::piped());
+        let mut child = crate::executor::process::OwnedChild::spawn(&mut command_line)
             .with_context(|| format!("launching {command} for debate"))?;
 
         // The prompt goes down stdin, not the command line: a debate prompt
         // carries the shared transcript and would exceed the Windows
         // command-line limit.
-        let mut stdin = child.stdin.take().context("provider stdin")?;
+        let stdin = child.child.stdin.take().context("provider stdin")?;
         let prompt = match self.cfg.knowledge {
             Some(_) => crate::knowledge::neutralise(prompt),
             None => prompt.into(),
         };
-        stdin.write_all(prompt.as_bytes())?;
-        drop(stdin);
+        let (written, prompt) = (mpsc::channel(), prompt);
+        std::thread::spawn(move || {
+            let mut stdin = stdin;
+            let result = std::io::Write::write_all(&mut stdin, prompt.as_bytes());
+            drop(stdin);
+            let _ = written.send(result);
+        });
 
         // Both pipes must be drained while the child runs. Waiting for exit
         // first and reading afterwards deadlocks as soon as either pipe fills,
         // because the child then blocks on write and can never exit.
-        let mut out = child.stdout.take().context("provider stdout")?;
-        let mut err = child.stderr.take().context("provider stderr")?;
-        let stdout = std::thread::spawn(move || {
+        let mut out = child.child.stdout.take().context("provider stdout")?;
+        let mut err = child.child.stderr.take().context("provider stderr")?;
+        let (stdout_tx, stdout_rx) = mpsc::channel();
+        std::thread::spawn(move || {
             let mut buffer = Vec::new();
             let _ = out.read_to_end(&mut buffer);
-            buffer
+            let _ = stdout_tx.send(buffer);
         });
-        let stderr = std::thread::spawn(move || {
+        let (stderr_tx, stderr_rx) = mpsc::channel();
+        std::thread::spawn(move || {
             let mut buffer = Vec::new();
             let _ = err.read_to_end(&mut buffer);
-            buffer
+            let _ = stderr_tx.send(buffer);
         });
 
-        let deadline = std::time::Instant::now() + TURN_DEADLINE;
         let status = loop {
-            if let Some(status) = child.try_wait()? {
+            if let Some(status) = child.child.try_wait()? {
                 break Some(status);
             }
             if cancel.is_cancelled() || std::time::Instant::now() >= deadline {
-                let _ = child.kill();
-                let _ = child.wait();
+                child.stop();
                 break None;
             }
             std::thread::sleep(Duration::from_millis(50));
         };
 
-        let stdout = stdout.join().unwrap_or_default();
-        let stderr = stderr.join().unwrap_or_default();
+        let stdout = stdout_rx
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap_or_default();
+        let stderr = stderr_rx
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap_or_default();
         let Some(status) = status else {
             if cancel.is_cancelled() {
                 bail!("Debate cancelled; no completed answer was saved.");
