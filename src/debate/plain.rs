@@ -108,10 +108,10 @@ impl<'a> PlainBackend<'a> {
         // command-line limit.
         let stdin = child.child.stdin.take().context("provider stdin")?;
         let prompt = match self.cfg.knowledge {
-            Some(_) => crate::knowledge::neutralise(prompt),
-            None => prompt.into(),
+            Some(_) => crate::knowledge::neutralise(prompt).into_owned(),
+            None => prompt.to_owned(),
         };
-        let (written, prompt) = (mpsc::channel(), prompt);
+        let (written, _written_rx) = mpsc::channel();
         std::thread::spawn(move || {
             let mut stdin = stdin;
             let result = std::io::Write::write_all(&mut stdin, prompt.as_bytes());

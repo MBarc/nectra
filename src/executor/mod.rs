@@ -3,7 +3,7 @@ mod conversation;
 mod draft;
 pub mod native;
 mod pane;
-mod process;
+pub(crate) mod process;
 #[cfg(windows)]
 mod windows_job;
 use anyhow::{bail, Context, Result};

@@ -11,8 +11,9 @@ keeps an installed registry routing as it always did until it opts in. `nectra
 models` prints each model's declared roles and warns when a registry predates the
 field.
 
-Your registry is never rewritten. A model you delete stays deleted; earlier
-versions silently re-added two bundled profiles, and that no longer happens.
+Ordinary runtime loading never rewrites your registry. A model you delete stays
+deleted; the compatibility adaptation tool is the explicit exception because it
+may update an installed registry after observing a provider change.
 
 The bundled registry declares these roles:
 
