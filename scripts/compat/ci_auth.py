@@ -16,8 +16,7 @@ approved = config.setdefault("customApiKeyResponses", {}).setdefault("approved",
 approved.append(os.environ["ANTHROPIC_API_KEY"][-20:])
 json.dump(config, open(claude, "w"))
 
-gemini = os.path.join(home, ".gemini", "settings.json")
-os.makedirs(os.path.dirname(gemini), exist_ok=True)
-settings = json.load(open(gemini)) if os.path.exists(gemini) else {}
-settings.setdefault("security", {}).setdefault("auth", {})["selectedType"] = "gemini-api-key"
-json.dump(settings, open(gemini, "w"))
+# agy reads the Google credential from the environment in CI. Keep its
+# account-specific configuration out of the runner's shared Gemini settings.
+if not os.environ.get("GEMINI_API_KEY"):
+    raise SystemExit("GEMINI_API_KEY is required for agy compatibility checks")

@@ -32,7 +32,7 @@ jobs:
       - name: Install the latest provider CLIs
         shell: bash
         run: |
-          npm install -g @openai/codex@latest @google/gemini-cli@latest
+          npm install -g @openai/codex@latest agy@latest
           if [ "$RUNNER_OS" = Windows ]; then
             powershell -NoProfile -Command "irm https://claude.ai/install.ps1 | iex"
             echo "$USERPROFILE\\.local\\bin" >> "$GITHUB_PATH"
