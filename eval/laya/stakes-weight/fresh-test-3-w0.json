@@ -1,0 +1,110 @@
+{
+  "total": 1031,
+  "passed": 1011,
+  "accuracy": 0.9806013579049466,
+  "demanding_tier": 61,
+  "demanding_model": 10,
+  "keyword_fallbacks": 0,
+  "failures": [
+    {
+      "prompt": "Does my CORS setup look right? Chrome blocks my fetch with 'No Access-Control-Allow-Origin header' but the server config has the header set.",
+      "expected": "debugging",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "Is this SQL safe? It's giving me duplicate rows whenever a customer has more than one address: SELECT c.*, a.city FROM customers c JOIN addresses a ON a.customer_id = c.id",
+      "expected": "debugging",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "tests pass but i dont trust this locking code, can someone look it over for race conditions",
+      "expected": "code_review",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "incident followup: write me an action plan w/ owners and deadlines from this — disk filled on prod-db-2, alerts went to a dead slack channel, no runbook",
+      "expected": "planning",
+      "actual": "writing"
+    },
+    {
+      "prompt": "break this down into tickets: add dark mode, persist it in localstorage, respect prefers-color-scheme",
+      "expected": "planning",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "poke holes in my rate limiter implementation, token bucket in redis w/ lua script",
+      "expected": "code_review",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Plan my science fair project for me: I want to test which plant food grows beans fastest, due in 5 weeks.",
+      "expected": "planning",
+      "actual": "research"
+    },
+    {
+      "prompt": "my bash script for backing up photos has the same rsync command five times with different folders. make it a loop or something. same backups at the end.",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Convert this bash one-liner to PowerShell: for f in *.txt; do mv \"$f\" \"${f%.txt}.md\"; done",
+      "expected": "code_generation",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "The tax calculation in my spreadsheet macro is hardcoded in 8 different places. Put the rate in one spot so when it changes I only edit once. Results unchanged.",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "How are other teams handling feature flag cleanup at scale? Pull together what's been written publicly about it.",
+      "expected": "research",
+      "actual": "architecture"
+    },
+    {
+      "prompt": "Is the Kubernetes liveness probe config right? Pods keep restarting every few minutes with 'Liveness probe failed: HTTP probe failed with statuscode: 503'.",
+      "expected": "debugging",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "ELI5: why does git merge sometimes make a 'merge commit'",
+      "expected": "general",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Write me a regex to match dates. Actually I already have one, ^\\d{2}/\\d{2}/\\d{4}$, but it rejects 1/5/2024 which should be valid. Fix it?",
+      "expected": "debugging",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "Tidy up my Arduino sketch. It blinks the LEDs correctly but there are magic numbers all over, like 13, 12, 11. Put them in named constants please.",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "what's new in go 1.25, just the highlights",
+      "expected": "research",
+      "actual": "general"
+    },
+    {
+      "prompt": "why are these logs full of timeouts? Just count them per service and show me when they cluster, I'm not asking you to fix anything yet.",
+      "expected": "debugging",
+      "actual": "data_analysis"
+    },
+    {
+      "prompt": "Could you audit my login handler? Users keep getting logged out after about 5 minutes no matter what I set the session expiry to.",
+      "expected": "debugging",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "Someone told me serverless is the answer for our bursty image-processing workload. Lay out whether Lambda plus queues beats a container fleet for this system, and the resulting design.",
+      "expected": "architecture",
+      "actual": "research"
+    },
+    {
+      "prompt": "ive got a week to get this repo ready for open source. what do i do each day",
+      "expected": "planning",
+      "actual": "code_review"
+    }
+  ]
+}

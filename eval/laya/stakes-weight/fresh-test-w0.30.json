@@ -1,0 +1,60 @@
+{
+  "total": 323,
+  "passed": 313,
+  "accuracy": 0.9690402476780186,
+  "demanding_tier": 8,
+  "demanding_model": 1,
+  "keyword_fallbacks": 0,
+  "failures": [
+    {
+      "prompt": "tests pass, nothing is broken, I just hate how many if/elif branches handle_event has",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "best self hosted alternatives to notion that have an api?",
+      "expected": "research",
+      "actual": "architecture"
+    },
+    {
+      "prompt": "Refactoring of the orders module is done. Now add pagination to the /orders endpoint, 50 per page.",
+      "expected": "code_generation",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "my excel formula is =IF(A1>90,\"A\",IF(A1>80,\"B\",IF(A1>70,\"C\",IF(A1>60,\"D\",\"F\")))) is there a cleaner way to write it that gives the same results",
+      "expected": "refactoring",
+      "actual": "data_analysis"
+    },
+    {
+      "prompt": "Convert my old VBA macro to Google Apps Script, I want it to do the exact same thing",
+      "expected": "code_generation",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "lgtm? diff is in the branch, mostly the auth middleware change",
+      "expected": "code_review",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Make a pivot table summarizing revenue by region and quarter from my data",
+      "expected": "data_analysis",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "can you write code in Haskell?",
+      "expected": "general",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "what do I need to legally put on a website in the EU if I collect emails? GDPR stuff for a tiny shop",
+      "expected": "research",
+      "actual": "architecture"
+    },
+    {
+      "prompt": "parse_duration works fine, nothing broken, but it has zero tests. write some",
+      "expected": "code_generation",
+      "actual": "debugging"
+    }
+  ]
+}

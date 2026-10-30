@@ -1,0 +1,70 @@
+{
+  "total": 324,
+  "passed": 312,
+  "accuracy": 0.9629629629629629,
+  "demanding_tier": 10,
+  "demanding_model": 0,
+  "keyword_fallbacks": 0,
+  "failures": [
+    {
+      "prompt": "glance at the frag shader, is all that branching a bad idea on mobile gpus?",
+      "expected": "code_review",
+      "actual": "research"
+    },
+    {
+      "prompt": "Not a review request. Given this existing Django model, class Invoice(models.Model): amount = models.DecimalField(max_digits=10, decimal_places=2), add a paid_at field, the migration, and an admin list filter for paid/unpaid.",
+      "expected": "code_generation",
+      "actual": "code_review"
+    },
+    {
+      "prompt": "bcrypt cost 10 + jwt in localStorage, is that ok security wise",
+      "expected": "code_review",
+      "actual": "research"
+    },
+    {
+      "prompt": "Over the next 30 days I want our test coverage to go from 20% to 60% without pausing feature work. What's the week-by-week approach?",
+      "expected": "planning",
+      "actual": "architecture"
+    },
+    {
+      "prompt": "access logs are full of 499s since tuesday, figure out what's breaking",
+      "expected": "debugging",
+      "actual": "data_analysis"
+    },
+    {
+      "prompt": "This query double-counts customers with two addresses, so our invoice totals are inflated: SELECT c.id, COUNT(o.id) FROM customers c JOIN addresses a ON a.customer_id = c.id JOIN orders o ON o.customer_id = c.id GROUP BY c.id",
+      "expected": "debugging",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "Code of conduct for our open-source project: please write one that's friendly but clear about enforcement.",
+      "expected": "writing",
+      "actual": "code_generation"
+    },
+    {
+      "prompt": "reduce allocations in parse_packet(), it works but it's the hot path in the profiler",
+      "expected": "refactoring",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "regex to match ipv4 addrs but reject stuff like 999.1.1.1, js flavor pls",
+      "expected": "code_generation",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "break the auth rewrite into sprint sized tasks",
+      "expected": "planning",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "lol my code finally compiled after 3 hours, just needed to tell someone",
+      "expected": "general",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Could you find out why the website went down for two hours last night? Here are the server logs.",
+      "expected": "debugging",
+      "actual": "data_analysis"
+    }
+  ]
+}

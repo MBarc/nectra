@@ -1,0 +1,192 @@
+{
+  "total": 30,
+  "passed": 24,
+  "accuracy": 0.8,
+  "demanding_tier": 11,
+  "demanding_model": 11,
+  "keyword_fallbacks": 0,
+  "failures": [
+    {
+      "prompt": "On the sign-up page (web/src/pages/SignUp.tsx) the password input has no placeholder and no way to show what you typed. Add the placeholder text 'At least 12 characters' and an eye icon button that toggles the input between type=password and type=text. Use the existing IconButton component and keep the current styling. The toggle should have an aria-label that says 'Show password' or 'Hide password'. No backend changes; validation stays as it is.",
+      "expected": "code_generation",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "Small docs fix. SECURITY.md misspells 'authentication' as 'authenticaton' twice, and the password docs page (docs/passwords.md) has the same typo once in its heading. Fix all three and grep the docs folder for any other occurrence. Don't change any wording beyond the typo. One commit is fine.",
+      "expected": "writing",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "When our API client gets a 429 from the upstream, it retries silently and we can't tell from the logs which quota ran out. In src/client/http.rs, where the 429 branch is handled, add one info-level log line with the quota name from the X-Quota-Name header and the Retry-After value. Use the existing tracing macros. Don't change the retry behaviour. A unit test that the line is emitted would be nice if the module already has log-capture tests.",
+      "expected": "code_generation",
+      "actual": "debugging"
+    },
+    {
+      "prompt": "examples/sandbox/main.py hard-codes a demo API key as a string literal, which people copy into real projects. Change it to read the key from the SANDBOX_API_KEY environment variable and exit with a clear message if it is unset. Update the example's README with the export line for bash and PowerShell. It's an example only; nothing else imports it.",
+      "expected": "code_generation",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "Replace our long-lived session cookies with short-lived access tokens and rotating refresh tokens. Access tokens live 15 minutes; refresh tokens are single-use: each refresh issues a new pair and invalidates the old refresh token. If a refresh token is used twice, treat it as stolen and revoke the whole token family. Store only hashes of refresh tokens. Cookies must be HttpOnly, Secure and SameSite=Lax. Logout revokes the family. Cover reuse detection, expiry, and concurrent refreshes from two tabs in tests.",
+      "expected": "code_generation",
+      "actual": "refactoring"
+    },
+    {
+      "prompt": "We run four instances of the payout worker against one Postgres queue table. Today two workers occasionally pick the same job and the customer gets paid twice. Rewrite the claim step with SELECT ... FOR UPDATE SKIP LOCKED, make the payout call idempotent with an idempotency key derived from the job id, and make sure a worker that crashes after calling the bank but before marking the job done cannot cause a second payout on retry. Add a test that runs eight concurrent workers over 500 jobs and asserts exactly one payout per job.",
+      "expected": "code_generation",
+      "actual": "refactoring"
+    }
+  ],
+  "tier": {
+    "total": 57,
+    "passed": 30,
+    "accuracy": 0.5263157894736842,
+    "demanding_tier": {
+      "tp": 9,
+      "fp": 2,
+      "fn": 13
+    },
+    "demanding_model": {
+      "tp": 9,
+      "fp": 2,
+      "fn": 13
+    },
+    "failures": [
+      {
+        "prompt": "fix the race in the docs build script that corrupts the output",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "When our API client gets a 429 from the upstream, it retries silently and we can't tell from the logs which quota ran out. In src/client/http.rs, where the 429 branch is handled, add one info-level log line with the quota name from the X-Quota-Name header and the Retry-After value. Use the existing tracing macros. Don't change the retry behaviour. A unit test that the line is emitted would be nice if the module already has log-capture tests.",
+        "expected": "simple",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Refactor the settings page: move the password and secret key inputs",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "The settings page component (web/src/pages/Settings.tsx) is 900 lines. Split it into three components: ProfileSection, SecuritySection and NotificationsSection, each in its own file under web/src/pages/settings/. The password change form and the API secret key input move into SecuritySection unchanged; their handlers and API calls stay exactly as they are. Behaviour and markup must not change, so the existing snapshot tests should still pass without updating them. Keep the props minimal.",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "examples/sandbox/main.py hard-codes a demo API key as a string literal, which people copy into real projects. Change it to read the key from the SANDBOX_API_KEY environment variable and exit with a clear message if it is unset. Update the example's README with the export line for bash and PowerShell. It's an example only; nothing else imports it.",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "Debug why CI prints 'authentication failed' for the secrets name",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "Add an upload endpoint that extracts zips safely (zip-slip)",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Add POST /projects/{id}/import that accepts a zip of a project and extracts it into that project's directory. The zip comes from users, so treat it as hostile: reject entries with absolute paths, '..' components or drive prefixes, never follow or create symlinks, and resolve every target path and check it stays inside the project directory. Cap the total uncompressed size at 200 MB and the entry count at 10,000 to stop zip bombs, and extract into a temporary directory that is moved into place only when everything succeeded. Write tests for each rejection case.",
+        "expected": "demanding",
+        "actual": "simple"
+      },
+      {
+        "prompt": "Implement session-token issuance and rotation",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "We run four instances of the payout worker against one Postgres queue table. Today two workers occasionally pick the same job and the customer gets paid twice. Rewrite the claim step with SELECT ... FOR UPDATE SKIP LOCKED, make the payout call idempotent with an idempotency key derived from the job id, and make sure a worker that crashes after calling the bank but before marking the job done cannot cause a second payout on retry. Add a test that runs eight concurrent workers over 500 jobs and asserts exactly one payout per job.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Add OAuth login with CSRF state and PKCE",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Add 'Sign in with GitHub' using the OAuth 2.0 authorization code flow. Generate a random state per login, bind it to the user's pre-login session and reject the callback if it doesn't match; use PKCE (S256) as well. Exchange the code server-side only, never expose the client secret to the browser, and validate the redirect URI against an allow-list. Link accounts by verified email only. Tests for a mismatched state, a missing verifier and an unverified email.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "You are working in a git worktree of Simple Domain Management, a from-scratch AES-only Kerberos KDC in Rust (part of an Active Directory replacement; no Samba, no Microsoft code). It has a kpasswd service (RFC 3244) in src/kdc/kpasswd.rs that accepts only INITIAL kadmin/changepw tickets, which AS issues under a KDC-held key valid for 5 minutes. Read README.md, REPORT.md and docs/superpowers/specs/2026-10-20-kpasswd-and-revocation-design.md first.\n\nTwo known gaps, both security-relevant. Fix both:\n1. No replay cache. A captured kpasswd request (AP-REQ + KRB-PRIV) can be replayed within the authenticator's clock-skew window. Add a replay cache for kpasswd authenticators per RFC 4120 section 3.2.3: key it on (client principal, server principal, ctime, cusec, and a hash of the authenticator), evict entries older than the skew, bound its size with a defined, safe overflow behaviour (fail closed: reject when full rather than accept), and make it safe under concurrent UDP+TCP requests. A replay returns KRB_AP_ERR_REPEAT. An identical retransmission over UDP must still be handled correctly; decide and document how.\n2. The changepw service key is per-process, so a KDC restart invalidates outstanding changepw tickets, and multiple KDC processes can't share it. Persist the key: generate it on first start, store it at a configurable path with 0600 permissions (refuse to start if the file is group- or world-readable on Unix), load it on later starts, and support rotation by keeping the previous key valid for one ticket lifetime. Don't log key material.\n\nAdd tests for: a replay rejected; a fresh request accepted; skew-boundary eviction; cache-full fails closed; concurrent replays (exactly one succeeds); key persisted across a simulated restart; a bad file mode refused; a rotated key still accepts tickets issued under the previous key within the window. Run `~/.cargo/bin/cargo.exe test`, `~/.cargo/bin/cargo.exe clippy --all-targets -- -D warnings` and `~/.cargo/bin/cargo.exe fmt --check` (in Git Bash, cargo is ~/.cargo/bin/cargo.exe) and make them pass. No network or live services needed. Update the spec and REPORT.md. Commit on the current branch with clear messages. When done, print a 3-line summary.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "You are working in a git worktree of Simple Access Management: a from-scratch, Active Directory-compatible directory in Rust (LDAP/LDAPS, AD schema, event-sourced store; no Samba, no Microsoft code). Its sibling product, Simple Domain Management (a Kerberos KDC), runs a kpasswd service that writes passwords into this directory over LDAPS as the KDC's own account (the configured --secret-reader). Read README.md, REPORT.md and docs/superpowers/specs/2026-10-20-join-and-agent-identities.md first.\n\nThe KDC team's requests, from their spec: <path> Domain Management/sdm-kpasswd/docs/superpowers/specs/2026-10-20-kpasswd-and-revocation-design.md, section 4 (S1-S6). Implement them, test-first:\n- S1: the KDC account may replace unicodePwd on users, computers and aiAccounts, over LDAPS only. No other new write rights.\n- S2: RFC 4370 Proxied Authorization control (<host>.113730.3.4.18), accepted ONLY from the KDC account, listed in the rootDSE supportedControl. The operation is evaluated as the authzId (dn: form). An unknown authzId, or the control sent by any other account, gets authorizationDenied (123).\n- S3: self password change. Under proxied authorization the authzId may replace its own unicodePwd (AD's User-Change-Password to SELF), with a per-account opt-out like AD's \"user cannot change password\". This also covers PonsOS's need for a computer to change its own machine password.\n- S4: confirm that msDS-KeyVersionNumber already increments on every unicodePwd set and is readable by the KDC account. Add a test if one is missing.\n- S5: password policy failures return constraintViolation (19) with the reason in the diagnostic message.\n- S6: userAccountControl ACCOUNTDISABLE is readable by the KDC account, and disable sets it.\nSecurity matters most here. The KDC account must not gain anything beyond what is listed. Proxied authorization must not let the KDC act as anyone for any other attribute or operation; restrict it to unicodePwd replace unless you justify more in the spec. Tests must cover the escalation paths: the KDC trying other attributes; proxied authz from a non-KDC account; an authzId for a nonexistent or deleted object; self-change opt-out; plaintext LDAP refused.\nRun `~/.cargo/bin/cargo.exe test`, `~/.cargo/bin/cargo.exe clippy --all-targets -- -D warnings` and `~/.cargo/bin/cargo.exe fmt --check` (in Git Bash, cargo is ~/.cargo/bin/cargo.exe) and make them pass. No live external services are needed. Update the spec and REPORT.md. Commit on the current branch with clear messages. When done, print a 3-line summary.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Nectra: route a \"read this file, it is your task\" prompt by the file's content, not by the pointer sentence.\n\nObserved (2026-10-21, Laya build): an orchestrator sent a Nectra chat the line \"Read .orca-task/dispatch-x.md (your Orca dispatch: preamble and TASK)... Report with orca orchestration send\". Laya classified that sentence as \"quick question\" / \"writing or explaining\" and routed a multi-hour design-and-build task to sonnet. The real task was in the file.\n\nImplement, in the classification path (src/jev.rs classify / classify_turn and wherever chat.rs and headless.rs call it; find the single place all callers route through):\n1. Detect prompts whose main content is a pointer to local text files (a relative or absolute path to an existing .md/.txt/.toml/.json file in the working directory tree, mentioned with a verb like read/follow/see, or the prompt is short (<400 chars) and names such a file). Keep the rule simple and conservative; no false positives on prompts that merely mention a file name while asking a real question about it (e.g. \"why does src/router.rs panic?\" must still classify on the prompt).\n2. For such prompts, classify on the prompt plus the first ~4 KB of each referenced file (cap total), and log at debug that the file content was used.\n3. Security: read only regular files inside the session's working directory (canonicalize, refuse symlinks/.. escapes outside it), never follow URLs, size-cap reads, never send file content anywhere except the local classifier that already sees prompts. Remote classifier backends (jev) must not receive file content unless they already receive full prompts; say which.\n4. Tests first (seen failing): pointer to a design spec classifies as the spec's task type; pointer outside the working dir is ignored; \"why does src/router.rs panic?\" unchanged; missing file falls back to the prompt; oversized file is truncated.\n5. fmt, clippy -D warnings, cargo test (incl. headless scenarios) green. Commit on this branch, don't push, don't touch the vault. worker_done: head SHA, files changed, test output summary, and the before/after route for the observed prompt.",
+        "expected": "demanding",
+        "actual": "simple"
+      },
+      {
+        "prompt": "Nectra: give interactive `nectra chat` the same provider fallback that headless `nectra run` already has.\n\nObserved (2026-10-22): with Codex at its usage limit, Laya routed chat turns to gpt-5.6-luna (openai). The provider printed \"You've hit your usage limit ... try again at Oct 27th\" and the chat showed \"Turn failed: provider work was interrupted\"; the next message routed to openai again and failed the same way. Headless `nectra run` on the same machine fell back correctly: its result event has attempts[] = [{model: gpt-5.6-luna, error_class: rate_limited}, {model: haiku, error_class: null}].\n\nImplement:\n1. Find how headless detects rate_limited/quota errors and retries the next eligible candidate; reuse that code path for chat (one shared implementation, not a copy). Interactive chat may show the real provider terminal (--provider-view terminal), so detection must also work on what that view exposes; if it cannot, say exactly why and fall back to detecting from the stream/exit status.\n2. When a provider is rate-limited, mark it unavailable for the rest of the session (and until the reset time if the message gives one), so later turns don't route to it. Show the user one short line: which model was skipped, why, and which one ran instead.\n3. Do not retry on non-quota errors (auth, network, user cancel); never replay a turn that already made tool calls with side effects. Explain how you guarantee that.\n4. Tests first (seen failing): rate-limited first candidate falls back to the next; later turn skips the limited provider; user cancel does not fall back; non-quota error does not fall back; the reset time is parsed from the message above.\n5. fmt, clippy --all-targets -D warnings, cargo test (incl. headless and chat scenarios) green. Commit on this branch, don't push.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Addition to your current task, from the owner while he looks at the real xrdp login screen on VM 913 (<host>). Screenshot: <path>\nthe owner: \"Im not sure I like the 'PonsOS Remote Desktop' seemingly as a title in the cyan area.\"\nFix the login dialog so it reads as one branded dark card, not a Win95 window:\n- No cyan caption bar: recolour the title bar to the panel colour (xrdp.ini [Globals] colour keys) and blank or drop ls_title, so \"Remote Desktop\" isn't said twice.\n- Hide the Session: Xorg picker if xrdp allows it with a single session; otherwise make it unobtrusive.\n- Consistent label case (Username, Password), and brand-styled OK/Cancel (Filament primary).\n- Keep the filament-field background; it looks good.\nVerify on a real clone (or 913 itself after a package update, it's a test VM) with a screenshot you look at yourself before reporting. Report both pieces together in your worker_done.",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "CompanyOS round 3 (small). Coordinator decision on your round-2 open item \"VM-to-VM delegation is gone\": that removes R4 (managers delegate to their reports), which CompanyOS needs. Restore delegation through the runtime instead of direct peer sends: a VM asks the runtime to delegate (A2A to the runtime with its client identity), the runtime checks the org chart (sender manages recipient, or grant), classifies the subtask with the same R5 classifier (inherits the parent's classification, protected needs approval), records it as a durable execution, and sends it. Peers still never get a direct `task` grant. Add tests: manager->report delegation works, report->manager and cross-department are refused, a protected subtask waits for approval. Keep the other open items as they are. Commit, update REPORT.md, worker_done with head SHA. The coordinator then sends the whole branch to Astra.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Round 5 of nectra headless. Astra re-reviewed 03b2917: HOLD, but A, B, D, E, F are FIXED. Full review: <path>\nCoordinator agrees with the three remaining items; fix each test-first:\n1 (P1) Tool events (including interleaved subagent events) must not drop the secret-prefix carry: flushing on a tool event must still hold back a pending suffix that could be the start of a known secret, so \"482\" -> tool -> \"13\" never emits 48213 in pieces. Fix the \"masked as one text\" doc wording to match.\n2 (P1, regression) Bearer context must survive stream boundaries: \"Bearer \" + token in one delta or across deltas is always masked.\n3 (P2, regression) The continuation-byte back-off in redact.rs must never go below zero; malformed/non-UTF-8 stderr (e.g. leading 0x80, no newline) must not panic or fail the turn.\nFull cargo test on Windows and the headless scenarios on builder, clean target/, commit, update REPORT.md, worker_done with head SHA.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Fix round on MBarc/sdm-pkg (head 089ccfc). A stand-in reviewer (Claude Opus, Astra is out of quota) said HOLD; I agree. Full review: <path> Fix H1, H2, M1 and M3 now, tests first where there is logic; also fix the other mediums where cheap (Windows service must not be able to modify its own config; restart when SAM is unreachable at boot; pin zig/cargo-deb/toolchain versions behind the reproducibility claim; document the execution-policy step) and the export-keytab 0644 window. Windows remains untestable here (no Windows VM): reason carefully, and make install.ps1 fail closed (any icacls/sc.exe failure aborts and rolls back; use SIDs like *S-1-5-32-544 not localized names; take ownership and reset the ACL of a pre-existing %ProgramData%\\SDM, or refuse if it existed and wasn't created by us). Re-run the Debian install test in VMID 917 (fresh clone from 9000, destroy after). Commit, don't push, don't touch the vault, worker_done with head SHA and what changed per finding.",
+        "expected": "demanding",
+        "actual": "simple"
+      },
+      {
+        "prompt": "Follow-ups on MBarc/ponsos-vp-tech (head 2040eec). A stand-in reviewer (Claude Opus; Astra out of quota until Oct 27) said MERGE for round 3 (A and B fixed), with follow-ups. Full review: <path> Fix, tests first:\n- M1 (MEDIUM): any extra local_logins name stays reachable by GSSAPI because only \"Match User admin\" disables it (packaging/ssh/05-pons-hardening.conf). Generate the Match list from local_logins (or install an empty ~/.k5login per recovery login so krb5_kuserok refuses) and test a second recovery login.\n- L1 (LOW): reserved names come from /etc/passwd and /etc/group files, but NSS is \"files systemd pons\". Include systemd's dynamic/static users (getent passwd/group enumeration minus the pons source, or the systemd userdb) in the reservation set.\n- L2 (LOW): upgrade of an already-enrolled VM: make the postinst/enroll path idempotent so pam-auth-update applies (or a clear warning is logged) when common-auth was hand-edited, and add an itest that enrolls with the previous build, upgrades to this one and re-runs the A/B checks.\nRun unit tests and itest/remote.sh on a fresh clone in VMID 919 with directory p10/8xxx. Commit, don't push, don't touch the vault. worker_done: head SHA, tests, the final installer cherry-pick list.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "Small follow-up on MBarc/nectra-laya-95 (head 5adce03). Coordinator decision: default laya_timeout_ms = 1000 (accuracy over ~0.5 s of routing latency; a model turn takes seconds anyway). Keep 300 documented as the low-latency option. Update the default, docs (MODEL_CARD, reference, REPORT) and any test that asserts the default. Then, if builder (<host>) can run the ONNX model, measure run 4's latency there on an idle core (load, first message, median/p95/max over the 323 dev prompts) and record it as the idle-machine figure next to the desktop one. fmt, clippy -D warnings, cargo test. Commit, don't push, don't publish, don't touch the vault. worker_done with head SHA and the idle latency numbers.",
+        "expected": "simple",
+        "actual": "normal"
+      },
+      {
+        "prompt": "PonsOS integration spec, revision 5. Astra re-reviewed 4630dea: REVISE, converging — rev-3 items 1, 3, 4, 5, 8 and the K4 gap are FIXED. Full review: <path>\nCoordinator agrees with all four new problems:\n1. A suspended hire past H5 keeps its enrollment, but resume still runs the ordinary credential restoration (provider keys), agent/resume and the idle/busy readiness check before `active`. Make one resume path, with the hire-specific steps only as prefixes.\n2. Resume first probes and finishes any incomplete H1 substeps (agent and computer objects) before H2.\n3. confirm-manual recomputes the aggregate status: `revoked` only when automated steps are complete AND every manual item is confirmed.\n4. Manual items created by hire compensation are confirmable under the HR hire scope; define their effect on the pending compensation (it completes when confirmed).\nSmall, targeted edits; update REVISIONS.md. Commit, worker_done with head SHA.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "# Task: Simple Domain Management - kpasswd service (K3) and revoked accounts (K5)\nVault note: Access-Management.md. Target: a new worktree branched from SDM master. Another worker is applying Astra review fixes on branch sdm-kinit-dns (it touches src/bin/kdc.rs, src/kdc/mod.rs, src/dns.rs and src/directory.rs). Keep your work in new modules where you can, and keep edits to those shared files small, because both branches will merge.\nWhy: PonsOS Phase B join (read section 2 and requirements K3 and K5 of <path>) needs a VM to rotate its machine password over kpasswd, so no long-lived keys travel in cloud-init. Disabled accounts must stop working.\nChange:\n1. kpasswd per RFC 3244 (set/change password) on UDP and TCP 464, AES only. Change-password with the account's own credentials. Set-password only by principals SAM authorizes. Writes go to Simple Access Management over LDAPS as a modify of unicodePwd: define which bind identity performs the write and what SAM must allow, and record it under \"Requests for SAM\" (SAM is adding msDS-KeyVersionNumber, incremented on every password set, so keys rotate cleanly). Bounded connections and deadlines from day one (the other branch's Astra review flagged their absence in the KDC).\n2. K5: CLIENT_REVOKED at both AS and TGS for disabled or locked accounts (userAccountControl ACCOUNTDISABLE), and a bounded maximum ticket lifetime (configurable).\n3. An MIT kpasswd/kinit transcript on builder (<host>). Use ports 3389/3636/3088/3464 so you don't collide with the other SAM and SDM workers.\nConstraints: no Samba, no Microsoft decompiled code, no shared crate with SAM.\nAcceptance: cargo test, fmt and clippy -D warnings green; MIT kpasswd plus kinit with the new password on builder; a disabled-account kinit fails with CLIENT_REVOKED; REPORT.md; then worker_done.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "SAM round: GSSAPI and paging. Astra reviewed 1582895: HOLD. Full review: <path>\nPrevious 1-6 FIXED. Coordinator decisions on the new findings:\n\nFindings 1, 3, 4 (forged Administrator bind; no lifetime/replay/realm checks; non-standard exchange): AGREE. Do not patch the hand-written acceptor. Replace it with MIT krb5's acceptor through the `libgssapi` crate (Linux). Accept only SAM's own service principal (ldap/<sam-fqdn>@REALM) from a keytab that SAM owns and that no delegate can provision; reject foreign realms; MIT supplies lifetime, INVALID, replay cache, checksum/channel flags, AP-REP mutual auth and RFC 4752 integrity-only wraps. Map the authenticated principal to an account by full principal (name+realm). On builds without libgssapi, GSSAPI bind is disabled (not emulated). Delete the custom acceptor code. Add an independent interop test on builder: real MIT `ldapsearch -Y GSSAPI` (or `kinit` + python-gssapi client) against SAM, plus a negative test that a ticket for a user-owned SPN is refused.\n\nFinding 2 (KDC credential reads protected keys): PARTIAL AGREE. The KDC needs every principal's keys to issue tickets, so isolation isn't possible; the KDC credential IS domain-admin-equivalent, as krbtgt is in AD. Fix the false claim in REPORT.md/docs, mark the KDC account protected (no delegate can reset/modify it), and require it to bind only over LDAPS. Exclude the LDAP acceptor's own key from KDC reads only if the KDC does not need it to issue ldap/ tickets; otherwise document.\n\nFinding 5 (paging/tombstone memory): AGREE. Per-connection and global cursor caps, cursor expiry, and tombstone iteration inside the search budget/deadline. Tests for each.\n\nSecurity-critical: stay on Opus. Commit on your branch, update REPORT.md, full test suite (Linux/MIT bits on builder, ssh user@<host>), clean target/, worker_done with head SHA.",
+        "expected": "demanding",
+        "actual": "normal"
+      },
+      {
+        "prompt": "the owner approved (2026-10-21) rebuilding PRODUCTION template 9000 with scripts/build-template.sh from this branch (MBarc/ponsos-installer, c6086f7), and wants to test RDP from his Windows PC with mstsc RIGHT NOW. Speed matters: he is waiting.\n\n1. Backup first: `vzdump 9000 --storage nas-backups --mode stop --compress zstd` on proxmox001 (root@<host>). Confirm the archive exists before anything is destroyed.\n2. Run build-template.sh the way you ran it for the VMID 913 test template (default VMID 9000, NAME pons-template; the script replaces 9000 only because its name is pons-template). Report the build result.\n3. Clone one RDP test VM from the new 9000 (full or linked, your call; pick a free VMID in 912-914, NEVER touch lumina/<host> or 910/911), enrolled as normal, with xrdp listening on 3389 the way the remote-access design ships it (TLS-only, pam_faillock, nftables).\n4. Create one login that the access rules allow over RDP, the way a real user would get one. Random strong password (>= 16 chars).\n5. Verify it yourself from builder with FreeRDP (xfreerdp /v:<ip> /u:<user> /p:... /cert:ignore +auth-only, or a real session), so the owner's first try works.\n6. Send me worker_done with: VMID, IP, username, password, TLS cert SHA-256 fingerprint (so he can check mstsc's prompt), and the backup archive name. Put the password ONLY in that message: never in the repo, REPORT, commit, notes or logs.\n\nDon't push. Update REPORT-INSTALLER.md with the rebuild result (no password) and commit on your branch.",
+        "expected": "normal",
+        "actual": "simple"
+      },
+      {
+        "prompt": "Create a Windows test VM on proxmox001 for testing SAM (AD-compatible directory) and SDM (KDC) against a real Windows client. the owner approved this (~40 GB, after the 9000 rebuild, which is now done).\n\nHard rules: never touch VMs 903 (Lumina), 904/915 (Reclaim), 913, or the lumina VM <host>; never use Samba; never write a credential into notes or repos (put the local admin password in hush, reference only the path; report it in worker_done only if hush is unreachable); no pushes.\n\nSteps:\n1. Check capacity first: `lvs` (thin pool data%/meta%) and host RAM (it is already overcommitted, ~135 GB assigned on 120 GB). Stop and report if the pool would go above ~75% or RAM is not reasonable. Use 4 GB RAM, ballooning off, 2 vCPU, 40 GB thin disk with discard=on,ssd=1, VirtIO.\n2. Windows: use a legitimate Microsoft evaluation ISO (Windows 11 Enterprise eval or Windows Server 2025 eval, prefer the client if it supports domain join, which Enterprise eval does), plus the virtio-win driver ISO. Unattended install (autounattend.xml on a small ISO), local admin account, RDP enabled, QEMU guest agent installed. Pick the next free VMID; name it win-test.\n3. Leave it NOT domain-joined; just confirm it boots, has an IP, guest agent responds, and RDP answers. Take a snapshot \"clean-install\".\n4. Write a short runbook (VMID, IP, how it was built, snapshot name, hush path) into the SAM repo docs on this branch and commit locally.\n\nworker_done: VMID, IP, ISO used (edition + build), pool % before/after, RAM, snapshot, runbook path.",
+        "expected": "normal",
+        "actual": "demanding"
+      }
+    ]
+  }
+}

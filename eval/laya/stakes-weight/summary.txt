@@ -1,0 +1,21 @@
+fresh-test-3 w 0 task 1011 / 1031 demanding_model 10 fallbacks 0 tier None / None router None
+fresh-test-2 w 0 task 317 / 324 demanding_model 0 fallbacks 0 tier None / None router None
+dev w 0 task 312 / 324 demanding_model 0 fallbacks 0 tier None / None router None
+fresh-test w 0 task 313 / 323 demanding_model 1 fallbacks 0 tier None / None router None
+old60-rubric w 0 task 59 / 60 demanding_model 2 fallbacks 0 tier None / None router None
+long-spec-tuning w 0 task 24 / 30 demanding_model 11 fallbacks 0 tier 30 / 57 router {'tp': 9, 'fp': 2, 'fn': 13}
+long-spec-heldout w 0 task 0 / 0 demanding_model 11 fallbacks 0 tier 22 / 40 router {'tp': 9, 'fp': 2, 'fn': 11}
+long-spec-heldout w 0.30 task 0 / 0 demanding_model 15 fallbacks 0 tier 25 / 40 router {'tp': 12, 'fp': 3, 'fn': 8} classifier {'tp': 12, 'fp': 3, 'fn': 8}
+long-spec-tuning w 0.30 task 24 / 30 demanding_model 17 fallbacks 0 tier 40 / 57 router {'tp': 15, 'fp': 2, 'fn': 7} classifier {'tp': 15, 'fp': 2, 'fn': 7}
+old60-rubric w 0.30 task 59 / 60 demanding_model 2 fallbacks 0 tier None / None router None classifier None
+fresh-test w 0.30 task 313 / 323 demanding_model 1 fallbacks 0 tier None / None router None classifier None
+dev w 0.30 task 312 / 324 demanding_model 0 fallbacks 0 tier None / None router None classifier None
+fresh-test-2 w 0.30 task 317 / 324 demanding_model 0 fallbacks 0 tier None / None router None classifier None
+fresh-test-3 w 0.30 task 1011 / 1031 demanding_model 10 fallbacks 0 tier None / None router None classifier None
+long-spec-heldout w 0.15 task 0 / 0 demanding_model 13 fallbacks 0 tier 25 / 40 router {'tp': 11, 'fp': 2, 'fn': 9} classifier {'tp': 11, 'fp': 2, 'fn': 9}
+long-spec-tuning w 0.15 task 24 / 30 demanding_model 12 fallbacks 0 tier 34 / 57 router {'tp': 10, 'fp': 2, 'fn': 12} classifier {'tp': 10, 'fp': 2, 'fn': 12}
+old60-rubric w 0.15 task 59 / 60 demanding_model 2 fallbacks 0 tier None / None router None classifier None
+fresh-test w 0.15 task 313 / 323 demanding_model 1 fallbacks 0 tier None / None router None classifier None
+dev w 0.15 task 312 / 324 demanding_model 0 fallbacks 0 tier None / None router None classifier None
+fresh-test-2 w 0.15 task 317 / 324 demanding_model 0 fallbacks 0 tier None / None router None classifier None
+fresh-test-3 w 0.15 task 1011 / 1031 demanding_model 10 fallbacks 0 tier None / None router None classifier None

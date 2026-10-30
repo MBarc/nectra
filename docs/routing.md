@@ -57,7 +57,7 @@ decimals), bullets, length, and several named components or file paths (not
 URLs or "and/or"). It applies only to Laya's difficulty, capped at 1, and was
 fitted on `eval/laya/long-spec-tuning.json` with `tools/laya/sweep-stakes`. On
 the held-out `long-spec-heldout.json` it lifts router demanding TP/FP/FN from
-9/2/11 to 12/3/8: four more hard specs caught for one more false escalation.
+9/2/11 to 12/3/8: three more hard specs caught for one more false escalation.
 The everyday sets (fresh-test, -2, -3, dev, old60) route identically at 0 and
 0.30. Physical building prompts such as "plan how to build a shed" classify
 as planning rather than coding. Responsibilities are defined in src/policy.rs;

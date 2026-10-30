@@ -1,0 +1,15 @@
+{
+  "total": 60,
+  "passed": 59,
+  "accuracy": 0.9833333333333333,
+  "demanding_tier": 4,
+  "demanding_model": 2,
+  "keyword_fallbacks": 0,
+  "failures": [
+    {
+      "prompt": "build a bookshelf for the hallway",
+      "expected": "planning",
+      "actual": "code_generation"
+    }
+  ]
+}
