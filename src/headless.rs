@@ -362,13 +362,15 @@ impl Ledger {
                         self.worked = true;
                     }
                     if step["state"] == "DONE" && step["usage"].is_object() {
-                        let conversation = step["conversation_id"]
-                            .as_str()
-                            .or_else(|| event["conversation_id"].as_str())
-                            .unwrap_or("");
-                        let identity = format!("{conversation}:{}", step["step_index"]);
-                        if !self.agy_steps.insert(identity) {
-                            return;
+                        if let Some(index) = step["step_index"].as_u64() {
+                            let conversation = step["conversation_id"]
+                                .as_str()
+                                .or_else(|| event["conversation_id"].as_str())
+                                .unwrap_or("");
+                            let identity = format!("{conversation}:{index}");
+                            if !self.agy_steps.insert(identity) {
+                                return;
+                            }
                         }
                         let (t, complete) = agy_usage(&step["usage"]);
                         self.call(d, &d.model, t, complete);
