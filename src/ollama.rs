@@ -367,10 +367,10 @@ pub fn messages(prompt: &str, knowledge: Option<&str>) -> Result<Vec<Value>> {
             .as_array()
             .context("invalid conversation history")?
         {
-            messages.push(json!({"role":"user","content":exchange["user"].as_str().context("missing user message")?}));
-            messages.push(json!({"role":"assistant","content":exchange["assistant"].as_str().context("missing assistant message")?}));
+            messages.push(json!({"role":"user","content":crate::knowledge::neutralise(exchange["user"].as_str().context("missing user message")?)}));
+            messages.push(json!({"role":"assistant","content":crate::knowledge::neutralise(exchange["assistant"].as_str().context("missing assistant message")?)}));
         }
-        messages.push(json!({"role":"user","content":context["current_user_message"].as_str().context("missing current message")?}));
+        messages.push(json!({"role":"user","content":crate::knowledge::neutralise(context["current_user_message"].as_str().context("missing current message")?)}));
     } else {
         messages.push(json!({"role":"user","content":prompt}));
     }
