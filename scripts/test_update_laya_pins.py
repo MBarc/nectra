@@ -14,11 +14,17 @@ assets = sorted({a for _, a, _ in old})
 assert len(old) == 9 and "model.onnx" in assets and "onnxruntime-win-x64.dll" in assets, old
 
 
-def run(tmp, sums, tag="laya-model-7"):
+CARGO = (HERE.parent / "Cargo.toml").read_text(encoding="utf-8")
+
+
+def run(tmp, sums, tag="laya-model-7", cargo=CARGO):
     (tmp / "SHA256SUMS").write_text(sums, encoding="utf-8")
     (tmp / "laya.rs").write_text(SRC, encoding="utf-8")
-    r = subprocess.run([sys.executable, str(HERE / "update_laya_pins.py"), tag, str(tmp / "SHA256SUMS"), "--src", str(tmp / "laya.rs")],
+    (tmp / "Cargo.toml").write_text(cargo, encoding="utf-8")
+    r = subprocess.run([sys.executable, str(HERE / "update_laya_pins.py"), tag, str(tmp / "SHA256SUMS"),
+                        "--src", str(tmp / "laya.rs"), "--cargo", str(tmp / "Cargo.toml")],
                        capture_output=True, text=True)
+    run.cargo = (tmp / "Cargo.toml").read_text(encoding="utf-8")
     return r, (tmp / "laya.rs").read_text(encoding="utf-8")
 
 
@@ -36,6 +42,13 @@ with tempfile.TemporaryDirectory() as d:
     assert new.replace("laya-model-7", "laya-model-1").count("\n") == SRC.count("\n")
     for _, a, h in old:
         assert (h in new) == (a not in model), a
+    # Cargo's Breaks follows the tag the way build-debs.sh versions nectra-laya.
+    assert 'breaks = "nectra-laya (<< 7)"' in run.cargo, run.cargo
+    r, _ = run(Path(d), sums, tag="laya-model-2-alpha.1")
+    assert r.returncode == 0 and 'breaks = "nectra-laya (<< 2~alpha.1)"' in run.cargo, r.stderr
+    # A Cargo.toml without the Breaks line refuses and changes neither file.
+    r, new = run(Path(d), sums, cargo="[package]\n")
+    assert r.returncode != 0 and "breaks" in r.stderr and new == SRC and run.cargo == "[package]\n", r.stderr
 
     # A changed runtime or license hash refuses and leaves the source untouched.
     for a in ("onnxruntime-win-x64.dll", "ONNXRUNTIME-LICENSE"):

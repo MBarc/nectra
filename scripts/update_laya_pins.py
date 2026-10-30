@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Repoints src/laya.rs at a new model release.
 
-    python scripts/update_laya_pins.py laya-model-N SHA256SUMS [--src src/laya.rs]
+    python scripts/update_laya_pins.py laya-model-N SHA256SUMS [--src src/laya.rs] [--cargo Cargo.toml]
 
 Sets RELEASE to the tag and the model files' sha256 (model*, tokenizer/*,
-rl_agent_config.json) to the ones SHA256SUMS lists. The ONNX Runtime binaries
+rl_agent_config.json) to the ones SHA256SUMS lists, and Cargo.toml's deb
+`breaks = "nectra-laya (<< V)"` to the package version the tag becomes
+(laya-model-2-alpha.1 -> 2~alpha.1), as packaging/build-debs.sh versions it. The ONNX Runtime binaries
 and ONNXRUNTIME-LICENSE are not retrained, so their SHA256SUMS entries must match
 the existing pins. Refuses, changing nothing, if the tag is malformed, an asset
 the source pins is missing from SHA256SUMS, a hash isn't 64 hex digits, or a
@@ -19,6 +21,16 @@ from pathlib import Path
 PIN = re.compile(r'\(\s*"([^"]+)",\s*"([^"]+)",\s*"([0-9a-f]{64})",?\s*\)')
 TAG = re.compile(r"laya-model-[0-9]+(-alpha\.[0-9]+)?")
 RELEASE = re.compile(r'(releases/download/)laya-model-[0-9]+(?:-alpha\.[0-9]+)?(")')
+BREAKS = re.compile(r'(?m)^(breaks = "nectra-laya \(<< )[^)"]+(\)")$')
+
+
+def update_cargo(text, tag):
+    """Cargo.toml's deb Breaks, so a new nectra refuses older model packages."""
+    version = tag.removeprefix("laya-model-").replace("-", "~")
+    text, n = BREAKS.subn(rf"\g<1>{version}\g<2>", text)
+    if n != 1:
+        sys.exit(f"expected one nectra-laya breaks line in Cargo.toml, found {n}")
+    return text
 
 
 def pins(text):
@@ -71,8 +83,14 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("tag")
     p.add_argument("sums")
-    p.add_argument("--src", default=str(Path(__file__).resolve().parents[1] / "src" / "laya.rs"))
+    root = Path(__file__).resolve().parents[1]
+    p.add_argument("--src", default=str(root / "src" / "laya.rs"))
+    p.add_argument("--cargo", default=str(root / "Cargo.toml"))
     a = p.parse_args()
-    src = Path(a.src)
-    src.write_text(update(src.read_text(encoding="utf-8"), a.tag, read_sums(a.sums)), encoding="utf-8", newline="\n")
-    print(f"{src}: RELEASE -> {a.tag}, model pins updated")
+    src, cargo = Path(a.src), Path(a.cargo)
+    # Both computed before either is written: a refusal changes nothing.
+    new_src = update(src.read_text(encoding="utf-8"), a.tag, read_sums(a.sums))
+    new_cargo = update_cargo(cargo.read_text(encoding="utf-8"), a.tag)
+    src.write_text(new_src, encoding="utf-8", newline="\n")
+    cargo.write_text(new_cargo, encoding="utf-8", newline="\n")
+    print(f"{src}: RELEASE -> {a.tag}, model pins updated; {cargo}: breaks updated")
