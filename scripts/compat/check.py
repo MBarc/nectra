@@ -149,6 +149,11 @@ def stream_cmd(runtime, model):
     }[runtime]
 
 
+def agy_input():
+    """The real agy stream protocol takes its user turn on stdin."""
+    return json.dumps({"message": QUESTION}) + "\n"
+
+
 def live_stream(nectra, cfg, work, provider):
     model = CHEAP[provider]
     # In the trusted work folder: Codex refuses to run elsewhere outside a git repo.

@@ -38,20 +38,27 @@ pub(super) fn resume(pid: u32) -> Result<()> {
         if entry.th32OwnerProcessID == pid {
             found = true;
             let thread = unsafe { OpenThread(THREAD_SUSPEND_RESUME, 0, entry.th32ThreadID) };
-            if !thread.is_null() {
-                let status = unsafe { ResumeThread(thread) };
-                unsafe { windows_sys::Win32::Foundation::CloseHandle(thread) };
-                if status == u32::MAX {
-                    unsafe { windows_sys::Win32::Foundation::CloseHandle(snapshot) };
-                    return Err(io::Error::last_os_error()).context("resuming provider thread");
-                }
+            if thread.is_null() {
+                let error = io::Error::last_os_error();
+                unsafe { windows_sys::Win32::Foundation::CloseHandle(snapshot) };
+                return Err(error).context("opening suspended provider thread");
+            }
+            let status = unsafe { ResumeThread(thread) };
+            unsafe { windows_sys::Win32::Foundation::CloseHandle(thread) };
+            if status == u32::MAX {
+                unsafe { windows_sys::Win32::Foundation::CloseHandle(snapshot) };
+                return Err(io::Error::last_os_error()).context("resuming provider thread");
             }
         }
         ok = unsafe { Thread32Next(snapshot, &mut entry) } != 0;
     }
     unsafe { windows_sys::Win32::Foundation::CloseHandle(snapshot) };
     if !found {
-        return Err(io::Error::last_os_error()).context("suspended provider has no thread");
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "no suspended provider thread",
+        ))
+        .context("suspended provider has no thread");
     }
     Ok(())
 }

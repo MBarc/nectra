@@ -155,7 +155,10 @@ impl<'a> PlainBackend<'a> {
             std::thread::sleep(Duration::from_millis(50));
         };
 
-        if status.is_some() {
+        if status
+            .as_ref()
+            .is_some_and(std::process::ExitStatus::success)
+        {
             let write_result = written_rx
                 .recv_timeout(Duration::from_secs(2))
                 .context("provider stdin writer did not finish")?;

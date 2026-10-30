@@ -450,6 +450,11 @@ stdout/stderr stream to the terminal for one-shot execution. Chat parses respons
 events and displays assistant text while retaining final answers. Normal one-shot child exit codes are preserved;
 Nectra's own errors and termination without a numeric status return 1.
 
+On Windows, ordinary provider children are created suspended, assigned to a
+kill-on-close job, and then resumed, so descendants are covered by cleanup.
+Native PTY launches cannot currently request suspended creation from the
+portable-pty API; their descendant-assignment race is a known limitation.
+
 The model registry permits Anthropic/Claude, OpenAI/Codex, Google/Gemini, and Ollama pairs. This is
 a routing constraint, **not a network enforcement boundary**: downstream CLI
 settings, environment variables, hooks, tools, executable paths and extra

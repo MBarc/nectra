@@ -15,6 +15,17 @@ def git(cwd, *args):
 
 
 class Parsing(unittest.TestCase):
+    def test_recorded_agy_stream_uses_event_and_nested_step_update(self):
+        path = os.path.join(adapt.ROOT, "tests", "fixtures", "agy-stream-tools.jsonl")
+        events = adapt.stream_events(open(path, encoding="utf-8").read())
+        self.assertTrue(events)
+        self.assertEqual(events[1]["event"], "step_update")
+        self.assertEqual(events[1]["step_update"]["step_type"], "user_input")
+        obs = {"versions": {}, "help": {}, "streams": {"agy": events},
+               "stream_tail": {}, "probes": {}, "models": {}, "ollama": None}
+        findings = adapt.analyse(obs, {}, REGISTRY)
+        self.assertFalse([f for f in findings if f["kind"] == "stream"], findings)
+
     def test_claude_aliases_come_from_the_model_option(self):
         text = ("  --fallback-model <model>  e.g. 'nope'\n  --model <model>   Provide an alias (e.g.\n"
                 "                    'fable', 'opus', or 'sonnet') or a full name.\n  -n, --name <name>  'x'\n")

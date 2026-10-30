@@ -28,13 +28,23 @@ SAFETY = re.compile(r"dangerous|bypass|skip")
 STREAM_NEEDS = {
     "claude": {"result": ["result", "subtype"]},
     "codex": {"item.completed": ["item.type", "item.text"], "turn.completed": []},
-    "agy": {"step_update": ["state", "step_type"], "result": []},
+    "agy": {"step_update": ["step_update.state", "step_update.step_type"], "result": []},
 }
 RUNTIME = {"anthropic": "claude", "openai": "codex", "google": "agy"}
 
 
 # In check.py, beside FLAGS, so a generated flag rename updates the probes too.
 stream_cmd = check.stream_cmd
+
+
+def run_stream(runtime, model, timeout=300, cwd=None):
+    cmd = stream_cmd(runtime, model)
+    if runtime != "agy":
+        return check.run(cmd, timeout=timeout, cwd=cwd)
+    with tempfile.TemporaryFile(mode="w+b") as stdin:
+        stdin.write(check.agy_input().encode("utf-8"))
+        stdin.seek(0)
+        return check.run(cmd, timeout=timeout, cwd=cwd, stdin=stdin)
 
 
 # ---- observe ------------------------------------------------------------------------
@@ -144,7 +154,7 @@ def observe(providers, registry_text, state, live, work, max_probes=3):
     if live:
         for p in providers:
             rt = RUNTIME[p]
-            out = check.run(stream_cmd(rt, check.CHEAP[p]), timeout=300, cwd=work)[1]
+            out = run_stream(rt, check.CHEAP[p], timeout=300, cwd=work)[1]
             obs["streams"][rt] = stream_events(out)
             obs["stream_tail"][rt] = check.last_lines(out, 2)[:300]
         # Lists that aren't account-specific are verified once per new id, cheaply, and
@@ -160,7 +170,7 @@ def observe(providers, registry_text, state, live, work, max_probes=3):
                     continue
                 if len(obs["probes"]) >= max_probes:
                     break  # the rest wait for the next run, so one burst of new ids stays cheap
-                code, out = check.run(stream_cmd(RUNTIME[p], mid), timeout=300, cwd=work)
+                code, out = run_stream(RUNTIME[p], mid, timeout=300, cwd=work)
                 obs["probes"][key] = {"ok": code == 0 and "42" in out, "date": TODAY,
                                       "detail": check.last_lines(out, 2)[:300]}
     return obs
@@ -398,7 +408,8 @@ def analyse(obs, prev, registry_text):
             out.append({"kind": "stream", "detail": f"{rt} printed no stream-json events: {obs.get('stream_tail', {}).get(rt, '')}"})
             continue
         for kind, paths in STREAM_NEEDS[rt].items():
-            matching = [e for e in events if e.get("type") == kind]
+            event_key = "event" if rt == "agy" else "type"
+            matching = [e for e in events if e.get(event_key) == kind]
             if rt == "codex" and kind == "item.completed":
                 matching = [e for e in matching if e.get("item", {}).get("type") == "agent_message"]
             if not matching:

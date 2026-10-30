@@ -13,7 +13,7 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -394,7 +394,7 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
     if !dir.join(runtime).is_file() || !dir.join("model.onnx").is_file() {
         bail!("local model not downloaded; run `nectra classifier laya`");
     }
-    let staged_runtime = stage_runtime(dir, runtime, pin.2, allow_unpinned)?;
+    let (staged_runtime, runtime_unpinned) = stage_runtime(dir, runtime, pin.2, allow_unpinned)?;
     let all: Vec<&Pin> = MODEL_FILES.iter().chain([&pin]).collect();
     let stamp = read_stamp(dir, stamp_trusted(dir, &all));
     // Everything ONNX Runtime parses or runs is checked before it loads. The
@@ -403,8 +403,12 @@ fn load(dir: &Path, allow_unpinned: bool, prepacking_off: bool) -> Result<LayaEn
     let (weights, rest): (Vec<&Pin>, Vec<&Pin>) = all
         .into_iter()
         .partition(|(path, _, _)| *path == "model.onnx.data");
+    let rest: Vec<&Pin> = rest
+        .into_iter()
+        .filter(|(path, _, _)| *path != runtime)
+        .collect();
     let mut unpinned = check_pins(dir, &rest, allow_unpinned, &stamp)?;
-    if hash_file(&staged_runtime)? != pin.2 {
+    if runtime_unpinned {
         unpinned.push(runtime);
     }
     // Always the runtime the pins checked, by its full path: left to itself,
@@ -446,31 +450,80 @@ fn stage_runtime(
     runtime: &str,
     expected: &str,
     allow_unpinned: bool,
-) -> Result<PathBuf> {
+) -> Result<(PathBuf, bool)> {
     let actual_source = dir.join(runtime);
     let cache = dirs::cache_dir()
         .context("no per-user cache directory for ONNX Runtime")?
         .join("nectra/laya/ort");
     fs::create_dir_all(&cache)?;
+    #[cfg(unix)]
+    fs::set_permissions(&cache, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
     let expected_target = cache.join(format!("{expected}-{runtime}"));
-    if expected_target.is_file() && hash_file(&expected_target)? == expected {
-        return Ok(expected_target);
+    if expected_target.is_file()
+        && cache_entry_trusted(&expected_target)?
+        && hash_file(&expected_target)? == expected
+    {
+        return Ok((expected_target, false));
     }
-    let tmp = cache.join(format!(".{runtime}.{}.tmp", std::process::id()));
-    fs::copy(&actual_source, &tmp)
-        .with_context(|| format!("staging verified runtime from {}", actual_source.display()))?;
-    let actual = hash_file(&tmp)?;
-    if actual != expected && !allow_unpinned {
-        let _ = fs::remove_file(&tmp);
-        bail!("checksum mismatch: expected {expected}, got {actual}");
+    let mut tmp = None;
+    let result = (|| {
+        let mut source = fs::File::open(&actual_source).with_context(|| {
+            format!("staging verified runtime from {}", actual_source.display())
+        })?;
+        let mut created = None;
+        for attempt in 0..100 {
+            let candidate =
+                cache.join(format!(".{runtime}.{}.{}.tmp", std::process::id(), attempt));
+            let mut options = fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+            match options.open(&candidate) {
+                Ok(file) => {
+                    tmp = Some(candidate);
+                    created = Some(file);
+                    break;
+                }
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error.into()),
+            }
+        }
+        let tmp_path = tmp
+            .as_ref()
+            .context("could not allocate runtime staging file")?;
+        let mut file = created.context("could not allocate runtime staging file")?;
+        io::copy(&mut source, &mut file)?;
+        file.flush()?;
+        let actual = hash_file(tmp_path)?;
+        if actual != expected && !allow_unpinned {
+            bail!("pinned hash mismatch: expected {expected}, got {actual}");
+        }
+        let target = cache.join(format!("{actual}-{runtime}"));
+        if !target.is_file() {
+            match fs::rename(tmp_path, &target) {
+                Ok(()) => tmp = None,
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok((target, actual != expected))
+    })();
+    if let Some(path) = tmp {
+        let _ = fs::remove_file(path);
     }
-    let target = cache.join(format!("{actual}-{runtime}"));
-    if !target.is_file() {
-        fs::rename(&tmp, &target)?;
-    } else {
-        let _ = fs::remove_file(&tmp);
-    }
-    Ok(target)
+    result
+}
+
+#[cfg(unix)]
+fn cache_entry_trusted(path: &Path) -> Result<bool> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let metadata = fs::metadata(path)?;
+    Ok(metadata.uid() == unsafe { libc::geteuid() } && metadata.permissions().mode() & 0o022 == 0)
+}
+
+#[cfg(not(unix))]
+fn cache_entry_trusted(path: &Path) -> Result<bool> {
+    Ok(path.is_file())
 }
 
 /// Hashes every file already in `dir` against its pin and writes the stamp

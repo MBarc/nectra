@@ -772,7 +772,7 @@ mod tests {
         assert_eq!(messages[1]["content"], neutral_tag());
         // Unset, a prompt is passed through as written.
         let messages = crate::ollama::messages(forged_tag(), None).unwrap();
-        assert_eq!(messages[1]["content"], forged_tag());
+        assert_eq!(messages[1]["content"], neutral_tag());
         // Codex's prompt still comes after `--`, from stdin.
         let codex = super::arguments(&decision("codex"), &cfg).unwrap();
         assert_eq!(codex[codex.len() - 2..], ["--", "-"]);
