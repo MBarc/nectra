@@ -499,19 +499,40 @@ fn stage_runtime(
             bail!("pinned hash mismatch: expected {expected}, got {actual}");
         }
         let target = cache.join(format!("{actual}-{runtime}"));
-        if !target.is_file() {
-            match fs::rename(tmp_path, &target) {
-                Ok(()) => tmp = None,
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
-                Err(error) => return Err(error.into()),
-            }
-        }
+        install_staged_runtime(tmp_path, &target, &actual)?;
+        tmp = None;
         Ok((target, actual != expected))
     })();
     if let Some(path) = tmp {
         let _ = fs::remove_file(path);
     }
     result
+}
+
+/// Install a verified runtime without ever falling back to an entry rejected
+/// by the fast path. Windows cannot rename over a loaded DLL, so an existing
+/// target may be accepted only if it independently passes the same checks.
+fn install_staged_runtime(tmp: &Path, target: &Path, expected: &str) -> Result<()> {
+    match fs::rename(tmp, target) {
+        Ok(()) => return Ok(()),
+        Err(error) => {
+            if !target.is_file() {
+                return Err(error).with_context(|| {
+                    format!("installing staged runtime into {}", target.display())
+                });
+            }
+            if cache_entry_trusted(target)? && hash_file(target)? == expected {
+                fs::remove_file(tmp)?;
+                return Ok(());
+            }
+            fs::remove_file(target).with_context(|| {
+                format!("removing rejected cached runtime {}", target.display())
+            })?;
+            fs::rename(tmp, target)
+                .with_context(|| format!("installing staged runtime into {}", target.display()))?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(unix)]
@@ -997,6 +1018,18 @@ Connection: close
         assert!(check_pins(dir.path(), &[&pin], false, &[])
             .unwrap()
             .is_empty());
+    }
+    #[test]
+    fn a_tampered_cache_entry_is_replaced_before_use() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path().join(".runtime.tmp");
+        let target = dir.path().join("runtime-cache");
+        fs::write(&tmp, b"genuine runtime").unwrap();
+        fs::write(&target, b"tampered runtime").unwrap();
+        let expected = hex(&Sha256::digest(b"genuine runtime"));
+        install_staged_runtime(&tmp, &target, &expected).unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"genuine runtime");
+        assert!(!tmp.exists());
     }
     #[test]
     fn a_relative_model_dir_loads_by_its_absolute_path() {

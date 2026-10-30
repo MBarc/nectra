@@ -19,7 +19,7 @@ pub fn take_queued_messages() -> Vec<String> {
     pane::take_queued()
 }
 
-pub(super) fn one_shot_context(prompt: &str) -> String {
+pub(crate) fn one_shot_context(prompt: &str) -> String {
     format!(
         "Answer current_user_message directly.\n{}",
         json!({"conversation": [], "current_user_message": prompt})

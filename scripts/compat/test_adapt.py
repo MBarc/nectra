@@ -21,6 +21,8 @@ class Parsing(unittest.TestCase):
         self.assertTrue(events)
         self.assertEqual(events[1]["event"], "step_update")
         self.assertEqual(events[1]["step_update"]["step_type"], "user_input")
+        self.assertEqual(json.loads(adapt.check.agy_input())["event"], "user")
+        self.assertEqual(json.loads(adapt.check.agy_input())["message"]["content"], adapt.check.QUESTION)
         obs = {"versions": {}, "help": {}, "streams": {"agy": events},
                "stream_tail": {}, "probes": {}, "models": {}, "ollama": None}
         findings = adapt.analyse(obs, {}, REGISTRY)

@@ -151,7 +151,7 @@ def stream_cmd(runtime, model):
 
 def agy_input():
     """The real agy stream protocol takes its user turn on stdin."""
-    return json.dumps({"message": QUESTION}) + "\n"
+    return json.dumps({"event": "user", "message": {"content": QUESTION}}) + "\n"
 
 
 def live_stream(nectra, cfg, work, provider):
