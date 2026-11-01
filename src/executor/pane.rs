@@ -225,7 +225,7 @@ pub(super) fn run(
                 }
             }
             if last_capture.elapsed() >= Duration::from_millis(100) {
-                let (new_revision, new_ready) = completion(&parser.screen().contents())?;
+                let (new_revision, new_ready) = completion(&live(&mut parser))?;
                 if new_revision != revision {
                     revision = new_revision;
                     ready = new_ready;
@@ -342,7 +342,7 @@ pub(super) fn run(
                         || exit_time.is_some_and(|t| t.elapsed() > Duration::from_millis(500))))
             {
                 // Pick up the final hook notification before deciding whether a reply exists.
-                let screen = parser.screen().contents();
+                let screen = live(&mut parser);
                 let (new_revision, new_ready) = completion(&screen)?;
                 if new_revision != revision {
                     pending_input = !new_ready;
@@ -555,6 +555,16 @@ fn color(out: &mut Vec<u8>, value: vt100::Color, foreground: bool) -> io::Result
         vt100::Color::Idx(i) => write!(out, "\x1b[{prefix};5;{i}m"),
         vt100::Color::Rgb(r, g, b) => write!(out, "\x1b[{prefix};2;{r};{g};{b}m"),
     }
+}
+
+/// The provider's live screen, not the history the user scrolled back to:
+/// an old cell up there is not what the provider is showing now.
+fn live(parser: &mut vt100::Parser) -> String {
+    let back = parser.screen().scrollback();
+    parser.set_scrollback(0);
+    let screen = parser.screen().contents();
+    parser.set_scrollback(back);
+    screen
 }
 
 fn is_exit_command(text: &str) -> bool {
@@ -893,6 +903,17 @@ impl Queries {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn completion_reads_the_live_screen_while_the_user_scrolls_back() {
+        let mut parser = vt100::Parser::new(2, 40, 100);
+        parser.process(b"old limit cell\r\nmore\r\nlive work\r\nlive composer");
+        parser.set_scrollback(2);
+        assert!(parser.screen().contents().contains("old limit cell"));
+        let screen = live(&mut parser);
+        assert!(screen.contains("live composer") && !screen.contains("old limit cell"));
+        assert_eq!(parser.screen().scrollback(), 2);
+    }
+
     #[test]
     fn native_animation_and_unicode_are_emulated_not_flattened() {
         let mut parser = vt100::Parser::new(8, 40, 100);

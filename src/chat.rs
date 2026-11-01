@@ -646,6 +646,10 @@ pub fn run_loop(
             }
             continue;
         }
+        // Another chat may have hit an account-wide limit since this one started.
+        if let Some(path) = &cooldown_state {
+            cooldowns.merge(crate::limits::Cooldowns::load(path));
+        }
         let mut attempted = Vec::new();
         // Taken (once) when the retry is routed; see below.
         let mut replaces = match &again {

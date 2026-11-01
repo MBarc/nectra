@@ -375,8 +375,9 @@ mod tests {
         )
         .unwrap();
         assert!(codex.provider_wide);
-        // A chat started before the limit never loaded it, then saves its own.
+        // Chats started before the limit never loaded it; one then saves its own.
         let mut older = Cooldowns::load(&path);
+        let mut running = Cooldowns::load(&path);
         let mut limited = Cooldowns::default();
         limited.record("gpt-6-astra", "openai", &codex);
         limited.persist(&path).unwrap();
@@ -394,6 +395,10 @@ mod tests {
             .expect("the account-wide limit is kept");
         assert!(wait > Duration::from_secs(3 * 86400));
         assert!(new.remaining("opus", "anthropic").is_some());
+        // A still-running chat picks it up by merging the file before routing.
+        assert!(running.remaining("gpt-6-sol", "openai").is_none());
+        running.merge(Cooldowns::load(&path));
+        assert!(running.remaining("gpt-6-sol", "openai").is_some());
     }
 
     #[test]
@@ -503,10 +508,24 @@ impl Cooldowns {
                 *at = (*at).max(unix_now + remaining);
             }
         }
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+        let dir = path.parent().unwrap_or(Path::new("."));
+        std::fs::create_dir_all(dir)?;
+        // Renamed into place whole: a chat reading mid-write must never see an
+        // empty file, take it for "nothing cooling down" and save over it.
+        let mut file = tempfile::NamedTempFile::new_in(dir)?;
+        std::io::Write::write_all(&mut file, &serde_json::to_vec(&live)?)?;
+        file.persist(path).map_err(|e| e.error)?;
+        Ok(())
+    }
+
+    /// Take in cooldowns loaded from disk, the later expiry winning.
+    pub fn merge(&mut self, other: Self) {
+        for (key, until) in other.0 {
+            match self.0.iter_mut().find(|(k, _)| *k == key) {
+                Some((_, mine)) => *mine = (*mine).max(until),
+                None => self.0.push((key, until)),
+            }
         }
-        std::fs::write(path, serde_json::to_vec(&live)?)
     }
 
     fn unix_now() -> u64 {
