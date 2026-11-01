@@ -222,6 +222,8 @@ pub(super) struct Capture {
     error: String,
     session: String,
     seen: std::collections::BTreeSet<PathBuf>,
+    /// Codex's screen has shown this launch's prompt echo.
+    echoed: bool,
 }
 impl Capture {
     fn refresh(&mut self, root: &Path) -> Result<()> {
@@ -525,7 +527,8 @@ pub fn conversation_with_session(
     let outcome = pane::run(cmd, &d.model, |screen| {
         capture.refresh(root.path())?;
         // Codex sits at its prompt after a usage limit: end the turn for fallback.
-        let limited = d.runtime == "codex" && screen_limit(screen, &marker).is_some();
+        let limited =
+            d.runtime == "codex" && screen_limit(screen, &marker, &mut capture.echoed).is_some();
         Ok((
             capture.revision + usize::from(limited),
             capture.ready || !capture.error.is_empty() || limited,
@@ -592,18 +595,23 @@ fn terminal_limit(
     if runtime != "codex" || outcome.cancelled {
         return None;
     }
-    let mut limit = screen_limit(&outcome.diagnostic, marker)?;
+    let mut limit = screen_limit(&outcome.diagnostic, marker, &mut { capture.echoed })?;
     // A completed Codex turn in this launch means its work may have run.
     limit.safe_to_retry &= capture.revision == 0 && capture.earlier.is_empty();
     Some(limit)
 }
 
 /// A limit in the last Codex error cell (`■ …`) below this launch's prompt
-/// echo, which names `marker` (its handoff directory); with no echo on screen,
-/// none (an older cell may be resumed history). Safe to retry only when the
-/// echo, the limit cell and Codex's empty composer are all there is: any other
-/// line may be work, whatever glyph Codex drew it with.
-fn screen_limit(screen: &str, marker: &str) -> Option<crate::limits::RateLimited> {
+/// echo, which names `marker` (its handoff directory). With no echo on screen,
+/// none unless `echoed` says this launch already showed it: until then an older
+/// cell may be resumed history, after it the echo only scrolled away. Safe to
+/// retry only when the echo, the limit cell and Codex's empty composer are all
+/// there is: any other line may be work, whatever glyph Codex drew it with.
+fn screen_limit(
+    screen: &str,
+    marker: &str,
+    echoed: &mut bool,
+) -> Option<crate::limits::RateLimited> {
     let lines: Vec<&str> = screen.lines().map(str::trim_end).collect();
     let blank = |l: &&str| l.is_empty();
     // A `›` line and its indented continuation; the path may wrap mid-marker.
@@ -623,9 +631,17 @@ fn screen_limit(screen: &str, marker: &str) -> Option<crate::limits::RateLimited
                 .map(|l| l.trim())
                 .collect::<String>()
                 .contains(marker)
-        })?
-        .1;
-    let lines = &lines[echo..];
+        });
+    // Work pushed a scrolled-away echo off screen, so that is never safe.
+    let (start, scrolled) = match echo {
+        Some((_, end)) => {
+            *echoed = true;
+            (end, false)
+        }
+        None if *echoed => (0, true),
+        None => return None,
+    };
+    let lines = &lines[start..];
     let at = lines.iter().rposition(|l| l.starts_with('■'))?;
     // Codex wraps an error cell flush left; it ends at a blank line or its composer.
     let end = at
@@ -638,7 +654,8 @@ fn screen_limit(screen: &str, marker: &str) -> Option<crate::limits::RateLimited
         .iter()
         .map(|l| l.trim_start_matches('■').trim())
         .collect();
-    let quiet = lines[..at].iter().all(blank)
+    let quiet = !scrolled
+        && lines[..at].iter().all(blank)
         && lines[end..]
             .iter()
             .find(|l| !blank(l))
@@ -1114,7 +1131,7 @@ mod access_handoff_tests {
             .message
             .contains("try again at Oct 27th, 2026 3:04 PM."));
         // Shown while the provider still waits, so the pane can end the turn.
-        assert!(screen_limit(LIMITED, MARKER).is_some());
+        assert!(screen_limit(LIMITED, MARKER, &mut false).is_some());
     }
 
     #[test]
@@ -1133,6 +1150,33 @@ mod access_handoff_tests {
         };
         let limit = terminal_limit("codex", &ended(LIMITED, false), &answered, MARKER).unwrap();
         assert!(!limit.safe_to_retry);
+    }
+
+    /// A long Codex turn hit the limit after its work scrolled the prompt echo away.
+    const SCROLLED: &str = "• Ran cargo build\n  └ Finished\n\n• Edited src/lib.rs (+3 -1)\n\n■ You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try\n  again at Nov 5th, 2026 9:53 AM.\n\n› Ask Codex to do anything\n";
+
+    #[test]
+    fn a_limit_after_the_prompt_scrolled_off_still_falls_back() {
+        // Never echoed in this launch: the cell may be resumed history.
+        assert!(terminal_limit(
+            "codex",
+            &ended(SCROLLED, false),
+            &Capture::default(),
+            MARKER
+        )
+        .is_none());
+        // The pane saw the echo while Codex started work, then the work scrolled it away.
+        let mut capture = Capture::default();
+        let started = LIMITED.replace(
+            "■ You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try\n  again at Oct 27th, 2026 3:04 PM.",
+            "• Ran cargo build",
+        );
+        assert!(screen_limit(&started, MARKER, &mut capture.echoed).is_none());
+        assert!(screen_limit(SCROLLED, MARKER, &mut capture.echoed).is_some());
+        let limit = terminal_limit("codex", &ended(SCROLLED, false), &capture, MARKER)
+            .expect("usage limit on screen");
+        assert!(limit.provider_wide && !limit.safe_to_retry);
+        assert!(limit.message.contains("Nov 5th, 2026 9:53 AM"));
     }
 
     #[test]
@@ -1155,7 +1199,7 @@ mod access_handoff_tests {
             "■ You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try\n  again at Oct 27th, 2026 3:04 PM.",
             "",
         );
-        assert!(screen_limit(&old, MARKER).is_none());
+        assert!(screen_limit(&old, MARKER, &mut false).is_none());
     }
 
     /// Codex's real screen on 2026-10-22, its prompt and error cell both wrapped.
@@ -1165,7 +1209,7 @@ mod access_handoff_tests {
     #[test]
     fn the_real_codex_limit_screen_falls_back_in_turn() {
         // Ends the turn while Codex waits at its composer.
-        assert!(screen_limit(REAL, REAL_MARKER).is_some());
+        assert!(screen_limit(REAL, REAL_MARKER, &mut false).is_some());
         let limit = terminal_limit(
             "codex",
             &ended(REAL, false),

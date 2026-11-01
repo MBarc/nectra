@@ -366,6 +366,37 @@ mod tests {
     }
 
     #[test]
+    fn an_account_limit_reaches_new_workers_whatever_other_chats_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cooldowns.json");
+        let codex = RateLimited::from_error(
+            &serde_json::json!({"message": "You've hit your usage limit.", "retry_after": 4 * 86400}),
+            false,
+        )
+        .unwrap();
+        assert!(codex.provider_wide);
+        // A chat started before the limit never loaded it, then saves its own.
+        let mut older = Cooldowns::load(&path);
+        let mut limited = Cooldowns::default();
+        limited.record("gpt-6-astra", "openai", &codex);
+        limited.persist(&path).unwrap();
+        let brief = RateLimited::from_error(
+            &serde_json::json!({"message": "rate limit exceeded", "retry_after": 120}),
+            true,
+        )
+        .unwrap();
+        older.record("opus", "anthropic", &brief);
+        older.persist(&path).unwrap();
+
+        let new = Cooldowns::load(&path);
+        let wait = new
+            .remaining("gpt-6-sol", "openai")
+            .expect("the account-wide limit is kept");
+        assert!(wait > Duration::from_secs(3 * 86400));
+        assert!(new.remaining("opus", "anthropic").is_some());
+    }
+
+    #[test]
     fn an_expired_cooldown_is_not_reloaded() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("cooldowns.json");
@@ -451,18 +482,27 @@ impl Cooldowns {
     /// Write live cooldowns as absolute wall-clock expiries.
     ///
     /// `Instant` is monotonic and meaningless across processes, so the on-disk
-    /// form is seconds since the epoch.
+    /// form is seconds since the epoch. Merged with what is already there, the
+    /// later expiry winning, so another running chat's limit is never dropped.
     pub fn persist(&self, path: &Path) -> std::io::Result<()> {
         let now = Instant::now();
         let unix_now = Self::unix_now();
-        let live: BTreeMap<&str, u64> = self
-            .0
-            .iter()
-            .filter_map(|(key, until)| {
-                let remaining = until.checked_duration_since(now)?.as_secs();
-                (remaining > 0).then(|| (key.as_str(), unix_now + remaining))
-            })
-            .collect();
+        // ponytail: read-merge-write without a lock; two chats persisting in the
+        // same instant can still lose one entry, which its next limit rewrites.
+        let mut live: BTreeMap<String, u64> = std::fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default();
+        live.retain(|_, expires_at| *expires_at > unix_now);
+        for (key, until) in &self.0 {
+            let Some(remaining) = until.checked_duration_since(now).map(|d| d.as_secs()) else {
+                continue;
+            };
+            if remaining > 0 {
+                let at = live.entry(key.clone()).or_default();
+                *at = (*at).max(unix_now + remaining);
+            }
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
