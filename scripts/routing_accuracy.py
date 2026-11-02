@@ -240,6 +240,38 @@ def route(binary, config, prompt):
     return json.loads(p.stdout)
 
 
+def grade_pick(item, chosen):
+    chosen_info = item.get("models", {}).get(chosen, {"measured": False})
+    measured = bool(chosen_info.get("measured"))
+    acceptable = chosen in item["acceptable_set"] if measured else None
+    # Exact = the pick is the oracle's (cheapest acceptable) model.
+    # Under = measured quality below the acceptable threshold. Over =
+    # measured, acceptable, but more expensive than the cheapest
+    # acceptable measured model. Unmeasured picks are unknown, never
+    # penalised as either class.
+    under = measured and not acceptable
+    oracle_cost = item.get("models", {}).get(item["oracle_model"], {}).get("cost_usd")
+    over = bool(measured and acceptable and chosen_info.get("cost_usd") is not None and
+                oracle_cost is not None and chosen_info["cost_usd"] > oracle_cost)
+    return {"chosen_measured": measured, "exact": chosen == item["oracle_model"] if measured else None,
+            "acceptable": acceptable, "under": under, "over": over}
+
+
+def _selftest():
+    item = {"oracle_model": "haiku", "acceptable_set": ["haiku", "sonnet"], "best_model": ["sonnet"],
+            "models": {"haiku": {"measured": True, "cost_usd": 0.01}, "sonnet": {"measured": True, "cost_usd": 0.05},
+                       "opus": {"measured": True, "cost_usd": 0.2}}}
+    g = grade_pick(item, "sonnet")  # acceptable but not the oracle pick
+    assert g["acceptable"] and not g["exact"] and g["over"] and not g["under"], g
+    g = grade_pick(item, "haiku")
+    assert g["exact"] and g["acceptable"] and not g["over"], g
+    g = grade_pick(item, "opus")
+    assert not g["exact"] and g["under"] and not g["over"], g
+    g = grade_pick(item, "gpt")  # unmeasured: unknown, not penalised
+    assert g["exact"] is None and g["acceptable"] is None and not g["under"] and not g["over"], g
+    print("selftest ok")
+
+
 def evaluate(args, oracle):
     registry = Path(args.registry).resolve()
     models = tomllib.loads(registry.read_text(encoding="utf-8"))["model"]
@@ -262,20 +294,8 @@ def evaluate(args, oracle):
                     fallback[provider] = route(args.binary, configs[provider], item["prompt"])["model"]
                 except Exception as e:
                     fallback[provider] = {"error": str(e)}
-            chosen_info = item.get("models", {}).get(chosen, {"measured": False})
-            measured = bool(chosen_info.get("measured"))
-            acceptable = chosen in item["acceptable_set"] if measured else None
-            # Under = measured quality below the acceptable threshold. Over =
-            # measured, acceptable, but more expensive than the cheapest
-            # acceptable measured model. Unmeasured picks are unknown, never
-            # penalised as either class.
-            under = measured and not acceptable
-            over = measured and acceptable and chosen_info.get("cost_usd") is not None and \
-                item.get("models", {}).get(item["oracle_model"], {}).get("cost_usd") is not None and \
-                chosen_info["cost_usd"] > item["models"][item["oracle_model"]]["cost_usd"]
-            rows.append({**item, "chosen_model": chosen, "chosen_provider": decision["provider"], "fallback": fallback,
-                         "chosen_measured": measured, "exact": chosen in item["best_model"] if measured else None,
-                         "acceptable": acceptable, "under": under, "over": over})
+            rows.append({**item, "chosen_model": chosen, "chosen_provider": decision["provider"],
+                         "fallback": fallback, **grade_pick(item, chosen)})
     finally:
         for c in configs.values():
             Path(c).unlink(missing_ok=True)
@@ -320,7 +340,7 @@ def report(rows, cost):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["build", "fit", "eval", "all"])
+    ap.add_argument("command", choices=["build", "fit", "eval", "all", "selftest"])
     ap.add_argument("--calibration-root", default=None)
     ap.add_argument("--results", default=None)
     ap.add_argument("--tasks", default=None)
@@ -331,6 +351,8 @@ def main():
     ap.add_argument("--providers", default=None, help="comma list; limit eval to these providers")
     ap.add_argument("--split",choices=["all", "train", "heldout"], default="all")
     args = ap.parse_args()
+    if args.command == "selftest":
+        return _selftest()
     repo = Path(__file__).resolve().parents[1]
     cal = Path(args.calibration_root or repo.parent / "nectra-calibration")
     task_root = Path(args.tasks or cal / "eval/calibration/tasks")

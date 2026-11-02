@@ -3,7 +3,7 @@
   "measured_route_n": 48,
   "unmeasured_route_n": 0,
   "coverage_rate": 1.0,
-  "exact_match_rate": 0.875,
+  "exact_match_rate": 0.5833,
   "in_acceptable_set_rate": 0.875,
   "under_routing_rate": 0.125,
   "over_routing_rate": 0.2917,
@@ -1129,7 +1129,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -1445,7 +1445,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -2075,7 +2075,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -2603,7 +2603,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -2815,7 +2815,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -2921,7 +2921,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -3233,7 +3233,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -3545,7 +3545,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -3647,7 +3647,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -3851,7 +3851,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -4581,7 +4581,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -5217,7 +5217,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -5323,7 +5323,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
@@ -5429,7 +5429,7 @@
         }
       },
       "chosen_measured": true,
-      "exact": true,
+      "exact": false,
       "acceptable": true,
       "under": false,
       "over": true
