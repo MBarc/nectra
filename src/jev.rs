@@ -79,6 +79,9 @@ fn stakes_score(prompt: &str) -> f64 {
             // two separators, or a relative start.
             !word.contains("://")
                 && !word.starts_with("www.")
+                // Libraries named like files.
+                && !["node.js", "next.js", "nuxt.js", "vue.js", "react.js", "three.js", "d3.js", "express.js"]
+                    .contains(word)
                 && (".rs .py .ts .tsx .js .toml .json .md"
                     .split_whitespace()
                     .any(|suffix| word.ends_with(suffix) && word.len() > suffix.len())
@@ -192,7 +195,9 @@ const MAX_FILES: usize = 4;
 
 /// How far into a pointed-at file classification looks for an Orca dispatch's
 /// task marker.
-const SCAN: u64 = 64 * 1024;
+// ponytail: a fixed cap, far past any real dispatch preamble (a few KB);
+// stream to the marker if one ever outgrows it.
+const SCAN: u64 = 1024 * 1024;
 /// An Orca dispatch: a long preamble of CLI instructions, then the task.
 const TASK_MARKER: &str = "=== TASK ===";
 
@@ -708,6 +713,9 @@ mod tests {
         assert!(!paths("and/or I/O"));
         assert!(!paths("https://a.example/x/y.md www.example.com/a/b"));
         assert!(paths("src/router.rs and ./scripts/gate"));
+        // Node.js and Vue.js are libraries, not files; server.js is a file.
+        assert!(!paths("Node.js and Vue.js"));
+        assert!(paths("server.js and app.js"));
         // Client and server are one system, not two components.
         assert!(!paths("the client and the server"));
         // Everyday words alone stay under the cap.
@@ -1007,6 +1015,18 @@ mod tests {
         .unwrap();
         let (text, _, stakes) = with_referenced_files(POINTER, dir.path());
         assert!(text.starts_with("You are an Orca worker.") && stakes == POINTER);
+    }
+    #[test]
+    fn a_dispatch_with_a_preamble_past_64_kb_still_finds_its_task() {
+        let task = "Implement the payment worker; it must never double charge.";
+        let file = dispatch(task).replacen("You are an Orca worker.\n", &"x".repeat(70_000), 1);
+        assert!(file.find(TASK_MARKER).unwrap() > 64 * 1024);
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join(".orca-task")).unwrap();
+        fs::write(dir.path().join(".orca-task/dispatch-x.md"), &file).unwrap();
+        let (text, note, stakes) = with_referenced_files(POINTER, dir.path());
+        assert!(text.starts_with(task) && note.contains("TASK"), "{note}");
+        assert_eq!(stakes.trim(), task);
     }
     #[test]
     fn oversized_files_are_truncated() {

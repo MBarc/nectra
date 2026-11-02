@@ -519,6 +519,8 @@ impl Cooldowns {
     }
 
     /// Take in cooldowns loaded from disk, the later expiry winning.
+    // ponytail: so a stated reset that moves earlier never shortens a saved
+    // one; that only waits too long, and fixing it means timestamping entries.
     pub fn merge(&mut self, other: Self) {
         for (key, until) in other.0 {
             match self.0.iter_mut().find(|(k, _)| *k == key) {
