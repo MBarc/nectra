@@ -5,6 +5,10 @@
   "coverage_rate": 1.0,
   "exact_match_rate": 0.5833,
   "in_acceptable_set_rate": 0.875,
+  "in_acceptable_set_ci95": [
+    0.753,
+    0.9414
+  ],
   "under_routing_rate": 0.125,
   "over_routing_rate": 0.2917,
   "over_routing_cost_usd_median": 0.070406,

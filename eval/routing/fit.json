@@ -1,0 +1,109 @@
+{
+  "scores": {
+    "gemini-3.8-flash-low": {
+      "coding": 0.928,
+      "reasoning": 0.934,
+      "long_context": 0.982,
+      "writing": 0.878,
+      "tool_use": 0.982,
+      "speed": 0.956,
+      "cost_efficiency": 0.646
+    },
+    "gpt-5.6-sol": {
+      "coding": 1.0,
+      "reasoning": 0.971,
+      "long_context": 1.0,
+      "writing": 0.833,
+      "tool_use": 1.0,
+      "speed": 0.705,
+      "cost_efficiency": 0.423
+    },
+    "haiku": {
+      "coding": 0.987,
+      "reasoning": 0.954,
+      "long_context": 0.996,
+      "writing": 0.912,
+      "tool_use": 1.0,
+      "speed": 0.888,
+      "cost_efficiency": 1.0
+    },
+    "opus": {
+      "coding": 0.98,
+      "reasoning": 0.962,
+      "long_context": 0.914,
+      "writing": 0.905,
+      "tool_use": 1.0,
+      "speed": 0.829,
+      "cost_efficiency": 0.26
+    },
+    "sonnet": {
+      "coding": 0.988,
+      "reasoning": 0.96,
+      "long_context": 1.0,
+      "writing": 0.918,
+      "tool_use": 1.0,
+      "speed": 1.0,
+      "cost_efficiency": 0.42
+    }
+  },
+  "roles": {
+    "gpt-5.6-sol": "coding",
+    "gemini-3.8-flash-low": "simple",
+    "haiku": "simple",
+    "opus": "simple",
+    "sonnet": "simple"
+  },
+  "heldout_measurements": {
+    "gemini-3.8-flash-low": {
+      "coding": 0.937,
+      "reasoning": 0.935,
+      "long_context": 0.984,
+      "writing": 0.868,
+      "tool_use": 0.985,
+      "speed": 0.944,
+      "cost_efficiency": 0.638
+    },
+    "gemini-3.8-flash-medium": {
+      "speed": 0.334,
+      "cost_efficiency": 0.146
+    },
+    "gpt-5.6-sol": {
+      "coding": 1.0,
+      "reasoning": 0.966,
+      "long_context": 0.984,
+      "writing": 0.879,
+      "tool_use": 0.983,
+      "speed": 0.708,
+      "cost_efficiency": 0.414
+    },
+    "haiku": {
+      "coding": 0.988,
+      "reasoning": 0.948,
+      "long_context": 0.946,
+      "writing": 0.896,
+      "tool_use": 0.998,
+      "speed": 0.887,
+      "cost_efficiency": 1.0
+    },
+    "opus": {
+      "coding": 0.985,
+      "reasoning": 0.966,
+      "long_context": 0.935,
+      "writing": 0.915,
+      "tool_use": 0.995,
+      "speed": 0.826,
+      "cost_efficiency": 0.261
+    },
+    "sonnet": {
+      "coding": 0.986,
+      "reasoning": 0.957,
+      "long_context": 0.985,
+      "writing": 0.927,
+      "tool_use": 0.989,
+      "speed": 1.0,
+      "cost_efficiency": 0.421
+    }
+  },
+  "train_tasks": 48,
+  "heldout_tasks": 15
+}

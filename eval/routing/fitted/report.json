@@ -1,0 +1,2059 @@
+{
+  "n": 15,
+  "measured_route_n": 3,
+  "unmeasured_route_n": 12,
+  "coverage_rate": 0.2,
+  "exact_match_rate": 0.6667,
+  "in_acceptable_set_rate": 1.0,
+  "under_routing_rate": 0.0,
+  "over_routing_rate": 0.0,
+  "over_routing_cost_usd_median": 0,
+  "by_provider": {
+    "anthropic": {
+      "n": 3,
+      "measured_n": 3,
+      "coverage": 1.0,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.0
+    },
+    "openai": {
+      "n": 12,
+      "measured_n": 0,
+      "coverage": 0.0
+    }
+  },
+  "by_task_type": {
+    "code_generation": {
+      "n": 1,
+      "measured_n": 0,
+      "coverage": 0.0
+    },
+    "code_review": {
+      "n": 1,
+      "measured_n": 0,
+      "coverage": 0.0
+    },
+    "debugging": {
+      "n": 2,
+      "measured_n": 0,
+      "coverage": 0.0
+    },
+    "long_context": {
+      "n": 2,
+      "measured_n": 0,
+      "coverage": 0.0
+    },
+    "refactoring": {
+      "n": 2,
+      "measured_n": 0,
+      "coverage": 0.0
+    },
+    "research": {
+      "n": 3,
+      "measured_n": 1,
+      "coverage": 0.3333,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.0
+    },
+    "tool_use": {
+      "n": 2,
+      "measured_n": 1,
+      "coverage": 0.5,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.0
+    },
+    "writing": {
+      "n": 2,
+      "measured_n": 1,
+      "coverage": 0.5,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.0
+    }
+  },
+  "coverage_note": "Rates exclude router picks not measured on that task; those picks are reported as unknown, not under/over.",
+  "examples": [
+    {
+      "task": "code-cooldown-store",
+      "task_type": "code_generation",
+      "tier": 3,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.282464
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.126797
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.158462
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.008384
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.419825
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.105499
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gemini-3.8-flash-medium",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "gpt-5.6-luna",
+      "router_picked_measured": false
+    },
+    {
+      "task": "debug-paginate",
+      "task_type": "debugging",
+      "tier": 1,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.233364
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.116387
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.070708
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006719
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 0.8572,
+          "cost_usd": 0.045316
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "gpt-5.6-luna",
+      "router_picked_measured": false
+    },
+    {
+      "task": "h-debug-lost-updates",
+      "task_type": "debugging",
+      "tier": 2,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.298546
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.460671
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.012341
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "gpt-5.6-luna",
+      "router_picked_measured": false
+    },
+    {
+      "task": "h-long-log-correlate",
+      "task_type": "long_context",
+      "tier": 3,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.297239
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.377209
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.4,
+          "cost_usd": 0.018655
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "gpt-5.6-sol",
+        "opus"
+      ],
+      "best_model": [
+        "gpt-5.6-sol",
+        "opus"
+      ],
+      "oracle_model": "opus",
+      "router_picked": "gpt-5.6-luna",
+      "router_picked_measured": false
+    },
+    {
+      "task": "h-refactor-keep-quirks",
+      "task_type": "refactoring",
+      "tier": 3,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.425564
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.02367
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "haiku",
+        "opus"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "gpt-5.6-luna",
+      "router_picked_measured": false
+    }
+  ],
+  "rows": [
+    {
+      "prompt": "Implement `CooldownStore` in cooldown.py: a file-backed record of when each model may be used again.\n`CooldownStore(path, clock=time.time)`. Methods: `set(model, until)` stores a unix timestamp (if `until <= clock()` it removes the entry instead);\n`active(model) -> bool` (until > now); `remaining(model) -> float` (seconds left, 0.0 if none or expired); `purge() -> int` deletes expired entries and\nreturns how many were removed. The file is JSON {\"model\": until}. Requirements: every call re-reads the file (two store objects on one path see\neach other's writes); writes are atomic (write a temp file in the same directory then os.replace; no stray temp files are left behind, even if the write fails);\na missing, empty, corrupt or non-object file counts as empty and is overwritten by the next write; entries whose value is not a number (including bool) are ignored.",
+      "task": "code-cooldown-store",
+      "task_type": "code_generation",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gemini-3.8-flash-medium",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 1.0,
+        "gemini-3.8-flash-medium": 0.95,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 0.95
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.158462,
+        "gemini-3.8-flash-low": 0.105499,
+        "gemini-3.8-flash-medium": 0.419825,
+        "haiku": 0.008384,
+        "opus": 0.282464,
+        "sonnet": 0.126797
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.282464
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.126797
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.158462
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.008384
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.419825
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.105499
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "`python -m unittest` fails in test_paginate.py: the last page is missing and page 1 skips items. Fix `paginate` in paginate.py.\nContract: pages are 1-indexed; \"pages\" is ceil(len/per_page) (0 for an empty list); a page past the end returns no items; has_next is True when a later page exists;\nper_page <= 0 or page < 1 raises ValueError.",
+      "task": "debug-paginate",
+      "task_type": "debugging",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 0.8572,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.070708,
+        "gemini-3.8-flash-low": 0.045316,
+        "haiku": 0.006719,
+        "opus": 0.233364,
+        "sonnet": 0.116387
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.233364
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.116387
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.070708
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006719
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 0.8572,
+          "cost_usd": 0.045316
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Read INCIDENT.md. Investigate metrics.py and fix the root cause of the undercount. Keep the Counters API.\nMake the test suite able to catch this class of bug, and say in your reply why the existing tests did not.",
+      "task": "h-debug-lost-updates",
+      "task_type": "debugging",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "gpt-5.6-sol",
+        "haiku",
+        "opus"
+      ],
+      "quality": {
+        "gpt-5.6-sol": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.460671,
+        "haiku": 0.012341,
+        "opus": 0.298546
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.298546
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.460671
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.012341
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "On 2026-10-20 checkout failed for about six minutes in the afternoon (UTC). logs/ holds the gateway, orders and payments logs for that day. Which request (trace id) started the cascade, i.e. the first failure in real time that the other failures followed from?\nReply with the trace id alone on the first line, then at most three lines of evidence. Do not modify files.",
+      "task": "h-long-log-correlate",
+      "task_type": "long_context",
+      "tier": 3,
+      "oracle_model": "opus",
+      "acceptable_set": [
+        "gpt-5.6-sol",
+        "opus"
+      ],
+      "best_model": [
+        "gpt-5.6-sol",
+        "opus"
+      ],
+      "quality": {
+        "gpt-5.6-sol": 1.0,
+        "haiku": 0.4,
+        "opus": 1.0
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.377209,
+        "haiku": 0.018655,
+        "opus": 0.297239
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.297239
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.377209
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.4,
+          "cost_usd": 0.018655
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "pricelist.py's parse_price_list is a 70-line legacy function. Rewrite it cleanly: small helpers, no function longer than 25 lines, idiomatic Python (e.g. no hand-rolled sort).\nIt has many callers we cannot audit, so behaviour must stay EXACTLY the same for every input: same return values (including Decimal exponent/sign), same exception types and messages, same ordering, quirks included. Keep the signature. test_pricelist.py must still pass; add tests that pin the quirks you found.",
+      "task": "h-refactor-keep-quirks",
+      "task_type": "refactoring",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "haiku",
+        "opus"
+      ],
+      "quality": {
+        "haiku": 1.0,
+        "opus": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.02367,
+        "opus": 0.425564
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.425564
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.02367
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "claims.md lists six claims about candidate config B vs current config A. samples.csv holds the raw benchmark data and METHOD.md the rules every number must follow.\nWhich claims does the data support? Compute, do not estimate. Do not modify files. Reply with a first line `SUPPORTED: <comma-separated claim numbers>` (or `SUPPORTED: none`), then one line per claim with the two numbers you compared.",
+      "task": "h-research-benchmark-claims",
+      "task_type": "research",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "haiku",
+        "opus"
+      ],
+      "quality": {
+        "haiku": 1.0,
+        "opus": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.006899,
+        "opus": 0.244726
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.244726
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006899
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "CHANGE.diff is a proposed commit against quota.py (the file is the version before the commit). Review the commit.\nYour reply must start with exactly these lines:\n`VERDICT: <name of the function the most serious defect is in, or none>`\nthen one line per numbered change in the commit message: `CHANGE <n>: OK` or `CHANGE <n>: BUG`.\nThen explain each BUG (how it fails, concretely) and the fix. Only mark a change BUG if it is actually wrong; do not modify files.",
+      "task": "h-review-race-diff",
+      "task_type": "code_review",
+      "tier": 3,
+      "oracle_model": "opus",
+      "acceptable_set": [
+        "opus"
+      ],
+      "best_model": [
+        "opus"
+      ],
+      "quality": {
+        "haiku": 0.9,
+        "opus": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.011224,
+        "opus": 0.229633
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.229633
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.9,
+          "cost_usd": 0.011224
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "shop.db is a SQLite copy of our shop database (tables customers, orders, refunds; inspect the schema yourself).\nFinance wants the single best day of October 2026 by NET revenue. Definitions: only `paid` orders count; net = order amount minus ALL refunds on that order, with refunds attributed to the order's day (not the refund's day); each order belongs to the calendar day in its CUSTOMER's local time (customers.utc_offset_min; created_utc is UTC). Only days in October 2026 local time count.\nDo not modify shop.db. Reply with exactly `DAY: YYYY-MM-DD` and `NET: <dollars with 2 decimals>` on two lines, then the query or script you used.",
+      "task": "h-tool-sqlite-forensics",
+      "task_type": "tool_use",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "haiku",
+        "opus"
+      ],
+      "quality": {
+        "haiku": 1.0,
+        "opus": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.00856,
+        "opus": 0.270478
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.270478
+        },
+        "sonnet": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.00856
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": "gemini-3.8-flash-low",
+        "google": "haiku",
+        "openai": "haiku"
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "app/ is a package of ~40 modules. Trace what happens when handle_request receives a payload with kind == \"refund\": list, in call order, every function from handle_request until the row is inserted into the database (include private helpers that run). Note anything that looks similar but is not on this path. Do not modify files.",
+      "task": "long-codebase-trace",
+      "task_type": "long_context",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 1.0,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.139004,
+        "gemini-3.8-flash-low": 0.045419,
+        "haiku": 0.008214,
+        "opus": 0.23363,
+        "sonnet": 0.136265
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.23363
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.136265
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.139004
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.008214
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.045419
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "report.py's `Report` class both parses text and renders it. Split it: `report_parser.py` with `ReportParser().parse(text) -> (title, sections)`, `report_renderer.py` with\n`ReportRenderer(title, sections)` having `.text()` and `.html()`. `Report` stays as a thin facade with the same public API and behaviour (title, sections, render_text, render_html)\nand must not contain parsing or rendering logic itself. Add a test file pinning behaviour.",
+      "task": "refactor-split-class",
+      "task_type": "refactoring",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 1.0,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.166867,
+        "gemini-3.8-flash-low": 0.064039,
+        "haiku": 0.010747,
+        "opus": 0.296659,
+        "sonnet": 0.237298
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.296659
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.237298
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.166867
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.010747
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.064039
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Reading the code (not the README), what timeout in seconds does the background worker actually use when conf/defaults.toml says 30, conf/prod.toml says 45, APP_ENV=prod, APP_TIMEOUT=60 and someone started the service with `--timeout 90`? Explain the chain of files that decide it. Use only the files in this directory (no internet). Do not modify files; reply with the answer and cite the file(s) you relied on.",
+      "task": "research-config-precedence",
+      "task_type": "research",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "gpt-5.6-sol"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 0.95,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 0.95,
+        "opus": 0.8667,
+        "sonnet": 0.95
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.066268,
+        "gemini-3.8-flash-low": 0.043998,
+        "haiku": 0.006672,
+        "opus": 0.221893,
+        "sonnet": 0.115225
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.8667,
+          "cost_usd": 0.221893
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.115225
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.066268
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.006672
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.043998
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "What is the company's parental leave policy? Use only the files in this directory (no internet). Do not modify files; reply with the answer and cite the file(s) you relied on. If the files do not answer it, say so plainly instead of guessing.",
+      "task": "research-not-in-docs",
+      "task_type": "research",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "haiku",
+        "opus"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "haiku",
+        "opus"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 1.0,
+        "gpt-5.6-sol": 0.6667,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 0.8334
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.068007,
+        "gemini-3.8-flash-low": 0.032522,
+        "haiku": 0.006062,
+        "opus": 0.20545,
+        "sonnet": 0.114551
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.20545
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.8334,
+          "cost_usd": 0.114551
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 0.6667,
+          "cost_usd": 0.068007
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006062
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.032522
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": "gemini-3.8-flash-low",
+        "google": "haiku",
+        "openai": "haiku"
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "`python pipeline.py` must exit 0 and print PIPELINE OK. Run it, fix the project (not pipeline.py, and do not edit anything under tests/), and repeat until it passes. Reply with a one-line summary of each fix.",
+      "task": "tool-run-fix-loop",
+      "task_type": "tool_use",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 1.0,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.146692,
+        "gemini-3.8-flash-low": 0.102788,
+        "haiku": 0.007405,
+        "opus": 0.227567,
+        "sonnet": 0.132702
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.227567
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.132702
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.146692
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.007405
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.102788
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "timeline.txt is a messy channel export from an outage, with times in two time zones and one corrected message. Write a blameless incident summary: impact and duration (from the first alert to\nservice restored, computed correctly), timeline (UTC), root cause, what went well/badly, and exactly three action items with owners as roles (not names). At most 350 words.\nDo not name individuals. Reply with the summary only.",
+      "task": "write-incident-summary",
+      "task_type": "writing",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol",
+        "haiku"
+      ],
+      "best_model": [
+        "gemini-3.8-flash-low",
+        "gpt-5.6-sol"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 1.0,
+        "gpt-5.6-sol": 1.0,
+        "haiku": 0.95,
+        "opus": 0.8875,
+        "sonnet": 0.8875
+      },
+      "cost_usd_median": {
+        "gpt-5.6-sol": 0.089196,
+        "gemini-3.8-flash-low": 0.018385,
+        "haiku": 0.007289,
+        "opus": 0.212835,
+        "sonnet": 0.110965
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.8875,
+          "cost_usd": 0.212835
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.8875,
+          "cost_usd": 0.110965
+        },
+        "gpt-5.6-sol": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.089196
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.95,
+          "cost_usd": 0.007289
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.018385
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": "gemini-3.8-flash-low",
+        "google": "haiku",
+        "openai": "haiku"
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Write the \"Usage\" section of a README for ratelimit.py: what it is, a short runnable example (a Python code block that works as-is when run in this directory), and what\nRateLimited means for callers. At most 300 words. Use only the API that exists. Reply with the Markdown section only.",
+      "task": "write-readme-usage",
+      "task_type": "writing",
+      "tier": 2,
+      "oracle_model": "sonnet",
+      "acceptable_set": [
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "gemini-3.8-flash-low": 0.7,
+        "haiku": 0.75,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "gemini-3.8-flash-low": 0.024244,
+        "haiku": 0.00677,
+        "opus": 0.233664,
+        "sonnet": 0.117415
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.233664
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.117415
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.75,
+          "cost_usd": 0.00677
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": true,
+          "quality": 0.7,
+          "cost_usd": 0.024244
+        },
+        "fable": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "gpt-5.6-luna",
+      "chosen_provider": "openai",
+      "fallback": {
+        "anthropic": "gpt-5.6-luna",
+        "google": "gpt-5.6-luna",
+        "openai": "haiku"
+      },
+      "chosen_measured": false,
+      "exact": null,
+      "acceptable": null,
+      "under": false,
+      "over": false
+    }
+  ]
+}

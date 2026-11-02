@@ -269,6 +269,13 @@ def _selftest():
     assert not g["exact"] and g["under"] and not g["over"], g
     g = grade_pick(item, "gpt")  # unmeasured: unknown, not penalised
     assert g["exact"] is None and g["acceptable"] is None and not g["under"] and not g["over"], g
+    lo, hi = wilson(43, 48)
+    assert 0.77 < lo < 0.79 and 0.94 < hi < 0.96, (lo, hi)
+    assert wilson(0, 0) == [None, None]
+    items = [{**item, "task": "t"}]
+    c = compare([("a", fixed_rows(items, "sonnet"))], baselines=("haiku",))
+    assert [p["policy"] for p in c["policies"]] == ["a", "always-haiku"], c
+    assert c["policies"][1]["exact_rate"] == 1.0 and c["policies"][0]["exact_rate"] == 0.0, c
     print("selftest ok")
 
 
@@ -302,6 +309,71 @@ def evaluate(args, oracle):
     return rows
 
 
+def wilson(k, n, z=1.96):
+    """95% Wilson score interval for k successes in n trials."""
+    if not n:
+        return [None, None]
+    p = k / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / d
+    return [round(max(0.0, c - h), 4), round(min(1.0, c + h), 4)]
+
+
+def fixed_rows(items, model):
+    """Grade an always-`model` policy against the same oracle items."""
+    return [{**it, "chosen_model": model, **grade_pick(it, model)} for it in items]
+
+
+def summarize(name, rows):
+    m = [r for r in rows if r["chosen_measured"]]
+    ok = sum(bool(r["acceptable"]) for r in m)
+    costs = [r["models"][r["chosen_model"]]["cost_usd"] for r in m if r["models"][r["chosen_model"]].get("cost_usd") is not None]
+    return {"policy": name, "n": len(rows), "measured_n": len(m), "accuracy": round(ok / len(m), 4) if m else None,
+            "accuracy_ci95": wilson(ok, len(m)),
+            # over-routing needs the pick's price; an unpriced model (fable) is n/a, not 0%
+            "over_rate": round(sum(bool(r["over"]) for r in m) / len(m), 4) if m and costs else None,
+            "exact_rate": round(sum(bool(r["exact"]) for r in m) / len(m), 4) if m else None,
+            "priced_n": len(costs), "mean_cost_usd": round(statistics.mean(costs), 6) if costs else None}
+
+
+def compare(named_rows, baselines=("sonnet", "fable")):
+    """Side-by-side policies on the same tasks. named_rows: [(name, rows)] from eval reports."""
+    items = named_rows[0][1]
+    pols = [summarize(n, r) for n, r in named_rows] + [summarize(f"always-{b}", fixed_rows(items, b)) for b in baselines]
+    verdicts = []
+    for p in pols[:len(named_rows)]:
+        for b in pols[len(named_rows):]:
+            if p["accuracy"] is None or b["accuracy"] is None:
+                continue
+            overlap = p["accuracy_ci95"][0] <= b["accuracy_ci95"][1] and b["accuracy_ci95"][0] <= p["accuracy_ci95"][1]
+            known = p["mean_cost_usd"] is not None and b["mean_cost_usd"] is not None
+            delta = f"{(p['accuracy'] - b['accuracy']) * 100:+.1f} pts"
+            if not overlap:
+                v = f"beats on accuracy ({delta})" if p["accuracy"] > b["accuracy"] else f"worse on accuracy ({delta})"
+            elif not known:
+                v = f"accuracy not significantly different ({delta}, CIs overlap); cost unknown, baseline unpriced"
+            elif p["mean_cost_usd"] < b["mean_cost_usd"]:
+                v = f"matches accuracy ({delta}, CIs overlap) at lower cost"
+            else:
+                v = f"no accuracy gain ({delta}, CIs overlap) and not cheaper"
+            verdicts.append({"policy": p["policy"], "baseline": b["policy"], "verdict": v})
+    return {"policies": pols, "verdicts": verdicts,
+            "note": "Accuracy = in-acceptable-set over tasks where the pick was measured; CI is Wilson 95%. "
+                    "Cost = mean API-equivalent list-price cost of the picked model per task, over priced picks only."}
+
+
+def compare_markdown(c):
+    lines = ["| policy | n measured | accuracy | 95% CI | over-routing | exact | mean cost/task |", "|---|---:|---:|---|---:|---:|---:|"]
+    pct = lambda x: "n/a" if x is None else f"{x * 100:.1f}%"
+    for p in c["policies"]:
+        ci = "n/a" if p["accuracy_ci95"][0] is None else f"{p['accuracy_ci95'][0] * 100:.1f}–{p['accuracy_ci95'][1] * 100:.1f}%"
+        cost = "n/a (unpriced)" if p["mean_cost_usd"] is None else f"${p['mean_cost_usd']:.4f}"
+        lines.append(f"| {p['policy']} | {p['measured_n']}/{p['n']} | {pct(p['accuracy'])} | {ci} | {pct(p['over_rate'])} | {pct(p['exact_rate'])} | {cost} |")
+    lines += ["", "| policy | vs baseline | verdict |", "|---|---|---|"] + [f"| {v['policy']} | {v['baseline']} | {v['verdict']} |" for v in c["verdicts"]]
+    return "\n".join(lines) + "\n\n" + c["note"] + "\n"
+
+
 def report(rows, cost):
     measured_rows = [r for r in rows if r["chosen_measured"]]
     n = len(measured_rows) or 1
@@ -331,6 +403,7 @@ def report(rows, cost):
     over_costs = [r["models"][r["chosen_model"]]["cost_usd"] for r in rows if r["over"] and r["models"].get(r["chosen_model"], {}).get("cost_usd") is not None]
     return {"n": len(rows), "measured_route_n": len(measured_rows), "unmeasured_route_n": len(rows) - len(measured_rows),
             "coverage_rate": round(len(measured_rows) / (len(rows) or 1), 4), "exact_match_rate": rate("exact"), "in_acceptable_set_rate": rate("acceptable"),
+            "in_acceptable_set_ci95": wilson(sum(bool(r["acceptable"]) for r in measured_rows), len(measured_rows)),
             "under_routing_rate": rate("under"), "over_routing_rate": rate("over"),
             "over_routing_cost_usd_median": round(statistics.median(over_costs), 6) if over_costs else 0,
             "by_provider": breakdown(by_provider), "by_task_type": breakdown(types),
@@ -340,7 +413,8 @@ def report(rows, cost):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["build", "fit", "eval", "all", "selftest"])
+    ap.add_argument("command", choices=["build", "fit", "eval", "all", "selftest", "compare"])
+    ap.add_argument("--reports", nargs="*", default=[], help="compare: name=report_dir pairs, e.g. current=eval/routing/interim/current")
     ap.add_argument("--calibration-root", default=None)
     ap.add_argument("--results", default=None)
     ap.add_argument("--tasks", default=None)
@@ -353,6 +427,14 @@ def main():
     args = ap.parse_args()
     if args.command == "selftest":
         return _selftest()
+    if args.command == "compare":
+        named = [(n, read_json(Path(d) / "report.json")["rows"]) for n, d in (x.split("=", 1) for x in args.reports)]
+        c = compare(named)
+        out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
+        (out / "comparison.json").write_text(json.dumps(c, indent=2) + "\n", encoding="utf-8")
+        (out / "comparison.md").write_text(compare_markdown(c), encoding="utf-8")
+        print(compare_markdown(c))
+        return
     repo = Path(__file__).resolve().parents[1]
     cal = Path(args.calibration_root or repo.parent / "nectra-calibration")
     task_root = Path(args.tasks or cal / "eval/calibration/tasks")

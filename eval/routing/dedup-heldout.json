@@ -1,0 +1,47 @@
+{
+  "threshold": 0.5,
+  "new_prompts": 152,
+  "types": {
+    "code_generation": 17,
+    "debugging": 17,
+    "refactoring": 17,
+    "code_review": 17,
+    "planning": 17,
+    "research": 17,
+    "writing": 17,
+    "long_context": 17,
+    "tool_use": 16
+  },
+  "tiers": {
+    "1": 53,
+    "2": 58,
+    "3": 41
+  },
+  "corpus_sizes": {
+    "existing-48": 48,
+    "calibration": 63,
+    "laya": 11120,
+    "within-new": 152
+  },
+  "sources": {
+    "existing-48": {
+      "max_jaccard": 0.121,
+      "flagged": 0
+    },
+    "calibration": {
+      "max_jaccard": 0.061,
+      "flagged": 0
+    },
+    "laya": {
+      "max_jaccard": 0.278,
+      "flagged": 0
+    },
+    "within-new": {
+      "max_jaccard": 0.085,
+      "flagged": 0
+    }
+  },
+  "flagged": [],
+  "duplicate_ids": [],
+  "pass": true
+}
