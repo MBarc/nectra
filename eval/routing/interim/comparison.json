@@ -79,5 +79,204 @@
       "verdict": "matches accuracy (-4.2 pts, CIs overlap) at lower cost"
     }
   ],
+  "tiers": {
+    "current": {
+      "1": {
+        "policy": "current",
+        "n": 17,
+        "measured_n": 17,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          0.8157,
+          1.0
+        ],
+        "over_rate": 0.9412,
+        "exact_rate": 0.0588,
+        "priced_n": 17,
+        "mean_cost_usd": 0.070364
+      },
+      "2": {
+        "policy": "current",
+        "n": 18,
+        "measured_n": 18,
+        "accuracy": 0.8889,
+        "accuracy_ci95": [
+          0.672,
+          0.969
+        ],
+        "over_rate": 0.8333,
+        "exact_rate": 0.0556,
+        "priced_n": 18,
+        "mean_cost_usd": 0.114802
+      },
+      "3": {
+        "policy": "current",
+        "n": 13,
+        "measured_n": 13,
+        "accuracy": 0.7692,
+        "accuracy_ci95": [
+          0.4974,
+          0.9182
+        ],
+        "over_rate": 0.5385,
+        "exact_rate": 0.2308,
+        "priced_n": 13,
+        "mean_cost_usd": 0.12273
+      }
+    },
+    "proposed": {
+      "1": {
+        "policy": "proposed",
+        "n": 17,
+        "measured_n": 17,
+        "accuracy": 0.9412,
+        "accuracy_ci95": [
+          0.7302,
+          0.9895
+        ],
+        "over_rate": 0.2353,
+        "exact_rate": 0.7059,
+        "priced_n": 17,
+        "mean_cost_usd": 0.017246
+      },
+      "2": {
+        "policy": "proposed",
+        "n": 18,
+        "measured_n": 18,
+        "accuracy": 0.8889,
+        "accuracy_ci95": [
+          0.672,
+          0.969
+        ],
+        "over_rate": 0.3889,
+        "exact_rate": 0.5,
+        "priced_n": 18,
+        "mean_cost_usd": 0.075288
+      },
+      "3": {
+        "policy": "proposed",
+        "n": 13,
+        "measured_n": 13,
+        "accuracy": 0.7692,
+        "accuracy_ci95": [
+          0.4974,
+          0.9182
+        ],
+        "over_rate": 0.2308,
+        "exact_rate": 0.5385,
+        "priced_n": 13,
+        "mean_cost_usd": 0.103041
+      }
+    },
+    "always-sonnet": {
+      "1": {
+        "policy": "always-sonnet",
+        "n": 17,
+        "measured_n": 17,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          0.8157,
+          1.0
+        ],
+        "over_rate": 0.9412,
+        "exact_rate": 0.0588,
+        "priced_n": 17,
+        "mean_cost_usd": 0.070364
+      },
+      "2": {
+        "policy": "always-sonnet",
+        "n": 18,
+        "measured_n": 18,
+        "accuracy": 0.8889,
+        "accuracy_ci95": [
+          0.672,
+          0.969
+        ],
+        "over_rate": 0.8333,
+        "exact_rate": 0.0556,
+        "priced_n": 18,
+        "mean_cost_usd": 0.080342
+      },
+      "3": {
+        "policy": "always-sonnet",
+        "n": 13,
+        "measured_n": 13,
+        "accuracy": 0.7692,
+        "accuracy_ci95": [
+          0.4974,
+          0.9182
+        ],
+        "over_rate": 0.6923,
+        "exact_rate": 0.0769,
+        "priced_n": 13,
+        "mean_cost_usd": 0.081584
+      }
+    },
+    "always-fable": {
+      "1": {
+        "policy": "always-fable",
+        "n": 17,
+        "measured_n": 17,
+        "accuracy": 0.8235,
+        "accuracy_ci95": [
+          0.5897,
+          0.9381
+        ],
+        "over_rate": 0.8235,
+        "exact_rate": 0.0,
+        "priced_n": 17,
+        "mean_cost_usd": 0.680259
+      },
+      "2": {
+        "policy": "always-fable",
+        "n": 18,
+        "measured_n": 18,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          0.8241,
+          1.0
+        ],
+        "over_rate": 0.9444,
+        "exact_rate": 0.0556,
+        "priced_n": 18,
+        "mean_cost_usd": 0.885704
+      },
+      "3": {
+        "policy": "always-fable",
+        "n": 13,
+        "measured_n": 13,
+        "accuracy": 0.9231,
+        "accuracy_ci95": [
+          0.6669,
+          0.9863
+        ],
+        "over_rate": 0.8462,
+        "exact_rate": 0.0769,
+        "priced_n": 13,
+        "mean_cost_usd": 1.293253
+      }
+    }
+  },
+  "hard_tier_verdicts": [
+    {
+      "policy": "current",
+      "baseline": "always-sonnet",
+      "regression": false,
+      "verdict": "no regression: 76.9% (CI 49.7\u201391.8%) vs 76.9%"
+    },
+    {
+      "policy": "proposed",
+      "baseline": "always-sonnet",
+      "regression": false,
+      "verdict": "no regression: 76.9% (CI 49.7\u201391.8%) vs 76.9%"
+    },
+    {
+      "policy": "proposed",
+      "baseline": "current",
+      "regression": false,
+      "verdict": "no regression: 76.9% (CI 49.7\u201391.8%) vs 76.9%"
+    }
+  ],
+  "hard_tier_rule": "Regression on the hard tier (tier 3) = the candidate's accuracy CI upper bound is below the baseline's point estimate; baselines are always-sonnet and current.",
   "note": "Accuracy = in-acceptable-set over tasks where the pick was measured; CI is Wilson 95%. Cost = mean API-equivalent list-price cost of the picked model per task, over priced picks only."
 }

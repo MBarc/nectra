@@ -258,7 +258,7 @@ def grade_pick(item, chosen):
 
 
 def _selftest():
-    item = {"oracle_model": "haiku", "acceptable_set": ["haiku", "sonnet"], "best_model": ["sonnet"],
+    item = {"tier": 1, "oracle_model": "haiku", "acceptable_set": ["haiku", "sonnet"], "best_model": ["sonnet"],
             "models": {"haiku": {"measured": True, "cost_usd": 0.01}, "sonnet": {"measured": True, "cost_usd": 0.05},
                        "opus": {"measured": True, "cost_usd": 0.2}}}
     g = grade_pick(item, "sonnet")  # acceptable but not the oracle pick
@@ -276,6 +276,13 @@ def _selftest():
     c = compare([("a", fixed_rows(items, "sonnet"))], baselines=("haiku",))
     assert [p["policy"] for p in c["policies"]] == ["a", "always-haiku"], c
     assert c["policies"][1]["exact_rate"] == 1.0 and c["policies"][0]["exact_rate"] == 0.0, c
+    # per tier: tier 1 pick acceptable, tier 3 pick under -> 100% vs 0%, n 1 each
+    t1, t3 = {**item, "task": "a", "tier": 1}, {**item, "task": "b", "tier": 3}
+    c = compare([("current", fixed_rows([t1, t3], "haiku")), ("x", fixed_rows([t1, t3], "opus"))], baselines=("sonnet",))
+    assert c["tiers"]["current"]["3"]["accuracy"] == 1.0 and c["tiers"]["x"]["3"]["accuracy"] == 0.0 and c["tiers"]["x"]["1"]["n"] == 1, c["tiers"]
+    assert not c["tiers"]["x"]["3"]["over_rate"] and c["tiers"]["current"]["1"]["over_rate"] == 0.0, c["tiers"]
+    hv = {(v["policy"], v["baseline"]): v["regression"] for v in c["hard_tier_verdicts"]}
+    assert hv == {("current", "always-sonnet"): False, ("x", "always-sonnet"): True, ("x", "current"): True}, hv
     print("selftest ok")
 
 
@@ -341,10 +348,16 @@ def summarize(name, rows):
             "priced_n": len(costs), "mean_cost_usd": round(statistics.mean(costs), 6) if costs else None}
 
 
+HARD_TIER = 3
+HARD_RULE = ("Regression on the hard tier (tier 3) = the candidate's accuracy CI upper bound is below the baseline's "
+             "point estimate; baselines are always-sonnet and current.")
+
+
 def compare(named_rows, baselines=("sonnet", "fable")):
     """Side-by-side policies on the same tasks. named_rows: [(name, rows)] from eval reports."""
     items = named_rows[0][1]
-    pols = [summarize(n, r) for n, r in named_rows] + [summarize(f"always-{b}", fixed_rows(items, b)) for b in baselines]
+    rowsets = list(named_rows) + [(f"always-{b}", fixed_rows(items, b)) for b in baselines]
+    pols = [summarize(n, r) for n, r in rowsets]
     verdicts = []
     for p in pols[:len(named_rows)]:
         for b in pols[len(named_rows):]:
@@ -362,7 +375,23 @@ def compare(named_rows, baselines=("sonnet", "fable")):
             else:
                 v = f"no accuracy gain ({delta}, CIs overlap) and not cheaper"
             verdicts.append({"policy": p["policy"], "baseline": b["policy"], "verdict": v})
-    return {"policies": pols, "verdicts": verdicts,
+    # Per tier (1/2/3), same stats as the totals. Hard tier = 3.
+    tiers = {n: {str(t): summarize(n, [r for r in rows if r["tier"] == t]) for t in sorted({r["tier"] for r in items})}
+             for n, rows in rowsets}
+    hard = []
+    for p in pols[:len(named_rows)]:
+        for b in ("always-sonnet", "current"):
+            if b == p["policy"] or b not in tiers:
+                continue
+            c, base = tiers[p["policy"]].get(str(HARD_TIER)), tiers[b].get(str(HARD_TIER))
+            if not c or not base or c["accuracy"] is None or base["accuracy"] is None:
+                continue
+            reg = c["accuracy_ci95"][1] < base["accuracy"]
+            hard.append({"policy": p["policy"], "baseline": b, "regression": reg,
+                         "verdict": f"{'REGRESSION' if reg else 'no regression'}: {c['accuracy'] * 100:.1f}% "
+                                    f"(CI {c['accuracy_ci95'][0] * 100:.1f}–{c['accuracy_ci95'][1] * 100:.1f}%) vs {base['accuracy'] * 100:.1f}%"})
+    return {"policies": pols, "verdicts": verdicts, "tiers": tiers, "hard_tier_verdicts": hard,
+            "hard_tier_rule": HARD_RULE,
             "note": "Accuracy = in-acceptable-set over tasks where the pick was measured; CI is Wilson 95%. "
                     "Cost = mean API-equivalent list-price cost of the picked model per task, over priced picks only."}
 
@@ -375,6 +404,16 @@ def compare_markdown(c):
         cost = "n/a (unpriced)" if p["mean_cost_usd"] is None else f"${p['mean_cost_usd']:.4f}"
         lines.append(f"| {p['policy']} | {p['measured_n']}/{p['n']} | {pct(p['accuracy'])} | {ci} | {pct(p['over_rate'])} | {pct(p['exact_rate'])} | {cost} |")
     lines += ["", "| policy | vs baseline | verdict |", "|---|---|---|"] + [f"| {v['policy']} | {v['baseline']} | {v['verdict']} |" for v in c["verdicts"]]
+    lines += ["", "Per tier (accuracy = in-acceptable-set, Wilson 95% CI):", "",
+              "| tier | policy | n measured | accuracy | 95% CI | over-routing | under-routing |", "|---|---|---:|---:|---|---:|---:|"]
+    for t in sorted({t for v in c["tiers"].values() for t in v}):
+        for name, by in c["tiers"].items():
+            p = by[t]
+            ci = "n/a" if p["accuracy_ci95"][0] is None else f"{p['accuracy_ci95'][0] * 100:.1f}–{p['accuracy_ci95'][1] * 100:.1f}%"
+            under = "n/a" if p["accuracy"] is None else pct(round(1 - p["accuracy"], 4))
+            lines.append(f"| {t} | {name} | {p['measured_n']}/{p['n']} | {pct(p['accuracy'])} | {ci} | {pct(p['over_rate'])} | {under} |")
+    lines += ["", f"Hard tier verdicts. {c['hard_tier_rule']}", "", "| policy | vs baseline | hard-tier verdict |", "|---|---|---|"]
+    lines += [f"| {v['policy']} | {v['baseline']} | {v['verdict']} |" for v in c["hard_tier_verdicts"]]
     return "\n".join(lines) + "\n\n" + c["note"] + "\n"
 
 
