@@ -80,8 +80,12 @@ fn stakes_score(prompt: &str) -> f64 {
             !word.contains("://")
                 && !word.starts_with("www.")
                 // Libraries named like files.
-                && !["node.js", "next.js", "nuxt.js", "vue.js", "react.js", "three.js", "d3.js", "express.js"]
-                    .contains(word)
+                && ![
+                    "node.js", "next.js", "nuxt.js", "nest.js", "vue.js", "react.js", "three.js",
+                    "d3.js", "express.js", "chart.js", "ember.js", "alpine.js", "solid.js",
+                    "backbone.js", "moment.js",
+                ]
+                .contains(word)
                 && (".rs .py .ts .tsx .js .toml .json .md"
                     .split_whitespace()
                     .any(|suffix| word.ends_with(suffix) && word.len() > suffix.len())
@@ -715,6 +719,7 @@ mod tests {
         assert!(paths("src/router.rs and ./scripts/gate"));
         // Node.js and Vue.js are libraries, not files; server.js is a file.
         assert!(!paths("Node.js and Vue.js"));
+        assert!(!paths("Nest.js and (Chart.js)"));
         assert!(paths("server.js and app.js"));
         // Client and server are one system, not two components.
         assert!(!paths("the client and the server"));

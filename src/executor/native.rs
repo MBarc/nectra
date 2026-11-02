@@ -633,8 +633,9 @@ fn screen_limit(
                 .contains(marker)
         });
     // Work pushed a scrolled-away echo off screen, so that is never safe.
-    // ponytail: a pane too small for the echo marks even a clean limit unsafe,
-    // which only skips a retry; telling them apart needs more than the screen.
+    // ponytail: a pane too small to show the echo at all never finds the limit,
+    // and one that scrolled it off before any work marks a clean limit unsafe;
+    // telling these apart needs more than the screen.
     let (start, scrolled) = match echo {
         Some((_, end)) => {
             *echoed = true;
