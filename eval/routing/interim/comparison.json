@@ -51,10 +51,10 @@
         0.8045,
         0.9671
       ],
-      "over_rate": null,
+      "over_rate": 0.875,
       "exact_rate": 0.0417,
-      "priced_n": 0,
-      "mean_cost_usd": null
+      "priced_n": 48,
+      "mean_cost_usd": 0.92332
     }
   ],
   "verdicts": [
@@ -66,7 +66,7 @@
     {
       "policy": "current",
       "baseline": "always-fable",
-      "verdict": "accuracy not significantly different (-2.1 pts, CIs overlap); cost unknown, baseline unpriced"
+      "verdict": "matches accuracy (-2.1 pts, CIs overlap) at lower cost"
     },
     {
       "policy": "proposed",
@@ -76,7 +76,7 @@
     {
       "policy": "proposed",
       "baseline": "always-fable",
-      "verdict": "accuracy not significantly different (-4.2 pts, CIs overlap); cost unknown, baseline unpriced"
+      "verdict": "matches accuracy (-4.2 pts, CIs overlap) at lower cost"
     }
   ],
   "note": "Accuracy = in-acceptable-set over tasks where the pick was measured; CI is Wilson 95%. Cost = mean API-equivalent list-price cost of the picked model per task, over priced picks only."

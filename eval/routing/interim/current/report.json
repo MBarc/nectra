@@ -151,7 +151,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.546462
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -233,7 +233,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.960234
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -315,7 +315,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.127028
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -397,7 +397,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.89583
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -477,7 +477,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.290151
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -532,6 +532,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.006065,
+        "fable": 0.546462,
         "opus": 0.190716,
         "sonnet": 0.086687
       },
@@ -584,7 +585,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.546462
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -638,6 +639,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.011421,
+        "fable": 0.960234,
         "opus": 0.287831,
         "sonnet": 0.10052
       },
@@ -690,7 +692,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.960234
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -744,6 +746,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.012062,
+        "fable": 1.127028,
         "opus": 0.408746,
         "sonnet": 0.121046
       },
@@ -796,7 +799,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.127028
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -848,6 +851,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.011364,
+        "fable": 0.89583,
         "opus": 0.361872,
         "sonnet": 0.104308
       },
@@ -900,7 +904,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.89583
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -952,6 +956,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.009373,
+        "fable": 1.290151,
         "opus": 0.333456,
         "sonnet": 0.107464
       },
@@ -1004,7 +1009,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.290151
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1058,6 +1063,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.026151,
+        "fable": 2.599035,
         "opus": 0.508409,
         "sonnet": 0.170675
       },
@@ -1110,7 +1116,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 2.599035
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1162,6 +1168,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004481,
+        "fable": 0.606815,
         "opus": 0.196374,
         "sonnet": 0.083094
       },
@@ -1214,7 +1221,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 0.606815
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1268,6 +1275,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004408,
+        "fable": 0.854843,
         "opus": 0.285227,
         "sonnet": 0.10775
       },
@@ -1320,7 +1328,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.854843
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1374,6 +1382,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004728,
+        "fable": 0.806644,
         "opus": 0.207793,
         "sonnet": 0.068319
       },
@@ -1426,7 +1435,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.806644
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1478,6 +1487,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004484,
+        "fable": 0.389659,
         "opus": 0.154755,
         "sonnet": 0.061052
       },
@@ -1530,7 +1540,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.389659
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1580,6 +1590,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004915,
+        "fable": 1.66671,
         "opus": 0.51563,
         "sonnet": 0.063792
       },
@@ -1632,7 +1643,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.66671
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1686,6 +1697,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004852,
+        "fable": 0.399952,
         "opus": 0.173485,
         "sonnet": 0.056982
       },
@@ -1738,7 +1750,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.399952
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1792,6 +1804,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004269,
+        "fable": 0.377868,
         "opus": 0.121734,
         "sonnet": 0.057281
       },
@@ -1844,7 +1857,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.377868
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -1898,6 +1911,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.005121,
+        "fable": 0.593174,
         "opus": 0.127246,
         "sonnet": 0.067173
       },
@@ -1950,7 +1964,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.593174
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2004,6 +2018,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004244,
+        "fable": 0.397145,
         "opus": 0.143532,
         "sonnet": 0.058113
       },
@@ -2056,7 +2071,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.397145
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2110,6 +2125,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004455,
+        "fable": 3.500129,
         "opus": 0.13066,
         "sonnet": 0.076139
       },
@@ -2162,7 +2178,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 3.500129
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2214,6 +2230,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004228,
+        "fable": 0.83,
         "opus": 0.16306,
         "sonnet": 0.06808
       },
@@ -2266,7 +2283,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.83
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2320,6 +2337,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.005472,
+        "fable": 0.602352,
         "opus": 0.169205,
         "sonnet": 0.059124
       },
@@ -2372,7 +2390,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.602352
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2426,6 +2444,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.006426,
+        "fable": 0.632613,
         "opus": 0.216878,
         "sonnet": 0.071064
       },
@@ -2478,7 +2497,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.632613
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2532,6 +2551,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.008396,
+        "fable": 0.859287,
         "opus": 0.307254,
         "sonnet": 0.067572
       },
@@ -2584,7 +2604,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.859287
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2638,6 +2658,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.009447,
+        "fable": 0.830931,
         "opus": 0.333365,
         "sonnet": 0.073344
       },
@@ -2690,7 +2711,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.830931
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2744,6 +2765,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.01051,
+        "fable": 0.986325,
         "opus": 0.312191,
         "sonnet": 0.072492
       },
@@ -2796,7 +2818,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.986325
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2850,6 +2872,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.008783,
+        "fable": 0.760308,
         "opus": 0.243775,
         "sonnet": 0.063406
       },
@@ -2902,7 +2925,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.760308
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -2952,6 +2975,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004437,
+        "fable": 1.083791,
         "opus": 0.262692,
         "sonnet": 0.064413
       },
@@ -3004,7 +3028,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.083791
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3056,6 +3080,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.01164,
+        "fable": 2.768718,
         "opus": 0.597557,
         "sonnet": 0.09794
       },
@@ -3108,7 +3133,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 2.768718
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3162,6 +3187,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.027372,
+        "fable": 2.700573,
         "opus": 0.497827,
         "sonnet": 0.11723
       },
@@ -3214,7 +3240,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 2.700573
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3264,6 +3290,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.018955,
+        "fable": 2.55742,
         "opus": 0.393592,
         "sonnet": 0.145062
       },
@@ -3316,7 +3343,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 2.55742
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3370,6 +3397,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.005149,
+        "fable": 1.245697,
         "opus": 0.339587,
         "sonnet": 0.074304
       },
@@ -3422,7 +3450,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.245697
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3474,6 +3502,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.003434,
+        "fable": 0.388135,
         "opus": 0.105945,
         "sonnet": 0.054498
       },
@@ -3526,7 +3555,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.388135
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3576,6 +3605,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.003322,
+        "fable": 0.301746,
         "opus": 0.114001,
         "sonnet": 0.05372
       },
@@ -3628,7 +3658,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 0.301746
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3676,6 +3706,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004637,
+        "fable": 0.426081,
         "opus": 0.147973,
         "sonnet": 0.060822
       },
@@ -3728,7 +3759,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.426081
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3780,6 +3811,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.00339,
+        "fable": 0.38139,
         "opus": 0.143688,
         "sonnet": 0.056558
       },
@@ -3832,7 +3864,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.38139
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3880,6 +3912,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.003942,
+        "fable": 0.41421,
         "opus": 0.156721,
         "sonnet": 0.068768
       },
@@ -3932,7 +3965,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 0.41421
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -3986,6 +4019,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004326,
+        "fable": 0.378462,
         "opus": 0.141633,
         "sonnet": 0.071098
       },
@@ -4038,7 +4072,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 0.378462
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4092,6 +4126,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.003824,
+        "fable": 0.417123,
         "opus": 0.140559,
         "sonnet": 0.068806
       },
@@ -4144,7 +4179,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 0.417123
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4198,6 +4233,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004957,
+        "fable": 1.252711,
         "opus": 0.144395,
         "sonnet": 0.070427
       },
@@ -4250,7 +4286,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 1.252711
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4304,6 +4340,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.005547,
+        "fable": 0.431101,
         "opus": 0.158685,
         "sonnet": 0.073538
       },
@@ -4356,7 +4393,7 @@
         "fable": {
           "measured": true,
           "quality": 0.0,
-          "cost_usd": null
+          "cost_usd": 0.431101
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4404,6 +4441,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.005818,
+        "fable": 0.610326,
         "opus": 0.205036,
         "sonnet": 0.074787
       },
@@ -4456,7 +4494,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.610326
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4510,6 +4548,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004079,
+        "fable": 0.404824,
         "opus": 0.122026,
         "sonnet": 0.066998
       },
@@ -4562,7 +4601,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.404824
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4616,6 +4655,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.003931,
+        "fable": 0.494646,
         "opus": 0.14107,
         "sonnet": 0.066113
       },
@@ -4668,7 +4708,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.494646
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4722,6 +4762,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004403,
+        "fable": 0.417897,
         "opus": 0.141355,
         "sonnet": 0.06606
       },
@@ -4774,7 +4815,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.417897
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4828,6 +4869,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.00437,
+        "fable": 0.413917,
         "opus": 0.129498,
         "sonnet": 0.066521
       },
@@ -4880,7 +4922,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.413917
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -4934,6 +4976,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004266,
+        "fable": 1.744736,
         "opus": 0.147454,
         "sonnet": 0.067256
       },
@@ -4986,7 +5029,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.744736
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -5040,6 +5083,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.004631,
+        "fable": 0.419934,
         "opus": 0.151807,
         "sonnet": 0.044444
       },
@@ -5092,7 +5136,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.419934
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -5146,6 +5190,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.00323,
+        "fable": 0.325838,
         "opus": 0.11753,
         "sonnet": 0.04264
       },
@@ -5198,7 +5243,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.325838
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -5252,6 +5297,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.00466,
+        "fable": 0.45961,
         "opus": 0.183254,
         "sonnet": 0.076146
       },
@@ -5304,7 +5350,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.45961
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -5358,6 +5404,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.005771,
+        "fable": 1.002267,
         "opus": 0.314702,
         "sonnet": 0.092861
       },
@@ -5410,7 +5457,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 1.002267
         },
         "gpt-6.1-sol": {
           "measured": false,
@@ -5464,6 +5511,7 @@
       },
       "cost_usd_median": {
         "haiku": 0.006787,
+        "fable": 0.764708,
         "opus": 0.253694,
         "sonnet": 0.096448
       },
@@ -5516,7 +5564,7 @@
         "fable": {
           "measured": true,
           "quality": 1.0,
-          "cost_usd": null
+          "cost_usd": 0.764708
         },
         "gpt-6.1-sol": {
           "measured": false,
