@@ -230,7 +230,8 @@ fn task_part(file: &str) -> (&str, bool) {
 /// Conservative: only .md/.txt/.toml/.json regular files inside `root`
 /// (relative, or absolute under `root`, spaces allowed), named within three
 /// words after read/follow/see/open/do/implement or as one of the first two
-/// words of a short prompt. Questions ("why does config.toml fail to parse",
+/// words of a short prompt. A plain file counts only when handed over as the
+/// task (see `handed_over`); an Orca dispatch always does. Questions ("why does config.toml fail to parse",
 /// with or without "?") never expand. Never follows URLs, network paths or
 /// symlinks.
 fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String, Cow<'a, str>) {
@@ -258,7 +259,15 @@ fn referenced_files<'a>(
         return unchanged();
     }
     let short = prompt.len() < 400;
-    let mut files: Vec<(String, PathBuf)> = Vec::new();
+    // A file is the task only when handed over as one. Docs named beside an
+    // ask of its own ("read MISSION.md, then check the citations") are
+    // context: inlined, their text outweighs the ask and misroutes it.
+    let lower = prompt.to_lowercase();
+    let handed_over = words.len() <= 8
+        || ["follow it", "follow this", "your task"]
+            .iter()
+            .any(|p| lower.contains(p));
+    let mut files: Vec<(String, PathBuf, bool)> = Vec::new();
     for i in 0..words.len() {
         // A path with spaces arrives split (".../Automated", "Company/x.md"):
         // after the word alone, try it joined to up to three words before it.
@@ -267,19 +276,24 @@ fn referenced_files<'a>(
             let word = joined
                 .trim_matches(|c: char| "\"'`()[]<>,;:!?*".contains(c))
                 .trim_end_matches('.');
-            let after_verb = words[start.saturating_sub(3)..start].iter().any(|w| {
-                matches!(
-                    w.to_lowercase()
-                        .trim_matches(|c: char| !c.is_alphanumeric()),
-                    "read" | "follow" | "see" | "open" | "do" | "implement"
-                )
+            let verb = words[start.saturating_sub(3)..start].iter().find_map(|w| {
+                let w = w.to_lowercase();
+                let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+                ["read", "follow", "see", "open", "do", "implement"]
+                    .into_iter()
+                    .find(|v| *v == w)
             });
-            if !(after_verb || short && start < 2) || files.len() == MAX_FILES {
+            let first = short && start < 2;
+            if !(verb.is_some() || first) || files.len() == MAX_FILES {
                 continue;
             }
             if let Some(real) = text_file_inside(&root, word) {
-                if !files.iter().any(|(_, p)| *p == real) {
-                    files.push((word.to_string(), real));
+                let task = handed_over
+                    || first
+                    || matches!(verb, Some("follow" | "do" | "implement"))
+                    || real.components().any(|c| c.as_os_str() == ".orca-task");
+                if !files.iter().any(|(_, p, _)| *p == real) {
+                    files.push((word.to_string(), real, task));
                 }
                 break;
             }
@@ -290,11 +304,14 @@ fn referenced_files<'a>(
     let mut tasks = String::new();
     let mut used = Vec::new();
     let mut budget = TOTAL_HEAD;
-    for (name, path) in files {
+    for (name, path, task) in files {
         let mut raw = Vec::new();
         let read = fs::File::open(&path).and_then(|f| f.take(SCAN).read_to_end(&mut raw));
         let raw = String::from_utf8_lossy(&raw);
         let (part, dispatch) = task_part(&raw);
+        if !(task || dispatch) {
+            continue;
+        }
         // Orca's TASK is often one line pointing at the real task file.
         let inner = (dispatch && !nested).then(|| referenced_files(part, &root, true));
         let (part, via) = match &inner {
@@ -1104,6 +1121,30 @@ mod tests {
         // No task file: the pointer classifies as itself.
         let missing = pointer.replace("2ce7b85a9133.md", "0000.md");
         assert_eq!(with_referenced_files(&missing, &ws).0, missing);
+    }
+    #[test]
+    fn context_docs_named_beside_an_ask_are_not_inlined() {
+        // AGI project, 2026-11: a worker prompt named its context docs, Nectra
+        // inlined their long brief text and Laya routed the work as simple.
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("research")).unwrap();
+        let brief = include_str!("../tests/fixtures/context-brief.md");
+        fs::write(dir.path().join("MISSION.md"), brief).unwrap();
+        fs::write(dir.path().join("research/SYNTHESIS.md"), brief).unwrap();
+        let ask = "Before starting, read MISSION.md and research/SYNTHESIS.md (including its Astra review section). Then check every citation in research/ against its source, fix the ones that do not hold, and commit the corrections.";
+        let (text, note, stakes) = with_referenced_files(ask, dir.path());
+        assert!(note.is_empty() && text == ask && stakes == ask, "{note}");
+        // The same docs inside a dispatch's TASK: Laya reads the TASK alone.
+        fs::create_dir(dir.path().join(".orca-task")).unwrap();
+        fs::write(dir.path().join(".orca-task/dispatch-x.md"), dispatch(ask)).unwrap();
+        let (text, _, _) = with_referenced_files(POINTER, dir.path());
+        assert_eq!(text, ask);
+        // Handed over as the task itself, a doc still is.
+        assert!(
+            !with_referenced_files("Read MISSION.md and follow it", dir.path())
+                .1
+                .is_empty()
+        );
     }
     #[test]
     fn a_dispatch_with_a_preamble_past_64_kb_still_finds_its_task() {
