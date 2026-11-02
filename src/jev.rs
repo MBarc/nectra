@@ -224,8 +224,9 @@ fn task_part(file: &str) -> (&str, bool) {
 /// or the dispatch tasks alone; a note for the routing reason (empty when
 /// nothing was read); and the text the stakes score reads: the dispatch
 /// tasks, or else the prompt alone, since an arbitrary file's head says
-/// little about what is at stake. A TASK that is itself a pointer ("Read
-/// .orca-task/x.md and follow it") is followed one level.
+/// little about what is at stake. A task file's text is expanded as if typed
+/// as the prompt, three levels deep: an Orca TASK is often itself a pointer
+/// ("Read .orca-task/x.md and follow it").
 ///
 /// Conservative: only .md/.txt/.toml/.json regular files inside `root`
 /// (relative, or absolute under `root`, spaces allowed), named within three
@@ -235,13 +236,21 @@ fn task_part(file: &str) -> (&str, bool) {
 /// with or without "?") never expand. Never follows URLs, network paths or
 /// symlinks.
 fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String, Cow<'a, str>) {
-    referenced_files(prompt, root, false)
+    referenced_files(prompt, root, 0)
+}
+
+/// The longest prefix of `s` no longer than `max` bytes that ends on a char.
+fn floor_char(s: &str, max: usize) -> usize {
+    (0..=max.min(s.len()))
+        .rev()
+        .find(|&i| s.is_char_boundary(i))
+        .unwrap_or(0)
 }
 
 fn referenced_files<'a>(
     prompt: &'a str,
     root: &Path,
-    nested: bool,
+    depth: u8,
 ) -> (Cow<'a, str>, String, Cow<'a, str>) {
     let unchanged = || (Cow::Borrowed(prompt), String::new(), Cow::Borrowed(prompt));
     let words: Vec<&str> = prompt.split_whitespace().collect();
@@ -267,8 +276,19 @@ fn referenced_files<'a>(
         || ["follow it", "follow this", "your task"]
             .iter()
             .any(|p| lower.contains(p));
+    let bare = |w: &str| {
+        w.to_lowercase()
+            .trim_matches(|c: char| !c.is_alphanumeric())
+            .to_string()
+    };
     let mut files: Vec<(String, PathBuf, bool)> = Vec::new();
+    // Each costs a stat at most; a long prompt naming nothing stops early.
+    let mut lookups = 0;
     for i in 0..words.len() {
+        // "read SPEC.md and build it": a task verb just after the file.
+        let then_do = words[i + 1..(i + 4).min(words.len())]
+            .iter()
+            .any(|w| matches!(bare(w).as_str(), "build" | "implement" | "do" | "follow"));
         // A path with spaces arrives split (".../Automated", "Company/x.md"):
         // after the word alone, try it joined to up to three words before it.
         for start in (i.saturating_sub(3)..=i).rev() {
@@ -277,21 +297,31 @@ fn referenced_files<'a>(
                 .trim_matches(|c: char| "\"'`()[]<>,;:!?*".contains(c))
                 .trim_end_matches('.');
             let verb = words[start.saturating_sub(3)..start].iter().find_map(|w| {
-                let w = w.to_lowercase();
-                let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+                let w = bare(w);
                 ["read", "follow", "see", "open", "do", "implement"]
                     .into_iter()
                     .find(|v| *v == w)
             });
-            let first = short && start < 2;
-            if !(verb.is_some() || first) || files.len() == MAX_FILES {
+            if !(verb.is_some() || short && start < 2) || files.len() == MAX_FILES {
                 continue;
             }
+            let ext = Path::new(word).extension().and_then(|e| e.to_str());
+            if !ext.is_some_and(|e| TEXT_EXTS.contains(&e.to_ascii_lowercase().as_str())) {
+                continue;
+            }
+            if lookups == 32 {
+                break;
+            }
+            lookups += 1;
             if let Some(real) = text_file_inside(&root, word) {
                 let task = handed_over
-                    || first
+                    || then_do
+                    || short && start == 0
                     || matches!(verb, Some("follow" | "do" | "implement"))
-                    || real.components().any(|c| c.as_os_str() == ".orca-task");
+                    || real.strip_prefix(&root).is_ok_and(|r| {
+                        r.components()
+                            .any(|c| c.as_os_str().eq_ignore_ascii_case(".orca-task"))
+                    });
                 if !files.iter().any(|(_, p, _)| *p == real) {
                     files.push((word.to_string(), real, task));
                 }
@@ -312,20 +342,19 @@ fn referenced_files<'a>(
         if !(task || dispatch) {
             continue;
         }
-        // Orca's TASK is often one line pointing at the real task file.
-        let inner = (dispatch && !nested).then(|| referenced_files(part, &root, true));
-        let (part, via) = match &inner {
+        let part = &part[..floor_char(part, FILE_HEAD as usize)];
+        // A task file reads as if typed as the prompt: Orca's TASK is often
+        // one line pointing at the real task file, which may point at more.
+        let inner = (depth < 3).then(|| referenced_files(part, &root, depth + 1));
+        let (part, via, cap) = match &inner {
             Some((text, note, _)) if !note.is_empty() => (
                 &**text,
                 note.replace("; classified with the content of ", " -> "),
+                budget,
             ),
-            _ => (part, String::new()),
+            _ => (part, String::new(), FILE_HEAD.min(budget)),
         };
-        let mut take = FILE_HEAD.min(budget) as usize;
-        while !part.is_char_boundary(take.min(part.len())) {
-            take -= 1;
-        }
-        let head = &part[..take.min(part.len())];
+        let head = &part[..floor_char(part, cap as usize)];
         if read.is_ok() && !head.is_empty() {
             budget -= head.len() as u64;
             text.push_str(head);
@@ -335,7 +364,10 @@ fn referenced_files<'a>(
                 tasks.push_str("\n\n");
             }
             let what = if dispatch { "TASK, " } else { "" };
-            used.push(format!("{name} ({what}{} bytes){via}", head.len()));
+            used.push((
+                format!("{name} ({what}{} bytes){via}", head.len()),
+                dispatch,
+            ));
         }
         if budget == 0 {
             break;
@@ -351,8 +383,10 @@ fn referenced_files<'a>(
         Cow::Borrowed(prompt)
     } else {
         text = tasks.trim_end().to_string();
+        used.retain(|(_, dispatch)| *dispatch);
         Cow::Owned(tasks)
     };
+    let used: Vec<String> = used.into_iter().map(|(name, _)| name).collect();
     if std::env::var_os("NECTRA_DEBUG").is_some() {
         eprintln!(
             "nectra: debug: classifying with file content: {}",
@@ -382,7 +416,8 @@ fn plain_relative(word: &str) -> bool {
 
 /// `word` relative to `root` (canonical) when it spells out an absolute path
 /// inside it, as Orca's pointers do ("C:/ws/.orca-task/x.md" under `C:\ws`).
-/// Lexical, ignoring case and slash direction: touches no filesystem.
+/// Lexical, ignoring slash direction (and case on Windows): touches no
+/// filesystem.
 fn under_root(root: &Path, word: &str) -> Option<String> {
     let root = root.to_string_lossy();
     let root = root
@@ -392,10 +427,16 @@ fn under_root(root: &Path, word: &str) -> Option<String> {
     let root = root.trim_end_matches('/');
     let word = word.replace('\\', "/");
     let rest = word.get(root.len()..)?.strip_prefix('/')?;
-    word[..root.len()]
-        .eq_ignore_ascii_case(root)
-        .then(|| rest.to_string())
+    let head = &word[..root.len()];
+    let same = if cfg!(windows) {
+        head.eq_ignore_ascii_case(root)
+    } else {
+        head == root
+    };
+    same.then(|| rest.to_string())
 }
+
+const TEXT_EXTS: [&str; 4] = ["md", "txt", "toml", "json"];
 
 /// `word` as a regular text file under `root` (already canonical), or None.
 fn text_file_inside(root: &Path, word: &str) -> Option<PathBuf> {
@@ -410,7 +451,7 @@ fn text_file_inside(root: &Path, word: &str) -> Option<PathBuf> {
         return None;
     }
     let ext = Path::new(word).extension()?.to_str()?.to_ascii_lowercase();
-    if !["md", "txt", "toml", "json"].contains(&ext.as_str()) {
+    if !TEXT_EXTS.contains(&ext.as_str()) {
         return None;
     }
     let path = root.join(word);
@@ -1108,11 +1149,20 @@ mod tests {
         )
         .unwrap();
         fs::write(ws.join(".orca-task/resume-security.md"), task).unwrap();
+        // ...which in turn says to read RESUME.md first.
+        let resume = "# Resume: security-review-1 fixes\nWhat's next: the EPERM fix in identify(), then the VM itest.";
+        fs::write(ws.join(".orca-task/RESUME.md"), resume).unwrap();
         let pointer = format!("New task: read {root}/.orca-task/dispatch-task_2ce7b85a9133.md. It is your Orca dispatch (task_2ce7b85a9133): follow it and report with worker_done. Rules: C:/Users/micha/Desktop/Automated Company/Orchestrator/specs/worker-rules.md");
         let (text, note, stakes) = with_referenced_files(&pointer, &ws);
         assert!(note.contains("TASK"), "{note}");
         // Laya and stakes read the task, not the pointer or the preamble.
-        assert!(text.starts_with(task.trim()), "{text}");
+        assert!(
+            text.contains(task.trim()) && text.contains(resume),
+            "{text}"
+        );
+        // Exactly what the TASK line would classify on, typed alone.
+        let line = format!("Read {root}/.orca-task/resume-security.md and follow it.");
+        assert_eq!(text, with_referenced_files(&line, &ws).0);
         assert!(
             !text.contains(&pointer) && !text.contains("orca orchestration send"),
             "{text}"
@@ -1121,6 +1171,28 @@ mod tests {
         // No task file: the pointer classifies as itself.
         let missing = pointer.replace("2ce7b85a9133.md", "0000.md");
         assert_eq!(with_referenced_files(&missing, &ws).0, missing);
+    }
+    #[test]
+    fn only_paths_under_the_root_itself_are_made_relative() {
+        let root = Path::new("/home/u/ws");
+        assert_eq!(
+            under_root(root, "/home/u/ws/.orca-task/x.md").as_deref(),
+            Some(".orca-task/x.md")
+        );
+        for word in ["/home/u/ws2/x.md", "/home/u/ws", "/home/u/wsx.md", "x.md"] {
+            assert_eq!(under_root(root, word), None, "{word}");
+        }
+        // What is left is checked as any relative word: no "//", no escape.
+        let dir = tempfile::tempdir().unwrap();
+        let real = fs::canonicalize(dir.path()).unwrap();
+        let abs = real.to_string_lossy().replace('\\', "/");
+        let abs = abs.trim_start_matches("//?/");
+        for word in [format!("{abs}//srv/x.md"), format!("{abs}/../x.md")] {
+            assert!(text_file_inside(&real, &word).is_none(), "{word}");
+        }
+        if !cfg!(windows) {
+            assert_eq!(under_root(root, "/HOME/u/ws/x.md"), None);
+        }
     }
     #[test]
     fn context_docs_named_beside_an_ask_are_not_inlined() {
@@ -1139,7 +1211,12 @@ mod tests {
         fs::write(dir.path().join(".orca-task/dispatch-x.md"), dispatch(ask)).unwrap();
         let (text, _, _) = with_referenced_files(POINTER, dir.path());
         assert_eq!(text, ask);
+        // Named second, after "read", it is still context.
+        let early = "read MISSION.md and research/SYNTHESIS.md, then check the citations against their sources and fix them.";
+        assert!(with_referenced_files(early, dir.path()).1.is_empty());
         // Handed over as the task itself, a doc still is.
+        let build = "I need you to read MISSION.md and build what it describes";
+        assert!(!with_referenced_files(build, dir.path()).1.is_empty());
         assert!(
             !with_referenced_files("Read MISSION.md and follow it", dir.path())
                 .1
