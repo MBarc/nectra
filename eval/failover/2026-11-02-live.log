@@ -1,0 +1,25 @@
+﻿Live Codex usage-limit failover check, 2026-11-02, on Michael's PC (Codex CLI logged in here and limited), nectra-bin from master 158938a, sha256 51DB857B...
+Run 1 (11:36:20): cooldowns.json already held provider:openai until 1793821979 -> 'Requested model gpt-6-luna is unavailable' -> haiku answered in ~4 s (cooldown path).
+Run 2 (11:37:17): cooldowns.json cleared to {} -> request sent to gpt-6-luna -> 'Skipped gpt-6-luna: openai rate limited' -> sonnet answered; cooldown re-recorded as provider:openai 1793821979 (reset time parsed). Failover ~5 s after the Codex attempt started; no hang, no crash; clean /exit.
+
+--- run 2 screen ---
+PS C:\Users\micha\orca\workspaces\nectra\nectra-routing-accuracy> $env:CLAUDE_CODE_USE_POWERSHELL_TOOL='1'; & 'C:/Users/micha/Desktop/Automated Company/nectra-
+bin/nectra.exe' --config 'C:/Users/micha/Desktop/Automated Company/nectra-bin/config.toml' chat --dangerously-skip-permissions --model gpt-6-luna
+ _   _ _____ ____ _____ ____      _
+| \ | | ____/ ___|_   _|  _ \    / \
+|  \| |  _|| |     | | | |_) |  / _ \
+| |\  | |__| |___  | | |  _ <  / ___ \
+|_| \_|_____\____| |_| |_| \_\/_/   \_\
+  v0.5.0-alpha.2  |  One conversation. The right model.
+Session: \\?\C:\Users\micha\AppData\Local\nectra\sessions\1793637439341328800-36544.jsonl
+Type /help for commands. Replies share this conversation's context.
+Permission bypass ON for this launch: Claude/Gemini/agy auto-approve tools; Codex also disables its sandbox. Ollama remains chat-only.
+you> Explain in two sentences what this regex matches: ^[a-z0-9_-]{3,16}$ . Answer only; do not use any tools or touch files.
+gpt-6-luna (openai) · writing or explaining · pinned with /model>
+Skipped gpt-6-luna: openai rate limited, unavailable for this session; sonnet runs instead.
+sonnet (anthropic) · writing or explaining · preferred for this>
+This regex matches an entire string made up of only lowercase letters, digits, underscores, and hyphens, with a length between 3 and 16 characters. The `^` and
+ `$` anchors force the whole string to fit that pattern, so something like `user_name-1` matches but `Ab`, `has space`, or a 17-character string does not.
+This chat: $0.081 at API prices; the same tokens at opus prices: $0.16.
+you>
+
