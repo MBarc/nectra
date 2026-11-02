@@ -196,6 +196,8 @@ pub fn classify_turn(
 const FILE_HEAD: u64 = 4096;
 const TOTAL_HEAD: u64 = 8192;
 const MAX_FILES: usize = 4;
+/// Files read in all, following task files into the files they name.
+const MAX_TREE_FILES: usize = 8;
 
 /// How far into a pointed-at file classification looks for an Orca dispatch's
 /// task marker.
@@ -223,10 +225,11 @@ fn task_part(file: &str) -> (&str, bool) {
 /// dispatch's TASK section, never its boilerplate preamble), then the prompt,
 /// or the dispatch tasks alone; a note for the routing reason (empty when
 /// nothing was read); and the text the stakes score reads: the dispatch
-/// tasks, or else the prompt alone, since an arbitrary file's head says
-/// little about what is at stake. A task file's text is expanded as if typed
-/// as the prompt, three levels deep: an Orca TASK is often itself a pointer
-/// ("Read .orca-task/x.md and follow it").
+/// tasks, with the task files they lead to, or else the prompt alone, since
+/// an arbitrary file's head says little about what is at stake. A task
+/// file's text is expanded as if typed as the prompt, three levels deep: an
+/// Orca TASK is often itself a pointer ("Read .orca-task/x.md and follow
+/// it"). Each file is read once per tree, at most MAX_TREE_FILES in all.
 ///
 /// Conservative: only .md/.txt/.toml/.json regular files inside `root`
 /// (relative, or absolute under `root`, spaces allowed), named within three
@@ -236,7 +239,7 @@ fn task_part(file: &str) -> (&str, bool) {
 /// with or without "?") never expand. Never follows URLs, network paths or
 /// symlinks.
 fn with_referenced_files<'a>(prompt: &'a str, root: &Path) -> (Cow<'a, str>, String, Cow<'a, str>) {
-    referenced_files(prompt, root, 0)
+    referenced_files(prompt, root, 0, &mut Vec::new())
 }
 
 /// The longest prefix of `s` no longer than `max` bytes that ends on a char.
@@ -251,6 +254,7 @@ fn referenced_files<'a>(
     prompt: &'a str,
     root: &Path,
     depth: u8,
+    seen: &mut Vec<PathBuf>,
 ) -> (Cow<'a, str>, String, Cow<'a, str>) {
     let unchanged = || (Cow::Borrowed(prompt), String::new(), Cow::Borrowed(prompt));
     let words: Vec<&str> = prompt.split_whitespace().collect();
@@ -322,7 +326,9 @@ fn referenced_files<'a>(
                         r.components()
                             .any(|c| c.as_os_str().eq_ignore_ascii_case(".orca-task"))
                     });
-                if !files.iter().any(|(_, p, _)| *p == real) {
+                // Once per call tree, so cycles and fan-out stay small.
+                if !seen.contains(&real) && seen.len() < MAX_TREE_FILES {
+                    seen.push(real.clone());
                     files.push((word.to_string(), real, task));
                 }
                 break;
@@ -336,7 +342,9 @@ fn referenced_files<'a>(
     let mut budget = TOTAL_HEAD;
     for (name, path, task) in files {
         let mut raw = Vec::new();
-        let read = fs::File::open(&path).and_then(|f| f.take(SCAN).read_to_end(&mut raw));
+        // Only the prompt's own files may be a dispatch with a long preamble.
+        let scan = if depth == 0 { SCAN } else { FILE_HEAD };
+        let read = fs::File::open(&path).and_then(|f| f.take(scan).read_to_end(&mut raw));
         let raw = String::from_utf8_lossy(&raw);
         let (part, dispatch) = task_part(&raw);
         if !(task || dispatch) {
@@ -345,7 +353,7 @@ fn referenced_files<'a>(
         let part = &part[..floor_char(part, FILE_HEAD as usize)];
         // A task file reads as if typed as the prompt: Orca's TASK is often
         // one line pointing at the real task file, which may point at more.
-        let inner = (depth < 3).then(|| referenced_files(part, &root, depth + 1));
+        let inner = (depth < 3).then(|| referenced_files(part, &root, depth + 1, seen));
         let (part, via, cap) = match &inner {
             Some((text, note, _)) if !note.is_empty() => (
                 &**text,
@@ -1171,6 +1179,18 @@ mod tests {
         // No task file: the pointer classifies as itself.
         let missing = pointer.replace("2ce7b85a9133.md", "0000.md");
         assert_eq!(with_referenced_files(&missing, &ws).0, missing);
+    }
+    #[test]
+    fn task_files_that_point_at_each_other_are_read_once() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.md"), "Read b.md and follow it.").unwrap();
+        fs::write(dir.path().join("b.md"), "Read a.md and follow it.").unwrap();
+        let (_, note, _) = with_referenced_files("Read a.md and follow it", dir.path());
+        assert_eq!(
+            (note.matches("a.md").count(), note.matches("b.md").count()),
+            (1, 1),
+            "{note}"
+        );
     }
     #[test]
     fn only_paths_under_the_root_itself_are_made_relative() {
