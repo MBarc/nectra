@@ -1,0 +1,5544 @@
+{
+  "n": 48,
+  "measured_route_n": 48,
+  "unmeasured_route_n": 0,
+  "coverage_rate": 1.0,
+  "exact_match_rate": 0.875,
+  "in_acceptable_set_rate": 0.875,
+  "under_routing_rate": 0.125,
+  "over_routing_rate": 0.2917,
+  "over_routing_cost_usd_median": 0.070406,
+  "by_provider": {
+    "anthropic": {
+      "n": 48,
+      "measured_n": 48,
+      "coverage": 1.0,
+      "acceptable": 0.875,
+      "under": 0.125,
+      "over": 0.2917
+    }
+  },
+  "by_task_type": {
+    "code_generation": {
+      "n": 6,
+      "measured_n": 6,
+      "coverage": 1.0,
+      "acceptable": 0.8333,
+      "under": 0.1667,
+      "over": 0.1667
+    },
+    "code_review": {
+      "n": 5,
+      "measured_n": 5,
+      "coverage": 1.0,
+      "acceptable": 0.8,
+      "under": 0.2,
+      "over": 0.0
+    },
+    "debugging": {
+      "n": 6,
+      "measured_n": 6,
+      "coverage": 1.0,
+      "acceptable": 0.8333,
+      "under": 0.1667,
+      "over": 0.1667
+    },
+    "long_context": {
+      "n": 5,
+      "measured_n": 5,
+      "coverage": 1.0,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.2
+    },
+    "planning": {
+      "n": 6,
+      "measured_n": 6,
+      "coverage": 1.0,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.5
+    },
+    "refactoring": {
+      "n": 5,
+      "measured_n": 5,
+      "coverage": 1.0,
+      "acceptable": 0.6,
+      "under": 0.4,
+      "over": 0.2
+    },
+    "research": {
+      "n": 5,
+      "measured_n": 5,
+      "coverage": 1.0,
+      "acceptable": 0.8,
+      "under": 0.2,
+      "over": 0.6
+    },
+    "tool_use": {
+      "n": 5,
+      "measured_n": 5,
+      "coverage": 1.0,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.2
+    },
+    "writing": {
+      "n": 5,
+      "measured_n": 5,
+      "coverage": 1.0,
+      "acceptable": 1.0,
+      "under": 0.0,
+      "over": 0.6
+    }
+  },
+  "coverage_note": "Rates exclude router picks not measured on that task; those picks are reported as unknown, not under/over.",
+  "examples": [
+    {
+      "task": "rh-code-01",
+      "task_type": "code_generation",
+      "tier": 1,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.190716
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.086687
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006065
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "haiku",
+      "router_picked_measured": true
+    },
+    {
+      "task": "rh-code-02",
+      "task_type": "code_generation",
+      "tier": 1,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.287831
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.10052
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.011421
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "haiku",
+      "router_picked_measured": true
+    },
+    {
+      "task": "rh-code-03",
+      "task_type": "code_generation",
+      "tier": 2,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.408746
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.121046
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.012062
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "haiku",
+      "router_picked_measured": true
+    },
+    {
+      "task": "rh-code-04",
+      "task_type": "code_generation",
+      "tier": 2,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.361872
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.104308
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.011364
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "haiku",
+      "router_picked_measured": true
+    },
+    {
+      "task": "rh-code-05",
+      "task_type": "code_generation",
+      "tier": 3,
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.333456
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.107464
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.009373
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "oracle_model": "haiku",
+      "router_picked": "opus",
+      "router_picked_measured": true
+    }
+  ],
+  "rows": [
+    {
+      "prompt": "Add a small Python module that parses a comma-separated list of email addresses, trims whitespace, rejects entries without one @, and returns a stable list of normalized addresses. Include focused tests.",
+      "task": "rh-code-01",
+      "task_type": "code_generation",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.006065,
+        "opus": 0.190716,
+        "sonnet": 0.086687
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.190716
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.086687
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006065
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Implement a TypeScript function that groups calendar events by local date without mutating the input array. Preserve the original order within each date and add tests for midnight boundaries.",
+      "task": "rh-code-02",
+      "task_type": "code_generation",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.011421,
+        "opus": 0.287831,
+        "sonnet": 0.10052
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.287831
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.10052
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.011421
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Build a Go HTTP middleware that attaches a request ID, propagates an incoming valid ID, emits it in the response header, and records duration in a supplied logger. Make cancellation and concurrent requests safe.",
+      "task": "rh-code-03",
+      "task_type": "code_generation",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.012062,
+        "opus": 0.408746,
+        "sonnet": 0.121046
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.408746
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.121046
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.012062
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Implement a Rust iterator adapter that yields fixed-size batches and returns the final short batch. Define behavior for a zero batch size and add property-style tests for empty and uneven inputs.",
+      "task": "rh-code-04",
+      "task_type": "code_generation",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 0.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.011364,
+        "opus": 0.361872,
+        "sonnet": 0.104308
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.361872
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.104308
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.011364
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Design and implement a SQLite-backed job lease with acquire, renew, and release operations. It must tolerate process crashes, reject stale renewals, and prevent two workers from acquiring the same live lease under concurrent access.",
+      "task": "rh-code-05",
+      "task_type": "code_generation",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 0.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.009373,
+        "opus": 0.333456,
+        "sonnet": 0.107464
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.333456
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.107464
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.009373
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "opus",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": false,
+      "under": true,
+      "over": false
+    },
+    {
+      "prompt": "Add an idempotent migration runner for a service with migrations stored as numbered SQL files. Handle gaps, a partially applied migration, transaction rollback, and two processes starting at once; explain the locking choice.",
+      "task": "rh-code-06",
+      "task_type": "code_generation",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.026151,
+        "opus": 0.508409,
+        "sonnet": 0.170675
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.508409
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.170675
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.026151
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "A CSV importer silently drops the last record only when the file has no trailing newline. Diagnose the likely stream-handling bug and propose a minimal fix with a regression test.",
+      "task": "rh-debug-01",
+      "task_type": "debugging",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004481,
+        "opus": 0.196374,
+        "sonnet": 0.083094
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.196374
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.083094
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004481
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "A cache returns yesterday's value for requests in a different timezone, although the cache key includes the date string. Trace the date conversion problem and give a test that crosses UTC midnight.",
+      "task": "rh-debug-02",
+      "task_type": "debugging",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004408,
+        "opus": 0.285227,
+        "sonnet": 0.10775
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.285227
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.10775
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004408
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "A retrying HTTP client occasionally sends the same payment twice after a timeout. Analyze the failure sequence, distinguish transport uncertainty from server failure, and prescribe an idempotency-safe repair.",
+      "task": "rh-debug-03",
+      "task_type": "debugging",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004728,
+        "opus": 0.207793,
+        "sonnet": 0.068319
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.207793
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.068319
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004728
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "A production worker pool grows memory usage over several hours while throughput stays flat. Given a queue, futures, and per-job context objects, outline a disciplined investigation and the most likely retention paths.",
+      "task": "rh-debug-04",
+      "task_type": "debugging",
+      "tier": 2,
+      "oracle_model": "sonnet",
+      "acceptable_set": [
+        "fable",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 0.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004484,
+        "opus": 0.154755,
+        "sonnet": 0.061052
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.154755
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.061052
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.004484
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "A replicated service shows a rare negative inventory after a failover. The write path uses retries, asynchronous replication, and a compensating transaction. Reconstruct plausible interleavings and specify instrumentation that can distinguish them.",
+      "task": "rh-debug-05",
+      "task_type": "debugging",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku"
+      ],
+      "best_model": [
+        "fable",
+        "haiku"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004915,
+        "opus": 0.51563,
+        "sonnet": 0.063792
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.51563
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.063792
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004915
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": false,
+      "under": true,
+      "over": false
+    },
+    {
+      "prompt": "A TLS certificate rotation passes staging but causes intermittent connection failures in one production region. Analyze DNS, connection pooling, clock skew, and trust-store rollout as competing hypotheses, then order the tests.",
+      "task": "rh-debug-06",
+      "task_type": "debugging",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004852,
+        "opus": 0.173485,
+        "sonnet": 0.056982
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.173485
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.056982
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004852
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Given a set of 12 short policy excerpts with repeated definitions and one exception, synthesize the governing rule and identify the single exception without inventing unstated policy.",
+      "task": "rh-long-01",
+      "task_type": "long_context",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004269,
+        "opus": 0.121734,
+        "sonnet": 0.057281
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.121734
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.057281
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004269
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Analyze a long change log spanning six releases and produce a compatibility matrix for clients, storage formats, and feature flags. Call out evidence gaps separately from conclusions.",
+      "task": "rh-long-02",
+      "task_type": "long_context",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.005121,
+        "opus": 0.127246,
+        "sonnet": 0.067173
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.127246
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.067173
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.005121
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Read a multi-section product specification containing requirements, examples, and appendices. Extract the acceptance criteria, resolve references by section, and list contradictions that require a decision.",
+      "task": "rh-long-03",
+      "task_type": "long_context",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004244,
+        "opus": 0.143532,
+        "sonnet": 0.058113
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.143532
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.058113
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004244
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Correlate a long sequence of application logs, deployment events, and clock-skewed traces to identify the first causal failure rather than the most visible symptom. Provide a confidence-ranked timeline.",
+      "task": "rh-long-04",
+      "task_type": "long_context",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004455,
+        "opus": 0.13066,
+        "sonnet": 0.076139
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.13066
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.076139
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004455
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Synthesize a large set of customer feedback, support tickets, and usage notes into three distinct problem statements. Preserve representative counterexamples and distinguish frequency from severity.",
+      "task": "rh-long-05",
+      "task_type": "long_context",
+      "tier": 3,
+      "oracle_model": "sonnet",
+      "acceptable_set": [
+        "fable",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 0.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004228,
+        "opus": 0.16306,
+        "sonnet": 0.06808
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.16306
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.06808
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.004228
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Plan the work to add CSV export to an existing reporting page, including API shape, pagination, authorization, UI feedback, tests, and a small release checklist.",
+      "task": "rh-plan-01",
+      "task_type": "planning",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.005472,
+        "opus": 0.169205,
+        "sonnet": 0.059124
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.169205
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.059124
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.005472
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Plan a safe dependency upgrade for a service with a weekly release cadence, a pinned lockfile, and one known transitive security advisory. Include evidence and rollback criteria.",
+      "task": "rh-plan-02",
+      "task_type": "planning",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.006426,
+        "opus": 0.216878,
+        "sonnet": 0.071064
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.216878
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.071064
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006426
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Plan a migration from polling to webhooks for a third-party integration that can redeliver events, reorder them, and send bursts. Include reconciliation and operational metrics.",
+      "task": "rh-plan-03",
+      "task_type": "planning",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.008396,
+        "opus": 0.307254,
+        "sonnet": 0.067572
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.307254
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.067572
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.008396
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "opus",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Plan a regional failover exercise for a stateful API. Cover traffic switching, data freshness, queued work, secrets, observability, customer communication, and abort conditions.",
+      "task": "rh-plan-04",
+      "task_type": "planning",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.009447,
+        "opus": 0.333365,
+        "sonnet": 0.073344
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.333365
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.073344
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.009447
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Plan a zero-downtime change from integer user IDs to globally unique string IDs across services, analytics, URLs, caches, and exports. Include dual-read/write phases and a removal gate.",
+      "task": "rh-plan-05",
+      "task_type": "planning",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.01051,
+        "opus": 0.312191,
+        "sonnet": 0.072492
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.312191
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.072492
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.01051
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Plan how to split a high-volume monolith into an order service without creating two sources of truth. State invariants, ownership boundaries, migration checkpoints, and failure recovery.",
+      "task": "rh-plan-06",
+      "task_type": "planning",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.008783,
+        "opus": 0.243775,
+        "sonnet": 0.063406
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.243775
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.063406
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.008783
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "opus",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Refactor a Python command dispatcher with repeated validation branches into small composable handlers while preserving error messages and exit codes. Describe a safe sequence of changes.",
+      "task": "rh-refactor-01",
+      "task_type": "refactoring",
+      "tier": 1,
+      "oracle_model": "sonnet",
+      "acceptable_set": [
+        "fable",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004437,
+        "opus": 0.262692,
+        "sonnet": 0.064413
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.262692
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.064413
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.004437
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": false,
+      "under": true,
+      "over": false
+    },
+    {
+      "prompt": "Convert a JavaScript callback-based file scanner to async/await without changing traversal order, symlink behavior, or error timing. Identify compatibility traps and tests.",
+      "task": "rh-refactor-02",
+      "task_type": "refactoring",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.01164,
+        "opus": 0.597557,
+        "sonnet": 0.09794
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.597557
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.09794
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.01164
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Split a monolithic billing service into pricing, tax, and invoice components. Preserve the public API and make rounding rules explicit across currencies; include an incremental migration plan.",
+      "task": "rh-refactor-03",
+      "task_type": "refactoring",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.027372,
+        "opus": 0.497827,
+        "sonnet": 0.11723
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.497827
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.11723
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.027372
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "opus",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Replace a global mutable feature-flag singleton with dependency injection across a moderately sized application. Cover test isolation, default behavior, and rollout risks.",
+      "task": "rh-refactor-04",
+      "task_type": "refactoring",
+      "tier": 2,
+      "oracle_model": "opus",
+      "acceptable_set": [
+        "fable",
+        "opus"
+      ],
+      "best_model": [
+        "fable",
+        "opus"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 0.0,
+        "opus": 1.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.018955,
+        "opus": 0.393592,
+        "sonnet": 0.145062
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.393592
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.145062
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.018955
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": false,
+      "under": true,
+      "over": false
+    },
+    {
+      "prompt": "Modernize a legacy parser whose callers depend on undocumented exception subclasses and lazy iteration. Propose an adapter-based plan that allows two releases of compatibility while removing hidden global state.",
+      "task": "rh-refactor-05",
+      "task_type": "refactoring",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.005149,
+        "opus": 0.339587,
+        "sonnet": 0.074304
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.339587
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.074304
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.005149
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Compare three practical approaches for storing small encrypted secrets in a desktop application. Discuss key management, offline use, portability, and the main failure mode of each.",
+      "task": "rh-research-01",
+      "task_type": "research",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 0.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.003434,
+        "opus": 0.105945,
+        "sonnet": 0.054498
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.105945
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.054498
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.003434
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Explain when a bounded queue is preferable to an unbounded queue in a service, including backpressure, latency, memory, and user-visible failure behavior.",
+      "task": "rh-research-02",
+      "task_type": "research",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "haiku",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 1.0,
+        "opus": 0.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.003322,
+        "opus": 0.114001,
+        "sonnet": 0.05372
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.114001
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.05372
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.003322
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Evaluate whether an embedded SQLite database is suitable for a multi-tenant internal tool with modest write volume. Address concurrency, backups, schema evolution, and the point where a server database becomes worthwhile.",
+      "task": "rh-research-03",
+      "task_type": "research",
+      "tier": 2,
+      "oracle_model": "fable",
+      "acceptable_set": [
+        "fable"
+      ],
+      "best_model": [
+        "fable"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004637,
+        "opus": 0.147973,
+        "sonnet": 0.060822
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.147973
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.060822
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.004637
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": false,
+      "under": true,
+      "over": false
+    },
+    {
+      "prompt": "Compare monotonic clocks, wall clocks, and hybrid logical clocks for measuring timeouts, ordering events, and displaying timestamps. Give a concrete recommendation for each use.",
+      "task": "rh-research-04",
+      "task_type": "research",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 0.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.00339,
+        "opus": 0.143688,
+        "sonnet": 0.056558
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.143688
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.056558
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.00339
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Assess the tradeoffs of at-least-once, at-most-once, and effectively-once processing for a notification pipeline. Connect delivery semantics to retries, deduplication, user experience, and auditability.",
+      "task": "rh-research-05",
+      "task_type": "research",
+      "tier": 3,
+      "oracle_model": "opus",
+      "acceptable_set": [
+        "opus"
+      ],
+      "best_model": [
+        "opus"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 0.0,
+        "opus": 1.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.003942,
+        "opus": 0.156721,
+        "sonnet": 0.068768
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.156721
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.068768
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.003942
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "opus",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Review a proposed API change that renames a JSON field and changes an omitted field from default false to null. List compatibility risks and the smallest backwards-compatible contract.",
+      "task": "rh-review-01",
+      "task_type": "code_review",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004326,
+        "opus": 0.141633,
+        "sonnet": 0.071098
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.141633
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.071098
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.004326
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Review a pull request that adds a subprocess call to a web endpoint. Focus on argument injection, environment inheritance, timeouts, output exposure, and privilege boundaries.",
+      "task": "rh-review-02",
+      "task_type": "code_review",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.003824,
+        "opus": 0.140559,
+        "sonnet": 0.068806
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.140559
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.068806
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.003824
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Review a lock-free metrics counter implemented with relaxed atomics. Explain which guarantees are sufficient for aggregate observability and which uses would require stronger ordering.",
+      "task": "rh-review-03",
+      "task_type": "code_review",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004957,
+        "opus": 0.144395,
+        "sonnet": 0.070427
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.144395
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.070427
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.004957
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Review a database schema change that backfills a new non-null column in place on a table with hundreds of millions of rows. Identify availability hazards and propose an online rollout.",
+      "task": "rh-review-04",
+      "task_type": "code_review",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 0.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.005547,
+        "opus": 0.158685,
+        "sonnet": 0.073538
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.158685
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.073538
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.005547
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Review a distributed lock implementation using a lease timestamp and a periodic renewer. Find split-brain scenarios involving pauses, clock jumps, delayed packets, and process resurrection; recommend precise safeguards.",
+      "task": "rh-review-05",
+      "task_type": "code_review",
+      "tier": 3,
+      "oracle_model": "fable",
+      "acceptable_set": [
+        "fable"
+      ],
+      "best_model": [
+        "fable"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 0.0,
+        "opus": 0.0,
+        "sonnet": 0.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.005818,
+        "opus": 0.205036,
+        "sonnet": 0.074787
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.205036
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.074787
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 0.0,
+          "cost_usd": 0.005818
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "opus",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": false,
+      "acceptable": false,
+      "under": true,
+      "over": false
+    },
+    {
+      "prompt": "Use the available repository tools to locate where configuration defaults are loaded, then report the file, precedence order, and one safe way to verify the effective value without changing user data.",
+      "task": "rh-tool-01",
+      "task_type": "tool_use",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004079,
+        "opus": 0.122026,
+        "sonnet": 0.066998
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.122026
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.066998
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004079
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Use shell and test tools to find the smallest failing test for a reported regression, run it reproducibly, and summarize the evidence without modifying unrelated files.",
+      "task": "rh-tool-02",
+      "task_type": "tool_use",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.003931,
+        "opus": 0.14107,
+        "sonnet": 0.066113
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.14107
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.066113
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.003931
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Inspect a repository's CI configuration and dependency manifests to determine why a test job is skipped on pull requests. Cite the exact condition and propose a minimal correction.",
+      "task": "rh-tool-03",
+      "task_type": "tool_use",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004403,
+        "opus": 0.141355,
+        "sonnet": 0.06606
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.141355
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.06606
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004403
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Trace an HTTP request from the CLI entry point through authentication and persistence using repository search. Produce a short call graph and identify the narrowest place to add request timing.",
+      "task": "rh-tool-04",
+      "task_type": "tool_use",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.00437,
+        "opus": 0.129498,
+        "sonnet": 0.066521
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.129498
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.066521
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.00437
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Investigate a suspected data race using repository search, targeted instrumentation, and a stress test. Separate a confirmed race from a merely suspicious access pattern and record reproducible commands.",
+      "task": "rh-tool-05",
+      "task_type": "tool_use",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004266,
+        "opus": 0.147454,
+        "sonnet": 0.067256
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.147454
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.067256
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004266
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "heldout",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Write a concise release note for a command-line tool that adds shell completion, clearer validation errors, and a dry-run flag. Keep it useful to both new and existing users.",
+      "task": "rh-writing-01",
+      "task_type": "writing",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.004631,
+        "opus": 0.151807,
+        "sonnet": 0.044444
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.151807
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.044444
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.004631
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    },
+    {
+      "prompt": "Rewrite a terse incident update into a calm customer-facing message: uploads were delayed for 18 minutes, no data was lost, processing has caught up, and monitoring remains active.",
+      "task": "rh-writing-02",
+      "task_type": "writing",
+      "tier": 1,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.00323,
+        "opus": 0.11753,
+        "sonnet": 0.04264
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.11753
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.04264
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.00323
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Draft a one-page engineering decision record for choosing asynchronous email delivery over synchronous sending. Include context, alternatives, decision, consequences, and explicit non-goals.",
+      "task": "rh-writing-03",
+      "task_type": "writing",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.00466,
+        "opus": 0.183254,
+        "sonnet": 0.076146
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.183254
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.076146
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.00466
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Turn a set of ambiguous onboarding instructions into a precise numbered guide for configuring a local development environment, including verification and common recovery steps.",
+      "task": "rh-writing-04",
+      "task_type": "writing",
+      "tier": 2,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.005771,
+        "opus": 0.314702,
+        "sonnet": 0.092861
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.314702
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.092861
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.005771
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "sonnet",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": true
+    },
+    {
+      "prompt": "Write an executive brief explaining why a proposed reliability project needs staged investment. Tie technical risks to customer impact, measurable milestones, costs, and the decision requested.",
+      "task": "rh-writing-05",
+      "task_type": "writing",
+      "tier": 3,
+      "oracle_model": "haiku",
+      "acceptable_set": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "best_model": [
+        "fable",
+        "haiku",
+        "opus",
+        "sonnet"
+      ],
+      "quality": {
+        "fable": 1.0,
+        "haiku": 1.0,
+        "opus": 1.0,
+        "sonnet": 1.0
+      },
+      "cost_usd_median": {
+        "haiku": 0.006787,
+        "opus": 0.253694,
+        "sonnet": 0.096448
+      },
+      "models": {
+        "opus": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.253694
+        },
+        "sonnet": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.096448
+        },
+        "gpt-5.6-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-5.6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "haiku": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": 0.006787
+        },
+        "gpt-6-astra": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-high": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-medium": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gemini-3.8-flash-low": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "fable": {
+          "measured": true,
+          "quality": 1.0,
+          "cost_usd": null
+        },
+        "gpt-6.1-sol": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        },
+        "gpt-6-luna": {
+          "measured": false,
+          "quality": null,
+          "cost_usd": null
+        }
+      },
+      "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+      "split": "train",
+      "chosen_model": "haiku",
+      "chosen_provider": "anthropic",
+      "fallback": {
+        "anthropic": {
+          "error": "nectra: no enabled model matches the requested provider/model; run nectra models\n"
+        }
+      },
+      "chosen_measured": true,
+      "exact": true,
+      "acceptable": true,
+      "under": false,
+      "over": false
+    }
+  ]
+}
