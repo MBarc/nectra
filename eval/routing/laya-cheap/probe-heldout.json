@@ -1,0 +1,482 @@
+[
+ {
+  "task": "rh-code-01",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.49,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-code-02",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.44,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-code-03",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.99,
+  "stakes": 0.04,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-code-04",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.68,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-code-05",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.99,
+  "stakes": 0.04,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-code-06",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.97,
+  "stakes": 0.32,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-debug-01",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.53,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-debug-02",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-debug-03",
+  "S": "fable",
+  "type": "planning",
+  "raw": 0.99,
+  "stakes": 0.12,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-debug-04",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.98,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-debug-05",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.04,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-debug-06",
+  "S": "fable",
+  "type": "planning",
+  "raw": 0.99,
+  "stakes": 0.12,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-long-01",
+  "S": "opus",
+  "type": "writing",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-long-02",
+  "S": "opus",
+  "type": "data_analysis",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-long-03",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-long-04",
+  "S": "fable",
+  "type": "planning",
+  "raw": 0.98,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-long-05",
+  "S": "sonnet",
+  "type": "data_analysis",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "rh-plan-01",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-plan-02",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.99,
+  "stakes": 0.12,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-plan-03",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.74,
+  "stakes": 0.04,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-plan-04",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-plan-05",
+  "S": "fable",
+  "type": "planning",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-plan-06",
+  "S": "opus",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.04,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-refactor-01",
+  "S": "opus",
+  "type": "refactoring",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-refactor-02",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.94,
+  "stakes": 0.12,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-refactor-03",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.19,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-refactor-04",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.98,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-refactor-05",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-research-01",
+  "S": "opus",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-research-02",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.98,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-research-03",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-research-04",
+  "S": "sonnet",
+  "type": "architecture",
+  "raw": 0.96,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "rh-research-05",
+  "S": "fable",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-review-01",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.51,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-review-02",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.71,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-review-03",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-review-04",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.88,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-review-05",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.99,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-tool-01",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.52,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-tool-02",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.51,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-tool-03",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.53,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-tool-04",
+  "S": "fable",
+  "type": "data_analysis",
+  "raw": 0.57,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-tool-05",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.97,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "rh-writing-01",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.0,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "rh-writing-02",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.41,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "rh-writing-03",
+  "S": "opus",
+  "type": "writing",
+  "raw": 0.96,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "rh-writing-04",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "rh-writing-05",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.98,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ }
+]

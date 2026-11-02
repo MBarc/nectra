@@ -1,0 +1,3389 @@
+{
+ "margin": 0.05,
+ "tasks": [
+  {
+   "prompt": "Implement `CooldownStore` in cooldown.py: a file-backed record of when each model may be used again.\n`CooldownStore(path, clock=time.time)`. Methods: `set(model, until)` stores a unix timestamp (if `until <= clock()` it removes the entry instead);\n`active(model) -> bool` (until > now); `remaining(model) -> float` (seconds left, 0.0 if none or expired); `purge() -> int` deletes expired entries and\nreturns how many were removed. The file is JSON {\"model\": until}. Requirements: every call re-reads the file (two store objects on one path see\neach other's writes); writes are atomic (write a temp file in the same directory then os.replace; no stray temp files are left behind, even if the write fails);\na missing, empty, corrupt or non-object file counts as empty and is overwritten by the next write; entries whose value is not a number (including bool) are ignored.",
+   "task": "code-cooldown-store",
+   "task_type": "code_generation",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.95,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009079,
+    "opus": 0.273281,
+    "sonnet": 0.136447,
+    "fable": 0.703449
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.009079
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.136447
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.273281
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.703449
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "Implement `cost_usd(calls, prices)` in cost.py.\n`calls` is a list of {\"model\": str, \"usage\": {\"input\",\"cache_read\",\"cache_write\",\"cache_write_5m\",\"cache_write_1h\",\"output\"}} (missing keys = 0\nexcept where noted). `prices` maps model -> USD per million tokens with keys input, cache_read, cache_write_5m, cache_write_1h, output.\nReturn the total USD as a float. Rules:\n- `cache_write` is the total cache write tokens and includes `cache_write_5m`. If `cache_write_1h` is absent (key missing or None) the 1-hour part is\n  `cache_write - cache_write_5m` ONLY when that difference is 0; a non-zero remainder with unknown TTL means the price is unknown -> return None.\n- A model that used tokens but has no price makes the whole result None (never 0 for unpriced work). A model with all-zero usage and no price is ignored.\n- Empty list -> 0.0.",
+   "task": "code-cost-usd",
+   "task_type": "code_generation",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "haiku",
+    "opus"
+   ],
+   "best_model": [
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 0.9375,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.875
+   },
+   "cost_usd_median": {
+    "haiku": 0.007933,
+    "opus": 0.270601,
+    "sonnet": 0.134602,
+    "fable": 0.642726
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007933
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.875,
+     "cost_usd": 0.134602
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.270601
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.9375,
+     "cost_usd": 0.642726
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Implement `summarize(text)` in events.py. `text` is the stdout of a headless agent run: one JSON object per line, each with \"v\": 1 and a \"type\" of\nroute, text, tool or result. Return a dict with:\n- \"attempts\": number of route events\n- \"text\": the \"text\" fields of text events, concatenated in order\n- \"open_tools\": sorted list of tool ids that have a phase \"start\" but no later phase \"end\"\n- \"tool_errors\": sorted list of tool ids whose \"end\" event has is_error true\n- \"result\": the (last) result event dict, or None\n- \"problems\": list of strings. Blank lines are skipped silently. A line that is not a JSON object or has v != 1 adds \"bad line N\" (1-based line number) and is otherwise ignored.\n  No result event adds \"no result\". More than one adds \"multiple results\". A result that is not the last valid event adds \"result not last\".",
+   "task": "code-jsonl-events",
+   "task_type": "code_generation",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009526,
+    "opus": 0.270294,
+    "sonnet": 0.131174,
+    "fable": 0.625468
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009526
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.131174
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.270294
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.625468
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Implement `parse_deadline(text)` in deadline.py. It turns a CLI duration into seconds (a float).\nAccepted: a positive decimal number (digits with an optional fraction) with an optional unit suffix\ns, m or h; no suffix means seconds. Surrounding whitespace is allowed; whitespace between number and\nunit is not. Examples: \"90\" -> 90.0, \"90s\" -> 90.0, \"10m\" -> 600.0, \"2h\" -> 7200.0, \"1.5h\" -> 5400.0.\nZero, negatives, empty text, unknown units, exponents (\"1e3\"), \"nan\"/\"inf\" and a bare unit (\"m\") raise ValueError.",
+   "task": "code-parse-deadline",
+   "task_type": "code_generation",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006682,
+    "opus": 0.243638,
+    "sonnet": 0.123883,
+    "fable": 0.587774
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006682
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.123883
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.243638
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.587774
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Bug report: `merge_intervals([(5, 6), (1, 3), (2, 4)])` should give [(1, 4), (5, 6)] but gives something else, intervals that touch ([(1, 2), (2, 3)])\nare not merged, and my input list ends up reordered. Fix intervals.py. Contract: touching intervals merge, the input is never mutated,\nthe result is a list of tuples sorted by start, an empty input gives [], and an interval whose start is greater than its end raises ValueError.",
+   "task": "debug-intervals",
+   "task_type": "debugging",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006556,
+    "opus": 0.231512,
+    "sonnet": 0.121993,
+    "fable": 0.5847
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006556
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.121993
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.231512
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.5847
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "`python -m unittest` fails in test_paginate.py: the last page is missing and page 1 skips items. Fix `paginate` in paginate.py.\nContract: pages are 1-indexed; \"pages\" is ceil(len/per_page) (0 for an empty list); a page past the end returns no items; has_next is True when a later page exists;\nper_page <= 0 or page < 1 raises ValueError.",
+   "task": "debug-paginate",
+   "task_type": "debugging",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.00713,
+    "opus": 0.228496,
+    "sonnet": 0.119287,
+    "fable": 0.597076
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.00713
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.119287
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.228496
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.597076
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "Incident: after a provider usage limit, our fallback re-ran a task on another model, and the task had already applied a patch, so the edit happened twice.\n`safe_to_retry(screen, prompt)` in limitscan.py decides whether it is safe to replay: it must be True ONLY when nothing but the echoed prompt and the limit message\nappeared after this launch's prompt. Newer CLI builds mark tool cells with \"\u2022 \", older builds use other glyphs (e.g. \"\u26a1 Running\", \"\u2713 apply_patch\"), so the check must fail closed.\nRules (read the docstring), fix limitscan.py. Existing tests in test_limitscan.py pass; add regression tests of your own for the incident.",
+   "task": "debug-replay-safety",
+   "task_type": "debugging",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.95,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.011551,
+    "opus": 0.296032,
+    "sonnet": 0.195431,
+    "fable": 0.792393
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.011551
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.195431
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.296032
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.792393
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Users report that two different cached functions sometimes return each other's results when called with the same arguments, that `f(1, x=2)` and `f(1, x=3)`\nreturn the same value, and that entries expire one tick late. Reproduce, find the root causes and fix ttl_cache.py. `ttl_cache(seconds, clock=time.monotonic)` must keep an\nindependent cache per decorated function, key on positional and keyword arguments, and treat an entry as expired once its age is >= seconds.",
+   "task": "debug-stale-cache",
+   "task_type": "debugging",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009188,
+    "opus": 0.257816,
+    "sonnet": 0.12345,
+    "fable": 0.80269
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009188
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.12345
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.257816
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.80269
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Implement `satisfies(version, range_) -> bool` in semver.py exactly as specified in RANGES.md (our subset of npm-style version ranges: comparators,\npartial and x-ranges, tilde, caret, hyphen ranges, `||`, prerelease rules, errors). Stdlib only, no third-party packages. Read the whole spec: every rule in it is tested.",
+   "task": "h-code-semver-range",
+   "task_type": "code_generation",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.95
+   },
+   "cost_usd_median": {
+    "haiku": 0.028564,
+    "opus": 0.418258,
+    "fable": 1.377536,
+    "sonnet": 0.248137
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.028564
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.248137
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.418258
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 1.377536
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Implement `merge(layers)` in confmerge.py as specified in SPEC.md (layered configuration merge). Read the whole spec: some sections contradict each other,\nand the spec itself says how such overlaps are decided. Stdlib only. In your final reply, list every pair of sections that contradict each other, one per line,\nexactly as `CONFLICT: \u00a7a vs \u00a7b` (top-level section numbers, lower number first), each followed by a few words on how you resolved it.",
+   "task": "h-code-spec-conflicts",
+   "task_type": "code_generation",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "haiku",
+    "sonnet"
+   ],
+   "best_model": [
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.9,
+    "haiku": 0.95,
+    "opus": 0.925,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.024684,
+    "opus": 0.453277,
+    "fable": 1.92115,
+    "sonnet": 0.205925
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.024684
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.205925
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.925,
+     "cost_usd": 0.453277
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.9,
+     "cost_usd": 1.92115
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Implement `TokenBucket` in bucket.py: a per-key token-bucket rate limiter shared by many threads.\n`TokenBucket(capacity, rate, clock=time.monotonic)`: capacity > 0 tokens, rate >= 0 tokens per second, clock returns seconds (inject it in tests).\n`try_take(key, n=1) -> bool` takes n tokens from that key's bucket if available, else takes nothing and returns False. `available(key) -> float` returns the current tokens.\nRules: a key seen for the first time starts full; tokens accrue continuously (fractional amounts are normal, for both rate and n) and never exceed capacity;\nn must be a positive number not above capacity, otherwise ValueError; the clock may jump backwards (treat that as zero elapsed time, and never credit the same\nstretch of time twice); amounts within 1e-9 of each other count as equal. It must be safe to call from many threads at once: tokens are never overspent.",
+   "task": "h-code-token-bucket",
+   "task_type": "code_generation",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009405,
+    "opus": 0.2815,
+    "fable": 0.689914,
+    "sonnet": 0.137368
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009405
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.137368
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.2815
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.689914
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Read INCIDENT.md. Investigate metrics.py and fix the root cause of the undercount. Keep the Counters API.\nMake the test suite able to catch this class of bug, and say in your reply why the existing tests did not.",
+   "task": "h-debug-lost-updates",
+   "task_type": "debugging",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.012585,
+    "opus": 0.279629,
+    "fable": 0.866133,
+    "sonnet": 0.137111
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.012585
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.137111
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.279629
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.866133
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "Read INCIDENT.md and fix the bug(s) so the ops report is right for every producer's timestamp format. Fix the root cause, wherever it is;\nkeep the public functions' signatures. The existing tests must keep passing. Add a regression test, and say in your reply what the root cause was.",
+   "task": "h-debug-misleading-tz",
+   "task_type": "debugging",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009357,
+    "opus": 0.299949,
+    "fable": 0.896194,
+    "sonnet": 0.140019
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009357
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.140019
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.299949
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.896194
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Read BUG.md and fix the invoice totals. Find and fix the root cause(s), wherever they are; keep the public functions' signatures compatible.\nAdd regression tests, and say in your reply what was wrong.",
+   "task": "h-debug-mutable-default",
+   "task_type": "debugging",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.011082,
+    "opus": 0.264621,
+    "fable": 0.854165,
+    "sonnet": 0.131178
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.011082
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.131178
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.264621
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.854165
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "We want to delete dead code from lib/ (about 65 modules). List every public (no leading underscore) module-level function defined in lib/ that is never used at runtime.\nRules: everything in app/ is live. A function counts as used if live code can cause it to run: direct calls, calls through an alias, passing it as a callback or default argument, getattr/importlib dispatch. These do NOT count as use: calls that appear only in tests/, being re-exported from lib/__init__.py, mentions in comments or strings, and calls from functions that are themselves unused (apply this transitively).\nReply with ONLY the list, one `lib.<module>.<function>` per line. Do not modify files.",
+   "task": "h-long-dead-code",
+   "task_type": "long_context",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.75,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.016064,
+    "opus": 0.382298,
+    "fable": 1.044821,
+    "sonnet": 0.192483
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.016064
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.192483
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.382298
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.75,
+     "cost_usd": 1.044821
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "On 2026-10-20 checkout failed for about six minutes in the afternoon (UTC). logs/ holds the gateway, orders and payments logs for that day. Which request (trace id) started the cascade, i.e. the first failure in real time that the other failures followed from?\nReply with the trace id alone on the first line, then at most three lines of evidence. Do not modify files.",
+   "task": "h-long-log-correlate",
+   "task_type": "long_context",
+   "tier": 3,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.875,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.01577,
+    "opus": 0.307361,
+    "fable": 1.041514,
+    "sonnet": 0.149496
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.875,
+     "cost_usd": 0.01577
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.149496
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.307361
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 1.041514
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "policy.md is a long operations policy with base rules and later amendments. Following the document's own section 0 exactly, what is the effective value, as of 2026-11-01, of: session_timeout_min, max_upload_mb, audit_retention_days, mfa_grace_hours?\nReply with exactly four lines `key=value` (numbers only, no units), then at most one line of notes. Do not modify files.",
+   "task": "h-long-policy-amendments",
+   "task_type": "long_context",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009897,
+    "opus": 0.253839,
+    "fable": 0.749006,
+    "sonnet": 0.28708
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009897
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.28708
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.253839
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.749006
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "release-requests.md lists 11 stakeholder constraints for a 4-sprint release. They cannot all be satisfied. Find the ONE constraint whose removal makes the rest satisfiable (exactly one such constraint exists), and give a plan that satisfies all the others.\nReply in this format, then at most two lines of reasoning:\nDROP: C<n>\nF1: <sprint>\n... (one line per feature F1-F7)\nDo not modify files.",
+   "task": "h-plan-infeasible",
+   "task_type": "planning",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.007428,
+    "opus": 0.246604,
+    "fable": 0.567863,
+    "sonnet": 0.109088
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007428
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.109088
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.246604
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.567863
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "cluster.md describes a 5-node cluster and the rules for a rolling upgrade from version 1 to version 3. Write plan.json: a JSON list of steps such as {\"op\": \"stop\", \"node\": \"n2\"} or {\"op\": \"transfer_leader\", \"to\": \"n3\"} that takes the cluster to its target without ever breaking an invariant.\nReply with a short summary of the plan's phases.",
+   "task": "h-plan-rolling-upgrade",
+   "task_type": "planning",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008612,
+    "opus": 0.240509,
+    "fable": 0.635263,
+    "sonnet": 0.133228
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.008612
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.133228
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.240509
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.635263
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "jobs.md describes a maintenance window: 9 jobs, two engineers, dependencies and one exclusive lock. Find a schedule that finishes everything as early as possible (minimum makespan; prove to yourself it cannot be shorter).\nWrite plan.json: {\"J1\": {\"start\": <hour>, \"worker\": 1 or 2}, ...} for all 9 jobs. Reply with the makespan in hours and one line on why it is optimal.",
+   "task": "h-plan-schedule",
+   "task_type": "planning",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008103,
+    "opus": 0.242345,
+    "fable": 0.626459,
+    "sonnet": 0.128976
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.008103
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.128976
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.242345
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.626459
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "pricelist.py's parse_price_list is a 70-line legacy function. Rewrite it cleanly: small helpers, no function longer than 25 lines, idiomatic Python (e.g. no hand-rolled sort).\nIt has many callers we cannot audit, so behaviour must stay EXACTLY the same for every input: same return values (including Decimal exponent/sign), same exception types and messages, same ordering, quirks included. Keep the signature. test_pricelist.py must still pass; add tests that pin the quirks you found.",
+   "task": "h-refactor-keep-quirks",
+   "task_type": "refactoring",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.02433,
+    "opus": 0.413559,
+    "fable": 1.416131,
+    "sonnet": 0.231503
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.02433
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.231503
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.413559
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 1.416131
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "ratelimit.py keeps its state in module globals, so tests and multi-tenant code cannot have two limiters. Refactor it into a class `RateLimiter(capacity=10, refill_per_s=1.0, clock=time.monotonic)` with methods configure, allow, remaining, denied_count and reset; instances must be fully independent and use their clock when `now` is not given.\nThe module-level functions (configure, allow, remaining, denied_count, reset) must keep working exactly as today for every existing caller, including code that did `from ratelimit import allow` at import time (see api.py). No module-level mutable state other than one default instance. Add tests.",
+   "task": "h-refactor-module-to-class",
+   "task_type": "refactoring",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "best_model": [
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.9
+   },
+   "cost_usd_median": {
+    "haiku": 0.010048,
+    "opus": 0.324017,
+    "fable": 0.706318,
+    "sonnet": 0.142783
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.010048
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9,
+     "cost_usd": 0.142783
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.324017
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.706318
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Product renamed \"workspace\" to \"project\". Rename the concept throughout this Python codebase: the Workspace class becomes Project, workspace_id becomes project_id, and every function named *workspace(s)* becomes *project(s)* (save_projects, load_projects, default_project_id, create_project, list_projects, archive_project).\nWe own every Python caller, so do not keep the old names as aliases. Everything else must keep working exactly as before, including anything that reads or writes the data files. Update the tests.",
+   "task": "h-refactor-rename-wire-compat",
+   "task_type": "refactoring",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009232,
+    "opus": 0.296293,
+    "fable": 0.724469,
+    "sonnet": 0.148186
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009232
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.148186
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.296293
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.724469
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "claims.md lists six claims about candidate config B vs current config A. samples.csv holds the raw benchmark data and METHOD.md the rules every number must follow.\nWhich claims does the data support? Compute, do not estimate. Do not modify files. Reply with a first line `SUPPORTED: <comma-separated claim numbers>` (or `SUPPORTED: none`), then one line per claim with the two numbers you compared.",
+   "task": "h-research-benchmark-claims",
+   "task_type": "research",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.007165,
+    "opus": 0.242935,
+    "fable": 0.617176,
+    "sonnet": 0.121037
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007165
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.121037
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.242935
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.617176
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "What is the largest message payload, in bytes, that our production relayd server actually accepts? The three files in docs/ disagree; relayd.toml is the deployed config. Use only these files.\nDo not modify files. Reply with a first line `LIMIT: <bytes> bytes`, a second line `SOURCE: <file(s) you relied on>`, then at most 80 words on why the other sources do not apply.",
+   "task": "h-research-conflicting-sources",
+   "task_type": "research",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006575,
+    "opus": 0.218861,
+    "fable": 0.5473,
+    "sonnet": 0.116765
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006575
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.116765
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.218861
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.5473
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "We are on fluxq 2.0.4. vendor-docs/CHANGELOG.md covers 2.1.0 to 2.6.0; app/ is all of our code that touches fluxq.\nWhat is the NEWEST fluxq minor version we can upgrade to with NO code changes, which version is the first that breaks us, and why (name the exact call site)? A DeprecationWarning is not a break.\nDo not modify files. Reply starting with exactly two lines `SAFE: 2.x` and `BREAKS: 2.y`, then at most 120 words of justification, including why each tempting earlier change does not break us.",
+   "task": "h-research-upgrade-path",
+   "task_type": "research",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.95,
+    "opus": 0.95,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006899,
+    "opus": 0.216583,
+    "fable": 0.588146,
+    "sonnet": 0.119969
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.006899
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.119969
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.216583
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.588146
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Security review of session.py (signed session tokens and password hashing for an internal dashboard). Find every real vulnerability.\nWrite each finding as one line `ISSUE: <function or global name>: <what is wrong and how it is exploited>`, followed by the fix.\nReport only real problems: anything you list that is actually fine counts against you. Do not modify files.",
+   "task": "h-review-auth-tokens",
+   "task_type": "code_review",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "haiku"
+   ],
+   "quality": {
+    "fable": 0.8375,
+    "haiku": 0.8688,
+    "opus": 0.8375,
+    "sonnet": 0.8375
+   },
+   "cost_usd_median": {
+    "haiku": 0.009212,
+    "opus": 0.23472,
+    "fable": 0.662166,
+    "sonnet": 0.114441
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.8688,
+     "cost_usd": 0.009212
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.8375,
+     "cost_usd": 0.114441
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.8375,
+     "cost_usd": 0.23472
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.8375,
+     "cost_usd": 0.662166
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Read BUG.md. Exactly one of the three candidate patches in patches/ fixes chunk() in chunker.py correctly for every input its docstring allows; the other two still break the docstring's contract for some inputs.\nPick the correct patch and apply it (only that patch) to chunker.py. Your reply must start with the line `VERDICT: <A, B or C>`, then for each rejected patch give\na concrete input (text, limit) that breaks it and what goes wrong.",
+   "task": "h-review-pick-patch",
+   "task_type": "code_review",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.9
+   },
+   "cost_usd_median": {
+    "haiku": 0.00971,
+    "opus": 0.249316,
+    "fable": 0.868311,
+    "sonnet": 0.126412
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.00971
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9,
+     "cost_usd": 0.126412
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.249316
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.868311
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "CHANGE.diff is a proposed commit against quota.py (the file is the version before the commit). Review the commit.\nYour reply must start with exactly these lines:\n`VERDICT: <name of the function the most serious defect is in, or none>`\nthen one line per numbered change in the commit message: `CHANGE <n>: OK` or `CHANGE <n>: BUG`.\nThen explain each BUG (how it fails, concretely) and the fix. Only mark a change BUG if it is actually wrong; do not modify files.",
+   "task": "h-review-race-diff",
+   "task_type": "code_review",
+   "tier": 3,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.7667,
+    "opus": 1.0,
+    "sonnet": 0.95
+   },
+   "cost_usd_median": {
+    "haiku": 0.009265,
+    "opus": 0.231629,
+    "fable": 0.621569,
+    "sonnet": 0.117675
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.7667,
+     "cost_usd": 0.009265
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.117675
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.231629
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.621569
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "This is a git repo; you are on `main`. Merge the `feature` branch into `main` with a real merge commit (no rebase, no squash, keep both histories). Resolve every conflict so that both branches' behaviour is kept: main's bulk discount must also apply to JPY prices.\nMake sure the whole test suite (every test file from both branches) passes after the merge, then commit the merge. Reply with a short summary of what conflicted and how you resolved it.",
+   "task": "h-tool-merge-conflict",
+   "task_type": "tool_use",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009894,
+    "opus": 0.265119,
+    "fable": 0.693976,
+    "sonnet": 0.142735
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009894
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.142735
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.265119
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.693976
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "data/readings/ holds JSON uploads from temperature sensors. Each file is one reading object or a list of them: {id, sensor, temp, unit, updated_at, optionally deleted}.\nRules: skip files that are not valid JSON (count them). The same `id` can appear several times across files; only the revision with the latest `updated_at` counts, and if that revision has `\"deleted\": true` the reading is dropped. `temp` may be a number or a numeric string; `unit` is C, F or K in any case. Sensor ids are case-insensitive and may carry stray whitespace; report them stripped and lowercase.\nWrite summary.csv with header `sensor,count,mean_c,max_c`, one row per sensor with at least one reading, sorted by sensor, temperatures in Celsius with exactly 2 decimals. Reply with `MALFORMED: <number of skipped files>` and one line on your method.",
+   "task": "h-tool-messy-json",
+   "task_type": "tool_use",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009338,
+    "opus": 0.282176,
+    "fable": 0.780474,
+    "sonnet": 0.139565
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009338
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.139565
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.282176
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.780474
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "shop.db is a SQLite copy of our shop database (tables customers, orders, refunds; inspect the schema yourself).\nFinance wants the single best day of October 2026 by NET revenue. Definitions: only `paid` orders count; net = order amount minus ALL refunds on that order, with refunds attributed to the order's day (not the refund's day); each order belongs to the calendar day in its CUSTOMER's local time (customers.utc_offset_min; created_utc is UTC). Only days in October 2026 local time count.\nDo not modify shop.db. Reply with exactly `DAY: YYYY-MM-DD` and `NET: <dollars with 2 decimals>` on two lines, then the query or script you used.",
+   "task": "h-tool-sqlite-forensics",
+   "task_type": "tool_use",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008135,
+    "opus": 0.27706,
+    "fable": 0.636183,
+    "sonnet": 0.123544
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.008135
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.123544
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.27706
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.636183
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "commits.txt is everything merged for release 3.0.0. Write the customer-facing release notes. Hard constraints: at most 120 words; the breaking change comes FIRST, before anything else; every change a user can notice is included (judge by what the commit does, not by its prefix); nothing that users cannot notice and nothing that did not ship is mentioned.\nReply with the notes only.",
+   "task": "h-write-constrained-notes",
+   "task_type": "writing",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.00581,
+    "opus": 0.2023,
+    "fable": 0.539058,
+    "sonnet": 0.103629
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.00581
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.103629
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.2023
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.539058
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Using costs.md, write a note to our CEO (not technical) recommending option A or B. Constraints: at most 90 words; open with the recommendation; state the net saving over the first 12 months INCLUDING the one-time cost, in dollars rounded to the nearest dollar; do not use any of these words: egress, instance, on-prem, on-premises, migration, CapEx, OpEx, TCO, SLA, latency, elastic.\nDo not modify files. Reply with the note only.",
+   "task": "h-write-exec-brief",
+   "task_type": "writing",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 0.95,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006325,
+    "opus": 0.215336,
+    "fable": 0.582256,
+    "sonnet": 0.104382
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006325
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.104382
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.215336
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.582256
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "sources/ holds everything we have about yesterday's checkout incident (2026-10-14): deploy log, per-minute error metrics, the incident chat and the status page. They use different time zones and they do not agree with each other.\nWrite the postmortem (at most 350 words). Impact starts at the first minute whose 5xx rate (errors_5xx / requests) is above 5% and ends at the first minute from which the rate stays at or below 5%; duration = end minus start. It must open with exactly these four lines, then the narrative, then a short note on which reports were wrong and why:\nStart (UTC): HH:MM\nEnd (UTC): HH:MM\nDuration: N min\nRoot cause: <one sentence>\nDo not modify files.",
+   "task": "h-write-postmortem-facts",
+   "task_type": "writing",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "haiku",
+    "sonnet"
+   ],
+   "best_model": [
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.8875,
+    "haiku": 0.95,
+    "opus": 0.8875,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008036,
+    "opus": 0.256547,
+    "fable": 0.8725,
+    "sonnet": 0.121175
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.008036
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.121175
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.8875,
+     "cost_usd": 0.256547
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.8875,
+     "cost_usd": 0.8725
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "data/ holds 12 daily CSV exports (user,action,status,ts). Across ALL files: how many distinct users received at least one HTTP 403 on the `export` action, and which user has the most 403s on `export` (give their count)? Do not modify files.",
+   "task": "long-aggregate-csv",
+   "task_type": "long_context",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.007715,
+    "opus": 0.235743,
+    "sonnet": 0.116047,
+    "fable": 0.57881
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007715
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.116047
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.235743
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.57881
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "app/ is a package of ~40 modules. Trace what happens when handle_request receives a payload with kind == \"refund\": list, in call order, every function from handle_request until the row is inserted into the database (include private helpers that run). Note anything that looks similar but is not on this path. Do not modify files.",
+   "task": "long-codebase-trace",
+   "task_type": "long_context",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.9643,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008323,
+    "opus": 0.237054,
+    "sonnet": 0.13773,
+    "fable": 0.642354
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.9643,
+     "cost_usd": 0.008323
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.13773
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.237054
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.642354
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "logs/app.log is a large application log. Find the one ERROR entry with code E4471 and tell me its request_id and service. Do not modify files.",
+   "task": "long-needle-log",
+   "task_type": "long_context",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "haiku",
+    "sonnet"
+   ],
+   "best_model": [
+    "haiku",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.5,
+    "haiku": 1.0,
+    "opus": 0.5,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.005668,
+    "opus": 0.19705,
+    "sonnet": 0.101519,
+    "fable": 0.524848
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.005668
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.101519
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.5,
+     "cost_usd": 0.19705
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.5,
+     "cost_usd": 0.524848
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "policies/ has 30 policy documents. How long must audit logs be retained? If the documents disagree, say which one governs and why, citing the file names. Do not modify files.",
+   "task": "long-policy-contradiction",
+   "task_type": "long_context",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008153,
+    "opus": 0.244578,
+    "sonnet": 0.137756,
+    "fable": 0.639656
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.008153
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.137756
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.244578
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.639656
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "tasks.md lists 8 tasks with dependencies. Give an order to do them in that respects every dependency. Reply with a numbered list; mention each task id (T1..T8) exactly once in that list, with at most one line of reasoning in total.",
+   "task": "plan-dependency-order",
+   "task_type": "planning",
+   "tier": 1,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "fable",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.75,
+    "opus": 0.9445,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.005293,
+    "opus": 0.194496,
+    "sonnet": 0.100706,
+    "fable": 0.506376
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.75,
+     "cost_usd": 0.005293
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.100706
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.9445,
+     "cost_usd": 0.194496
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.506376
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Design the job-processing core for a service that sends customer emails: producers enqueue jobs, a pool of workers processes them, workers crash and the network drops, and a customer must\nnever get the same email twice in practice. Give the architecture: components, the delivery guarantee you will actually provide and why, failure handling (crash mid-job, duplicate enqueue,\npoison messages), and what you would measure. At most 500 words. Reply with the design only.",
+   "task": "plan-job-queue-design",
+   "task_type": "planning",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku"
+   ],
+   "best_model": [
+    "fable",
+    "haiku"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 0.95,
+    "opus": 0.85,
+    "sonnet": 0.85
+   },
+   "cost_usd_median": {
+    "haiku": 0.005844,
+    "opus": 0.212439,
+    "sonnet": 0.10453,
+    "fable": 0.525465
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.005844
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.85,
+     "cost_usd": 0.10453
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.85,
+     "cost_usd": 0.212439
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.525465
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "work.json lists 10 tasks with the source files each touches and its estimated hours. Split them across at most 4 parallel workers so that no source file is touched by two different workers\n(tasks that share a file must go to the same worker) and the busiest worker has as little work as possible. Reply with a short justification and then ONE JSON object mapping worker names to lists of task ids,\ne.g. {\"w1\": [\"t1\",\"t2\"], ...}, every task exactly once.",
+   "task": "plan-parallel-split",
+   "task_type": "planning",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006066,
+    "opus": 0.207024,
+    "sonnet": 0.107762,
+    "fable": 0.550853
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006066
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.107762
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.207024
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.550853
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Plan the migration of an internal service from SQLite to PostgreSQL with no downtime. Two other services read the data; writes come from one API process; the DB is 40 GB.\nGive an ordered plan with phases, verification at each phase, a rollback for each phase, and the specific point of no return. At most 450 words. Reply with the plan only.",
+   "task": "plan-zero-downtime-migration",
+   "task_type": "planning",
+   "tier": 2,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "sonnet"
+   ],
+   "best_model": [
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.8334,
+    "haiku": 0.7417,
+    "opus": 0.825,
+    "sonnet": 0.9083
+   },
+   "cost_usd_median": {
+    "haiku": 0.007079,
+    "opus": 0.230663,
+    "sonnet": 0.100637,
+    "fable": 0.521375
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.7417,
+     "cost_usd": 0.007079
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9083,
+     "cost_usd": 0.100637
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.825,
+     "cost_usd": 0.230663
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.8334,
+     "cost_usd": 0.521375
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "formatters.py has three near-identical functions. Remove the duplication (one shared helper) without changing any output byte-for-byte or the three public function names and signatures.\nThere are no tests yet: add a test file that pins the current behaviour first, then refactor.",
+   "task": "refactor-dedupe-formatters",
+   "task_type": "refactoring",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.9
+   },
+   "cost_usd_median": {
+    "haiku": 0.013055,
+    "opus": 0.288768,
+    "sonnet": 0.151492,
+    "fable": 0.82371
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.013055
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9,
+     "cost_usd": 0.151492
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.288768
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.82371
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "group.py is correct but far too slow on real data (find_duplicates on 20k records, top_words on 20k words take many seconds). Make both fast (they should be linear-ish)\nwithout changing results or ordering rules in their docstrings, and without changing signatures. Add a quick correctness test of your own.",
+   "task": "refactor-perf-grouping",
+   "task_type": "refactoring",
+   "tier": 3,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.9375,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008108,
+    "opus": 0.262155,
+    "sonnet": 0.12794,
+    "fable": 0.651146
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.9375,
+     "cost_usd": 0.008108
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.12794
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.262155
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.651146
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Rename `store.fetch` to `store.get_record` and update every call site in this project (including aliased imports). Keep `store.fetch` as a deprecated alias that emits a\nDeprecationWarning and returns the same result as get_record. Do not rename `prefetch`, and do not change any behaviour or output.",
+   "task": "refactor-rename-api",
+   "task_type": "refactoring",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009712,
+    "opus": 0.27217,
+    "sonnet": 0.132194,
+    "fable": 0.643861
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009712
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.132194
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.27217
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.643861
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "report.py's `Report` class both parses text and renders it. Split it: `report_parser.py` with `ReportParser().parse(text) -> (title, sections)`, `report_renderer.py` with\n`ReportRenderer(title, sections)` having `.text()` and `.html()`. `Report` stays as a thin facade with the same public API and behaviour (title, sections, render_text, render_html)\nand must not contain parsing or rendering logic itself. Add a test file pinning behaviour.",
+   "task": "refactor-split-class",
+   "task_type": "refactoring",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.009788,
+    "opus": 0.294013,
+    "sonnet": 0.222388,
+    "fable": 0.673552
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.009788
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.222388
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.294013
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.673552
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "A customer on the Team plan asks: how many /search requests per minute are they allowed today, and since which API version? The docs folder is for the current release, 2.3. Use only the files in this directory (no internet). Do not modify files; reply with the answer and cite the file(s) you relied on. Say which statements in the docs are stale.",
+   "task": "research-api-limits",
+   "task_type": "research",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006874,
+    "opus": 0.206557,
+    "sonnet": 0.118439,
+    "fable": 0.5908
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006874
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.118439
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.206557
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.5908
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Reading the code (not the README), what timeout in seconds does the background worker actually use when conf/defaults.toml says 30, conf/prod.toml says 45, APP_ENV=prod, APP_TIMEOUT=60 and someone started the service with `--timeout 90`? Explain the chain of files that decide it. Use only the files in this directory (no internet). Do not modify files; reply with the answer and cite the file(s) you relied on.",
+   "task": "research-config-precedence",
+   "task_type": "research",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 0.95,
+    "opus": 0.8667,
+    "sonnet": 0.9083
+   },
+   "cost_usd_median": {
+    "haiku": 0.006886,
+    "opus": 0.218242,
+    "sonnet": 0.123394,
+    "fable": 0.553622
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.006886
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9083,
+     "cost_usd": 0.123394
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.8667,
+     "cost_usd": 0.218242
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.553622
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "constraints.md describes a project's requirements and libs/ has notes on four candidate libraries. Recommend exactly one library and say why each of the others is ruled out. Use only the files in this directory (no internet). Do not modify files; reply with the answer and cite the file(s) you relied on.",
+   "task": "research-library-choice",
+   "task_type": "research",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.95
+   },
+   "cost_usd_median": {
+    "haiku": 0.005815,
+    "opus": 0.200028,
+    "sonnet": 0.104112,
+    "fable": 0.547269
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.005815
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.104112
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.200028
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.547269
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "What is the company's parental leave policy? Use only the files in this directory (no internet). Do not modify files; reply with the answer and cite the file(s) you relied on. If the files do not answer it, say so plainly instead of guessing.",
+   "task": "research-not-in-docs",
+   "task_type": "research",
+   "tier": 1,
+   "oracle_model": "opus",
+   "acceptable_set": [
+    "fable",
+    "opus"
+   ],
+   "best_model": [
+    "fable",
+    "opus"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.9167,
+    "opus": 1.0,
+    "sonnet": 0.9167
+   },
+   "cost_usd_median": {
+    "haiku": 0.006203,
+    "opus": 0.212251,
+    "sonnet": 0.118121,
+    "fable": 0.559499
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.9167,
+     "cost_usd": 0.006203
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9167,
+     "cost_usd": 0.118121
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.212251
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.559499
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "Review change.diff (a pull request) for correctness and security. Give a verdict (approve or request changes) and list only real blocking issues. Do not modify files; reply with the review.",
+   "task": "review-clean-diff",
+   "task_type": "code_review",
+   "tier": 2,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 0.7,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008778,
+    "opus": 0.206759,
+    "sonnet": 0.112887,
+    "fable": 0.589541
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.7,
+     "cost_usd": 0.008778
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.112887
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.206759
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.589541
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "lockfile.py is used by several worker processes on one machine to stop two of them running the same job. Review it for correctness under concurrency and failure.\nList the real defects, each with the interleaving or failure that triggers it and the fix. Do not modify files; reply with the review.",
+   "task": "review-lockfile",
+   "task_type": "code_review",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008127,
+    "opus": 0.25,
+    "sonnet": 0.116448,
+    "fable": 0.684818
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.008127
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.116448
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.25
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.684818
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "expand.py turns a short prompt that names local files (\"read notes.md and summarise\") into a prompt with those files' contents appended, for an agent that will see the result.\nDo a security-focused review: what can go wrong if the prompt text is attacker-influenced? List concrete issues with how each is exploited and the fix. Do not modify files; reply with the review.",
+   "task": "review-path-guards",
+   "task_type": "code_review",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "opus"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 0.95,
+    "opus": 1.0,
+    "sonnet": 0.95
+   },
+   "cost_usd_median": {
+    "haiku": 0.009636,
+    "opus": 0.318084,
+    "sonnet": 0.117692,
+    "fable": 1.043877
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.009636
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.117692
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.318084
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 1.043877
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Review users_db.py and app.py as if they were a pull request before merge. List the problems you find, most severe first, each with the function and a concrete fix.\nDo not modify any files; reply with the review.",
+   "task": "review-sql-injection",
+   "task_type": "code_review",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 0.95
+   },
+   "cost_usd_median": {
+    "haiku": 0.007744,
+    "opus": 0.222166,
+    "sonnet": 0.111793,
+    "fable": 0.587392
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007744
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.111793
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.222166
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.587392
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "services/ has 25 YAML files. Bump `app.version` from 1.4.2 to 1.5.0 in every file. Change nothing else: the image tag, the comment and the libfoo dependency also contain 1.4.2 and must stay as they are. Do not commit.",
+   "task": "tool-bulk-version-bump",
+   "task_type": "tool_use",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.007865,
+    "opus": 0.268498,
+    "sonnet": 0.142629,
+    "fable": 0.591871
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007865
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.142629
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.268498
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.591871
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "Using ONLY the invtool.py command line (read its docstring/--help; do not edit invtool.py and do not touch the database with anything else), do this: create inventory.db from inventory_dump.csv; then for every item in warehouse \"east\"\nwhose quantity is 3 or less, restock it by adding 10 with `adjust`; write the final `report` output (stdout only, no warnings) to report.txt, and write the SKUs you restocked, one per line sorted, to restocked.txt.\nDuplicate skus in the dump are merged by the tool: restock decisions use the merged quantity. Reply with the restocked SKUs.",
+   "task": "tool-cli-pipeline",
+   "task_type": "tool_use",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.008092,
+    "opus": 0.243486,
+    "sonnet": 0.137448,
+    "fable": 0.631221
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.008092
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.137448
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.243486
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.631221
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "`python -m unittest` fails in this repo (test_parse_amount_thousands). Use the git history to find which commit introduced the regression, then fix parse_amount at HEAD so all tests pass.\nDo NOT revert the commit wholesale: it also added whitespace tolerance that must stay, and later commits must be kept. Reply with the offending commit's subject line. Don't commit.",
+   "task": "tool-git-bisect-fix",
+   "task_type": "tool_use",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.007154,
+    "opus": 0.218142,
+    "sonnet": 0.125456,
+    "fable": 0.615231
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007154
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.125456
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.218142
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.615231
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "`python pipeline.py` must exit 0 and print PIPELINE OK. Run it, fix the project (not pipeline.py, and do not edit anything under tests/), and repeat until it passes. Reply with a one-line summary of each fix.",
+   "task": "tool-run-fix-loop",
+   "task_type": "tool_use",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.007419,
+    "opus": 0.230927,
+    "sonnet": 0.140271,
+    "fable": 0.617647
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.007419
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.140271
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.230927
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.617647
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "Run bug.py: it prints [2, 2, 2] and a junior colleague is sure it should print [0, 1, 2]. Write the explanation you would send them: why it happens, the smallest fix, and how to\nrecognise this trap next time. Show the corrected code. At most 250 words, no condescension. Reply with the explanation only.",
+   "task": "write-explain-closure",
+   "task_type": "writing",
+   "tier": 2,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.875,
+    "haiku": 0.875,
+    "opus": 0.875,
+    "sonnet": 0.875
+   },
+   "cost_usd_median": {
+    "haiku": 0.006226,
+    "opus": 0.213726,
+    "sonnet": 0.111115,
+    "fable": 0.562171
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.875,
+     "cost_usd": 0.006226
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.875,
+     "cost_usd": 0.111115
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.875,
+     "cost_usd": 0.213726
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.875,
+     "cost_usd": 0.562171
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  },
+  {
+   "prompt": "timeline.txt is a messy channel export from an outage, with times in two time zones and one corrected message. Write a blameless incident summary: impact and duration (from the first alert to\nservice restored, computed correctly), timeline (UTC), root cause, what went well/badly, and exactly three action items with owners as roles (not names). At most 350 words.\nDo not name individuals. Reply with the summary only.",
+   "task": "write-incident-summary",
+   "task_type": "writing",
+   "tier": 3,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku"
+   ],
+   "best_model": [
+    "fable",
+    "haiku"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 0.8875,
+    "sonnet": 0.9187
+   },
+   "cost_usd_median": {
+    "haiku": 0.006927,
+    "opus": 0.21777,
+    "sonnet": 0.112188,
+    "fable": 0.582619
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.006927
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 0.9187,
+     "cost_usd": 0.112188
+    },
+    "opus": {
+     "measured": true,
+     "quality": 0.8875,
+     "cost_usd": 0.21777
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.582619
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "Write the \"Usage\" section of a README for ratelimit.py: what it is, a short runnable example (a Python code block that works as-is when run in this directory), and what\nRateLimited means for callers. At most 300 words. Use only the API that exists. Reply with the Markdown section only.",
+   "task": "write-readme-usage",
+   "task_type": "writing",
+   "tier": 2,
+   "oracle_model": "sonnet",
+   "acceptable_set": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 0.95,
+    "haiku": 0.75,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.006883,
+    "opus": 0.234334,
+    "sonnet": 0.120167,
+    "fable": 0.631484
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 0.75,
+     "cost_usd": 0.006883
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.120167
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.234334
+    },
+    "fable": {
+     "measured": true,
+     "quality": 0.95,
+     "cost_usd": 0.631484
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "heldout"
+  },
+  {
+   "prompt": "commits.txt is the commit list for version 2.4.0. Write user-facing release notes: at most 150 words, grouped under short headings (Added, Fixed, Changed, or similar),\nplain language for customers, leave out purely internal changes, and flag anything that breaks users. Do not invent features. Reply with the notes only.",
+   "task": "write-release-notes",
+   "task_type": "writing",
+   "tier": 1,
+   "oracle_model": "haiku",
+   "acceptable_set": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "best_model": [
+    "fable",
+    "haiku",
+    "opus",
+    "sonnet"
+   ],
+   "quality": {
+    "fable": 1.0,
+    "haiku": 1.0,
+    "opus": 1.0,
+    "sonnet": 1.0
+   },
+   "cost_usd_median": {
+    "haiku": 0.005692,
+    "opus": 0.199088,
+    "sonnet": 0.102457,
+    "fable": 0.528683
+   },
+   "models": {
+    "haiku": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.005692
+    },
+    "sonnet": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.102457
+    },
+    "opus": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.199088
+    },
+    "fable": {
+     "measured": true,
+     "quality": 1.0,
+     "cost_usd": 0.528683
+    }
+   },
+   "cost_source": "usage tokens \u00d7 eval/chat-savings/prices.json API-equivalent list prices",
+   "split": "train"
+  }
+ ]
+}

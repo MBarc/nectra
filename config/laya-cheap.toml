@@ -1,0 +1,14 @@
+# Laya-cheap candidate: router settings for `routing_accuracy.py eval --settings`
+# (registry config/models.laya-cheap.toml). Thresholds and stakes_weight stay at
+# the shipped values: on the 63 training tasks no setting of them changed a pick
+# that mattered, because Laya's role answer decides the model.
+[classifier]
+backend = "laya"
+simple_below = 0.2
+demanding_above = 0.6
+# Eval only: on a loaded machine the 1 s default times out and the router
+# silently uses keywords. Leave it out when copying these settings for use.
+laya_timeout_ms = 600000
+
+[routing]
+stakes_weight = 0.30

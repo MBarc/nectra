@@ -1,0 +1,131 @@
+{
+  "policies": [
+    {
+      "policy": "current",
+      "n": 48,
+      "measured_n": 48,
+      "accuracy": 0.8958,
+      "accuracy_ci95": [
+        0.7783,
+        0.9547
+      ],
+      "over_rate": 0.7917,
+      "exact_rate": 0.1042,
+      "priced_n": 48,
+      "mean_cost_usd": 0.101211
+    },
+    {
+      "policy": "proposed",
+      "n": 48,
+      "measured_n": 48,
+      "accuracy": 0.875,
+      "accuracy_ci95": [
+        0.753,
+        0.9414
+      ],
+      "over_rate": 0.2917,
+      "exact_rate": 0.5833,
+      "priced_n": 48,
+      "mean_cost_usd": 0.062248
+    },
+    {
+      "policy": "laya-shipped",
+      "n": 48,
+      "measured_n": 48,
+      "accuracy": 0.875,
+      "accuracy_ci95": [
+        0.753,
+        0.9414
+      ],
+      "over_rate": 0.8125,
+      "exact_rate": 0.0625,
+      "priced_n": 48,
+      "mean_cost_usd": 0.78068
+    },
+    {
+      "policy": "laya-cheap",
+      "n": 48,
+      "measured_n": 48,
+      "accuracy": 0.875,
+      "accuracy_ci95": [
+        0.753,
+        0.9414
+      ],
+      "over_rate": 0.1875,
+      "exact_rate": 0.6875,
+      "priced_n": 48,
+      "mean_cost_usd": 0.019294
+    },
+    {
+      "policy": "always-sonnet",
+      "n": 48,
+      "measured_n": 48,
+      "accuracy": 0.8958,
+      "accuracy_ci95": [
+        0.7783,
+        0.9547
+      ],
+      "over_rate": 0.8333,
+      "exact_rate": 0.0625,
+      "priced_n": 48,
+      "mean_cost_usd": 0.077144
+    },
+    {
+      "policy": "always-fable",
+      "n": 48,
+      "measured_n": 48,
+      "accuracy": 0.9167,
+      "accuracy_ci95": [
+        0.8045,
+        0.9671
+      ],
+      "over_rate": 0.875,
+      "exact_rate": 0.0417,
+      "priced_n": 48,
+      "mean_cost_usd": 0.92332
+    }
+  ],
+  "verdicts": [
+    {
+      "policy": "current",
+      "baseline": "always-sonnet",
+      "verdict": "no accuracy gain (+0.0 pts, CIs overlap) and not cheaper"
+    },
+    {
+      "policy": "current",
+      "baseline": "always-fable",
+      "verdict": "matches accuracy (-2.1 pts, CIs overlap) at lower cost"
+    },
+    {
+      "policy": "proposed",
+      "baseline": "always-sonnet",
+      "verdict": "matches accuracy (-2.1 pts, CIs overlap) at lower cost"
+    },
+    {
+      "policy": "proposed",
+      "baseline": "always-fable",
+      "verdict": "matches accuracy (-4.2 pts, CIs overlap) at lower cost"
+    },
+    {
+      "policy": "laya-shipped",
+      "baseline": "always-sonnet",
+      "verdict": "no accuracy gain (-2.1 pts, CIs overlap) and not cheaper"
+    },
+    {
+      "policy": "laya-shipped",
+      "baseline": "always-fable",
+      "verdict": "matches accuracy (-4.2 pts, CIs overlap) at lower cost"
+    },
+    {
+      "policy": "laya-cheap",
+      "baseline": "always-sonnet",
+      "verdict": "matches accuracy (-2.1 pts, CIs overlap) at lower cost"
+    },
+    {
+      "policy": "laya-cheap",
+      "baseline": "always-fable",
+      "verdict": "matches accuracy (-4.2 pts, CIs overlap) at lower cost"
+    }
+  ],
+  "note": "Accuracy = in-acceptable-set over tasks where the pick was measured; CI is Wilson 95%. Cost = mean API-equivalent list-price cost of the picked model per task, over priced picks only."
+}

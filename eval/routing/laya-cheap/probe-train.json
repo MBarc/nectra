@@ -1,0 +1,632 @@
+[
+ {
+  "task": "code-cooldown-store",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.06,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "code-cost-usd",
+  "S": "haiku",
+  "type": "code_generation",
+  "raw": 0.01,
+  "stakes": 0.2,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "code-jsonl-events",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.05,
+  "stakes": 0.2,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "code-parse-deadline",
+  "S": "haiku",
+  "type": "code_generation",
+  "raw": 0.02,
+  "stakes": 0.1,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "debug-intervals",
+  "S": "haiku",
+  "type": "debugging",
+  "raw": 0.01,
+  "stakes": 0.1,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "debug-paginate",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.2,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "debug-replay-safety",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.49,
+  "stakes": 0.49,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "debug-stale-cache",
+  "S": "sonnet",
+  "type": "debugging",
+  "raw": 0.5,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-code-semver-range",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.11,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-code-spec-conflicts",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.5,
+  "stakes": 0.2,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-code-token-bucket",
+  "S": "fable",
+  "type": "code_generation",
+  "raw": 0.78,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-debug-lost-updates",
+  "S": "sonnet",
+  "type": "debugging",
+  "raw": 0.5,
+  "stakes": 0.15,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-debug-misleading-tz",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-debug-mutable-default",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-long-dead-code",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.49,
+  "stakes": 0.2,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-long-log-correlate",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-long-policy-amendments",
+  "S": "haiku",
+  "type": "general",
+  "raw": 0.04,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "h-plan-infeasible",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "h-plan-rolling-upgrade",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.49,
+  "stakes": 0.15,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "h-plan-schedule",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.39,
+  "stakes": 0.15,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "h-refactor-keep-quirks",
+  "S": "sonnet",
+  "type": "refactoring",
+  "raw": 0.01,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-refactor-module-to-class",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.5,
+  "stakes": 0.2,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-refactor-rename-wire-compat",
+  "S": "sonnet",
+  "type": "refactoring",
+  "raw": 0.49,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-research-benchmark-claims",
+  "S": "sonnet",
+  "type": "data_analysis",
+  "raw": 0.48,
+  "stakes": 0.15,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-research-conflicting-sources",
+  "S": "sonnet",
+  "type": "data_analysis",
+  "raw": 0.05,
+  "stakes": 0.15,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-research-upgrade-path",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.32,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-review-auth-tokens",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.51,
+  "stakes": 0.12,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-review-pick-patch",
+  "S": "sonnet",
+  "type": "debugging",
+  "raw": 0.39,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-review-race-diff",
+  "S": "haiku",
+  "type": "code_review",
+  "raw": 0.01,
+  "stakes": 0.1,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "h-tool-merge-conflict",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.5,
+  "stakes": 0.1,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-tool-messy-json",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.5,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "h-tool-sqlite-forensics",
+  "S": "sonnet",
+  "type": "general",
+  "raw": 0.05,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-write-constrained-notes",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.01,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-write-exec-brief",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.01,
+  "stakes": 0.14,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "h-write-postmortem-facts",
+  "S": "sonnet",
+  "type": "research",
+  "raw": 0.5,
+  "stakes": 0.1,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "long-aggregate-csv",
+  "S": "sonnet",
+  "type": "data_analysis",
+  "raw": 0.4,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "long-codebase-trace",
+  "S": "fable",
+  "type": "data_analysis",
+  "raw": 0.5,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "long-needle-log",
+  "S": "haiku",
+  "type": "data_analysis",
+  "raw": 0.11,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "long-policy-contradiction",
+  "S": "opus",
+  "type": "architecture",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "plan-dependency-order",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.01,
+  "stakes": 0.12,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "plan-job-queue-design",
+  "S": "opus",
+  "type": "architecture",
+  "raw": 0.99,
+  "stakes": 0.2,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "plan-parallel-split",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.5,
+  "stakes": 0.37,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "plan-zero-downtime-migration",
+  "S": "opus",
+  "type": "planning",
+  "raw": 0.97,
+  "stakes": 0.31,
+  "role": "planning",
+  "N": "opus",
+  "D": "opus"
+ },
+ {
+  "task": "refactor-dedupe-formatters",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.49,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "refactor-perf-grouping",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "refactor-rename-api",
+  "S": "fable",
+  "type": "refactoring",
+  "raw": 0.09,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "refactor-split-class",
+  "S": "sonnet",
+  "type": "refactoring",
+  "raw": 0.49,
+  "stakes": 0.2,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "research-api-limits",
+  "S": "haiku",
+  "type": "general",
+  "raw": 0.01,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "research-config-precedence",
+  "S": "sonnet",
+  "type": "data_analysis",
+  "raw": 0.49,
+  "stakes": 0.2,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "research-library-choice",
+  "S": "haiku",
+  "type": "writing",
+  "raw": 0.01,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "research-not-in-docs",
+  "S": "haiku",
+  "type": "general",
+  "raw": 0.01,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "review-clean-diff",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.5,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "review-lockfile",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.88,
+  "stakes": 0.27,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "review-path-guards",
+  "S": "fable",
+  "type": "code_review",
+  "raw": 0.34,
+  "stakes": 0.15,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "review-sql-injection",
+  "S": "sonnet",
+  "type": "code_review",
+  "raw": 0.49,
+  "stakes": 0.15,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "tool-bulk-version-bump",
+  "S": "haiku",
+  "type": "refactoring",
+  "raw": 0.0,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "tool-cli-pipeline",
+  "S": "haiku",
+  "type": "code_generation",
+  "raw": 0.01,
+  "stakes": 0.2,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "tool-git-bisect-fix",
+  "S": "fable",
+  "type": "debugging",
+  "raw": 0.49,
+  "stakes": 0.0,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "tool-run-fix-loop",
+  "S": "haiku",
+  "type": "code_generation",
+  "raw": 0.02,
+  "stakes": 0.15,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "write-explain-closure",
+  "S": "haiku",
+  "type": "general",
+  "raw": 0.01,
+  "stakes": 0.0,
+  "role": "simple",
+  "N": "haiku",
+  "D": "fable"
+ },
+ {
+  "task": "write-incident-summary",
+  "S": "fable",
+  "type": "writing",
+  "raw": 0.5,
+  "stakes": 0.1,
+  "role": "demanding",
+  "N": "fable",
+  "D": "fable"
+ },
+ {
+  "task": "write-readme-usage",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.01,
+  "stakes": 0.15,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ },
+ {
+  "task": "write-release-notes",
+  "S": "sonnet",
+  "type": "writing",
+  "raw": 0.01,
+  "stakes": 0.0,
+  "role": "general",
+  "N": "sonnet",
+  "D": "fable"
+ }
+]

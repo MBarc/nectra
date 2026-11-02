@@ -224,17 +224,17 @@ def rewrite_registry(source, target, scores, roles=None):
     Path(target).write_text("# Generated from calibration data; default models.toml is unchanged.\n" + "".join(out), encoding="utf-8")
 
 
-def config_for(registry, providers):
+def config_for(registry, providers, settings='[classifier]\nbackend = "local"\n'):
     fd, name = tempfile.mkstemp(prefix="nectra-routing-", suffix=".toml")
     os.close(fd)
     Path(name).write_text("providers = [" + ", ".join(json.dumps(p) for p in providers) + "]\n" +
-                         f"registry = {json.dumps(str(Path(registry).resolve()))}\n\n[classifier]\nbackend = \"local\"\n\n[claude]\ncommand = \"claude\"\n\n[codex]\ncommand = \"codex\"\n\n[gemini]\ncommand = \"gemini\"\n", encoding="utf-8")
+                         f"registry = {json.dumps(str(Path(registry).resolve()))}\n\n{settings}\n[claude]\ncommand = \"claude\"\n\n[codex]\ncommand = \"codex\"\n\n[gemini]\ncommand = \"gemini\"\n", encoding="utf-8")
     return name
 
 
 def route(binary, config, prompt):
     p = subprocess.run([str(binary), "--config", config, "--stdin", "route"], input=prompt,
-                       text=True, encoding="utf-8", capture_output=True, timeout=30)
+                       text=True, encoding="utf-8", capture_output=True, timeout=600)  # Laya loads its model per call
     if p.returncode:
         raise RuntimeError((p.stderr or p.stdout)[-1000:])
     return json.loads(p.stdout)
@@ -285,15 +285,19 @@ def evaluate(args, oracle):
     providers = sorted({m["provider"] for m in models if m.get("enabled", True)})
     if args.providers:  # interim runs: restrict to providers the oracle actually measured
         providers = [p for p in providers if p in args.providers.split(",")]
-    configs = {None: config_for(registry, providers)}
+    extra = {"settings": Path(args.settings).read_text(encoding="utf-8")} if args.settings else {}
+    configs = {None: config_for(registry, providers, **extra)}
     for provider in providers:
-        configs[provider] = config_for(registry, [p for p in providers if p != provider])
+        configs[provider] = config_for(registry, [p for p in providers if p != provider], **extra)
     rows = []
     try:
         for item in oracle:
             if args.split != "all" and item["split"] != args.split:
                 continue
             decision = route(args.binary, configs[None], item["prompt"])
+            # A Laya timeout silently routes on keywords; that would score the wrong router.
+            if 'backend = "laya"' in extra.get("settings", "") and decision["reason"].startswith("keywords"):
+                raise RuntimeError(f"{item['task']}: Laya fell back to keywords: {decision['reason'][:200]}")
             chosen = decision["model"]
             fallback = {}
             for provider in providers:
@@ -423,6 +427,8 @@ def main():
     ap.add_argument("--margin", type=float, default=0.05)
     ap.add_argument("--out", default="eval/routing")
     ap.add_argument("--providers", default=None, help="comma list; limit eval to these providers")
+    ap.add_argument("--settings", default=None,
+                    help="eval: TOML with [classifier]/[routing] for the router (e.g. config/laya-cheap.toml); default keywords")
     ap.add_argument("--split",choices=["all", "train", "heldout"], default="all")
     args = ap.parse_args()
     if args.command == "selftest":

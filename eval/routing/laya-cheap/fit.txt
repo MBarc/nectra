@@ -1,0 +1,11 @@
+shipped {'accuracy': 0.873, 'accuracy_ci95': [0.7689, 0.9342], 'over_rate': 0.6825, 'exact_rate': 0.1905, 'mean_cost_usd': 0.385622}
+always-haiku {'accuracy': 0.873, 'accuracy_ci95': [0.7689, 0.9342], 'over_rate': 0.0, 'exact_rate': 0.873, 'mean_cost_usd': 0.009211}
+always-sonnet {'accuracy': 0.8889, 'accuracy_ci95': [0.788, 0.9451], 'over_rate': 0.7778, 'exact_rate': 0.1111, 'mean_cost_usd': 0.135166}
+always-opus {'accuracy': 0.873, 'accuracy_ci95': [0.7689, 0.9342], 'over_rate': 0.8571, 'exact_rate': 0.0159, 'mean_cost_usd': 0.257215}
+always-fable {'accuracy': 0.9048, 'accuracy_ci95': [0.8074, 0.9556], 'over_rate': 0.9048, 'exact_rate': 0.0, 'mean_cost_usd': 0.708922}
+frontier (simple, general, planning, demanding), demanding_above, stakes_weight:
+  ('haiku', 'haiku', 'haiku', 'haiku') 0.6 0.3 {'accuracy': 0.873, 'accuracy_ci95': [0.7689, 0.9342], 'over_rate': 0.0, 'exact_rate': 0.873, 'mean_cost_usd': 0.009211}
+  ('haiku', 'haiku', 'sonnet', 'haiku') 0.6 0.3 {'accuracy': 0.8889, 'accuracy_ci95': [0.788, 0.9451], 'over_rate': 0.0635, 'exact_rate': 0.8254, 'mean_cost_usd': 0.021345}
+  ('haiku', 'opus', 'sonnet', 'haiku') 0.5 0.3 {'accuracy': 0.9048, 'accuracy_ci95': [0.8074, 0.9556], 'over_rate': 0.2222, 'exact_rate': 0.6825, 'mean_cost_usd': 0.059029}
+  ('opus', 'opus', 'sonnet', 'haiku') 0.5 0.3 {'accuracy': 0.9206, 'accuracy_ci95': [0.8273, 0.9656], 'over_rate': 0.3968, 'exact_rate': 0.5238, 'mean_cost_usd': 0.105207}
+Laya role of each train task haiku fails: [('demanding', 'sonnet'), ('demanding', 'sonnet'), ('demanding', 'sonnet'), ('general', 'sonnet'), ('planning', 'sonnet'), ('planning', 'sonnet'), ('simple', 'opus'), ('simple', 'sonnet')]

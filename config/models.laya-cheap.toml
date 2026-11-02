@@ -1,0 +1,214 @@
+# Laya-cheap candidate (Nov 5 comparison; nectra-bin/config.toml is unchanged).
+# Same models and scores as models.toml; only `prefers` moves. Fitted on the
+# non-held-out calibration oracle (63 tasks, Claude models, margin 0.05): Laya's
+# role head did not separate the tasks haiku fails from the rest, so every role
+# but planning goes to haiku and planning to sonnet. Use with laya-cheap.toml.
+# Capability scores are hand-set estimates, product policy and not benchmark claims,
+# until a calibration run measures them. Editable without recompiling.
+
+[[model]]
+id = "opus"
+provider = "anthropic"
+runtime = "claude"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.97
+reasoning=0.99
+long_context=0.98
+writing=0.98
+tool_use=0.98
+speed=0.55
+cost_efficiency=0.48
+
+[[model]]
+id = "sonnet"
+provider = "anthropic"
+runtime = "claude"
+enabled = true
+effort = ""
+prefers = ["planning"]
+[model.capabilities]
+coding=0.94
+reasoning=0.93
+long_context=0.96
+writing=0.95
+tool_use=0.96
+speed=0.82
+cost_efficiency=0.80
+
+[[model]]
+id = "gpt-5.6-sol"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "high"
+prefers = ["coding"]
+[model.capabilities]
+coding=0.99
+reasoning=0.99
+long_context=0.90
+writing=0.91
+tool_use=0.99
+speed=0.60
+cost_efficiency=0.53
+
+[[model]]
+id = "gpt-5.6-luna"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "medium"
+prefers = ["simple-coding"]
+[model.capabilities]
+coding=0.87
+reasoning=0.84
+long_context=0.84
+writing=0.86
+tool_use=0.89
+speed=0.97
+cost_efficiency=0.94
+
+[[model]]
+id = "haiku"
+provider = "anthropic"
+runtime = "claude"
+enabled = true
+effort = ""
+prefers = ["simple", "general", "demanding"]
+[model.capabilities]
+coding=0.82
+reasoning=0.80
+long_context=0.72
+writing=0.85
+tool_use=0.82
+speed=0.98
+cost_efficiency=0.97
+
+[[model]]
+id = "gpt-6-astra"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "high"
+prefers = ["demanding"]
+[model.capabilities]
+coding=1.0
+reasoning=1.0
+long_context=1.0
+writing=0.98
+tool_use=1.0
+speed=0.45
+cost_efficiency=0.40
+
+# Google models run through the Antigravity CLI (`agy`; Gemini CLI no longer
+# signs in personal accounts). Only routed to when `google` is a selected provider.
+# The ids are what `agy models` lists; the suffix is the thinking level.
+# Capability scores are UNMEASURED placeholders carried over from the old
+# gemini-2.5 entries (high = the 2.5-pro scores, medium/low = the 2.5-flash
+# ones); calibration replaces them.
+[[model]]
+id = "gemini-3.8-flash-high"
+provider = "google"
+runtime = "agy"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.9
+reasoning=0.9
+long_context=0.95
+writing=0.9
+tool_use=0.9
+speed=0.65
+cost_efficiency=0.65
+
+[[model]]
+id = "gemini-3.8-flash-medium"
+provider = "google"
+runtime = "agy"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.8
+reasoning=0.8
+long_context=0.95
+writing=0.8
+tool_use=0.8
+speed=0.9
+cost_efficiency=0.9
+
+[[model]]
+id = "gemini-3.8-flash-low"
+provider = "google"
+runtime = "agy"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.8
+reasoning=0.8
+long_context=0.95
+writing=0.8
+tool_use=0.8
+speed=0.9
+cost_efficiency=0.9
+
+# Claude's top tier (claude --help lists it). It claims `demanding` beside
+# gpt-6-astra, so hard work still reaches a frontier model when only Claude is
+# set up; with both, the scores below (above Opus on reasoning, below it on
+# speed and cost) pick between them.
+[[model]]
+id = "fable"
+provider = "anthropic"
+runtime = "claude"
+enabled = true
+effort = ""
+prefers = []
+[model.capabilities]
+coding=0.98
+reasoning=1.0
+long_context=0.99
+writing=0.99
+tool_use=0.99
+speed=0.45
+cost_efficiency=0.38
+
+# `codex debug models`, 2026-10-26: gpt-6.1-sol is the current workhorse
+# ("near-Astra performance at a lower cost") and gpt-6-luna the current fast
+# model. Scores sit between their siblings. The coding roles stay with the
+# gpt-5.6 pair, whose cost eval/chat-savings measured, until calibration
+# measures these two.
+[[model]]
+id = "gpt-6.1-sol"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "high"
+prefers = []
+[model.capabilities]
+coding=0.99
+reasoning=0.99
+long_context=0.93
+writing=0.93
+tool_use=0.99
+speed=0.62
+cost_efficiency=0.55
+
+[[model]]
+id = "gpt-6-luna"
+provider = "openai"
+runtime = "codex"
+enabled = true
+effort = "medium"
+prefers = []
+[model.capabilities]
+coding=0.89
+reasoning=0.86
+long_context=0.86
+writing=0.87
+tool_use=0.90
+speed=0.97
+cost_efficiency=0.93
