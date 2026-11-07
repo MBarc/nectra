@@ -39,6 +39,8 @@ impl RateLimited {
             "error_description",
             "error",
             "short_error",
+            // Claude's failed `result` event carries the notice as its text.
+            "result",
         ]
         .iter()
         .find_map(|k| Self::field(event, k).and_then(Value::as_str))
@@ -79,6 +81,7 @@ impl RateLimited {
                 "quota exceeded",
                 "quota reached",
                 "hit your limit",
+                "spend limit",
                 // Google's wording (agy, and the Gemini API behind it).
                 "exceeded your current quota",
                 "exhausted your capacity",
@@ -106,6 +109,7 @@ impl RateLimited {
             "usage_limit",
             "usage limit",
             "spend_limit",
+            "spend limit",
             "hit your limit",
             "quota reached",
         ]
@@ -141,6 +145,21 @@ impl RateLimited {
             retry_after: Duration::from_secs(seconds),
             safe_to_retry,
         })
+    }
+}
+
+impl RateLimited {
+    /// A limit notice that came back as a successful reply (Claude exits 0 at
+    /// its spend cap). Only a short reply that opens "You've hit your ..." counts,
+    /// so an answer that merely discusses limits stays an answer.
+    pub fn from_reply(text: &str, safe_to_retry: bool) -> Option<Self> {
+        let text = text.trim();
+        let lower = text.to_lowercase().replace('\u{2019}', "'");
+        let opens = lower.starts_with("you've hit your") || lower.starts_with("you have hit your");
+        if text.len() > 400 || !opens {
+            return None;
+        }
+        Self::from_error(&serde_json::json!({ "message": text }), safe_to_retry)
     }
 }
 
@@ -244,6 +263,34 @@ mod tests {
             true
         )
         .is_none());
+    }
+
+    #[test]
+    fn a_spend_cap_is_an_exhausted_plan() {
+        let text = "You've hit your monthly spend limit. Resets Dec 1.";
+        // As an error event, and as the plain reply of a turn that exited 0.
+        let as_event = RateLimited::from_error(&serde_json::json!({"message": text}), true);
+        let as_result = RateLimited::from_error(
+            &serde_json::json!({"type":"result","is_error":true,"result":text}),
+            true,
+        );
+        let as_reply = RateLimited::from_reply("You’ve hit your monthly spend limit", true);
+        for limit in [as_event, as_result, as_reply] {
+            let limit = limit.expect("spend cap is a limit");
+            assert!(limit.provider_wide);
+            assert!(limit.retry_after.as_secs() >= 3600);
+        }
+        // Prose that merely mentions spend, or a limit, is an answer.
+        assert!(RateLimited::from_error(
+            &serde_json::json!({"message": "Track your spend per month"}),
+            true
+        )
+        .is_none());
+        assert!(
+            RateLimited::from_reply("Set a monthly spend limit in the billing page.", true)
+                .is_none()
+        );
+        assert!(RateLimited::from_reply("Explain rate limits", true).is_none());
     }
 
     #[test]

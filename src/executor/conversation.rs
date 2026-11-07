@@ -442,6 +442,10 @@ impl StreamState {
                         .as_str()
                         .context("Claude result has no text")?
                         .to_string();
+                    // The limit notice is the whole reply, so no work ran: safe to retry.
+                    if let Some(limit) = crate::limits::RateLimited::from_reply(&text, true) {
+                        return Err(limit.into());
+                    }
                     self.completed = true;
                     self.reply = Some(text.clone());
                     if !self.claude_displayed.ends_with(&text) {
@@ -793,6 +797,15 @@ mod tests {
         );
         let mut state = StreamState::default();
         assert!(state.event("claude", &json!({"type":"result","is_error":false,"subtype":"success","result":"Explain rate limits"})).is_ok());
+        // The spend cap exits 0 with the notice as the whole reply.
+        let mut capped = StreamState::default();
+        capped
+            .event("claude", &json!({"type":"assistant"}))
+            .unwrap();
+        assert!(capped
+            .event("claude", &json!({"type":"result","is_error":false,"subtype":"success","result":"You've hit your monthly spend limit"}))
+            .unwrap_err()
+            .is::<crate::limits::RateLimited>());
         assert!(StreamState::default()
             .event(
                 "claude",
