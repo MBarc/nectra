@@ -1076,7 +1076,12 @@ Connection: close
         // ort remembers the first runtime it loads for the whole process, so
         // the check runs in a fresh one whatever other tests loaded.
         if std::env::var_os("NECTRA_ORT_CHILD").is_none() {
+            // An empty cache: a genuine runtime cached by an earlier real load
+            // would be staged instead of the bad file under test.
+            let cache = tempfile::tempdir().unwrap();
             let out = std::process::Command::new(std::env::current_exe().unwrap())
+                .env("XDG_CACHE_HOME", cache.path())
+                .env("LOCALAPPDATA", cache.path())
                 .args([
                     "--exact",
                     "laya::tests::a_runtime_that_wont_load_is_an_error_not_a_panic",
