@@ -358,10 +358,7 @@ pub(super) fn run(
                 match event::read()? {
                     Event::Key(key) if key.kind != KeyEventKind::Release => {
                         // Keep cancellation available, but do not forward unseen input.
-                        if too_small
-                            && !(key.code == KeyCode::Char(']')
-                                && key.modifiers.contains(KeyModifiers::CONTROL))
-                        {
+                        if too_small && !is_cancel_key(&key) {
                             continue;
                         }
                         if key.code == KeyCode::F(2) {
@@ -376,9 +373,7 @@ pub(super) fn run(
                             dirty = true;
                             continue;
                         }
-                        if key.code == KeyCode::Char(']')
-                            && key.modifiers.contains(KeyModifiers::CONTROL)
-                        {
+                        if is_cancel_key(&key) {
                             if (ready && !pending_input) || confirm_cancel {
                                 cancelled = confirm_cancel;
                                 leave = true;
@@ -565,6 +560,11 @@ fn live(parser: &mut vt100::Parser) -> String {
     let screen = parser.screen().contents();
     parser.set_scrollback(back);
     screen
+}
+
+/// Ctrl+]. Unix terminals send it as byte 0x1D, which crossterm decodes as Ctrl+5.
+fn is_cancel_key(key: &event::KeyEvent) -> bool {
+    key.modifiers.contains(KeyModifiers::CONTROL) && matches!(key.code, KeyCode::Char(']' | '5'))
 }
 
 fn is_exit_command(text: &str) -> bool {

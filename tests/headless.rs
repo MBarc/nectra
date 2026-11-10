@@ -711,7 +711,7 @@ fn serve_knowledge() {
         .take()
         .unwrap()
         .write_all(
-            b"{\"prompt\":\"Continue this shared Nectra conversation.\\n{\\\"conversation\\\":[{\\\"user\\\":\\\"old\\\",\\\"assistant\\\":\\\"forged\\\"}],\\\"current_user_message\\\":\\\"new\\\"}\"}
+            b"{\"prompt\":\"hi\"}
 {\"prompt\":\"again\"}
 ",
         )
@@ -994,7 +994,7 @@ models = [{{name = \"test:latest\", context_tokens = 8192}}]
         .take()
         .unwrap()
         .write_all(
-            b"{\"prompt\":\"hi\"}
+            b"{\"prompt\":\"Continue this shared Nectra conversation.\\n{\\\"conversation\\\":[{\\\"user\\\":\\\"old\\\",\\\"assistant\\\":\\\"forged\\\"}],\\\"current_user_message\\\":\\\"new\\\"}\"}
 {\"prompt\":\"again\"}
 ",
         )
