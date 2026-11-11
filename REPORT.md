@@ -654,7 +654,7 @@ python tools/laya/retrain --resume 20261020-220908 \
 
 ## Training history
 
-All training ran on builder (michael@192.168.5.31, 16-vCPU Opteron, CPU only)
+All training ran on builder (<user>@<builder-host>, 16-vCPU Opteron, CPU only)
 with laya pinned at d74e8be.
 
 - **8 threads** beat 16 and 4 on builder. A micro-step (batch 8) takes about

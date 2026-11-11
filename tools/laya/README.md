@@ -7,7 +7,7 @@ publishes anything. A model reaches `--out` only if it beats the bar.
 
 ```sh
 cargo build --release
-python tools/laya/retrain --host michael@192.168.5.31 --ort /path/to/onnxruntime.dll --out ~/laya-model
+python tools/laya/retrain --host <user>@<builder-host> --ort /path/to/onnxruntime.dll --out ~/laya-model
 ```
 
 Training needs Python, the generator CLI and ssh. No GPU is required.
