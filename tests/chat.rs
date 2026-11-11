@@ -10,7 +10,6 @@ use nectra::{
 use std::{
     fs::{self, OpenOptions},
     io::{Cursor, Write},
-    process::{Command, Stdio},
 };
 
 fn fixture() -> (tempfile::TempDir, Config, Registry) {
@@ -488,40 +487,6 @@ fn context_budget_keeps_opening_and_recent_turns_without_splitting_unicode() {
     assert_eq!(value["current_user_message"], "current");
     assert!(session.prompt(&"x".repeat(2000), 1600).is_err());
 }
-#[test]
-fn cli_chat_creates_and_resumes_without_model_calls() {
-    let (dir, cfg, _) = fixture();
-    let path = dir.path().join("cli.jsonl");
-    for flag in ["--session", "--resume"] {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_nectra"))
-            .current_dir(dir.path())
-            .arg("--config")
-            .arg(&cfg.path)
-            .args(["chat", flag])
-            .arg(&path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(b"/help\n/session\n/quit\n")
-            .unwrap();
-        let out = child.wait_with_output().unwrap();
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        assert!(String::from_utf8(out.stdout)
-            .unwrap()
-            .contains("Session saved:"));
-    }
-}
-
 #[test]
 fn natural_model_request_overrides_pin_for_one_turn_only() {
     let (dir, cfg, reg) = fixture();

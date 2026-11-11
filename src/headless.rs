@@ -833,7 +833,9 @@ pub fn run(
         };
         let code = task(cli, cfg, registry, &[], args, Some(prompt))?;
         if terminated() {
-            return Ok(code);
+            // A SIGTERM that lands just after a task's result is out finds no
+            // turn to cancel: it is a stop between tasks, so 143 like the watcher's.
+            return Ok(if code == 0 { 143 } else { code });
         }
     }
     Ok(0)
