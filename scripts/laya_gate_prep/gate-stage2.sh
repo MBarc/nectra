@@ -44,5 +44,9 @@ rm -f "$t/gate-stage2.stopped"
 python3 scripts/calibrate.py grade --out "$held" --grader panel:fable --tasks all --max-cost 0 --nectra "$nectra"
 rc=$?
 kill "$watcher" 2>/dev/null
-[ $rc -eq 0 ] && [ ! -f "$t/gate-stage2.stopped" ] && touch "$t/gate-stage2.done" && echo "DONE stage 2"
+if [ $rc -eq 0 ] && [ ! -f "$t/gate-stage2.stopped" ]; then
+  touch "$t/gate-stage2.done"; echo "DONE stage 2; running the frozen gate"
+  # gate-ready is written only after all 200 Astra grades exist (body step 2), so every variant has its grades now
+  bash "$(dirname "${BASH_SOURCE[0]}")/gate-final.sh" && touch "$t/gate-final.done"
+fi
 exit $rc

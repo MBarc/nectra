@@ -277,11 +277,11 @@ def selftest():
     def stat(h):
         return {"n": len(h), "hits": h, "acc": sum(h.values()) / len(h), "ci": wilson(sum(h.values()), len(h)), "cost": None}
     def res(cheap3, ship3, kw3, cheap_all, kw_all, ship_all=None):
-        return {GATE_CAND: {"tier3": stat(cheap3), "all": stat(cheap_all)}, GATE_REF: {"tier3": stat(ship3), "all": stat(ship_all or cheap_all)},
+        sonnet3 = {f"t{i}": i < 25 for i in range(46)}   # always-sonnet rides along: it must not influence the verdict
+        return {"always-sonnet": {"tier3": stat(sonnet3), "all": stat({f"a{i}": i < 102 for i in range(167)})}, GATE_CAND: {"tier3": stat(cheap3), "all": stat(cheap_all)}, GATE_REF: {"tier3": stat(ship3), "all": stat(ship_all or cheap_all)},
                 GATE_KW: {"tier3": stat(kw3), "all": stat(kw_all)}}
     # The interim Fable numbers: tier 3 n=46, shipped 34 hits, cheap 28 (b=6, c=12), keywords 25; overall cheap 97/167 vs keywords 104/167.
     ship3 = {f"t{i}": i < 34 for i in range(46)}
-    cheap3 = {f"t{i}": (6 <= i < 34) or (34 <= i < 40) for i in range(46)}       # loses t0-5 (6 hits only shipped... c) gains 6 others
     cheap3 = {f"t{i}": (i in set(range(12, 34)) | set(range(34, 40))) for i in range(46)}   # c=12 (t0-11), b=6 (t34-39): 28 hits
     kw3 = {f"t{i}": i < 25 for i in range(46)}
     assert sum(cheap3.values()) == 28 and mcnemar_exact(cheap3, ship3)[:2] == (6, 12)
@@ -291,6 +291,9 @@ def selftest():
     assert r[GATE_CAND]["tier3"]["acc"] > r[GATE_KW]["tier3"]["acc"]
     v, why = gate(r)
     assert v == "FAIL" and sum(x.startswith("FAIL") for x in why) == 2, (v, why)
+    # ... and the old rule (no hard-tier regression vs keywords and always-sonnet, by CI) would have passed it
+    for base in (GATE_KW, "always-sonnet"):
+        assert r[GATE_CAND]["tier3"]["ci"][1] >= r[base]["tier3"]["ci"][0] and r[GATE_CAND]["tier3"]["acc"] >= r[base]["tier3"]["acc"]
     # passing case: cheap equals shipped on the hard tier, and beats keywords overall
     ok_all = {f"a{i}": i < 110 for i in range(167)}
     v, why = gate(res(dict(ship3), ship3, kw3, ok_all, kw_all))
@@ -380,7 +383,7 @@ def main():
     for x in why:
         print(f"* {x}")
     if a.json_out:
-        Path(a.json_out).write_text(json.dumps({"variant": a.variant, "n": len(oracle), "results": {k: {t: {kk: vv for kk, vv in st.items() if kk != "hits"} for t, st in v[0].items()} for k, v in results.items()}}, indent=1))
+        Path(a.json_out).write_text(json.dumps({"variant": a.variant, "n": len(oracle), "gate": {"verdict": v, "reasons": why}, "results": {k: {t: {kk: vv for kk, vv in st.items() if kk != "hits"} for t, st in v[0].items()} for k, v in results.items()}}, indent=1))
 
 
 if __name__ == "__main__":
