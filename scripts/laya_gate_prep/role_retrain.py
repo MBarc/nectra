@@ -51,7 +51,9 @@ def guarded_prompts(oracle_rows):
         if not any(v == f.name for v in g.values()):
             raise SystemExit(f"guard file {f.name} yielded no prompts: unknown layout, refusing to certify clean")
     for f in (CAL / "new-heldout-prompts.json", CAL / "new-heldout-prompts-2.json"):
-        if f.is_file():
+        if not f.is_file():
+            raise SystemExit(f"guard manifest missing: {f}; refusing to certify clean")
+        if True:
             d = json.loads(f.read_text(encoding="utf-8-sig"))
             for item in (d if isinstance(d, list) else d.get("prompts", d.get("tasks", []))):
                 add(prompt_text(item), f.name)
@@ -129,16 +131,27 @@ def main():
     if a.replay_from:
         old = [json.loads(l) for l in Path(a.replay_from).read_text(encoding="utf-8").splitlines() if l.strip()]
         random.Random(1).shuffle(old)
-        rows += old[:a.replay]
+        old = old[:a.replay]
+        def texts(r):   # follow-up records carry {previous_message, current_message}
+            st = r["state"]
+            return [st] if isinstance(st, str) else [v for v in st.values() if isinstance(v, str)]
+        assert_clean([x for r in old for x in texts(r)], guarded)   # replay rows are training data too
+        rows += old
     random.Random(1).shuffle(rows)
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     (out / "train.jsonl").write_text("".join(json.dumps(x) + "\n" for x in rows), encoding="utf-8")
     dev = [r for r in oracle if r.get("split") != "train" and not r["task"].startswith("rh-")]
-    (out / "dev.jsonl").write_text("".join(json.dumps({"state": r["prompt"], "questions": rq(roles), "expected": {"role": role_for(r, claim)}}) + "\n" for r in dev), encoding="utf-8")
+    # resumable_train's per-epoch dev check reads the *task* answer of every row, so dev.jsonl is the task dev set (as in
+    # tools/laya/retrain): it also shows whether the role fine-tune made the task head forget. The oracle's heldout-split role
+    # rows go to dev-role.jsonl (informational; not read by the trainer).
+    tq = {"type": "choice", "instructions": crit["questions"]["task"], "criteria": {k: "" for k, _ in crit["tasks"]}}
+    tdev = json.loads((REPO / "eval/laya/dev.json").read_text(encoding="utf-8-sig"))
+    (out / "dev.jsonl").write_text("".join(json.dumps({"state": c["prompt"], "questions": {"task": tq}, "expected": {"task": c["task"]}}) + "\n" for c in tdev), encoding="utf-8")
+    (out / "dev-role.jsonl").write_text("".join(json.dumps({"state": r["prompt"], "questions": rq(roles), "expected": {"role": role_for(r, claim)}}) + "\n" for r in dev), encoding="utf-8")
     items = sum(len(x["questions"]) for x in rows)
     man = {"oracle": str(a.oracle), "train_tasks": len(train), "dev_tasks_oracle_heldout_split": len(dev), "role_labels": labels,
            "replay_rows": len(rows) - len(train), "question_items_per_epoch": items, "guarded_prompts_checked": n,
-           "assert_clean": "passed", "note": "dev.jsonl is the oracle's own heldout split (calibration tasks); the 200 rh prompts are never used"}
+           "assert_clean": "passed", "note": "dev.jsonl = task dev set (forgetting check); dev-role.jsonl = oracle heldout split; the 200 rh prompts are never used"}
     (out / "manifest.json").write_text(json.dumps(man, indent=1) + "\n", encoding="utf-8")
     print(json.dumps(man, indent=1))
 

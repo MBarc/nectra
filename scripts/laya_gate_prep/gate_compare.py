@@ -127,7 +127,16 @@ def cfg_for(spec, repo, tmp, models):
     kind, _, rest = spec.partition(":")
     if kind == "config":
         return rest
-    backend, _, reg = rest.partition(":")
+    extra = ""
+    if kind == "laya":   # laya:SETTINGS.toml|-:REGISTRY|-:MODEL_DIR  (settings = the branch's laya-cheap.toml: [classifier]/[routing] tables)
+        sett, reg, mdir = (rest.split(":") + ["-", "-", "-"])[:3]
+        backend, reg = "laya", ("" if reg == "-" else reg)
+        body = Path(sett).read_text(encoding="utf-8") if sett != "-" else '[classifier]\nbackend = "laya"\nlaya_timeout_ms = 600000\n'
+        if mdir != "-":
+            body = body.replace("[classifier]\n", f'[classifier]\nmodel_dir = "{mdir}"\n', 1)
+        extra = body
+    else:
+        backend, _, reg = rest.partition(":")
     registry = Path(reg or repo / "config/models.toml")
     text = registry.read_text(encoding="utf-8")
     ids = [m["id"] for m in tomllib.loads(text)["model"]]
@@ -142,8 +151,8 @@ def cfg_for(spec, repo, tmp, models):
         new.append(part)
     out.write_text("".join(new), encoding="utf-8")
     cfg = tmp / f"cfg-{out.stem}.toml"
-    cfg.write_text(f'providers = ["anthropic", "openai"]\nregistry = "{out}"\n\n[classifier]\nbackend = "{ {"keywords": "local"}.get(backend.lower(), backend.lower()) }"\n\n'
-                   '[claude]\ncommand = "claude"\n\n[codex]\ncommand = "codex"\n', encoding="utf-8")
+    head = extra or f'[classifier]\nbackend = "{ {"keywords": "local"}.get(backend.lower(), backend.lower()) }"\n'
+    cfg.write_text(f'providers = ["anthropic", "openai"]\nregistry = "{out}"\n\n{head}\n[claude]\ncommand = "claude"\n\n[codex]\ncommand = "codex"\n', encoding="utf-8")
     return str(cfg)
 
 
@@ -158,20 +167,66 @@ def route(binary, cfg, prompt):
 
 
 def summarize(oracle, picks):
+    """A pick of a model with no held-out run on that task is a MISS and stays in the denominator (never dropped)."""
     rows = []
     for it in oracle:
         m = picks[it["task"]]
-        rows.append((it["tier"], m in it["quality"], m in it["acceptable"], it["cost"].get(m)))
+        rows.append((it["tier"], m in it["quality"], m in it["acceptable"], it["cost"].get(m), it["task"]))
+
     def stat(sel):
-        r = [x for x in sel if x[1]]
-        ok = sum(x[2] for x in r)
-        cs = [x[3] for x in r if x[3] is not None]
-        return {"n": len(sel), "measured": len(r), "ok": ok, "acc": ok / len(r) if r else None, "ci": wilson(ok, len(r)),
-                "cost": statistics.mean(cs) if cs else None}
+        ok = sum(x[2] for x in sel)           # acceptable implies measured
+        unm = sum(not x[1] for x in sel)
+        cs = [x[3] for x in sel if x[1] and x[3] is not None]
+        return {"n": len(sel), "unmeasured": unm, "ok": ok, "acc": ok / len(sel) if sel else None, "ci": wilson(ok, len(sel)),
+                "cost": statistics.mean(cs) if cs else None, "hits": {x[4]: bool(x[2]) for x in sel}}
     out = {"all": stat(rows)}
     for t in (1, 2, 3):
         out[f"tier{t}"] = stat([x for x in rows if x[0] == t])
     return out
+
+
+def mcnemar_exact(cand_hits, base_hits):
+    """Paired exact McNemar on the same tasks. Returns (b, c, p two-sided): b = cand hit/base miss, c = cand miss/base hit."""
+    b = sum(cand_hits[t] and not base_hits[t] for t in cand_hits)
+    c = sum(base_hits[t] and not cand_hits[t] for t in cand_hits)
+    n = b + c
+    if n == 0:
+        return b, c, 1.0
+    k = min(b, c)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n
+    return b, c, min(1.0, 2 * tail)
+
+
+def verdict(p, q):
+    """p, q: tier stats of candidate and baseline. REGRESSION if the CIs separate OR the paired test is significant at 95%."""
+    b, c, pv = mcnemar_exact(p["hits"], q["hits"])
+    if p["ci"][1] < q["ci"][0]:
+        v = "REGRESSION (CI)"
+    elif c > b and pv < 0.05:
+        v = "REGRESSION (paired)"
+    else:
+        v = "point-lower" if p["acc"] < q["acc"] else "no regression"
+    return v, b, c, pv
+
+
+def selftest():
+    n = 46
+    base = {f"t{i}": i < 30 for i in range(n)}                      # 30/46 = 65.2%
+    cand = dict(base)
+    drop = [k for k, v in base.items() if v][:9]                    # 9 fewer hits = 19.6 pts
+    for k in drop:
+        cand[k] = False
+    mk = lambda h: {"hits": h, "acc": sum(h.values()) / len(h), "ci": wilson(sum(h.values()), len(h))}
+    v, b, c, pv = verdict(mk(cand), mk(base))
+    assert (b, c) == (0, 9) and pv < 0.05 and v == "REGRESSION (paired)", (v, b, c, pv)   # CIs overlap, paired catches it
+    assert mk(cand)["ci"][1] >= mk(base)["ci"][0]
+    assert verdict(mk(base), mk(base))[0] == "no regression"
+    # unmeasured pick counts as a miss in the denominator
+    orc = [{"task": "a", "tier": 3, "quality": {"x": 1.0}, "acceptable": ["x"], "cost": {}},
+           {"task": "b", "tier": 3, "quality": {"x": 1.0}, "acceptable": ["x"], "cost": {}}]
+    s = summarize(orc, {"a": "x", "b": "ghost"})["tier3"]
+    assert s["n"] == 2 and s["ok"] == 1 and s["unmeasured"] == 1 and s["acc"] == 0.5, s
+    print("selftest ok")
 
 
 def main():
@@ -181,10 +236,13 @@ def main():
     ap.add_argument("--baselines", default="sonnet,opus,fable", help="always-X policies")
     ap.add_argument("--margin", type=float, default=0.05)
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[2]))
-    ap.add_argument("--binary", default="/home/michael/nectra-eval/target/release/nectra")
+    ap.add_argument("--binary", default=str(Path.home() / "nectra-eval/target/release/nectra"))
     ap.add_argument("--label", default="")
+    ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--json-out", default=None)
     a = ap.parse_args()
+    if a.selftest:
+        return selftest()
     repo = Path(a.repo)
     oracle = build_oracle(a.variant, a.margin, repo)
     tmp = Path(tempfile.mkdtemp(prefix="gate-compare-"))
@@ -210,21 +268,21 @@ def main():
         cells = []
         for t in tiers:
             x = s[t]
-            cells.append("n/a" if x["acc"] is None else f"{pct(x['acc'])} ({x['ok']}/{x['measured']}; {x['ci'][0]*100:.0f}–{x['ci'][1]*100:.0f}%)")
+            cells.append("n/a" if x["acc"] is None else f"{pct(x['acc'])} ({x['ok']}/{x['n']}{'; %d unmeasured=miss' % x['unmeasured'] if x['unmeasured'] else ''}; {x['ci'][0]*100:.0f}–{x['ci'][1]*100:.0f}%)")
         c = s["all"]["cost"]
         print(f"| {name} | " + " | ".join(cells) + f" | {'n/a' if c is None else f'${c:.4f}'} |")
     cand = [n for n in (x.partition('=')[0] for x in a.policy)]
-    print("\nHard-tier (tier 3) regression check, candidate vs baseline (regression = candidate CI entirely below the baseline CI; "
-          "'point-lower' = lower point estimate with overlapping CIs):\n")
+    print("\nHard-tier (tier 3) check, candidate vs baseline. REGRESSION = CIs separate (candidate upper < baseline lower) OR exact "
+          "McNemar on paired tasks significant at 95% with the candidate worse; b/c = tasks only the candidate / only the baseline got right:\n")
     for n in cand:
-        for b in [k for k in results if k.startswith("always-")] + [k for k in cand if k != n]:
-            p, q = results[n][0]["tier3"], results[b][0]["tier3"]
+        for b_ in [k for k in results if k.startswith("always-")] + [k for k in cand if k != n]:
+            p, q = results[n][0]["tier3"], results[b_][0]["tier3"]
             if p["acc"] is None or q["acc"] is None:
                 continue
-            v = "REGRESSION" if p["ci"][1] < q["ci"][0] else ("point-lower" if p["acc"] < q["acc"] else "no regression")
-            print(f"* {n} vs {b}: {p['acc']*100:.1f}% vs {q['acc']*100:.1f}% ({(p['acc']-q['acc'])*100:+.1f} pts) -> {v}")
+            v, b, c, pv = verdict(p, q)
+            print(f"* {n} vs {b_}: {p['acc']*100:.1f}% vs {q['acc']*100:.1f}% ({(p['acc']-q['acc'])*100:+.1f} pts, n={p['n']}) b={b} c={c} p={pv:.3f} -> {v}")
     if a.json_out:
-        Path(a.json_out).write_text(json.dumps({"variant": a.variant, "n": len(oracle), "results": {k: v[0] for k, v in results.items()}}, indent=1))
+        Path(a.json_out).write_text(json.dumps({"variant": a.variant, "n": len(oracle), "results": {k: {t: {kk: vv for kk, vv in st.items() if kk != "hits"} for t, st in v[0].items()} for k, v in results.items()}}, indent=1))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 # Laya ship gate: one command to resume the Astra half at the Codex reset (2026-11-12 14:55Z).
 #
 #   gate-relaunch.sh              preflight, then start the real run now as a user systemd unit (nice 15, 1 job)
-#   gate-relaunch.sh --at-reset   same, but the unit sleeps until 2026-11-12 14:55:00Z first (safe to arm early)
+#   gate-relaunch.sh --at-reset ["YYYY-MM-DD HH:MM:SS"]  same, but the units sleep until then (UTC; default 2026-11-12 14:55:00) first (safe to arm early)
 #   gate-relaunch.sh --dry-run    preflight + every calibrate.py step in --dry-run against the real tree (only re-materializes the idempotent task manifests)
 #   gate-relaunch.sh --stub       full path on a scratch copy of 3 tasks with a stub codex (no network, no Codex call)
 #
@@ -10,12 +10,13 @@
 # previous attempt is archived first, so it gets a fresh 200 tries. Watch: journalctl --user -u laya-gate -f
 # Stop: systemctl --user stop laya-gate. Resumable: finished grades are skipped.
 set -euo pipefail
-root=/home/michael/nectra-calibration
+root=${CAL_ROOT:-$HOME/nectra-calibration}
 t="$root/.orca-task"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-nectra=${NECTRA_BIN:-/home/michael/nectra-eval/target/release/nectra}
-export PATH=/home/michael/.local/bin:$PATH
+nectra=${NECTRA_BIN:-$HOME/nectra-eval/target/release/nectra}
+export PATH=$HOME/.local/bin:$PATH
 mode=${1:-run}
+at=${2:-2026-11-12 14:55:00}   # UTC start for --at-reset; armed 5 min late (15:00:00) so the first try is not rate-limited
 fail() { echo "PREFLIGHT FAIL: $*" >&2; exit 1; }
 
 preflight() {
@@ -67,11 +68,13 @@ case "$mode" in
     preflight
     for f in astra-half.done astra-half.gate-ready; do [ -f "$t/$f" ] && mv "$t/$f" "$t/$f.old-$(date +%Y%m%d%H%M%S)"; done
     [ -f "$t/astra-half.tries" ] && mv "$t/astra-half.tries" "$t/astra-half.tries.old-$(date +%Y%m%d%H%M%S)"
-    pre=""
-    [ "$mode" = "--at-reset" ] && pre='t=$(date -u -d "2026-11-12 14:55:00" +%s); n=$(date +%s); [ $t -gt $n ] && sleep $((t-n)); '
-    systemctl --user reset-failed laya-gate 2>/dev/null || true
-    systemd-run --user --unit=laya-gate --description="Laya gate: Astra half" -p Nice=15 -p CPUQuota=100% \
-      /bin/bash -c "${pre}exec bash $t/astra-half.sh"
+    timer=(); [ "$mode" = "--at-reset" ] && timer=(--on-calendar="$at UTC")   # a real systemd timer, not a sleeping service
+    systemctl --user reset-failed laya-gate laya-gate-stage2 2>/dev/null || true
+    systemd-run --user --unit=laya-gate "${timer[@]}" --description="Laya gate: Astra half" -p Nice=15 -p CPUQuota=100% \
+      /bin/bash -c "exec bash $t/astra-half.sh"
+    systemd-run --user --unit=laya-gate-stage2 "${timer[@]}" --description="Laya gate: stage 2 Fable regrade (guarded)" -p Nice=15 -p CPUQuota=100% \
+      /bin/bash -c "exec bash $here/gate-stage2.sh"
+    [ "$mode" = "--at-reset" ] && systemctl --user list-timers --all --no-pager | grep -E "NEXT|laya-gate"
     echo "started: journalctl --user -u laya-gate -f ; progress: tail -f $t/astra-half.log"
     ;;
   *) sed -n 2,11p "$0"; exit 2 ;;

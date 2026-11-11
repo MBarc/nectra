@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# STAGED, NOT RUN. Role-head retrain on calibration oracle labels, after the gate data lands.
+# STAGED, NOT RUN (do not run until the label rule in GATE-STATUS.md "Retrain plan" is implemented; current labels are degenerate). Role-head retrain on calibration oracle labels, after the gate data lands.
 #   1. regenerate the oracle:  (routing_accuracy.py build, or gate_compare's oracle) -> ORACLE=/path/oracle.json
 #   2. ORACLE=... bash run-role-retrain.sh [--yes]        (without --yes: build + leak check + estimate only)
 # Trains from the last good checkpoint (continues, role question only + 800 replay rows), 2 epochs, CPU, nice 15, 4 threads.
@@ -9,7 +9,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 : "${ORACLE:?set ORACLE=/path/to/oracle.json (needs split/prompt/acceptable_set/cost_usd_median)}"
 base_run=${BASE_RUN:-$HOME/nectra-laya/runs/20261030-164330}
-out=${OUT:-$HOME/nectra-laya/runs/role-$(date -u +%Y%m%d)}
+out=${OUT:-/data/laya-role/role-$(date -u +%Y%m%d)}
+mkdir -p "$out"
 nice -n 15 python3 -I "$here/role_retrain.py" build --oracle "$ORACLE" --out "$out" --replay-from "$base_run/train.jsonl" --replay 800
 items=$(python3 -I -c "import json;print(json.load(open('$out/manifest.json'))['question_items_per_epoch'])")
 python3 -I "$here/role_retrain.py" estimate --records "$items" --epochs 2 --threads 4
