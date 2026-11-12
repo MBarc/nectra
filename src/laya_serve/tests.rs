@@ -289,7 +289,7 @@ fn a_loading_server_answers_keywords_for_chat_and_waits_for_one_shot() {
 }
 
 #[test]
-fn a_failed_load_is_reported_not_retried_in_process() {
+fn a_server_that_failed_to_load_sends_the_caller_to_try_itself() {
     let (_d, ep) = Rig::endpoint();
     let listener = os::bind(&ep).unwrap();
     let e = ep.clone();
@@ -306,8 +306,8 @@ fn a_failed_load_is_reported_not_retried_in_process() {
     let c = client(ep.clone(), Identity::current());
     std::thread::sleep(Duration::from_millis(200));
     match ask1(&c, "x", None, true) {
-        Outcome::Failed(w) => assert!(
-            w.starts_with("Laya failed to load: model.onnx.data"),
+        Outcome::Local(w) => assert!(
+            w.starts_with("the server failed to load the model: model.onnx.data"),
             "{w}"
         ),
         other => panic!("{other:?}"),

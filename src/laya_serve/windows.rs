@@ -20,10 +20,10 @@ use windows_sys::Win32::{
     Foundation::{CloseHandle, LocalFree, GetLastError, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE},
     Security::{
         Authorization::{
-            ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
+            ConvertSidToStringSidW, GetSecurityInfo, SE_KERNEL_OBJECT, ConvertStringSecurityDescriptorToSecurityDescriptorW,
             SDDL_REVISION_1,
         },
-        EqualSid, GetTokenInformation, TokenUser, SECURITY_ATTRIBUTES,
+        EqualSid, GetTokenInformation, OWNER_SECURITY_INFORMATION, TokenUser, SECURITY_ATTRIBUTES,
         TOKEN_QUERY, TOKEN_USER,
     },
     Storage::FileSystem::{
@@ -32,12 +32,12 @@ use windows_sys::Win32::{
     },
     System::{
         Pipes::{
-            ConnectNamedPipe, CreateNamedPipeW, GetNamedPipeServerProcessId, WaitNamedPipeW,
+            ConnectNamedPipe, CreateNamedPipeW, WaitNamedPipeW,
             PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES,
             PIPE_WAIT,
         },
         Threading::{
-            GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+            GetCurrentProcess, OpenProcessToken,
         },
     },
 };
@@ -141,27 +141,31 @@ pub fn connect(ep: &Endpoint) -> io::Result<Conn> {
             Err(e) => return Err(e),
         }
     };
-    let mut pid = 0u32;
-    if unsafe { GetNamedPipeServerProcessId(file.as_raw_handle() as HANDLE, &mut pid) } == 0 {
-        return Err(io::Error::last_os_error());
+    // The pipe object must be owned by this user: a squatter cannot make it
+    // so, and unlike a process id the owner cannot be recycled.
+    let mut owner = null_mut();
+    let mut descriptor = null_mut();
+    let rc = unsafe {
+        GetSecurityInfo(
+            file.as_raw_handle() as HANDLE,
+            SE_KERNEL_OBJECT,
+            OWNER_SECURITY_INFORMATION,
+            &mut owner,
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            &mut descriptor,
+        )
+    };
+    let same = rc == 0
+        && matches!(own_user(), Some(me) if unsafe { EqualSid(sid_of(&me), owner) } != 0);
+    if !descriptor.is_null() {
+        unsafe { LocalFree(descriptor) };
     }
-    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if process.is_null() {
-        return Err(denied("cannot inspect the server process"));
-    }
-    let mut token: HANDLE = null_mut();
-    let opened = unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } != 0;
-    unsafe { CloseHandle(process) };
-    if !opened {
-        return Err(denied("cannot inspect the server process"));
-    }
-    let theirs = token_user(token);
-    unsafe { CloseHandle(token) };
-    match (own_user(), theirs) {
-        (Some(me), Some(them)) if unsafe { EqualSid(sid_of(&me), sid_of(&them)) } != 0 => {
-            Ok(Conn(file))
-        }
-        _ => Err(denied("the server is another user's")),
+    if same {
+        Ok(Conn(file))
+    } else {
+        Err(denied("the pipe is not owned by this user"))
     }
 }
 
@@ -233,15 +237,20 @@ pub fn activated() -> Option<Listener> {
 
 impl Listener {
     pub fn accept(&self) -> io::Result<Conn> {
-        let h = *self.pending.lock().unwrap_or_else(|e| e.into_inner()) as HANDLE;
-        let connected = unsafe { ConnectNamedPipe(h, null_mut::<core::ffi::c_void>().cast()) } != 0
+        let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+        if *pending == 0 {
+            *pending = create_instance(&self.name, &self.sa, false)?;
+        }
+        let h = *pending as HANDLE;
+        let connected = unsafe { ConnectNamedPipe(h, null_mut()) } != 0
             || unsafe { GetLastError() } == ERROR_PIPE_CONNECTED;
-        // Replace the instance now in use before anyone else looks for one.
-        let next = create_instance(&self.name, &self.sa, false)?;
-        *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = next;
+        let failure = io::Error::last_os_error();
+        // Ownership of the instance moves to the connection (or is closed).
         let file = unsafe { File::from_raw_handle(h) };
+        // Replace it before anyone else looks for one; 0 means "make one next time".
+        *pending = create_instance(&self.name, &self.sa, false).unwrap_or(0);
         if !connected {
-            return Err(io::Error::last_os_error());
+            return Err(failure);
         }
         Ok(Conn(file))
     }

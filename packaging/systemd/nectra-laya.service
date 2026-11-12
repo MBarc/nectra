@@ -9,6 +9,3 @@ Requires=nectra-laya.socket
 ExecStart=/usr/bin/nectra laya serve
 Restart=no
 NoNewPrivileges=yes
-PrivateTmp=yes
-ProtectSystem=strict
-ProtectHome=read-only

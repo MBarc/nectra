@@ -196,12 +196,13 @@ impl Drop for Counted<'_> {
 }
 
 fn handle(shared: &Shared, conn: os::Conn, endpoint: &Endpoint) {
-    let n = shared.conns.fetch_add(1, Ordering::SeqCst);
+    // Counted by the acceptor before this thread was spawned.
+    let n = shared.conns.load(Ordering::SeqCst);
     let _count = Counted(&shared.conns);
     let Ok(mut writer) = conn.try_clone() else {
         return;
     };
-    if n >= MAX_CONNS {
+    if n > MAX_CONNS {
         let _ = send(&mut writer, &serde_json::json!({"error": "busy"}));
         return;
     }
@@ -313,6 +314,7 @@ pub(crate) fn serve(
             if shared.stop.load(Ordering::SeqCst) {
                 break;
             }
+            shared.conns.fetch_add(1, Ordering::SeqCst);
             let (shared, endpoint) = (shared.clone(), endpoint.clone());
             std::thread::spawn(move || handle(&shared, conn, &endpoint));
         });
@@ -521,7 +523,8 @@ fn exchange(
             Ok(h) => h,
             Err(_) => return Step::Outcome(Outcome::Local("the server speaks another protocol".into())),
         },
-        Ok(None) => return Step::Outcome(Outcome::Local("the server hung up".into())),
+        // Exited between our connect and its answer (idle exit): not running.
+        Ok(None) => return Step::Absent,
         Err(e) => return broken(e),
     };
     if hello.identity != *me {
@@ -529,10 +532,10 @@ fn exchange(
             "stale server (nectra {}, protocol {}, model {}; this is nectra {}, protocol {}, model {})",
             hello.identity.nectra,
             hello.identity.proto,
-            &hello.identity.model[..hello.identity.model.len().min(12)],
+            hello.identity.model.chars().take(12).collect::<String>(),
             me.nectra,
             me.proto,
-            &me.model[..me.model.len().min(12)],
+            me.model.chars().take(12).collect::<String>(),
         )));
     }
     if hello.unpinned && !allow_unpinned {
@@ -541,8 +544,9 @@ fn exchange(
     match hello.state.as_str() {
         "ready" => {}
         "failed" => {
-            return Step::Outcome(Outcome::Failed(format!(
-                "Laya failed to load: {}",
+            // Its environment may differ from ours: this process tries for itself.
+            return Step::Outcome(Outcome::Local(format!(
+                "the server failed to load the model: {}",
                 hello.error.unwrap_or_default()
             )))
         }

@@ -678,7 +678,16 @@ pub(crate) fn ask(
                     crate::laya_serve::Outcome::Answer(a) => return Ok(a),
                     crate::laya_serve::Outcome::Failed(why) => bail!("{why}"),
                     crate::laya_serve::Outcome::Local(why) if warming => {
-                        bail!("Laya service unusable: {why}")
+                        // A chat whose server went stale (an upgrade): load here.
+                        if VIA_SERVICE.swap(false, Ordering::SeqCst) {
+                            note_local(&why);
+                            let (cfg, busy) = (cfg.clone(), Busy::enter());
+                            std::thread::spawn(move || {
+                                let _busy = busy;
+                                guarded(&cfg);
+                            });
+                        }
+                        bail!("Laya still loading")
                     }
                     crate::laya_serve::Outcome::Local(why) => note_local(&why),
                     crate::laya_serve::Outcome::Ready => {}
