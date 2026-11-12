@@ -447,6 +447,7 @@ pub fn run_loop(
                     session.clear()?;
                     // A new context: later switches don't link to earlier turns.
                     last_decision = None;
+                    escalating = None;
                     provider_session = None;
                     unanswered = None;
                     writeln!(
@@ -564,6 +565,7 @@ pub fn run_loop(
                         Ok(mode) => {
                             options.mode = mode;
                             reroute = true;
+                            escalating = None;
                             writeln!(output, "Mode: {value}.")?;
                         }
                         Err(_) => writeln!(output, "Use /mode fast, balanced or best.")?,
@@ -721,6 +723,7 @@ pub fn run_loop(
             // Steps carry through a failure's retry and through /again, not
             // into an unrelated next message.
             .filter(|e| e.failed.is_some() || again.is_some());
+        let carried_failure = carried.as_ref().is_some_and(|e| e.failed.is_some());
         let continuing = cfg.inner.routing.sticky
             && classification.new_task == Some(false)
             && !rerouted
@@ -808,11 +811,31 @@ pub fn run_loop(
                     (decision, why)
                 }
                 Err(error) => {
+                    if error.downcast_ref::<crate::table::LadderLimit>().is_some() {
+                        if !matches!(&again, Some(Again::Stronger(_))) && steer.above.is_some() {
+                            // A new message after a failure at the top of the
+                            // ladder is still answered: route it afresh.
+                            writeln!(
+                                output,
+                                "Not escalating: {error:#}. Routing this message normally."
+                            )?;
+                            steer = crate::table::Steer::default();
+                            continue;
+                        }
+                        // /again past the cap or the top: say so, and keep the
+                        // count so asking again does not get round it.
+                        writeln!(output, "{error:#}. Use /model to choose a model yourself.")?;
+                        escalating = Some(Escalating {
+                            kind: task_kind.clone(),
+                            failed: None,
+                            steps: steer.escalations.saturating_sub(1),
+                        });
+                        continue 'messages;
+                    }
                     writeln!(
                         output,
                         "Routing failed: {error:#}. Use /model auto or /models."
                     )?;
-                    // Past the cap or the top of the ladder: the next message starts over.
                     continue 'messages;
                 }
             };
@@ -945,6 +968,9 @@ pub fn run_loop(
                         Outcome::Override
                     };
                     Some((previous, outcome))
+                } else if carried_failure {
+                    // Climbing after a failure: the failed turn links to this retry.
+                    Some((previous, Outcome::ToolError))
                 } else {
                     None
                 }
@@ -954,7 +980,9 @@ pub fn run_loop(
             if matches!(
                 &follows,
                 Some((_, crate::decisions::Outcome::UserSwitchModel))
-            ) {
+            ) && !registry.table.is_empty()
+                && cfg.inner.routing.max_escalations > 0
+            {
                 // After a failure the step is already counted: the user's pick
                 // is the answer to it, not a second climb.
                 if steer.above.is_none() {

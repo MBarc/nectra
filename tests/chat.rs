@@ -1385,3 +1385,48 @@ fn a_user_switch_is_logged_as_an_escalation() {
     assert_eq!(logged[1].decision.pick, "opus");
     assert_eq!(logged[1].decision.escalation, Some(1));
 }
+
+#[test]
+fn again_cannot_get_round_the_cap_and_a_new_message_after_the_top_is_answered() {
+    let (dir, cfg, reg) = fixture_with_ladder(1);
+    let path = dir.path().join("cap2.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut opts = options();
+    opts.mode = Mode::Balanced;
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        opts,
+        &mut session,
+        &mut Cursor::new(format!("{TASK}\n/again\n/again\n/again\n/quit\n")),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models, ["haiku", "sonnet"]);
+
+    // Opus (the top) errors; the next message of the task is still answered.
+    let (dir, cfg, reg) = fixture_with_ladder(5);
+    let path = dir.path().join("top.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut opts = options();
+    opts.mode = Mode::Balanced;
+    opts.model = Some("opus".into());
+    let mut backend = Mock {
+        fail_next: true,
+        ..Default::default()
+    };
+    let mut out = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        opts,
+        &mut session,
+        &mut Cursor::new(format!("{TASK}\n{TASK} again please\n/quit\n")),
+        &mut out,
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models.len(), 2, "{}", String::from_utf8_lossy(&out));
+}

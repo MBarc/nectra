@@ -373,8 +373,12 @@ pub fn route_summarized_steered(
             ambiguous,
             overridden,
             reason,
+            escalation: if ladder.is_some() {
+                steer.escalations
+            } else {
+                0
+            },
             ladder,
-            escalation: steer.escalations,
             candidates: candidates
                 .iter()
                 .map(|(m, score)| Candidate {

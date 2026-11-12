@@ -337,3 +337,30 @@ fn the_documented_example_imports_and_routes() {
         after
     );
 }
+
+#[test]
+fn an_import_that_would_duplicate_a_hand_written_entry_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("config.toml"),
+        include_str!("../config/nectra.toml"),
+    )
+    .unwrap();
+    let hand = "\n[[table]]\nkind = \"debugging\"\ntier = \"normal\"\n[[table.ladder]]\nmodel = \"sonnet\"\nn = 5\npass_rate = 0.5\nci = [0.2, 0.8]\nrun = \"hand\"\n";
+    let models = format!("{}{hand}", include_str!("../config/models.toml"));
+    fs::write(dir.path().join("models.toml"), &models).unwrap();
+    let json = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("docs/examples/tier-table.example.json");
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_nectra"))
+        .arg("--config")
+        .arg(dir.path().join("config.toml"))
+        .args(["registry", "table", "import"])
+        .arg(&json)
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert_eq!(
+        fs::read_to_string(dir.path().join("models.toml")).unwrap(),
+        models
+    );
+}

@@ -166,7 +166,11 @@ impl Registry {
                 path.display()
             ));
         };
-        let mut file: RegistryFile = toml::from_str(&text).context("parsing model registry")?;
+        Self::from_text(cfg, &text)
+    }
+    /// Parse registry text the way `load` does, without touching the disk.
+    pub fn from_text(cfg: &Config, text: &str) -> Result<Self> {
+        let mut file: RegistryFile = toml::from_str(text).context("parsing model registry")?;
         // Default roles for local models only join a registry that already
         // declares roles; otherwise they would switch an older registry out of
         // the legacy preference table.

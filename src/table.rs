@@ -200,13 +200,23 @@ pub fn render(table: &[TableEntry]) -> Result<String> {
 /// `table`. Hand-written `[[table]]` entries outside the fence are kept, and
 /// loading refuses a duplicate kind x tier.
 pub fn splice(registry_text: &str, table: &[TableEntry]) -> Result<String> {
+    let crlf = registry_text.contains("\r\n");
     let block = render(table)?;
+    let block = if crlf {
+        block.replace('\n', "\r\n")
+    } else {
+        block
+    };
     match (registry_text.find(BEGIN), registry_text.find(END)) {
         (Some(a), Some(b)) if a < b => {
             let end = b + END.len();
-            let end = registry_text[end..]
-                .strip_prefix('\n')
-                .map_or(end, |_| end + 1);
+            let rest = &registry_text[end..];
+            let end = end
+                + if rest.starts_with("\r\n") {
+                    2
+                } else {
+                    usize::from(rest.starts_with('\n'))
+                };
             Ok(format!(
                 "{}{block}{}",
                 &registry_text[..a],
@@ -214,11 +224,12 @@ pub fn splice(registry_text: &str, table: &[TableEntry]) -> Result<String> {
             ))
         }
         (None, None) => {
+            let nl = if crlf { "\r\n" } else { "\n" };
             let mut text = registry_text.to_string();
             if !text.ends_with('\n') {
-                text.push('\n');
+                text.push_str(nl);
             }
-            Ok(format!("{text}\n{block}"))
+            Ok(format!("{text}{nl}{block}"))
         }
         _ => {
             bail!("the registry's imported-table markers are damaged; remove both lines and retry")
@@ -250,6 +261,16 @@ pub struct Selection {
     pub hedged: bool,
     pub evidence: String,
 }
+
+/// An escalation that cannot go on: past the cap, or no rung above.
+#[derive(Debug)]
+pub struct LadderLimit(pub String);
+impl std::fmt::Display for LadderLimit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for LadderLimit {}
 
 /// How a retry steers the pick.
 #[derive(Debug, Clone, Default)]
@@ -289,9 +310,66 @@ pub fn select(
     usable: &dyn Fn(&str) -> bool,
     steer: &Steer,
 ) -> Result<Option<Selection>> {
+    // `max_escalations = 0` turns escalation off: retries route as first tries.
+    let off = Steer::default();
+    let steer = if cfg.max_escalations == 0 {
+        &off
+    } else {
+        steer
+    };
     let Some(entry) = find(table, inp.kind, inp.tier) else {
         return Ok(None);
     };
+    if steer.escalations > cfg.max_escalations {
+        return Err(LadderLimit(format!(
+            "escalation cap reached ({} step{})",
+            cfg.max_escalations,
+            if cfg.max_escalations == 1 { "" } else { "s" }
+        ))
+        .into());
+    }
+    let pick = |e: &TableEntry, i: usize, hedged: bool| {
+        let r = &e.ladder[i];
+        Selection {
+            model: r.model.clone(),
+            kind: e.kind.clone(),
+            tier: e.tier.clone(),
+            rung: i,
+            ladder_len: e.ladder.len(),
+            hedged,
+            evidence: evidence(r),
+        }
+    };
+    // A retry climbs from the model that failed, whatever the mode or the
+    // doubt about the tier: one rung above it on the ladder it was picked
+    // from (the hedge may have taken it from a neighbouring tier). It never
+    // stands still or steps down.
+    if let Some(above) = &steer.above {
+        let climb = std::iter::once(entry)
+            .chain(
+                table
+                    .iter()
+                    .filter(|e| e.kind == inp.kind && !std::ptr::eq(*e, entry)),
+            )
+            .find(|e| e.ladder.iter().any(|r| &r.model == above));
+        if let Some(e) = climb {
+            let p = e.ladder.iter().position(|r| &r.model == above).unwrap_or(0);
+            if let Some(next) = (p + 1..e.ladder.len()).find(|&i| usable(&e.ladder[i].model)) {
+                return Ok(Some(pick(e, next, false)));
+            }
+            let why = if p + 1 < e.ladder.len() {
+                format!(
+                    "the rungs above {above} on the {} x {} ladder are unavailable right now",
+                    e.kind, e.tier
+                )
+            } else {
+                format!("{above} is the top of the {} x {} ladder", e.kind, e.tier)
+            };
+            return Err(LadderLimit(why).into());
+        }
+    }
+    // A failed model that is on no ladder is not tried again either.
+    let usable = |m: &str| usable(m) && steer.above.as_deref() != Some(m);
     let ok: Vec<usize> = (0..entry.ladder.len())
         .filter(|&i| usable(&entry.ladder[i].model))
         .collect();
@@ -344,39 +422,8 @@ pub fn select(
             }
         }
     }
-    // A retry climbs from the model that failed, whatever the mode or the
-    // doubt about the tier: one rung above it, never standing still or
-    // stepping down. A failed model off this ladder (the user chose it)
-    // leaves the pick as it was.
-    if let Some(p) = steer
-        .above
-        .as_ref()
-        .and_then(|above| entry.ladder.iter().position(|r| &r.model == above))
-    {
-        let Some(next) = (p + 1..entry.ladder.len()).find(|&i| usable(&entry.ladder[i].model))
-        else {
-            bail!(
-                "{} is the top of the {} x {} ladder",
-                entry.ladder[p].model,
-                entry.kind,
-                entry.tier
-            );
-        };
-        idx = next;
-        chosen = None;
-        hedged = false;
-    }
     let (e, i) = chosen.unwrap_or((entry, idx));
-    let r = &e.ladder[i];
-    Ok(Some(Selection {
-        model: r.model.clone(),
-        kind: e.kind.clone(),
-        tier: e.tier.clone(),
-        rung: i,
-        ladder_len: e.ladder.len(),
-        hedged,
-        evidence: evidence(r),
-    }))
+    Ok(Some(pick(e, i, hedged)))
 }
 
 /// `nectra registry table import|show`.
@@ -416,8 +463,10 @@ pub fn command(
             let current = std::fs::read_to_string(&path)
                 .with_context(|| format!("reading {}", path.display()))?;
             let next = splice(&current, &table)?;
-            // The whole file must still load as a registry.
-            toml::from_str::<toml::Value>(&next).context("the new registry does not parse")?;
+            // The whole file must still load as a registry: a duplicate with a
+            // hand-written entry would otherwise lock every command out.
+            crate::models::Registry::from_text(cfg, &next)
+                .context("the registry would not load with this table; nothing written")?;
             if *dry_run {
                 println!(
                     "{} entries, nothing written. {} would hold:\n{}",
@@ -775,5 +824,139 @@ mod tests {
         assert!(twice.starts_with(base));
         assert_eq!(twice.matches("begin").count(), 1);
         assert!(splice("a\n# --- nectra registry table import: begin (generated; replaced by the next import) ---\n", &t2).is_err());
+    }
+}
+
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+    fn rung(model: &str) -> Rung {
+        Rung {
+            model: model.into(),
+            n: 40,
+            pass_rate: 0.8,
+            ci: [0.7, 0.9],
+            run: "r".into(),
+        }
+    }
+    fn entry(tier: &str, models: &[&str]) -> TableEntry {
+        TableEntry {
+            kind: "debugging".into(),
+            tier: tier.into(),
+            ladder: models.iter().map(|m| rung(m)).collect(),
+        }
+    }
+    fn inp(tier: Tier) -> Inputs<'static> {
+        Inputs {
+            kind: "debugging",
+            tier,
+            confidence: Some(0.9),
+            margin: Some(0.5),
+            neighbour: None,
+        }
+    }
+    #[test]
+    fn a_top2_pick_that_failed_climbs_its_own_ladder() {
+        let t = vec![
+            entry("simple", &["haiku", "sonnet"]),
+            entry("normal", &["gpt", "opus"]),
+        ];
+        let steer = Steer {
+            above: Some("gpt".into()),
+            escalations: 1,
+        };
+        let s = select(
+            &t,
+            &inp(Tier::Simple),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|_| true,
+            &steer,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(s.model, "opus");
+    }
+    #[test]
+    fn a_failed_model_off_every_ladder_is_not_picked_again() {
+        let t = vec![entry("normal", &["sonnet", "opus"])];
+        let steer = Steer {
+            above: Some("sonnet-x".into()),
+            escalations: 1,
+        };
+        let s = select(
+            &t,
+            &inp(Tier::Normal),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|_| true,
+            &steer,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(s.model, "sonnet");
+        let steer = Steer {
+            above: Some("sonnet".into()),
+            escalations: 1,
+        };
+        let s = select(
+            &t,
+            &inp(Tier::Normal),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|_| true,
+            &steer,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(s.model, "opus");
+    }
+    #[test]
+    fn unavailable_rungs_are_not_called_the_top_and_cap_zero_disables() {
+        let t = vec![entry("normal", &["sonnet", "opus"])];
+        let steer = Steer {
+            above: Some("sonnet".into()),
+            escalations: 1,
+        };
+        let err = select(
+            &t,
+            &inp(Tier::Normal),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|m| m != "opus",
+            &steer,
+        )
+        .unwrap_err();
+        assert!(
+            err.downcast_ref::<LadderLimit>().is_some() && err.to_string().contains("unavailable"),
+            "{err}"
+        );
+        let off = RoutingConfig {
+            max_escalations: 0,
+            ..RoutingConfig::default()
+        };
+        let s = select(
+            &t,
+            &inp(Tier::Normal),
+            Mode::Balanced,
+            &off,
+            &|_| true,
+            &steer,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            s.model, "sonnet",
+            "escalation off: a retry routes as a first try"
+        );
+    }
+    #[test]
+    fn splice_keeps_crlf_files_consistent() {
+        let t = vec![entry("normal", &["sonnet"])];
+        let base = "[[model]]\r\nid = \"x\"\r\n";
+        let once = splice(base, &t).unwrap();
+        let twice = splice(&once, &t).unwrap();
+        assert_eq!(once, twice);
+        assert!(!twice.replace("\r\n", "").contains('\n'));
     }
 }

@@ -1119,6 +1119,14 @@ fn task(
             outcomes.push(json!({"decision": prior, "outcome": why, "follow_up": null}));
             failed_decision = Some((prior.clone(), why));
         }
+        if let Some(from) = &args.escalate_from {
+            if !registry.models.iter().any(|m| &m.id == from) {
+                return fail(
+                    "no_model",
+                    anyhow::anyhow!("--escalate-from: {from} is not in the model registry"),
+                );
+            }
+        }
         let mut names = HashMap::new();
         if let Some(m) = registry
             .models
@@ -1145,6 +1153,7 @@ fn task(
                         (runtime != "ollama" || args.serve || args.no_tools)
                             && (!args.no_tools || executor::answers_only(runtime))
                             && !tried.contains(&m.id)
+                            && args.escalate_from.as_ref() != Some(&m.id)
                             && cooldowns.remaining(&m.id, m.provider.as_str()).is_none()
                             && cfg.mcp_config.as_ref().is_none_or(|e| e.supports(runtime))
                             && (args.max_cost_usd.is_none() || usage::price(&m.id).is_some())
