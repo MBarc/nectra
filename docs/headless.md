@@ -89,6 +89,7 @@ Names are the provider's: Claude's tool name, Codex's item type
 | `provider_cost_usd` | Claude Code's own `total_cost_usd`, for cross-checking; `null` for other runtimes. On a resumed session it covers the whole session, not this task. |
 | `models` | `usage`, `usage_complete` and `cost_usd` per model. `model` is the model the provider says answered (Claude Code may use more than one in a task; Codex's from the attempt's own `turn_context` in its log, or `unknown`, which has no price, when the log didn't name one); `routed_as` is the Nectra model id the attempt was routed to. Failover attempts appear here too. |
 | `attempts` | Each model tried, in order, with its `error_class` and `error`. |
+| `decision_outcomes` | `[{decision, outcome, follow_up}]` for each routing decision; the `decision` record is in the matching `route` event (schema in [routing.md](routing.md#routing-decision-log)). |
 | `route` | The last routing decision in full. |
 | `warnings` | Problems that didn't change the outcome, such as a session record that couldn't be written. |
 

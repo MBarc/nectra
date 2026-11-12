@@ -34,6 +34,12 @@ an omission notice while the full saved thread remains intact. Oversized current
 messages are rejected. Edit context_tokens in the config's [[ollama.models]] entries
 to adjust capacity, within the model's reported maximum.
 
+Each `[[ollama.models]]` entry may also set `prefers` (routing roles the model
+claims; default `["simple", "general"]`, since local models are chat-only) and a
+`[ollama.models.capabilities]` table (`coding`, `reasoning`, `long_context`,
+`writing`, `tool_use`, `speed`, `cost_efficiency`, each 0..1) in place of the
+built-in 0.65 guess. See [routing.md](routing.md).
+
 The [ollama] config supports base_url, policy, timeout_seconds (default 180,
 range 1..3600), optional token_env, and models. Metadata requests time out after
 five seconds; connection establishment after three seconds. Generation has a total

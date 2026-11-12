@@ -42,6 +42,8 @@ struct Mock {
     limit_anthropic: bool,
     /// The limit states no cooldown worth keeping (a 0 s retry-after).
     brief_limit: bool,
+    /// An ordinary rate limit rather than an exhausted plan.
+    transient_limit: bool,
     started_work: bool,
 }
 impl Backend for Mock {
@@ -88,6 +90,7 @@ impl Backend for Mock {
                 provider_wide: true,
                 retry_after: std::time::Duration::from_secs(if self.brief_limit { 0 } else { 60 }),
                 safe_to_retry: !self.started_work,
+                exhausted: !self.transient_limit,
             }
             .into());
         }
@@ -244,6 +247,72 @@ hello again
         "{}",
         skipped[0]
     );
+}
+
+#[test]
+fn an_ordinary_rate_limit_is_not_held_past_its_retry_after() {
+    let (dir, mut cfg, reg) = fixture();
+    cfg.inner.routing.sticky = false;
+    let mut session = Session::create(&dir.path().join("limits.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock {
+        limit_anthropic: true,
+        brief_limit: true,
+        transient_limit: true,
+        ..Default::default()
+    };
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("hello\nhello again\n/quit\n"),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    // Haiku's limit expired at once, so the second message tries it again.
+    assert_eq!(backend.models.len(), 4, "{:?}", backend.models);
+    assert_eq!(backend.models[2], "haiku");
+}
+
+#[test]
+fn every_decision_is_logged_with_its_outcome_and_the_fallback_linked() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("decisions.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut backend = Mock {
+        limit_anthropic: true,
+        ..Default::default()
+    };
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("secret prompt text\n/quit\n"),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(!text.contains("prompt_text"), "no prompt text by default");
+    let logged = nectra::decisions::read_log(&text, "s");
+    assert_eq!(logged.len(), 2, "{text}");
+    assert_eq!(logged[0].decision.pick, "haiku");
+    assert_eq!(logged[0].outcome, Some(nectra::decisions::Outcome::Limit));
+    assert_eq!(
+        logged[0].follow_up.as_deref(),
+        Some(logged[1].decision.id.as_str())
+    );
+    assert_eq!(
+        logged[1].outcome,
+        Some(nectra::decisions::Outcome::Completed)
+    );
+    assert_eq!(
+        logged[1].decision.prompt_hash,
+        nectra::decisions::prompt_hash("secret prompt text")
+    );
+    assert!(!logged[0].decision.candidates.is_empty());
 }
 
 #[test]
@@ -1087,7 +1156,12 @@ fn again_is_refused_in_debate_and_logs_the_retry_before_the_replacement() {
         .collect();
     let retry = records.iter().position(|r| r["replaces"] == true).unwrap();
     assert_eq!(records[retry]["text"], "hello there");
-    assert_eq!(records[retry + 1]["type"], "assistant");
+    // Only the link to the decision it retries may sit between them.
+    let next = records[retry + 1..]
+        .iter()
+        .find(|r| r["type"] != "outcome")
+        .unwrap();
+    assert_eq!(next["type"], "assistant");
     // An interrupted retry already left the old answer out, so /again resends
     // it without the rejected answer.
     let interrupted = dir.path().join("again-crash.jsonl");

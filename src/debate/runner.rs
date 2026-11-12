@@ -447,6 +447,7 @@ mod tests {
                         provider_wide: true,
                         retry_after: std::time::Duration::from_secs(120),
                         safe_to_retry: true,
+                        exhausted: true,
                     }
                     .into());
                 }

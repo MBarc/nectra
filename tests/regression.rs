@@ -430,10 +430,7 @@ fn work_on_code_never_goes_to_a_chat_only_model_when_one_can_act() {
         let mut cfg = Config::from_defaults().unwrap();
         cfg.inner.ollama = Some(OllamaConfig {
             base_url: "http://localhost:11434".into(),
-            models: vec![LocalModel {
-                name: "test:latest".into(),
-                context_tokens: 8192,
-            }],
+            models: vec![LocalModel::new("test:latest".into(), 8192)],
             policy,
             timeout_seconds: 2,
             token_env: None,
@@ -552,6 +549,9 @@ fn demanding_work_is_never_sent_cheap_first() {
         why: "test".into(),
         new_task: None,
         role: Some("coding".into()),
+        classifier: "laya",
+        confidence: Some(0.9),
+        difficulty: Some(0.5),
     };
     let d = router::route_with(
         jev,
@@ -574,6 +574,9 @@ fn demanding_work_is_never_sent_cheap_first() {
             why: "test".into(),
             new_task: None,
             role: Some(role.into()),
+            classifier: "laya",
+            confidence: Some(0.9),
+            difficulty: Some(0.5),
         };
         let d = router::route_with(
             jev,
@@ -641,6 +644,9 @@ fn demanding_work_goes_to_the_strongest_model_when_no_role_catches_it() {
         why: "test".into(),
         new_task: None,
         role: Some("general".into()),
+        classifier: "laya",
+        confidence: Some(0.9),
+        difficulty: Some(0.5),
     };
     let d = router::route_with(
         jev,

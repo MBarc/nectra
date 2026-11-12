@@ -494,9 +494,7 @@ impl StreamState {
     /// Turns a failure event into the typed error that fallback and the
     /// session-skip logic key on; Ok if it is none of them.
     fn classify(&self, event: &Value) -> Result<()> {
-        if let Some(error) =
-            crate::access::ModelUnavailable::detect(&event.to_string(), !self.activity)
-        {
+        if let Some(error) = crate::access::ModelUnavailable::from_event(event, !self.activity) {
             return Err(error.into());
         }
         if let Some(limit) = crate::limits::RateLimited::from_error(event, !self.activity) {

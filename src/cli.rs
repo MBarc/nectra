@@ -201,6 +201,11 @@ pub enum Commands {
         #[arg(long, default_value = crate::usage::BASELINE)]
         baseline: String,
     },
+    /// Read Nectra's own logs.
+    Log {
+        #[command(subcommand)]
+        command: LogCommands,
+    },
     /// Which provider CLI has each of your MCP servers. Nectra shares local
     /// servers with Claude and Codex when it launches them.
     Mcp {
@@ -215,6 +220,22 @@ pub enum Commands {
         /// every CLI sees them. Never replaces an existing entry.
         #[arg(long)]
         link: bool,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum LogCommands {
+    /// Every routing decision in your chats and what became of it (schema in docs/routing.md).
+    Decisions {
+        /// One JSON object per line instead of a table.
+        #[arg(long)]
+        json: bool,
+        /// Only decisions since then: unix seconds, or a span such as 7d, 12h, 30m.
+        #[arg(long)]
+        since: Option<String>,
+        /// Read this session file or directory instead of your chats.
+        #[arg(long)]
+        session: Option<PathBuf>,
     },
 }
 

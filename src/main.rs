@@ -103,6 +103,49 @@ fn app() -> Result<i32> {
         nectra::setup::manage(cli.config.as_deref(), command)?;
         return Ok(0);
     }
+    if let Some(Commands::Log {
+        command:
+            nectra::cli::LogCommands::Decisions {
+                json,
+                since,
+                session,
+            },
+    }) = &cli.command
+    {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+        let since = since
+            .as_deref()
+            .map_or(Ok(0), |s| nectra::decisions::parse_since(s, now))?;
+        let found = match session {
+            Some(path) if path.is_file() => {
+                let mut all = nectra::decisions::read_log(
+                    &std::fs::read_to_string(path)?,
+                    &path.display().to_string(),
+                );
+                all.retain(|d| d.decision.ts >= since);
+                all
+            }
+            Some(dir) => nectra::decisions::read_dir(dir, since),
+            None => nectra::decisions::read_dir(&nectra::session::Session::default_dir()?, since),
+        };
+        for d in &found {
+            if *json {
+                println!("{}", serde_json::to_string(d)?);
+            } else {
+                println!(
+                    "{}  {:<14} {:<10} {:<22} {}",
+                    d.decision.id,
+                    d.decision.task_kind,
+                    d.decision.tier.as_deref().unwrap_or("-"),
+                    d.decision.pick,
+                    d.outcome.map_or("-".to_string(), |o| format!("{o:?}")),
+                );
+            }
+        }
+        return Ok(0);
+    }
     if let Some(Commands::Usage {
         days,
         json,

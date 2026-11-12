@@ -35,6 +35,10 @@ pub struct RoutingConfig {
     /// How much the prompt's stakes score (constraint phrases, numbered
     /// requirements, several components) adds to Laya's difficulty; 0 turns it off.
     pub stakes_weight: f64,
+    /// Also store each prompt's text in the routing-decision log (docs/routing.md).
+    /// Off by default: the log keeps only a hash of the prompt.
+    #[serde(default)]
+    pub log_prompt_text: bool,
 }
 fn enabled() -> bool {
     true
@@ -48,6 +52,7 @@ impl Default for RoutingConfig {
             sticky: true,
             handoff_summary: true,
             stakes_weight: 0.30,
+            log_prompt_text: false,
         }
     }
 }

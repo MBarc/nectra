@@ -37,6 +37,19 @@ pub fn route(
     provider: Option<ProviderArg>,
     model: Option<String>,
 ) -> Result<Decision> {
+    route_traced(prompt, cfg, registry, mode, provider, model).map(|(d, _)| d)
+}
+
+/// `route`, also returning the classification behind the decision, for the
+/// decision log.
+pub fn route_traced(
+    prompt: &str,
+    cfg: &Config,
+    registry: &Registry,
+    mode: Mode,
+    provider: Option<ProviderArg>,
+    model: Option<String>,
+) -> Result<(Decision, crate::jev::Classification)> {
     if prompt.trim().is_empty() {
         bail!("prompt cannot be empty");
     }
@@ -47,7 +60,16 @@ pub fn route(
         let roles = policy::claimed_roles(&registry.models, registry.uses_declared_preferences());
         crate::jev::classify_turn(prompt, None, cfg, &roles)
     };
-    route_with(classification, prompt, cfg, registry, mode, provider, model)
+    route_with(
+        classification.clone(),
+        prompt,
+        cfg,
+        registry,
+        mode,
+        provider,
+        model,
+    )
+    .map(|d| (d, classification))
 }
 
 /// `route` with a classification made earlier, e.g. once per chat message

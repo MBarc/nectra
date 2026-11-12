@@ -28,6 +28,24 @@ pub enum LocalPolicy {
 pub struct LocalModel {
     pub name: String,
     pub context_tokens: usize,
+    /// Routing roles this model claims. Defaults to the cheap chat roles
+    /// (`simple`, `general`): a local model cannot edit files, but should win
+    /// quick questions and plain explanations over a paid model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prefers: Option<Vec<String>>,
+    /// Scores for this model, replacing the built-in guess (`[ollama.models.capabilities]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capabilities: Option<crate::models::Capabilities>,
+}
+impl LocalModel {
+    pub fn new(name: String, context_tokens: usize) -> Self {
+        Self {
+            name,
+            context_tokens,
+            prefers: None,
+            capabilities: None,
+        }
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -60,10 +78,10 @@ pub fn configure(url: &str, names: &[String], policy: LocalPolicy) -> Result<Oll
         if !available.contains(name) {
             bail!("model '{name}' is not installed on this Ollama server");
         }
-        config.models.push(LocalModel {
-            name: name.clone(),
-            context_tokens: config.inspect(name)?.min(8192),
-        });
+        config.models.push(LocalModel::new(
+            name.clone(),
+            config.inspect(name)?.min(8192),
+        ));
     }
     config.validate()?;
     Ok(config)

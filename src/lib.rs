@@ -5,6 +5,7 @@ pub mod classifier;
 pub mod cli;
 pub mod config;
 pub mod debate;
+pub mod decisions;
 pub mod executor;
 pub mod headless;
 pub mod jev;

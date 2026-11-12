@@ -143,6 +143,7 @@ pub fn turn(
                         provider_wide: limit.provider_wide,
                         retry_after: std::time::Duration::from_secs(limit.retry_after_seconds),
                         safe_to_retry: false,
+                        exhausted: false,
                     },
                 );
                 if let Some(path) = &options.cooldown_state {

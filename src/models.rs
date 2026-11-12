@@ -171,8 +171,11 @@ impl Registry {
                     runtime: Runtime::Ollama,
                     enabled: true,
                     effort: String::new(),
-                    prefers: vec![],
-                    capabilities: Capabilities {
+                    prefers: model
+                        .prefers
+                        .clone()
+                        .unwrap_or_else(|| ["simple", "general"].map(String::from).to_vec()),
+                    capabilities: model.capabilities.clone().unwrap_or(Capabilities {
                         coding: 0.65,
                         reasoning: 0.65,
                         long_context: 0.5,
@@ -180,7 +183,7 @@ impl Registry {
                         tool_use: 0.0,
                         speed: 0.5,
                         cost_efficiency: 1.0,
-                    },
+                    }),
                 });
             }
         }
@@ -242,6 +245,17 @@ impl Registry {
                 | (Provider::Google, Runtime::Gemini | Runtime::Agy) => {}
                 _ => bail!("fail-closed provider/runtime violation for model {}", m.id),
             }
+            if let Some(role) = m
+                .prefers
+                .iter()
+                .find(|r| !crate::policy::ROLES.iter().any(|(name, _)| name == r))
+            {
+                bail!(
+                    "unknown role {role:?} in prefers for {} (known: {})",
+                    m.id,
+                    crate::policy::ROLES.map(|(n, _)| n).join(", ")
+                );
+            }
             let c = &m.capabilities;
             for v in [
                 c.coding,
@@ -278,6 +292,18 @@ mod tests {
         assert!(
             !line.contains("unverified"),
             "constant noise on every row: {line}"
+        );
+    }
+
+    #[test]
+    fn prefers_must_name_a_known_role() {
+        let file: RegistryFile = toml::from_str(DEFAULT_REGISTRY).unwrap();
+        let mut models = file.model;
+        models[0].prefers = vec!["codng".into()];
+        let err = Registry { models }.validate().unwrap_err().to_string();
+        assert!(
+            err.contains("codng") && err.contains("simple-coding"),
+            "{err}"
         );
     }
 

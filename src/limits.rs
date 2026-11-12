@@ -12,6 +12,9 @@ pub struct RateLimited {
     pub provider_wide: bool,
     pub retry_after: Duration,
     pub safe_to_retry: bool,
+    /// An exhausted plan or spend cap (as opposed to a per-minute rate limit):
+    /// the only kind a chat holds for the rest of the session.
+    pub exhausted: bool,
 }
 impl fmt::Display for RateLimited {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -144,6 +147,7 @@ impl RateLimited {
             provider_wide,
             retry_after: Duration::from_secs(seconds),
             safe_to_retry,
+            exhausted,
         })
     }
 }
@@ -324,6 +328,17 @@ mod tests {
             cooldown("Rate limit reached for organization org-1 on tokens per min"),
             60
         );
+    }
+
+    #[test]
+    fn only_an_exhausted_plan_is_marked_exhausted() {
+        let exhausted = |message: &str| {
+            RateLimited::from_error(&serde_json::json!({ "message": message }), true)
+                .unwrap()
+                .exhausted
+        };
+        assert!(exhausted("You've hit your usage limit."));
+        assert!(!exhausted("rate limit exceeded"));
     }
 
     #[test]

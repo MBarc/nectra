@@ -61,6 +61,13 @@ enum Event {
         /// Sent with `/again`, whether or not it replaces an answer.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         again: bool,
+        /// The routing decision behind this turn (schema in docs/routing.md).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        decision: Option<Box<crate::decisions::DecisionRecord>>,
+    },
+    /// What became of a routing decision.
+    Outcome {
+        outcome: crate::decisions::OutcomeRecord,
     },
     Assistant {
         text: String,
@@ -85,6 +92,11 @@ pub struct Route {
     pub handoff: bool,
     /// Sent with `/again`.
     pub again: bool,
+    /// The decision record for this turn.
+    pub decision: Option<crate::decisions::DecisionRecord>,
+    /// The earlier decision this turn follows from, and what became of it
+    /// (a fallback after a limit, `/again`, a model switch).
+    pub follows: Option<(String, crate::decisions::Outcome)>,
 }
 pub struct Session {
     pub path: PathBuf,
@@ -138,7 +150,7 @@ impl Session {
         })?;
         Ok(session)
     }
-    fn default_dir() -> Result<PathBuf> {
+    pub fn default_dir() -> Result<PathBuf> {
         Ok(dirs::data_local_dir()
             .context("no local data directory; use chat --session PATH")?
             .join("nectra/sessions"))
@@ -279,6 +291,7 @@ impl Session {
                     session.used(&model, provider_session.as_deref());
                     session.last_failed = Some(text);
                 }
+                Event::Outcome { .. } => {}
                 Event::Clear => {
                     session.provider_session = None;
                     session.exchanges.clear();
@@ -345,13 +358,32 @@ impl Session {
             why: route.why.clone(),
             handoff: route.handoff,
             again: route.again,
+            decision: route.decision.clone().map(Box::new),
         })?;
+        if let (Some((previous, outcome)), Some(decision)) = (&route.follows, &route.decision) {
+            self.outcome(previous, *outcome, Some(&decision.id))?;
+        }
         if replaces {
             self.exchanges.pop();
             self.provider_session = None;
         }
         self.pending = Some((text.into(), model.into()));
         Ok(())
+    }
+    /// Record what became of a routing decision, and the decision that followed.
+    pub fn outcome(
+        &mut self,
+        decision: &str,
+        outcome: crate::decisions::Outcome,
+        follow_up: Option<&str>,
+    ) -> Result<()> {
+        self.append(&Event::Outcome {
+            outcome: crate::decisions::OutcomeRecord {
+                decision: decision.into(),
+                outcome,
+                follow_up: follow_up.map(String::from),
+            },
+        })
     }
     pub fn complete(&mut self, text: &str) -> Result<()> {
         self.complete_in(text, None)

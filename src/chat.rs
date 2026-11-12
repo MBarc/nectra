@@ -270,6 +270,8 @@ pub fn run_loop(
     // A limit hit in this chat holds for the rest of it, however soon the
     // provider says it resets: walking back into it costs the user a turn.
     let mut session_limits = crate::limits::Cooldowns::default();
+    // The routing decision behind the last turn, so a retry or switch links to it.
+    let mut last_decision: Option<String> = None;
     let mut needs_login: Vec<String> = vec![];
     let mut denied_models = std::collections::HashSet::<String>::new();
     let mut successful_models = std::collections::HashSet::<String>::new();
@@ -683,6 +685,8 @@ pub fn run_loop(
         let mut limited_provider: Option<String> = None;
         // The model a rate limit just skipped, and why; told with its replacement.
         let mut skipped: Option<String> = None;
+        // A decision that failed this message, for the fallback that follows it.
+        let mut fallback_from: Option<(String, crate::decisions::Outcome)> = None;
         // One classification per message, reused by retries.
         let previous = session.exchanges.last();
         let roles =
@@ -905,10 +909,38 @@ pub fn run_loop(
             output.flush()?;
             // Persist the input before launching a child; failures never become assistant context.
             let replaced = replaces.take();
+            let record = crate::decisions::DecisionRecord::new(
+                "chat",
+                &message,
+                cfg.inner.routing.log_prompt_text,
+                &classification,
+                &decision,
+            );
+            let follows = fallback_from.take().or_else(|| {
+                use crate::decisions::Outcome;
+                let previous = last_decision.clone()?;
+                if again.is_some() {
+                    Some((previous, Outcome::UserAgain))
+                } else if decision.overridden
+                    && last_model.as_ref().is_some_and(|m| m != &decision.model)
+                {
+                    let outcome = if turn_model.is_some() {
+                        Outcome::UserSwitchModel
+                    } else {
+                        Outcome::Override
+                    };
+                    Some((previous, outcome))
+                } else {
+                    None
+                }
+            });
+            let decision_id = record.id.clone();
             let route = crate::session::Route {
                 why: why.clone(),
                 handoff: note.is_some(),
                 again: again.is_some() && !std::mem::replace(&mut again_recorded, true),
+                decision: Some(record),
+                follows,
             };
             session.begin_routed(&message, &decision.model, replaced.is_some(), &route)?;
             if let Some(model) = replaced {
@@ -929,10 +961,26 @@ pub fn run_loop(
             };
             // A failed turn may have left the provider session half-written; start fresh.
             provider_session = None;
+            last_decision = Some(decision_id.clone());
+            {
+                use crate::decisions::Outcome;
+                let failed = match &response {
+                    Ok(reply) if !reply.trim().is_empty() => None,
+                    Err(e) if e.downcast_ref::<crate::limits::RateLimited>().is_some() => {
+                        Some(Outcome::Limit)
+                    }
+                    _ => Some(Outcome::ToolError),
+                };
+                if let Some(outcome) = failed {
+                    session.outcome(&decision_id, outcome, None)?;
+                    fallback_from = Some((decision_id.clone(), outcome));
+                }
+            }
             match response {
                 Ok(reply) if !reply.trim().is_empty() => {
                     successful_models.insert(decision.model.clone());
                     session.complete_in(&reply, turn_session.id.as_deref())?;
+                    session.outcome(&decision_id, crate::decisions::Outcome::Completed, None)?;
                     unanswered = None;
                     // Real chats only: a test run (no cooldown state) never reads real logs.
                     if cooldown_state.is_some() {
@@ -989,6 +1037,7 @@ pub fn run_loop(
                                 provider_wide: unavailable.provider_wide,
                                 retry_after: std::time::Duration::from_secs(30),
                                 safe_to_retry: unavailable.safe_to_retry,
+                                exhausted: false,
                             },
                         );
                         remember(&cooldowns);
@@ -1013,14 +1062,21 @@ pub fn run_loop(
                         // Persisted until the stated reset; held for this chat regardless.
                         cooldowns.record(&decision.model, &decision.provider, limit);
                         remember(&cooldowns);
+                        // Held for the rest of the chat only when the plan is
+                        // exhausted; an ordinary rate limit clears after retry_after.
                         session_limits.record(
                             &decision.model,
                             &decision.provider,
                             &crate::limits::RateLimited {
                                 message: limit.message.clone(),
                                 provider_wide: limit.provider_wide,
-                                retry_after: std::time::Duration::from_secs(365 * 86400),
+                                retry_after: if limit.exhausted {
+                                    std::time::Duration::from_secs(365 * 86400)
+                                } else {
+                                    limit.retry_after
+                                },
                                 safe_to_retry: limit.safe_to_retry,
+                                exhausted: limit.exhausted,
                             },
                         );
                         limited_provider = Some(decision.provider.clone());
@@ -1030,8 +1086,13 @@ pub fn run_loop(
                             &decision.model
                         };
                         let why = format!(
-                            "Skipped {}: {scope} rate limited, unavailable for this session",
-                            decision.model
+                            "Skipped {}: {scope} rate limited, unavailable {}",
+                            decision.model,
+                            if limit.exhausted {
+                                "for this session".to_string()
+                            } else {
+                                format!("for {}s", limit.retry_after.as_secs())
+                            }
                         );
                         // Only when no work ran: the same context goes to the next
                         // eligible model, with selections relaxed for this turn.

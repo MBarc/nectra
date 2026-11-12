@@ -92,6 +92,64 @@ nectra eval eval/tasks.json
 nectra eval eval/generalization.json
 ```
 
+## Routing-decision log
+
+Every routing decision is recorded so a measured task × tier table (and escalation)
+can be built from real use. Chat writes the records into its session log
+(`~/.local/share/nectra/sessions/*.jsonl` on Linux); `nectra run --events jsonl`
+puts the record in its `route` event (`decision`) and the outcomes in the `result`
+event (`decision_outcomes`). Read them back with:
+
+```
+nectra log decisions --json [--since 7d|12h|30m|UNIX_SECONDS] [--session FILE_OR_DIR]
+```
+
+One JSON object per line, oldest first. The prompt is stored only as a SHA-256 hash.
+Its text is added only if you set `[routing] log_prompt_text = true`.
+
+**Schema, `schema_version` 1.** Fields may be added without a bump; a removed or
+re-meant field bumps it.
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version` | `1` |
+| `id` | `d-<16 hex>`, unique; outcomes refer to it |
+| `ts` | Unix seconds |
+| `source` | `chat` or `run` |
+| `prompt_hash` | Hex SHA-256 of the routed prompt |
+| `prompt_text` | Present only with the opt-in |
+| `task_kind` | Task kind, e.g. `debugging` |
+| `classifier` | `laya`, `jev` or `keywords` |
+| `tier` | `simple`, `normal`, `demanding`; null for keywords |
+| `difficulty` | 0..1 after the stakes signal; null for keywords |
+| `confidence` | The classifier's confidence in `task_kind`; null for keywords |
+| `role` | The routing role the classifier chose, or null |
+| `margin` | Score gap between the pick and the runner-up; null with one candidate |
+| `mode` | `fast`, `balanced`, `best` |
+| `candidates` | `[{model, provider, score}]`, best first |
+| `pick`, `pick_provider`, `pick_score` | The chosen model and its score |
+| `reason` | Why it was picked |
+| `overridden` | The user pinned a model or provider |
+| `outcome` | Latest outcome (below), or null while unfinished (`nectra log decisions` only) |
+| `follow_up` | `id` of the decision that followed this one, or null (`nectra log decisions` only) |
+| `session` | The session file (`nectra log decisions` only) |
+
+**Outcomes** are separate records (`{"type":"outcome","outcome":{decision, outcome,
+follow_up}}` in a session log) so a decision is never rewritten; the latest wins.
+
+| `outcome` | When |
+| --- | --- |
+| `completed` | The model answered |
+| `failed_tests` | Reserved for writers that run tests; chat and `run` do not emit it yet |
+| `tool_error` | The agent failed, was unavailable, or returned no answer |
+| `limit` | A provider rate or usage limit stopped it |
+| `user_again` | The user sent `/again` (links to the retry) |
+| `user_switch_model` | The user pinned a different model for the next message |
+| `override` | The user pinned a provider for the next message |
+
+`follow_up` links a failed decision to the fallback that replaced it, and a decision
+to the `/again` retry or switch that followed it.
+
 ## Access and fallback
 
 Installing a provider CLI does not prove account entitlement to a model. Models

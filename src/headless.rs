@@ -975,6 +975,8 @@ fn task(
     cancel_on_sigterm(cancel);
     let mut ledger = Ledger::default();
     let mut attempts: Vec<Value> = vec![];
+    // What became of each routing decision, for the result event.
+    let mut outcomes: Vec<Value> = vec![];
     let mut warnings: Vec<String> = vec![];
     let mut session_id = None;
     let mut last: Option<Decision> = None;
@@ -1083,6 +1085,8 @@ fn task(
             .map(crate::limits::Cooldowns::load)
             .unwrap_or_default();
         let mut tried: Vec<String> = vec![];
+        // The decision that just failed, so the fallback is linked to it.
+        let mut failed_decision: Option<(String, crate::decisions::Outcome)> = None;
         let mut names = HashMap::new();
         if let Some(m) = registry
             .models
@@ -1129,10 +1133,10 @@ fn task(
                     cli.provider
                 };
                 bounded(until, cancel, Duration::ZERO, move |_| {
-                    router::route(&prompt, &cfg, &available, mode, provider, pinned)
+                    router::route_traced(&prompt, &cfg, &available, mode, provider, pinned)
                 })
             };
-            let decision = match route {
+            let (decision, classification) = match route {
                 Ok(d) => d,
                 Err(e) => {
                     let class = match early(&e) {
@@ -1157,9 +1161,23 @@ fn task(
                 }
                 None => None,
             };
+            let record = crate::decisions::DecisionRecord::new(
+                "run",
+                &prompt,
+                cfg.inner.routing.log_prompt_text,
+                &classification,
+                &decision,
+            );
+            if let Some((previous, _)) = failed_decision.take() {
+                if let Some(o) = outcomes.iter_mut().find(|o| o["decision"] == previous) {
+                    o["follow_up"] = json!(record.id);
+                }
+            }
+            let decision_id = record.id.clone();
             emit(
                 "route",
                 json!({
+                    "decision": record,
                     "attempt": tried.len(),
                     "model": decision.model,
                     "provider": decision.provider,
@@ -1280,6 +1298,9 @@ fn task(
             let e = match result {
                 Ok(reply) => {
                     keep();
+                    outcomes.push(
+                        json!({"decision": decision_id, "outcome": crate::decisions::Outcome::Completed, "follow_up": null}),
+                    );
                     attempts.push(json!({"model": decision.model, "error_class": null}));
                     last = Some(decision);
                     return Ok(Ok(reply));
@@ -1287,6 +1308,13 @@ fn task(
                 Err(e) => e,
             };
             let (class, retry) = classify(&e, cancel);
+            let outcome = if e.downcast_ref::<crate::limits::RateLimited>().is_some() {
+                crate::decisions::Outcome::Limit
+            } else {
+                crate::decisions::Outcome::ToolError
+            };
+            outcomes.push(json!({"decision": decision_id, "outcome": outcome, "follow_up": null}));
+            failed_decision = Some((decision_id.clone(), outcome));
             attempts
                 .push(json!({"model": decision.model, "error_class": class, "error": error(&e)}));
             if let Some(limit) = e.downcast_ref::<crate::limits::RateLimited>() {
@@ -1346,6 +1374,7 @@ fn task(
             "provider_cost_usd": ledger.provider_cost,
             "models": models,
             "attempts": attempts,
+            "decision_outcomes": outcomes,
             "route": last,
             "warnings": warnings,
             "duration_ms": started.elapsed().as_millis() as u64,

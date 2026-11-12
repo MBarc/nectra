@@ -4,6 +4,19 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Routing-decision log: every decision (prompt hash, task kind, tier, confidence,
+  margin, candidates, pick, reason) and its outcome is recorded in the chat session
+  log and in `run`'s `route` event (new `decision` field; `result` gains
+  `decision_outcomes`). `nectra log decisions --json [--since]` reads it. Schema in
+  [docs/routing.md](docs/routing.md#routing-decision-log). No prompt text unless
+  `[routing] log_prompt_text = true`.
+- A model-rejection check on Claude/Codex stream events now reads structured fields
+  only, so a "tool not supported" event no longer excludes the model for the session.
+- Chat holds a rate limit for the whole session only when the plan is exhausted;
+  other limits end at their `retry_after`.
+- Ollama models take `prefers` and `capabilities` from config (default roles
+  `simple`, `general`); `prefers` in any registry must name a known role.
+
 - Laya `laya-model-1-alpha.2` (`nectra-laya` `1~alpha.2`): routes more hard,
   high-stakes specs to the demanding model and improves task accuracy on every
   held-out set; see tools/laya/MODEL_CARD.md. The high-stakes keyword rule is

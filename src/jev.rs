@@ -144,6 +144,12 @@ pub struct Classification {
     pub new_task: Option<bool>,
     /// The routing role Jev chose among those your models claim.
     pub role: Option<String>,
+    /// Which backend answered: "laya", "jev" or "keywords". For the decision log.
+    pub classifier: &'static str,
+    /// The classifier's confidence in `task`; None for keywords.
+    pub confidence: Option<f64>,
+    /// Difficulty 0..1 after the stakes signal; None for keywords.
+    pub difficulty: Option<f64>,
 }
 
 /// A routing role and the plain description Jev reads.
@@ -175,6 +181,9 @@ pub fn classify_local(prompt: &str, previous: Option<&str>) -> Classification {
         why,
         new_task,
         role: None,
+        classifier: "keywords",
+        confidence: None,
+        difficulty: None,
     }
 }
 
@@ -584,6 +593,9 @@ fn classify_text(
                 new_task: new_task.map(|p| p >= 0.5),
                 // Only roles offered can come back; reject anything else.
                 role: role.filter(|r| roles.iter().any(|(name, _)| name == r)),
+                classifier: source,
+                confidence: Some(confidence),
+                difficulty: Some(difficulty),
             }
         }
         Err(e) => {

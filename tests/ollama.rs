@@ -98,10 +98,7 @@ fn config(url: &str, policy: LocalPolicy) -> Config {
     let mut cfg = Config::from_defaults().unwrap();
     cfg.inner.ollama = Some(OllamaConfig {
         base_url: url.into(),
-        models: vec![LocalModel {
-            name: "test:latest".into(),
-            context_tokens: 8192,
-        }],
+        models: vec![LocalModel::new("test:latest".into(), 8192)],
         policy,
         timeout_seconds: 2,
         token_env: None,
@@ -339,4 +336,46 @@ fn full_chat_fallback_respects_local_only_and_preserves_the_thread() {
             assert_eq!(session.exchanges[0].assistant, "cloud answer");
         }
     }
+}
+
+#[test]
+fn local_models_take_their_roles_and_scores_from_config() {
+    let mut cfg = config("http://127.0.0.1:1", LocalPolicy::Mixed);
+    let mut tuned = LocalModel::new("coder:7b".into(), 8192);
+    tuned.prefers = Some(vec!["coding".into()]);
+    let mut caps = Registry::load(&cfg)
+        .unwrap()
+        .models
+        .iter()
+        .find(|m| m.id == "ollama/test:latest")
+        .unwrap()
+        .capabilities
+        .clone();
+    caps.coding = 0.9;
+    tuned.capabilities = Some(caps);
+    cfg.inner.ollama.as_mut().unwrap().models.push(tuned);
+    let registry = Registry::load(&cfg).unwrap();
+    let plain = registry
+        .models
+        .iter()
+        .find(|m| m.id == "ollama/test:latest")
+        .unwrap();
+    assert_eq!(plain.prefers, ["simple", "general"]);
+    let coder = registry
+        .models
+        .iter()
+        .find(|m| m.id == "ollama/coder:7b")
+        .unwrap();
+    assert_eq!(coder.prefers, ["coding"]);
+    assert!((coder.capabilities.coding - 0.9).abs() < 1e-6);
+}
+
+#[test]
+fn local_model_config_parses_prefers_and_capabilities() {
+    let m: LocalModel = toml::from_str(
+        "name = \"a\"\ncontext_tokens = 4096\nprefers = [\"simple\"]\n[capabilities]\ncoding = 0.8\nreasoning = 0.7\nlong_context = 0.5\nwriting = 0.7\ntool_use = 0.0\nspeed = 0.9\ncost_efficiency = 1.0\n",
+    )
+    .unwrap();
+    assert_eq!(m.prefers.unwrap(), ["simple"]);
+    assert!((m.capabilities.unwrap().speed - 0.9).abs() < 1e-6);
 }
