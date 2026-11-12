@@ -127,6 +127,7 @@ fn app() -> Result<i32> {
                 all.retain(|d| d.decision.ts >= since);
                 all
             }
+            Some(dir) if !dir.is_dir() => anyhow::bail!("{} not found", dir.display()),
             Some(dir) => nectra::decisions::read_dir(dir, since),
             None => nectra::decisions::read_dir(&nectra::session::Session::default_dir()?, since),
         };

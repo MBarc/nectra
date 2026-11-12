@@ -1210,6 +1210,8 @@ fn task(
                 .transpose()
             {
                 attempts.push(json!({"model": decision.model, "error_class": "harness_error", "error": error(&e)}));
+                outcomes.push(json!({"decision": decision_id, "outcome": crate::decisions::Outcome::ToolError, "follow_up": null}));
+                failed_decision = Some((decision_id.clone(), crate::decisions::Outcome::ToolError));
                 last = Some(decision);
                 if pinned.is_none() {
                     continue;

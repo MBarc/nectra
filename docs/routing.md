@@ -104,7 +104,12 @@ event (`decision_outcomes`). Read them back with:
 nectra log decisions --json [--since 7d|12h|30m|UNIX_SECONDS] [--session FILE_OR_DIR]
 ```
 
-One JSON object per line, oldest first. The prompt is stored only as a SHA-256 hash.
+One JSON object per line, oldest first. It reads chat session logs only; `run`
+decisions are in that command's own event stream (`source: "run"`). `tier` and `role`
+are the classifier's own answers, before the router drops an unclaimed tier or swaps
+in `demanding`. The "classified with the content of" file note is removed from
+`reason` unless the opt-in is set. Session logs written by this version contain
+`outcome` records and a `decision` field that older Nectra versions cannot resume. The prompt is stored only as a SHA-256 hash.
 Its text is added only if you set `[routing] log_prompt_text = true`.
 
 **Schema, `schema_version` 1.** Fields may be added without a bump; a removed or
@@ -130,7 +135,8 @@ re-meant field bumps it.
 | `pick`, `pick_provider`, `pick_score` | The chosen model and its score |
 | `reason` | Why it was picked |
 | `overridden` | The user pinned a model or provider |
-| `outcome` | Latest outcome (below), or null while unfinished (`nectra log decisions` only) |
+| `outcome` | Latest result of the turn: `completed`, `tool_error` or `limit`; null while unfinished (`nectra log decisions` only) |
+| `user_action` | Latest `user_again`, `user_switch_model` or `override` after it, or null (`nectra log decisions` only) |
 | `follow_up` | `id` of the decision that followed this one, or null (`nectra log decisions` only) |
 | `session` | The session file (`nectra log decisions` only) |
 

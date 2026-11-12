@@ -72,7 +72,7 @@ pub enum Outcome {
     UserAgain,
     /// The user switched to another model for the next message.
     UserSwitchModel,
-    /// The user pinned a provider or mode for the next message.
+    /// The user pinned a provider for the next message.
     Override,
 }
 
@@ -91,6 +91,20 @@ pub fn prompt_hash(prompt: &str) -> String {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()
+}
+
+/// Drop the "classified with the content of FILES" note, which names files the
+/// prompt pointed at: part of the prompt, so logged only with the opt-in.
+fn strip_file_note(reason: &str) -> String {
+    const NOTE: &str = "; classified with the content of ";
+    let Some(start) = reason.find(NOTE) else {
+        return reason.to_string();
+    };
+    let rest = &reason[start + NOTE.len()..];
+    let end = rest
+        .find("; ")
+        .map_or(reason.len(), |i| start + NOTE.len() + i);
+    format!("{}{}", &reason[..start], &reason[end..])
 }
 
 fn now() -> u64 {
@@ -154,7 +168,11 @@ impl DecisionRecord {
             pick: decision.model.clone(),
             pick_provider: decision.provider.clone(),
             pick_score: decision.score,
-            reason: decision.reason.clone(),
+            reason: if log_text {
+                decision.reason.clone()
+            } else {
+                strip_file_note(&decision.reason)
+            },
             overridden: decision.overridden,
         }
     }
@@ -165,8 +183,12 @@ impl DecisionRecord {
 pub struct LoggedDecision {
     #[serde(flatten)]
     pub decision: DecisionRecord,
-    /// The latest outcome recorded; null while the turn is unfinished.
+    /// The latest result of the turn itself (completed, tool_error, limit);
+    /// null while it is unfinished.
     pub outcome: Option<Outcome>,
+    /// The latest thing the user did about it afterwards (user_again,
+    /// user_switch_model, override), kept apart so it never hides the result.
+    pub user_action: Option<Outcome>,
     pub follow_up: Option<String>,
     /// The chat session file it came from.
     pub session: String,
@@ -208,6 +230,7 @@ pub fn read_log(text: &str, session: &str) -> Vec<LoggedDecision> {
                     out.push(LoggedDecision {
                         decision,
                         outcome: None,
+                        user_action: None,
                         follow_up: None,
                         session: session.into(),
                     });
@@ -219,7 +242,14 @@ pub fn read_log(text: &str, session: &str) -> Vec<LoggedDecision> {
                     continue;
                 };
                 if let Some(d) = out.iter_mut().find(|d| d.decision.id == o.decision) {
-                    d.outcome = Some(o.outcome);
+                    if matches!(
+                        o.outcome,
+                        Outcome::UserAgain | Outcome::UserSwitchModel | Outcome::Override
+                    ) {
+                        d.user_action = Some(o.outcome);
+                    } else {
+                        d.outcome = Some(o.outcome);
+                    }
                     d.follow_up = o.follow_up.or(d.follow_up.take());
                 }
             }
@@ -235,17 +265,17 @@ pub fn parse_since(text: &str, now: u64) -> anyhow::Result<u64> {
     if let Ok(secs) = t.parse::<u64>() {
         return Ok(secs);
     }
-    let (n, unit) = t.split_at(t.len().saturating_sub(1));
-    let n: u64 = n
+    let unit = t.chars().last().unwrap_or(' ');
+    let n: u64 = t[..t.len() - unit.len_utf8().min(t.len())]
         .parse()
         .map_err(|_| anyhow::anyhow!("--since takes unix seconds or a span like 7d, 12h, 30m"))?;
     let per = match unit {
-        "d" => 86400,
-        "h" => 3600,
-        "m" => 60,
+        'd' => 86400,
+        'h' => 3600,
+        'm' => 60,
         _ => anyhow::bail!("--since takes unix seconds or a span like 7d, 12h, 30m"),
     };
-    Ok(now.saturating_sub(n * per))
+    Ok(now.saturating_sub(n.saturating_mul(per)))
 }
 
 #[cfg(test)]
@@ -338,8 +368,32 @@ mod tests {
         let got = read_log(&log, "s");
         assert_eq!(got.len(), 2);
         assert_eq!(got[0].outcome, Some(Outcome::Limit));
+        assert!(got[0].user_action.is_none());
+        assert!(got[0].user_action.is_none());
         assert_eq!(got[0].follow_up.as_deref(), Some("d-2"));
         assert_eq!(got[1].outcome, Some(Outcome::Completed));
+    }
+
+    #[test]
+    fn a_user_action_does_not_hide_the_result_and_files_stay_out_of_reason() {
+        let log = format!(
+            "{}\n{}\n{}\n",
+            serde_json::json!({"type":"user","text":"x","model":"a","decision":record("d-1",1)}),
+            serde_json::json!({"type":"outcome","outcome":{"decision":"d-1","outcome":"completed"}}),
+            serde_json::json!({"type":"outcome","outcome":{"decision":"d-1","outcome":"user_again","follow_up":"d-2"}}),
+        );
+        let got = read_log(&log, "s");
+        assert_eq!(got[0].outcome, Some(Outcome::Completed));
+        assert_eq!(got[0].user_action, Some(Outcome::UserAgain));
+        assert_eq!(
+            strip_file_note("a (x); classified with the content of secret.md; highest score"),
+            "a (x); highest score"
+        );
+        assert_eq!(
+            strip_file_note("a; classified with the content of s.md"),
+            "a"
+        );
+        assert!(parse_since("7µ", 0).is_err());
     }
 
     #[test]

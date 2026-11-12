@@ -63,7 +63,7 @@ enum Event {
         again: bool,
         /// The routing decision behind this turn (schema in docs/routing.md).
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        decision: Option<Box<crate::decisions::DecisionRecord>>,
+        decision: Option<serde_json::Value>,
     },
     /// What became of a routing decision.
     Outcome {
@@ -358,7 +358,11 @@ impl Session {
             why: route.why.clone(),
             handoff: route.handoff,
             again: route.again,
-            decision: route.decision.clone().map(Box::new),
+            decision: route
+                .decision
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()?,
         })?;
         if let (Some((previous, outcome)), Some(decision)) = (&route.follows, &route.decision) {
             self.outcome(previous, *outcome, Some(&decision.id))?;

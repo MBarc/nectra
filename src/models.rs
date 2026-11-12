@@ -163,6 +163,10 @@ impl Registry {
             ));
         };
         let mut file: RegistryFile = toml::from_str(&text).context("parsing model registry")?;
+        // Default roles for local models only join a registry that already
+        // declares roles; otherwise they would switch an older registry out of
+        // the legacy preference table.
+        let declared = file.model.iter().any(|m| !m.prefers.is_empty());
         if let Some(ollama) = &cfg.inner.ollama {
             for model in &ollama.models {
                 file.model.push(ModelProfile {
@@ -171,10 +175,13 @@ impl Registry {
                     runtime: Runtime::Ollama,
                     enabled: true,
                     effort: String::new(),
-                    prefers: model
-                        .prefers
-                        .clone()
-                        .unwrap_or_else(|| ["simple", "general"].map(String::from).to_vec()),
+                    prefers: model.prefers.clone().unwrap_or_else(|| {
+                        if declared {
+                            ["simple", "general"].map(String::from).to_vec()
+                        } else {
+                            vec![]
+                        }
+                    }),
                     capabilities: model.capabilities.clone().unwrap_or(Capabilities {
                         coding: 0.65,
                         reasoning: 0.65,

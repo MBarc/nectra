@@ -25,12 +25,19 @@ impl ModelUnavailable {
                 .filter(|v| !v.is_null())
                 .cloned()
         };
-        let mut parts: Vec<String> = ["message", "detail", "error_description", "short_error"]
-            .iter()
-            .chain(["type", "code", "reason", "status"].iter())
-            .filter_map(|k| field(event, k))
-            .filter_map(|v| v.as_str().map(str::to_string))
-            .collect();
+        let mut parts: Vec<String> = [
+            "message",
+            "detail",
+            "error_description",
+            "short_error",
+            // Claude's failed `result` event carries the notice as its text.
+            "result",
+        ]
+        .iter()
+        .chain(["type", "code", "reason", "status"].iter())
+        .filter_map(|k| field(event, k))
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect();
         // `error` is a bare string for some runtimes, an object for others.
         if let Some(e) = event.get("error").and_then(|e| e.as_str()) {
             parts.push(e.to_string());
