@@ -1202,7 +1202,7 @@ Connection: close
         let mut cfg = Config::from_path(&cfg_file).unwrap();
         cfg.inner.classifier.model_dir = Some(dir.path().to_path_buf());
         for _ in 0..2 {
-            let err = format!("{:#}", ask("hi", None, &[], &cfg).err().expect("must fail"));
+            let err = format!("{:#}", ask("hi", None, &[], &cfg).expect_err("must fail"));
             assert!(err.contains("Laya failed to load"), "{err}");
             assert!(!err.contains("timed out"), "{err}");
         }
@@ -1410,8 +1410,7 @@ Connection: close
         let url = serve(tampered.path().to_path_buf());
         let fresh = tempfile::tempdir().unwrap();
         let err = download_from(&url, fresh.path(), &mut Vec::new())
-            .err()
-            .expect("must refuse");
+            .expect_err("must refuse");
         assert!(format!("{err:#}").contains("checksum mismatch"), "{err:#}");
         assert!(!fresh
             .path()
