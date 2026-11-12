@@ -86,7 +86,7 @@ fn app() -> Result<i32> {
                 }
             }
             LayaCommands::Status => {
-                let status = nectra::laya_serve::status()?;
+                let status = nectra::laya_serve::status(&config::Config::load(cli.config.as_deref())?)?;
                 println!("{status}");
                 Ok(if status["running"] == true { 0 } else { 1 })
             }

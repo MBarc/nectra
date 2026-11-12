@@ -6,8 +6,11 @@ design, with the departures listed here. Written 2026-10-22 from the measurement
 experiments in [LAYA-MEMORY.md](LAYA-MEMORY.md).
 
 **As built, where it differs from the proposal.**
-- `[classifier] laya_service = "auto"` is the default, not off: Laya is already an opt-in backend, and the
-  client falls back to an in-process load whenever the server is absent, stale or broken.
+- `[classifier] laya_service` defaults to `auto` on Linux and macOS with 4 GiB of RAM or more, and to `off`
+  on Windows and below 4 GiB. Laya is already an opt-in backend, and the client falls back to an
+  in-process load whenever the server is absent, stale or broken.
+- The identity also carries the prepacking setting, which can change the last bits of a float.
+- Windows gaps: the pipe code is compile-checked only, and pipe reads have no timeouts.
 - Handshake: each connection starts with a `hello`; the client sends no prompt unless the server's
   protocol, nectra version and the hash of the pinned model files equal its own. A server running an
   unpinned model is refused. A refused server is left running (it exits on its own idle timer).

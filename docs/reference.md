@@ -338,7 +338,8 @@ backend = "laya"
 # allow_unpinned_model = false      # true loads your own retrained model; warns on every load
 # laya_timeout_ms = 1000            # per message; slower answers fall back to keywords.
                                     # Unset: 5000 with 2 or fewer cores or no AVX2, else 1000
-# laya_service = "auto"             # "auto": one model shared by all your Nectra processes,
+# laya_service = "auto"             # unset: auto on Linux/macOS with 4 GiB RAM or more, off on
+                                    # Windows and below 4 GiB. "auto": one model shared by all your Nectra processes,
                                     # through a per-user server started on demand;
                                     # "off": every process loads its own copy
 # laya_idle_secs = 600              # the shared server exits (frees ~1 GiB) after this long idle
@@ -354,7 +355,7 @@ backend = "laya"
 - **For lower latency,** set `laya_timeout_ms = 300`. On a busy machine about
   1 message in 9 then falls back to keywords, which costs about 4 points of
   accuracy.
-- **Shared server.** With `laya_service = "auto"` (the default) the first Nectra
+- **Shared server.** With `laya_service = "auto"` (the default on Linux and macOS with 4 GiB of RAM or more) the first Nectra
   process that needs Laya starts `nectra laya serve` detached (no console window
   on Windows), and every later `route`, `run`, chat or `eval` asks it over a unix
   socket in `$XDG_RUNTIME_DIR/nectra/` (mode 0600; a named pipe restricted to your
@@ -364,9 +365,13 @@ backend = "laya"
   process loads the model itself and says so once); a dead or hung server is
   treated as absent. `nectra laya status` and `nectra laya stop` print JSON. To
   run it under systemd instead, enable `packaging/systemd/nectra-laya.socket`
-  with `systemctl --user enable --now nectra-laya.socket`. Machines under
-  4 GiB should keep `laya_service = "off"` if they cannot spare the memory
-  while the server is up. Design: `docs/design/LAYA-SHARED.md`.
+  with `systemctl --user enable --now nectra-laya.socket`. Below 4 GiB of RAM
+  and on Windows the default is `off`; set `laya_service = "auto"` to opt in. A server
+  whose protocol, nectra version, model files or prepacking setting differ from the
+  client's is refused. **Windows gaps:** the named-pipe path has been
+  cross-compiled but never run on a Windows machine, and Windows pipe reads have no
+  timeouts (a silent same-user client can hold a server thread; `laya status|stop` can block
+  on a hung server). Design: `docs/design/LAYA-SHARED.md`.
 - **A failed load** is remembered until Nectra restarts.
 - **Accuracy:** 97.7% on a 1031-prompt held-out set (95% CI 96.6-98.4%). See
   `tools/laya/MODEL_CARD.md`.

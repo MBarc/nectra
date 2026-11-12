@@ -59,15 +59,23 @@ pub struct Identity {
     pub nectra: String,
     /// SHA-256 over the pinned hashes of the model files and the runtime.
     pub model: String,
+    /// Whether ONNX Runtime builds prepacked weights: it can change the last
+    /// bits of a float, so a server and its clients must agree. Any other
+    /// setting that changes what the model outputs belongs here too.
+    pub prepacking: bool,
 }
 
 impl Identity {
-    pub fn current() -> Self {
+    pub fn new(prepacking: bool) -> Self {
         Self {
             proto: PROTO,
             nectra: env!("CARGO_PKG_VERSION").to_string(),
             model: crate::laya::model_identity(),
+            prepacking,
         }
+    }
+    pub fn for_config(cfg: &Config) -> Self {
+        Self::new(crate::laya::prepacking(cfg))
     }
 }
 
@@ -347,8 +355,9 @@ pub fn run_server(cfg: &Config, idle_override: Option<u64>) -> Result<()> {
         "{}",
         serde_json::json!({"event": "listening", "socket": ep.display(), "pid": std::process::id()})
     );
+    let identity = Identity::for_config(cfg);
     let cfg = cfg.clone();
-    serve(listener, ep, Identity::current(), unpinned, idle, move || {
+    serve(listener, ep, identity, unpinned, idle, move || {
         crate::laya::served_engine(&cfg)
     });
     Ok(())
@@ -529,13 +538,15 @@ fn exchange(
     };
     if hello.identity != *me {
         return Step::Outcome(Outcome::Local(format!(
-            "stale server (nectra {}, protocol {}, model {}; this is nectra {}, protocol {}, model {})",
+            "stale server (nectra {}, protocol {}, model {}, prepacking {}; this is nectra {}, protocol {}, model {}, prepacking {})",
             hello.identity.nectra,
             hello.identity.proto,
             hello.identity.model.chars().take(12).collect::<String>(),
+            hello.identity.prepacking,
             me.nectra,
             me.proto,
             me.model.chars().take(12).collect::<String>(),
+            me.prepacking,
         )));
     }
     if hello.unpinned && !allow_unpinned {
@@ -589,17 +600,16 @@ fn exchange(
 /// The client the process-wide settings describe, or None when the service
 /// is off or cannot be used (unpinned model, no place for a socket).
 pub(crate) fn client_for(cfg: &Config) -> Option<Client> {
-    use crate::config::LayaService;
     let c = &cfg.inner.classifier;
     let off = std::env::var("NECTRA_LAYA_SERVICE").is_ok_and(|v| v == "off");
-    if off || c.laya_service == LayaService::Off || c.allow_unpinned_model {
+    if off || !crate::laya::service_enabled(cfg) || c.allow_unpinned_model {
         return None;
     }
     let endpoint = os::default_endpoint(true).ok()??;
     let config_path = cfg.path.clone();
     Some(Client {
         endpoint,
-        identity: Identity::current(),
+        identity: Identity::for_config(cfg),
         timeout: Duration::from_millis(crate::laya::timeout_ms(cfg)),
         hello_timeout: Duration::from_secs(2),
         load_wait: Duration::from_secs(180),
@@ -645,7 +655,7 @@ fn spawn_server(config: &std::path::Path) -> std::io::Result<std::process::Child
 
 /// `nectra laya status`: the server's hello, or that none runs. Reports a
 /// server this build would refuse, with the reason, rather than hiding it.
-pub fn status() -> Result<serde_json::Value> {
+pub fn status(cfg: &Config) -> Result<serde_json::Value> {
     let Some(ep) = status_endpoint()? else {
         return Ok(serde_json::json!({"running": false}));
     };
@@ -653,7 +663,7 @@ pub fn status() -> Result<serde_json::Value> {
         return Ok(serde_json::json!({"running": false, "socket": ep.display()}));
     };
     let hello: Hello = serde_json::from_str(&hello).context("unreadable hello")?;
-    let mine = Identity::current();
+    let mine = Identity::for_config(cfg);
     let mut v = serde_json::to_value(&hello)?;
     v["running"] = true.into();
     v["socket"] = ep.display().into();

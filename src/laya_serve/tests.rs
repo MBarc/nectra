@@ -78,10 +78,10 @@ impl Rig {
         }
     }
     fn ok() -> Rig {
-        Self::start(Identity::current(), 0, 0, Duration::from_secs(60))
+        Self::start(Identity::new(true), 0, 0, Duration::from_secs(60))
     }
     fn client(&self) -> Client {
-        client(self.ep.clone(), Identity::current())
+        client(self.ep.clone(), Identity::new(true))
     }
     fn hello(&self) -> Hello {
         serde_json::from_str(&oneshot(&self.ep, &Request::Hello).unwrap().unwrap()).unwrap()
@@ -149,7 +149,7 @@ fn a_served_decision_is_identical_to_a_direct_one() {
 
 #[test]
 fn concurrent_clients_each_get_their_own_answer_one_inference_at_a_time() {
-    let rig = Rig::start(Identity::current(), 0, 5, Duration::from_secs(60));
+    let rig = Rig::start(Identity::new(true), 0, 5, Duration::from_secs(60));
     let threads: Vec<_> = (0..8)
         .map(|t| {
             let c = rig.client();
@@ -180,15 +180,19 @@ fn concurrent_clients_each_get_their_own_answer_one_inference_at_a_time() {
 #[test]
 fn a_stale_or_mismatched_server_is_refused_before_any_prompt_is_sent() {
     let mut cases = vec![];
-    let mut old = Identity::current();
+    let mut old = Identity::new(true);
     old.nectra = "0.0.1".into();
     cases.push(("version", old));
-    let mut other = Identity::current();
+    let mut other = Identity::new(true);
     other.model = "0".repeat(64);
     cases.push(("model", other));
-    let mut future = Identity::current();
+    let mut future = Identity::new(true);
     future.proto += 1;
     cases.push(("protocol", future));
+    // ONNX Runtime's prepacking can change the last bits of a float.
+    let mut unpacked = Identity::new(true);
+    unpacked.prepacking = false;
+    cases.push(("prepacking", unpacked));
     for (what, identity) in cases {
         let rig = Rig::start(identity, 0, 0, Duration::from_secs(60));
         let Outcome::Local(why) = ask1(&rig.client(), "secret prompt", None, true) else {
@@ -212,13 +216,13 @@ fn an_unpinned_server_is_refused_unless_asked_for() {
         serve(
             listener,
             e,
-            Identity::current(),
+            Identity::new(true),
             true,
             Duration::from_secs(60),
             || Ok(Box::new(Fake::new(0))),
         )
     });
-    let c = client(ep.clone(), Identity::current());
+    let c = client(ep.clone(), Identity::new(true));
     assert!(matches!(ask1(&c, "x", None, true), Outcome::Local(w) if w.contains("unpinned")));
     let _ = oneshot(&ep, &Request::Stop);
     t.join().unwrap();
@@ -230,12 +234,12 @@ fn a_dead_server_falls_back() {
     let local = |c: Client| matches!(ask1(&c, "x", None, true), Outcome::Local(_));
     // Nothing there at all.
     let (_d, ep) = Rig::endpoint();
-    assert!(local(client(ep, Identity::current())));
+    assert!(local(client(ep, Identity::new(true))));
     // A socket file nobody listens on (a crashed server).
     let (_d, ep) = Rig::endpoint();
     drop(UnixListener::bind(&ep.0).unwrap());
     assert!(ep.0.exists());
-    assert!(local(client(ep, Identity::current())));
+    assert!(local(client(ep, Identity::new(true))));
     // A server that hangs up on every connection.
     let (_d, ep) = Rig::endpoint();
     let l = UnixListener::bind(&ep.0).unwrap();
@@ -244,7 +248,7 @@ fn a_dead_server_falls_back() {
             drop(s)
         }
     });
-    assert!(local(client(ep, Identity::current())));
+    assert!(local(client(ep, Identity::new(true))));
     // A server that accepts and never speaks.
     let (_d, ep) = Rig::endpoint();
     let l = UnixListener::bind(&ep.0).unwrap();
@@ -255,7 +259,7 @@ fn a_dead_server_falls_back() {
         }
     });
     let started = Instant::now();
-    let mut c = client(ep, Identity::current());
+    let mut c = client(ep, Identity::new(true));
     c.hello_timeout = Duration::from_millis(300);
     assert!(local(c));
     assert!(started.elapsed() < Duration::from_secs(3));
@@ -267,17 +271,17 @@ fn a_dead_server_falls_back() {
             let mut s = s.unwrap();
             let mut r = BufReader::new(s.try_clone().unwrap());
             read_line(&mut r).unwrap();
-            send(&mut s, &Hello::of(Identity::current(), "ready")).unwrap();
+            send(&mut s, &Hello::of(Identity::new(true), "ready")).unwrap();
             read_line(&mut r).unwrap();
             drop(s);
         }
     });
-    assert!(local(client(ep, Identity::current())));
+    assert!(local(client(ep, Identity::new(true))));
 }
 
 #[test]
 fn a_loading_server_answers_keywords_for_chat_and_waits_for_one_shot() {
-    let rig = Rig::start(Identity::current(), 600, 0, Duration::from_secs(60));
+    let rig = Rig::start(Identity::new(true), 600, 0, Duration::from_secs(60));
     let c = rig.client();
     let started = Instant::now();
     assert!(matches!(ask1(&c, "x", None, false), Outcome::Failed(w) if w == "Laya still loading"));
@@ -297,13 +301,13 @@ fn a_server_that_failed_to_load_sends_the_caller_to_try_itself() {
         serve(
             listener,
             e,
-            Identity::current(),
+            Identity::new(true),
             false,
             Duration::from_secs(60),
             || Err("model.onnx.data does not match its pin".into()),
         )
     });
-    let c = client(ep.clone(), Identity::current());
+    let c = client(ep.clone(), Identity::new(true));
     std::thread::sleep(Duration::from_millis(200));
     match ask1(&c, "x", None, true) {
         Outcome::Local(w) => assert!(
@@ -318,7 +322,7 @@ fn a_server_that_failed_to_load_sends_the_caller_to_try_itself() {
 
 #[test]
 fn a_slow_answer_times_out_at_the_callers_budget() {
-    let rig = Rig::start(Identity::current(), 0, 800, Duration::from_secs(60));
+    let rig = Rig::start(Identity::new(true), 0, 800, Duration::from_secs(60));
     let mut c = rig.client();
     c.timeout = Duration::from_millis(200);
     let started = Instant::now();
@@ -334,7 +338,7 @@ fn a_missing_server_is_started_on_demand() {
     let (_dir, ep) = Rig::endpoint();
     let started = Arc::new(AtomicUsize::new(0));
     let (e2, s2) = (ep.clone(), started.clone());
-    let mut c = client(ep.clone(), Identity::current());
+    let mut c = client(ep.clone(), Identity::new(true));
     c.spawn = Some(Box::new(move || {
         s2.fetch_add(1, Ordering::SeqCst);
         let listener = os::bind(&e2).unwrap();
@@ -343,7 +347,7 @@ fn a_missing_server_is_started_on_demand() {
             serve(
                 listener,
                 e3,
-                Identity::current(),
+                Identity::new(true),
                 false,
                 Duration::from_secs(60),
                 || {
@@ -367,7 +371,7 @@ fn a_missing_server_is_started_on_demand() {
 
 #[test]
 fn the_server_exits_when_idle_and_removes_its_socket() {
-    let rig = Rig::start(Identity::current(), 0, 0, Duration::from_millis(400));
+    let rig = Rig::start(Identity::new(true), 0, 0, Duration::from_millis(400));
     let c = rig.client();
     assert!(matches!(ask1(&c, "x", None, true), Outcome::Answer(_)));
     let started = Instant::now();
@@ -424,7 +428,7 @@ fn a_directory_open_to_others_or_a_symlink_is_refused() {
     assert!(os::bind(&ep).is_err());
     assert_eq!(std::fs::read(&ep.0).unwrap(), b"x");
     // And a client will not talk to it.
-    let c = client(ep, Identity::current());
+    let c = client(ep, Identity::new(true));
     assert!(matches!(ask1(&c, "x", None, true), Outcome::Local(_)));
 }
 
@@ -475,13 +479,13 @@ fn served_real_model_matches_in_process() {
         serve(
             listener,
             e,
-            Identity::current(),
+            Identity::new(true),
             false,
             Duration::from_secs(120),
             move || crate::laya::served_engine(&cfg2),
         )
     });
-    let c = client(ep.clone(), Identity::current());
+    let c = client(ep.clone(), Identity::new(true));
     let roles = ["fast_cheap", "strong_general", "coding_specialist"];
     let prompts: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("../../eval/holdout.json")).unwrap();

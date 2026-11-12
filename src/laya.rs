@@ -294,19 +294,40 @@ fn auto_prepacking(mem_total_kib: Option<u64>) -> bool {
     !mem_total_kib.is_some_and(|kib| kib < 4 * 1024 * 1024)
 }
 
-/// `classifier.laya_prepacking`, or the machine's default (Linux reads MemTotal).
-fn prepacking(cfg: &Config) -> bool {
-    cfg.inner.classifier.laya_prepacking.unwrap_or_else(|| {
-        let total = fs::read_to_string("/proc/meminfo").ok().and_then(|m| {
-            m.lines()
-                .find_map(|l| l.strip_prefix("MemTotal:"))?
-                .split_whitespace()
-                .next()?
-                .parse()
-                .ok()
-        });
-        auto_prepacking(total)
+/// Total RAM on Linux; None elsewhere.
+fn mem_total_kib() -> Option<u64> {
+    fs::read_to_string("/proc/meminfo").ok().and_then(|m| {
+        m.lines()
+            .find_map(|l| l.strip_prefix("MemTotal:"))?
+            .split_whitespace()
+            .next()?
+            .parse()
+            .ok()
     })
+}
+
+/// `classifier.laya_prepacking`, or the machine's default (Linux reads MemTotal).
+pub(crate) fn prepacking(cfg: &Config) -> bool {
+    cfg.inner
+        .classifier
+        .laya_prepacking
+        .unwrap_or_else(|| auto_prepacking(mem_total_kib()))
+}
+
+/// The shared server's default: on, except on Windows (its pipe path has not
+/// run on a real Windows machine yet) and where RAM is known to be under 4 GiB
+/// (a loaded server would take memory the provider CLI needs).
+fn auto_service(mem_total_kib: Option<u64>, windows: bool) -> bool {
+    !windows && !mem_total_kib.is_some_and(|kib| kib < 4 * 1024 * 1024)
+}
+
+/// Whether to use the shared server: `classifier.laya_service`, else the default.
+pub(crate) fn service_enabled(cfg: &Config) -> bool {
+    use crate::config::LayaService;
+    match cfg.inner.classifier.laya_service {
+        Some(choice) => choice == LayaService::Auto,
+        None => auto_service(mem_total_kib(), cfg!(windows)),
+    }
 }
 
 /// What `nectra classifier laya` (or a package's post-install) verified in
@@ -1347,6 +1368,16 @@ Connection: close
         mode(top.path(), 0o777);
         assert!(!stamp_trusted_for(&via, &files, me));
         mode(top.path(), 0o755);
+    }
+    #[test]
+    fn the_shared_server_defaults_off_on_windows_and_small_machines() {
+        const GIB: u64 = 1024 * 1024;
+        assert!(auto_service(Some(8 * GIB), false));
+        assert!(auto_service(Some(4 * GIB), false));
+        assert!(auto_service(None, false));
+        assert!(!auto_service(Some(2 * GIB), false));
+        assert!(!auto_service(Some(8 * GIB), true));
+        assert!(!auto_service(None, true));
     }
     #[test]
     fn slow_machines_get_a_longer_budget_and_less_memory_use() {
