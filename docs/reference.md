@@ -338,6 +338,10 @@ backend = "laya"
 # allow_unpinned_model = false      # true loads your own retrained model; warns on every load
 # laya_timeout_ms = 1000            # per message; slower answers fall back to keywords.
                                     # Unset: 5000 with 2 or fewer cores or no AVX2, else 1000
+# laya_service = "auto"             # "auto": one model shared by all your Nectra processes,
+                                    # through a per-user server started on demand;
+                                    # "off": every process loads its own copy
+# laya_idle_secs = 600              # the shared server exits (frees ~1 GiB) after this long idle
 # laya_prepacking = false           # false keeps the weights in the mapped file: half the
                                     # private memory, 0-15% slower. Unset: false on Linux
                                     # with under 4 GiB RAM, true elsewhere
@@ -350,6 +354,19 @@ backend = "laya"
 - **For lower latency,** set `laya_timeout_ms = 300`. On a busy machine about
   1 message in 9 then falls back to keywords, which costs about 4 points of
   accuracy.
+- **Shared server.** With `laya_service = "auto"` (the default) the first Nectra
+  process that needs Laya starts `nectra laya serve` detached (no console window
+  on Windows), and every later `route`, `run`, chat or `eval` asks it over a unix
+  socket in `$XDG_RUNTIME_DIR/nectra/` (mode 0600; a named pipe restricted to your
+  account on Windows) instead of loading its own 1 GiB copy. It answers one message
+  at a time and exits after `laya_idle_secs`. Answers are identical to loading the
+  model yourself. A server from another nectra version or model is never used (the
+  process loads the model itself and says so once); a dead or hung server is
+  treated as absent. `nectra laya status` and `nectra laya stop` print JSON. To
+  run it under systemd instead, enable `packaging/systemd/nectra-laya.socket`
+  with `systemctl --user enable --now nectra-laya.socket`. Machines under
+  4 GiB should keep `laya_service = "off"` if they cannot spare the memory
+  while the server is up. Design: `docs/design/LAYA-SHARED.md`.
 - **A failed load** is remembered until Nectra restarts.
 - **Accuracy:** 97.7% on a 1031-prompt held-out set (95% CI 96.6-98.4%). See
   `tools/laya/MODEL_CARD.md`.

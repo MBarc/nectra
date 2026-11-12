@@ -1,8 +1,25 @@
 # A shared Laya service per machine
 
-Status: design only, nothing is implemented. Written 2026-10-22 from the measurements in
+Status: implemented (`src/laya_serve/`, `nectra laya serve|status|stop`); the sections below are the
+design, with the departures listed here. Written 2026-10-22 from the measurements in
 `docs/measurements/2026-10-22-laya/REPORT.md` in the PonsOS repo and the ONNX Runtime
 experiments in [LAYA-MEMORY.md](LAYA-MEMORY.md).
+
+**As built, where it differs from the proposal.**
+- `[classifier] laya_service = "auto"` is the default, not off: Laya is already an opt-in backend, and the
+  client falls back to an in-process load whenever the server is absent, stale or broken.
+- Handshake: each connection starts with a `hello`; the client sends no prompt unless the server's
+  protocol, nectra version and the hash of the pinned model files equal its own. A server running an
+  unpinned model is refused. A refused server is left running (it exits on its own idle timer).
+- Windows uses a named pipe `\\.\pipe\nectra-laya-<user SID>` with a DACL for that user only,
+  `PIPE_REJECT_REMOTE_CLIENTS`, `FILE_FLAG_FIRST_PIPE_INSTANCE`, and a check that the process serving the
+  pipe runs as the same user. It is compile-checked (x86_64-pc-windows-gnu) but not yet run on Windows.
+- Unix: the directory must be a real directory owned by the user with mode 0700, the socket is 0600, the
+  peer uid is checked on both ends (`SO_PEERCRED`), and a `flock`ed lock file keeps two servers from binding.
+- On-demand start is the client spawning `nectra laya serve` detached (new session; on Windows without a
+  console window). A one-shot `route` waits for the server's load (the same wait it would have had loading
+  itself); chat keeps routing with keywords ("Laya still loading") until the server is ready.
+- Requests carry the caller's deadline; one that queued past it is dropped without running.
 
 ## Problem
 

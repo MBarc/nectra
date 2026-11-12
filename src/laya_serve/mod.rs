@@ -591,7 +591,7 @@ pub(crate) fn client_for(cfg: &Config) -> Option<Client> {
     if off || c.laya_service == LayaService::Off || c.allow_unpinned_model {
         return None;
     }
-    let endpoint = os::default_endpoint(false).ok()??;
+    let endpoint = os::default_endpoint(true).ok()??;
     let config_path = cfg.path.clone();
     Some(Client {
         endpoint,

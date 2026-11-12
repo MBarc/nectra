@@ -1,0 +1,11 @@
+[Unit]
+Description=Nectra shared Laya model (socket)
+
+[Socket]
+# %t is $XDG_RUNTIME_DIR; the same path `nectra laya` uses without systemd.
+ListenStream=%t/nectra/laya.sock
+DirectoryMode=0700
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

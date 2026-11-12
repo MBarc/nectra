@@ -1,0 +1,14 @@
+[Unit]
+Description=Nectra shared Laya model
+Documentation=https://github.com/MBarc/nectra/blob/master/docs/design/LAYA-SHARED.md
+Requires=nectra-laya.socket
+
+[Service]
+# Started by the first connection; exits after classifier.laya_idle_secs
+# (default 600) without a request and gives the memory back.
+ExecStart=/usr/bin/nectra laya serve
+Restart=no
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only

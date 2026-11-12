@@ -4,6 +4,14 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Shared Laya server: `nectra laya serve|status|stop` (JSON output). Nectra
+  processes share one model through a per-user socket (named pipe on Windows)
+  instead of loading about 1 GiB and 16-20 s each; the server starts on demand and
+  exits after `[classifier] laya_idle_secs` (600). Answers are identical to loading
+  in-process; a stale, mismatched or dead server falls back to in-process loading.
+  `[classifier] laya_service = "off"` or `NECTRA_LAYA_SERVICE=off` disables it.
+  systemd user units in `packaging/systemd/`.
+
 - Routing-decision log: every decision (prompt hash, task kind, tier, confidence,
   margin, candidates, pick, reason) and its outcome is recorded in the chat session
   log and in `run`'s `route` event (new `decision` field; `result` gains

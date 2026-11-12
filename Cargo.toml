@@ -39,6 +39,8 @@ assets = [
     ["config/models.toml", "usr/share/nectra/", "644"],
     ["README.md", "usr/share/doc/nectra/", "644"],
     ["config/*", "usr/share/doc/nectra/examples/", "644"],
+    ["packaging/systemd/nectra-laya.socket", "usr/lib/systemd/user/", "644"],
+    ["packaging/systemd/nectra-laya.service", "usr/lib/systemd/user/", "644"],
 ]
 
 [patch.crates-io]

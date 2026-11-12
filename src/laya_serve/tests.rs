@@ -485,8 +485,9 @@ fn served_real_model_matches_in_process() {
     let roles = ["fast_cheap", "strong_general", "coding_specialist"];
     let prompts: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("../../eval/holdout.json")).unwrap();
-    let Ok(engine) = crate::laya::served_engine(&cfg) else {
-        panic!("model does not load")
+    let engine = match crate::laya::served_engine(&cfg) {
+        Ok(e) => e,
+        Err(e) => panic!("model does not load: {e}"),
     };
     let mut checked = 0;
     for (i, case) in prompts.iter().enumerate() {
