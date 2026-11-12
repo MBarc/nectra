@@ -14,12 +14,13 @@ fn main() {
         fake(Path::new(&log));
         return;
     }
-    let scenarios: [(&str, fn()); 25] = [
+    let scenarios: [(&str, fn()); 26] = [
         ("routed run, then --resume", run_then_resume),
         ("cost guard", cost_guard),
         ("deadline", deadline),
         ("deadline while stdin stays open", deadline_covers_stdin),
         ("rate-limit failover", failover),
+        ("escalation steps up the table ladder", escalation),
         ("typed routing failure", no_model),
         ("--mode/--provider and --no-session", per_task_flags),
         ("--mcp-config", mcp_config),
@@ -569,6 +570,75 @@ fn failover() {
     assert_eq!(r["attempts"][1]["error_class"], Value::Null);
     assert_eq!(r["model"], routes[1]["model"]);
     assert!(env.dir.path().join("state/cooldowns.json").is_file());
+}
+
+/// A table with the same two-rung ladder for every kind of normal work.
+fn with_ladder(env: &Env) {
+    let rung = |m: &str, p: f64| {
+        format!(
+            "[[table.ladder]]\nmodel = \"{m}\"\nn = 30\npass_rate = {p}\nci = [0.5, 0.99]\nrun = \"t1\"\n"
+        )
+    };
+    let kinds = [
+        "code_generation",
+        "debugging",
+        "refactoring",
+        "code_review",
+        "architecture",
+        "research",
+        "writing",
+        "planning",
+        "data_analysis",
+        "general",
+    ];
+    let path = env.dir.path().join("models.toml");
+    let mut text = fs::read_to_string(&path).unwrap();
+    for kind in kinds {
+        text += &format!(
+            "[[table]]\nkind = \"{kind}\"\ntier = \"normal\"\n{}{}\n",
+            rung("haiku", 0.7),
+            rung("gpt-5.6-luna", 0.9)
+        );
+    }
+    fs::write(path, text).unwrap();
+}
+
+fn escalation() {
+    let env = Env::new();
+    with_ladder(&env);
+    let prompt = "explain how the borrow checker treats closures that capture mutable state";
+    // First attempt: the table's cheapest rung.
+    let (_, events) = env.run(&[prompt]);
+    let first = events.iter().find(|e| e["type"] == "route").unwrap();
+    assert_eq!(first["model"], "haiku", "{first}");
+    assert_eq!(first["decision"]["ladder"]["rung"], 0);
+    let first_id = first["decision"]["id"].clone();
+    // The caller's tests failed on haiku: one rung up, linked to the first decision.
+    let (_, events) = env.run(&[
+        "--escalate-from",
+        "haiku",
+        "--prior-decision",
+        first_id.as_str().unwrap(),
+        prompt,
+    ]);
+    let second = events.iter().find(|e| e["type"] == "route").unwrap();
+    assert_eq!(second["model"], "gpt-5.6-luna", "{second}");
+    assert_eq!(second["decision"]["escalation"], 1);
+    assert_eq!(second["decision"]["ladder"]["rung"], 1);
+    let outcomes = &result(&events)["decision_outcomes"];
+    assert_eq!(outcomes[0]["decision"], first_id, "{outcomes}");
+    assert_eq!(outcomes[0]["outcome"], "failed_tests");
+    assert_eq!(outcomes[0]["follow_up"], second["decision"]["id"]);
+    // The top of the ladder is the end: no step past it.
+    let (out, events) = env.run(&["--escalate-from", "gpt-5.6-luna", prompt]);
+    assert_ne!(out.status.code(), Some(0));
+    assert!(
+        result(&events)["error"]
+            .as_str()
+            .unwrap()
+            .contains("top of"),
+        "{events:?}"
+    );
 }
 
 fn no_model() {

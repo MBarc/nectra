@@ -133,6 +133,7 @@ mod tests {
                 profile("sonnet", Provider::Anthropic, Runtime::Claude),
                 profile("luna", Provider::Openai, Runtime::Codex),
             ],
+            table: vec![],
         }
     }
 

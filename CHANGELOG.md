@@ -4,6 +4,17 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Task x tier table: `[[table]]` entries in the registry map task kind x difficulty
+  tier to an ordered model ladder (cheapest acceptable first) with the evidence for
+  each rung; the router uses an entry whenever one exists and otherwise routes as
+  before. Confidence hedge (`[routing] tier_hedge`, `hedge_confidence_below`,
+  `hedge_margin_below`) and escalation up the ladder (`max_escalations`; `/again`,
+  tool errors, model switches in chat). `nectra registry table import|show`.
+  `nectra run` gains `--escalate-from MODEL`, `--escalation`, `--prior-decision`,
+  `--prior-outcome`. Decision records gain optional `ladder` and `escalation`;
+  `route` JSON gains `ladder` and `escalation` only when set. See
+  [docs/routing.md](docs/routing.md#task-x-tier-table).
+
 - Shared Laya server: `nectra laya serve|status|stop` (JSON output). Nectra
   processes share one model through a per-user socket (named pipe on Windows)
   instead of loading about 1 GiB and 16-20 s each; the server starts on demand and

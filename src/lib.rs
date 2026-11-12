@@ -22,5 +22,6 @@ pub mod router;
 pub mod session;
 pub mod setup;
 pub mod skills;
+pub mod table;
 pub mod terminal;
 pub mod usage;

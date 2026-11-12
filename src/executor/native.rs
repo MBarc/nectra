@@ -875,6 +875,8 @@ mod tests {
                 ambiguous: false,
                 overridden: true,
                 reason: String::new(),
+                ladder: None,
+                escalation: 0,
                 candidates: vec![],
             };
             let root = tempfile::tempdir().unwrap();
@@ -916,6 +918,8 @@ mod tests {
             ambiguous: false,
             overridden: true,
             reason: String::new(),
+            ladder: None,
+            escalation: 0,
             candidates: vec![],
         };
         let root = tempfile::tempdir().unwrap();

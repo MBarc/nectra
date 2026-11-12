@@ -56,9 +56,29 @@ pub struct DecisionRecord {
     pub reason: String,
     /// The user pinned a model or provider.
     pub overridden: bool,
+    /// The task x tier table's pick: its position and the ladder's length.
+    /// Absent when the table did not choose.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ladder: Option<LadderRecord>,
+    /// Escalations the task had taken before this decision (1 = first step up).
+    /// Absent for a first pick. The previous decision's outcome links here
+    /// through its `follow_up`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub escalation: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LadderRecord {
+    pub kind: String,
+    pub tier: String,
+    /// 0 = the cheapest rung.
+    pub rung: usize,
+    pub len: usize,
+    /// Started a rung higher because the tier was uncertain.
+    pub hedged: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
     Completed,
@@ -176,6 +196,14 @@ impl DecisionRecord {
                 strip_file_note(&decision.reason)
             },
             overridden: decision.overridden,
+            ladder: decision.ladder.as_ref().map(|l| LadderRecord {
+                kind: l.kind.clone(),
+                tier: l.tier.clone(),
+                rung: l.rung,
+                len: l.ladder_len,
+                hedged: l.hedged,
+            }),
+            escalation: (decision.escalation > 0).then_some(decision.escalation),
         }
     }
 }
@@ -310,6 +338,8 @@ mod tests {
             pick_score: 1.0,
             reason: "r".into(),
             overridden: false,
+            ladder: None,
+            escalation: None,
         }
     }
 

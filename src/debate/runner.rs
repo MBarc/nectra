@@ -127,6 +127,8 @@ fn decision(base: &Decision, model: &ModelProfile) -> Decision {
         ambiguous: base.ambiguous,
         overridden: base.overridden,
         reason: base.reason.clone(),
+        ladder: None,
+        escalation: 0,
         candidates: vec![],
     }
 }
@@ -414,6 +416,8 @@ mod tests {
             ambiguous: false,
             overridden: false,
             reason: String::new(),
+            ladder: None,
+            escalation: 0,
             candidates: vec![],
         }
     }

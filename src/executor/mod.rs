@@ -721,6 +721,8 @@ mod tests {
             ambiguous: false,
             overridden: false,
             reason: String::new(),
+            ladder: None,
+            escalation: 0,
             candidates: vec![],
         };
         let flag = |args: &[std::ffi::OsString]| {

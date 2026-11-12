@@ -61,6 +61,21 @@ pub struct Args {
     /// Only Claude and Ollama models can be held to that; others are refused.
     #[arg(long, requires = "events", conflicts_with_all = ["resume", "mcp_config"])]
     pub no_tools: bool,
+    /// The caller's last attempt failed on this model (its tests failed, or the
+    /// tool errored): start one rung above it on the task's table ladder.
+    #[arg(long, requires = "events", value_name = "MODEL", conflicts_with_all = ["resume", "serve"])]
+    pub escalate_from: Option<String>,
+    /// Escalations this task has taken, this one included; the cap is
+    /// `[routing] max_escalations`.
+    #[arg(long, requires = "escalate_from", value_parser = clap::value_parser!(u32).range(1..))]
+    pub escalation: Option<u32>,
+    /// The failed attempt's decision id (from its `route` event), so the log
+    /// links its outcome to this run's decision.
+    #[arg(long, requires = "escalate_from", value_name = "ID")]
+    pub prior_decision: Option<String>,
+    /// How the failed attempt ended (default failed-tests).
+    #[arg(long, requires = "prior_decision", value_enum)]
+    pub prior_outcome: Option<crate::decisions::Outcome>,
 }
 
 fn positive(s: &str) -> Result<f64, String> {
@@ -1087,6 +1102,23 @@ fn task(
         let mut tried: Vec<String> = vec![];
         // The decision that just failed, so the fallback is linked to it.
         let mut failed_decision: Option<(String, crate::decisions::Outcome)> = None;
+        // A caller whose attempt failed asks for the next rung up the task's
+        // table ladder (`--escalate-from`); a retry inside this run is a
+        // fallback to another model, not an escalation.
+        let steer = crate::table::Steer {
+            above: args.escalate_from.clone(),
+            escalations: args
+                .escalate_from
+                .as_ref()
+                .map_or(0, |_| args.escalation.unwrap_or(1)),
+        };
+        if let (Some(_), Some(prior)) = (&args.escalate_from, &args.prior_decision) {
+            let why = args
+                .prior_outcome
+                .unwrap_or(crate::decisions::Outcome::FailedTests);
+            outcomes.push(json!({"decision": prior, "outcome": why, "follow_up": null}));
+            failed_decision = Some((prior.clone(), why));
+        }
         let mut names = HashMap::new();
         if let Some(m) = registry
             .models
@@ -1119,13 +1151,15 @@ fn task(
                     })
                     .cloned()
                     .collect(),
+                table: registry.table.clone(),
             };
             let pinned = resumed
                 .as_ref()
                 .map(|r| r.model.clone())
                 .or(cli.model.clone());
             let route = {
-                let (prompt, cfg, pinned) = (prompt.clone(), cfg.clone(), pinned.clone());
+                let (prompt, cfg, pinned, steer) =
+                    (prompt.clone(), cfg.clone(), pinned.clone(), steer.clone());
                 let mode = cli.mode.unwrap_or(cfg.inner.routing.default_mode);
                 let provider = if resumed.is_some() {
                     None
@@ -1133,7 +1167,9 @@ fn task(
                     cli.provider
                 };
                 bounded(until, cancel, Duration::ZERO, move |_| {
-                    router::route_traced(&prompt, &cfg, &available, mode, provider, pinned)
+                    router::route_traced_steered(
+                        &prompt, &cfg, &available, mode, provider, pinned, &steer,
+                    )
                 })
             };
             let (decision, classification) = match route {
@@ -1410,6 +1446,8 @@ mod tests {
             ambiguous: false,
             overridden: false,
             reason: String::new(),
+            ladder: None,
+            escalation: 0,
             candidates: vec![],
         }
     }

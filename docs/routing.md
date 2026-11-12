@@ -135,6 +135,8 @@ re-meant field bumps it.
 | `pick`, `pick_provider`, `pick_score` | The chosen model and its score |
 | `reason` | Why it was picked |
 | `overridden` | The user pinned a model or provider |
+| `ladder` | Only when the [task x tier table](#task-x-tier-table) chose: `{kind, tier, rung, len, hedged}`, `rung` 0 = cheapest |
+| `escalation` | Only on a retry: how many steps up the ladder the task has taken (1 = first) |
 | `outcome` | Latest result of the turn: `completed`, `tool_error` or `limit`; null while unfinished (`nectra log decisions` only) |
 | `user_action` | Latest `user_again`, `user_switch_model` or `override` after it, or null (`nectra log decisions` only) |
 | `follow_up` | `id` of the decision that followed this one, or null (`nectra log decisions` only) |
@@ -146,7 +148,7 @@ follow_up}}` in a session log) so a decision is never rewritten; the latest wins
 | `outcome` | When |
 | --- | --- |
 | `completed` | The model answered |
-| `failed_tests` | Reserved for writers that run tests; chat and `run` do not emit it yet |
+| `failed_tests` | The caller's objective test failed; `nectra run --prior-outcome` (default) records it for the attempt `--escalate-from` names. Chat does not run tests |
 | `tool_error` | The agent failed, was unavailable, or returned no answer |
 | `limit` | A provider rate or usage limit stopped it |
 | `deadline` | `nectra run --deadline` passed before the turn finished |
@@ -156,6 +158,85 @@ follow_up}}` in a session log) so a decision is never rewritten; the latest wins
 
 `follow_up` links a failed decision to the fallback that replaced it, and a decision
 to the `/again` retry or switch that followed it.
+
+## Task x tier table
+
+Laya supplies the task **kind** and a difficulty **tier** with its confidence; a
+table in the model registry says which model takes that work. Each
+`[[table]]` entry is one kind x tier and an ordered **ladder**, cheapest acceptable
+model first, every rung carrying its evidence (trials, pass rate, confidence
+interval, the calibration run it came from):
+
+```toml
+[[table]]
+kind = "debugging"          # code_generation, debugging, refactoring, code_review,
+tier = "normal"             # architecture, research, writing, planning, data_analysis, general
+[[table.ladder]]            # simple | normal | demanding
+model = "sonnet"
+n = 30
+pass_rate = 0.77
+ci = [0.59, 0.88]
+run = "rh-v2-0412"
+[[table.ladder]]
+model = "opus"
+n = 30
+pass_rate = 0.93
+ci = [0.79, 0.98]
+run = "rh-v2-0412"
+```
+
+**With no table, or no entry for the kind and tier, routing is exactly what it
+was** (roles and scores, above). Every model named must be in the registry.
+A pinned model (`--model`, `/model`, sticky follow-ups) skips the table.
+
+- **Tier.** From Laya's difficulty against `[classifier] simple_below` and
+  `demanding_above`, so those still steer the table. The prompt-keyword rules
+  ("complex", "quick") decide the tier only on the keywords backend, which has no
+  difficulty; with Laya or Jev the words are ignored here.
+- **Modes.** `--mode fast` takes the cheapest rung and never hedges up; `best` takes
+  the strongest available rung; `balanced` takes the cheapest, hedged as below.
+  An unavailable model (cooldown, no login, denied) is skipped to the next rung.
+- **Confidence hedge**, on by default. When the classifier's confidence in the task
+  kind is under `hedge_confidence_below` (0.6), or Laya's difficulty is within
+  `hedge_margin_below` (0.05, in difficulty units) of a tier boundary, `balanced`
+  starts one rung higher (`tier_hedge = "rung"`), or takes the dearer of the picks
+  for the tier and its nearer neighbour (`"top2"`); `"off"` trusts the tier. Keywords
+  have neither signal and never hedge.
+
+```toml
+[routing]
+tier_hedge = "rung"             # rung | top2 | off
+hedge_confidence_below = 0.6
+hedge_margin_below = 0.05
+max_escalations = 2             # 0 turns escalation off
+```
+
+### Escalation
+
+A task that fails steps **one rung up** from the model that failed. It never
+steps past the top of the ladder, or past `max_escalations` steps, and then says so
+rather than falling back to something unmeasured. The triggers:
+
+| Trigger | Where |
+| --- | --- |
+| A tool error that is not a limit | Chat: the next message of the task, or `/again`, climbs. `run` does not replay work that started |
+| `/again` | Chat: one rung above the model that answered (not "the strongest") |
+| `failed_tests`: the caller's objective test failed | `nectra run --escalate-from MODEL [--escalation N] [--prior-decision ID] [--prior-outcome failed-tests\|tool-error]` |
+| The user switches model | Chat: logged as the escalation (not a second step after a failure) |
+
+Limits and the deadline are fallbacks, not escalations. Every escalation is logged:
+the failed decision's outcome has `follow_up` pointing at the new decision, which
+carries `escalation` and `ladder` (`nectra log decisions`, `run`'s `route` event
+and `decision_outcomes`).
+
+### Loading a table
+
+`nectra registry table import FILE.json [--dry-run]` writes the table from the
+calibration output into the registry file between two marker comments (a later
+import replaces just that block; the models are untouched) and refuses a table that
+fails validation. `nectra registry table show [--json]` prints what the registry
+holds. The input format is [docs/examples/tier-table.example.json](examples/tier-table.example.json):
+a placeholder, not measured, and not part of the default configuration.
 
 ## Access and fallback
 

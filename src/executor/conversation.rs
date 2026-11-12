@@ -738,6 +738,8 @@ mod tests {
             ambiguous: false,
             overridden: false,
             reason: String::new(),
+            ladder: None,
+            escalation: 0,
             candidates: vec![],
         };
         let mut cfg = crate::config::Config::from_defaults().unwrap();

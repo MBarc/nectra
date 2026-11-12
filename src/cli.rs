@@ -180,6 +180,11 @@ pub enum Commands {
     },
     /// List configured models.
     Models,
+    /// The model registry's measured task x tier table (docs/routing.md).
+    Registry {
+        #[command(subcommand)]
+        command: RegistryCommands,
+    },
     /// Evaluate task classification against a local JSON corpus (uses Jev when TYPESAFE_API_KEY is set).
     Eval {
         corpus: PathBuf,
@@ -226,6 +231,32 @@ pub enum Commands {
         /// every CLI sees them. Never replaces an existing entry.
         #[arg(long)]
         link: bool,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum RegistryCommands {
+    /// The task x tier table: one ladder of models per task kind and tier.
+    Table {
+        #[command(subcommand)]
+        command: TableCommands,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum TableCommands {
+    /// Load a table from calibration output (JSON) into the registry file,
+    /// replacing the table a previous import wrote.
+    Import {
+        json: PathBuf,
+        /// Check the file and show what would be written, change nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Print the table the registry holds, as a summary or as JSON.
+    Show {
+        #[arg(long)]
+        json: bool,
     },
 }
 

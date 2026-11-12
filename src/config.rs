@@ -39,6 +39,26 @@ pub struct RoutingConfig {
     /// Off by default: the log keeps only a hash of the prompt.
     #[serde(default)]
     pub log_prompt_text: bool,
+    /// How the task x tier table hedges an uncertain tier (docs/routing.md).
+    pub tier_hedge: TierHedge,
+    /// Hedge when the classifier's confidence in the task kind is below this.
+    pub hedge_confidence_below: f64,
+    /// Hedge when Laya's difficulty is closer than this to a tier boundary
+    /// (`simple_below`, `demanding_above`), in difficulty units (0..1).
+    pub hedge_margin_below: f64,
+    /// Most rungs one task may climb after failures; 0 turns escalation off.
+    pub max_escalations: u32,
+}
+/// What to do when the tier is a close call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TierHedge {
+    /// Trust the tier.
+    Off,
+    /// Start one rung higher on the same ladder.
+    Rung,
+    /// Take the dearer of the picks for the tier and its nearer neighbour.
+    Top2,
 }
 fn enabled() -> bool {
     true
@@ -53,6 +73,10 @@ impl Default for RoutingConfig {
             handoff_summary: true,
             stakes_weight: 0.30,
             log_prompt_text: false,
+            tier_hedge: TierHedge::Rung,
+            hedge_confidence_below: 0.6,
+            hedge_margin_below: 0.05,
+            max_escalations: 2,
         }
     }
 }
@@ -284,6 +308,12 @@ impl Config {
             || !(0.0..=1.0).contains(&self.inner.routing.confidence_margin)
         {
             bail!("confidence_margin must be finite and between 0 and 1");
+        }
+        let r = &self.inner.routing;
+        if !(0.0..=1.0).contains(&r.hedge_confidence_below)
+            || !(0.0..=1.0).contains(&r.hedge_margin_below)
+        {
+            bail!("hedge_confidence_below and hedge_margin_below must be between 0 and 1");
         }
         if !(0.0..=1.0).contains(&self.inner.routing.stakes_weight) {
             bail!("stakes_weight must be between 0 and 1");

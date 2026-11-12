@@ -64,6 +64,8 @@ fn signal_driver(root: &Path) {
         ambiguous: false,
         overridden: true,
         reason: String::new(),
+        ladder: None,
+        escalation: 0,
         candidates: vec![],
     };
     let result = nectra::executor::conversation(
@@ -183,6 +185,8 @@ fn exercise(mode: &str) {
         ambiguous: false,
         overridden: true,
         reason: String::new(),
+        ladder: None,
+        escalation: 0,
         candidates: vec![],
     };
     let cancel = CancellationToken::default();

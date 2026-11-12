@@ -1,0 +1,30 @@
+{
+  "run": "PLACEHOLDER-not-measured",
+  "entries": [
+    {
+      "kind": "debugging",
+      "tier": "simple",
+      "ladder": [
+        {"model": "haiku", "n": 30, "pass_rate": 0.80, "ci": [0.63, 0.91]},
+        {"model": "sonnet", "n": 30, "pass_rate": 0.90, "ci": [0.74, 0.97]}
+      ]
+    },
+    {
+      "kind": "debugging",
+      "tier": "normal",
+      "ladder": [
+        {"model": "sonnet", "n": 30, "pass_rate": 0.77, "ci": [0.59, 0.88]},
+        {"model": "gpt-5.6-sol", "n": 30, "pass_rate": 0.87, "ci": [0.70, 0.95]},
+        {"model": "opus", "n": 30, "pass_rate": 0.93, "ci": [0.79, 0.98]}
+      ]
+    },
+    {
+      "kind": "debugging",
+      "tier": "demanding",
+      "ladder": [
+        {"model": "gpt-5.6-sol", "n": 30, "pass_rate": 0.60, "ci": [0.42, 0.75]},
+        {"model": "opus", "n": 30, "pass_rate": 0.80, "ci": [0.63, 0.91]}
+      ]
+    }
+  ]
+}

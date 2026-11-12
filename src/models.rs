@@ -142,10 +142,14 @@ pub fn roster_line(m: &ModelProfile) -> String {
 #[serde(deny_unknown_fields)]
 struct RegistryFile {
     model: Vec<ModelProfile>,
+    /// Measured task kind x tier ladders (docs/routing.md); none by default.
+    #[serde(default)]
+    table: Vec<crate::table::TableEntry>,
 }
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Registry {
     pub models: Vec<ModelProfile>,
+    pub table: Vec<crate::table::TableEntry>,
 }
 
 impl Registry {
@@ -213,7 +217,10 @@ impl Registry {
                 }
             }
         }
-        let registry = Self { models: file.model };
+        let registry = Self {
+            models: file.model,
+            table: file.table,
+        };
         registry.validate()?;
         Ok(registry)
     }
@@ -226,6 +233,7 @@ impl Registry {
         if self.models.is_empty() {
             bail!("model registry is empty")
         }
+        crate::table::validate(&self.table, |id| self.models.iter().any(|m| m.id == id))?;
         let mut ids = std::collections::HashSet::new();
         for m in &self.models {
             if m.id.trim().is_empty()
@@ -307,7 +315,13 @@ mod tests {
         let file: RegistryFile = toml::from_str(DEFAULT_REGISTRY).unwrap();
         let mut models = file.model;
         models[0].prefers = vec!["codng".into()];
-        let err = Registry { models }.validate().unwrap_err().to_string();
+        let err = Registry {
+            models,
+            table: vec![],
+        }
+        .validate()
+        .unwrap_err()
+        .to_string();
         assert!(
             err.contains("codng") && err.contains("simple-coding"),
             "{err}"
@@ -317,7 +331,10 @@ mod tests {
     #[test]
     fn embedded_registry_only_has_allowed_providers() {
         let file: RegistryFile = toml::from_str(DEFAULT_REGISTRY).unwrap();
-        let r = Registry { models: file.model };
+        let r = Registry {
+            models: file.model,
+            table: file.table,
+        };
         r.validate().unwrap();
     }
 }

@@ -267,6 +267,8 @@ pub fn one_shot(
             ambiguous: false,
             overridden: false,
             reason: String::new(),
+            ladder: None,
+            escalation: 0,
             candidates: vec![],
         };
         let args = plain::provider_args(&probe, cfg.knowledge.as_deref())?;

@@ -1228,3 +1228,160 @@ fn again_is_refused_in_debate_and_logs_the_retry_before_the_replacement() {
     assert_eq!(session.interrupted.as_deref(), Some("hello there"));
     assert!(session.exchanges.is_empty());
 }
+
+/// The bundled registry plus a three-rung ladder for every kind of normal work.
+fn fixture_with_ladder(max_escalations: u32) -> (tempfile::TempDir, Config, Registry) {
+    let dir = tempfile::tempdir().unwrap();
+    let rung = |m: &str, p: f64| nectra::table::Rung {
+        model: m.into(),
+        n: 30,
+        pass_rate: p,
+        ci: [0.5, 0.99],
+        run: "t1".into(),
+    };
+    let table: Vec<_> = nectra::table::KINDS
+        .iter()
+        .map(|k| nectra::table::TableEntry {
+            kind: (*k).into(),
+            tier: "normal".into(),
+            ladder: vec![rung("haiku", 0.6), rung("sonnet", 0.8), rung("opus", 0.95)],
+        })
+        .collect();
+    fs::write(
+        dir.path().join("config.toml"),
+        include_str!("../config/nectra.toml").replacen(
+            "[routing]",
+            &format!("[routing]\nmax_escalations = {max_escalations}"),
+            1,
+        ),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("models.toml"),
+        nectra::table::splice(include_str!("../config/models.toml"), &table).unwrap(),
+    )
+    .unwrap();
+    let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
+    let registry = Registry::load(&cfg).unwrap();
+    (dir, cfg, registry)
+}
+const TASK: &str = "explain how the borrow checker treats closures that capture mutable state";
+
+#[test]
+fn a_tool_error_steps_the_task_up_its_ladder_and_links_the_decisions() {
+    let (dir, cfg, reg) = fixture_with_ladder(2);
+    let path = dir.path().join("escalate.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut opts = options();
+    opts.mode = Mode::Balanced;
+    let mut backend = Mock {
+        fail_next: true,
+        ..Default::default()
+    };
+    // The first try errors; the same message sent again climbs one rung.
+    chat::run_loop(
+        &cfg,
+        &reg,
+        opts,
+        &mut session,
+        &mut Cursor::new(format!("{TASK}\n/again\n/quit\n")),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models, ["haiku", "sonnet"]);
+    let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
+    assert_eq!(logged.len(), 2, "{logged:?}");
+    assert_eq!(
+        logged[0].outcome,
+        Some(nectra::decisions::Outcome::ToolError)
+    );
+    assert_eq!(
+        logged[0].follow_up.as_deref(),
+        Some(logged[1].decision.id.as_str())
+    );
+    assert_eq!(logged[0].decision.escalation, None);
+    assert_eq!(logged[1].decision.escalation, Some(1));
+    assert_eq!(logged[1].decision.ladder.as_ref().unwrap().rung, 1);
+    assert_eq!(
+        logged[1].outcome,
+        Some(nectra::decisions::Outcome::Completed)
+    );
+}
+
+#[test]
+fn again_after_an_answer_is_one_rung_not_the_strongest_model() {
+    let (dir, cfg, reg) = fixture_with_ladder(2);
+    let path = dir.path().join("again-ladder.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut opts = options();
+    opts.mode = Mode::Balanced;
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        opts,
+        &mut session,
+        &mut Cursor::new(format!("{TASK}\n/again\n/again\n/again\n/quit\n")),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    // haiku, then up a rung each time; past opus the cap (2 steps) or the top ends it.
+    assert_eq!(backend.models, ["haiku", "sonnet", "opus"]);
+}
+
+#[test]
+fn the_step_cap_ends_escalation() {
+    let (dir, cfg, reg) = fixture_with_ladder(1);
+    let path = dir.path().join("cap.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut opts = options();
+    opts.mode = Mode::Balanced;
+    let mut backend = Mock::default();
+    let mut output = vec![];
+    chat::run_loop(
+        &cfg,
+        &reg,
+        opts,
+        &mut session,
+        &mut Cursor::new(format!("{TASK}\n/again\n/again\n/quit\n")),
+        &mut output,
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models, ["haiku", "sonnet"]);
+    assert!(String::from_utf8(output)
+        .unwrap()
+        .contains("escalation cap"));
+}
+
+#[test]
+fn a_user_switch_is_logged_as_an_escalation() {
+    let (dir, cfg, reg) = fixture_with_ladder(2);
+    let path = dir.path().join("switch-esc.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    let mut opts = options();
+    opts.mode = Mode::Balanced;
+    let mut backend = Mock {
+        fail_next: true,
+        ..Default::default()
+    };
+    chat::run_loop(
+        &cfg,
+        &reg,
+        opts,
+        &mut session,
+        &mut Cursor::new(format!("{TASK}\n/model opus\n{TASK}\n/quit\n")),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
+    assert_eq!(
+        logged[0].user_action,
+        Some(nectra::decisions::Outcome::UserSwitchModel)
+    );
+    assert_eq!(logged[1].decision.pick, "opus");
+    assert_eq!(logged[1].decision.escalation, Some(1));
+}

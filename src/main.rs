@@ -86,14 +86,21 @@ fn app() -> Result<i32> {
                 }
             }
             LayaCommands::Status => {
-                let status = nectra::laya_serve::status(&config::Config::load(cli.config.as_deref())?)?;
+                let status =
+                    nectra::laya_serve::status(&config::Config::load(cli.config.as_deref())?)?;
                 println!("{status}");
                 Ok(if status["running"] == true { 0 } else { 1 })
             }
             LayaCommands::Stop => {
                 let stopped = nectra::laya_serve::stop()?;
                 println!("{stopped}");
-                Ok(if stopped["stopped"] == true || stopped["running"] == false { 0 } else { 1 })
+                Ok(
+                    if stopped["stopped"] == true || stopped["running"] == false {
+                        0
+                    } else {
+                        1
+                    },
+                )
             }
         };
     }
@@ -290,6 +297,12 @@ fn app() -> Result<i32> {
     }
     if chatting {
         return chat::run(&cli, &cfg, &registry);
+    }
+    if let Some(Commands::Registry {
+        command: nectra::cli::RegistryCommands::Table { command },
+    }) = &cli.command
+    {
+        return nectra::table::command(&cfg, &registry, command);
     }
     if matches!(cli.command, Some(Commands::Models)) {
         let mut output = nectra::terminal::stdout();

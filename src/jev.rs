@@ -126,7 +126,7 @@ fn endpoint() -> String {
 }
 
 /// How much model a prompt needs; drives the cheap/strong routing roles.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     Simple,
     Normal,

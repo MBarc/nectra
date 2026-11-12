@@ -287,6 +287,9 @@ pub fn run_loop(
     let mut unanswered = session.interrupted.clone().or(session.last_failed.clone());
     // Set by /again for the next turn: a model to use, or one to beat.
     let mut again: Option<Again> = None;
+    // A table pick that failed, was asked again, or was overruled: the next
+    // message of the same task climbs the ladder from it.
+    let mut escalating: Option<Escalating> = None;
     'messages: loop {
         queued.extend(backend.take_queued_messages());
         write!(output, "\nyou> ")?;
@@ -711,10 +714,26 @@ pub fn run_loop(
         ) == "demanding";
         // Consumed every message, so a /mode before a new task doesn't linger.
         let rerouted = std::mem::take(&mut reroute);
+        let task_kind = classification.task.to_string();
+        let carried = escalating
+            .take()
+            .filter(|e| classification.new_task != Some(true) && e.kind == task_kind)
+            // Steps carry through a failure's retry and through /again, not
+            // into an unrelated next message.
+            .filter(|e| e.failed.is_some() || again.is_some());
         let continuing = cfg.inner.routing.sticky
             && classification.new_task == Some(false)
             && !rerouted
-            && !demanding;
+            && !demanding
+            && carried.as_ref().is_none_or(|e| e.failed.is_none());
+        let mut steer = crate::table::Steer {
+            above: carried.as_ref().and_then(|e| e.failed.clone()),
+            escalations: carried.as_ref().map_or(0, |e| e.steps),
+        };
+        if let Some(Again::Stronger(beat)) = &again {
+            steer.above = Some(beat.clone());
+            steer.escalations += 1;
+        }
         let last_model = previous.map(|e| e.model.clone());
         // One /again is one retry, however many models the turn falls back through.
         let mut again_recorded = false;
@@ -735,6 +754,7 @@ pub fn run_loop(
                     })
                     .cloned()
                     .collect(),
+                table: registry.table.clone(),
             };
             if available.models.is_empty() {
                 if let Some(skipped) = skipped.take() {
@@ -763,7 +783,7 @@ pub fn run_loop(
                     && turn_provider.is_none()
                     && available.models.iter().any(|a| &a.id == m)
             });
-            let (decision, mut why) = match router::route_summarized(
+            let (mut decision, mut why) = match router::route_summarized_steered(
                 classification.clone(),
                 &message,
                 cfg,
@@ -771,6 +791,7 @@ pub fn run_loop(
                 turn_mode,
                 turn_provider,
                 turn_model.clone().or(sticky.clone()),
+                &steer,
             ) {
                 Ok((mut decision, why)) => {
                     if let Some(model) = &sticky {
@@ -791,6 +812,7 @@ pub fn run_loop(
                         output,
                         "Routing failed: {error:#}. Use /model auto or /models."
                     )?;
+                    // Past the cap or the top of the ladder: the next message starts over.
                     continue 'messages;
                 }
             };
@@ -911,13 +933,6 @@ pub fn run_loop(
             output.flush()?;
             // Persist the input before launching a child; failures never become assistant context.
             let replaced = replaces.take();
-            let record = crate::decisions::DecisionRecord::new(
-                "chat",
-                &message,
-                cfg.inner.routing.log_prompt_text,
-                &classification,
-                &decision,
-            );
             let follows = fallback_from.take().or_else(|| {
                 use crate::decisions::Outcome;
                 let (previous, previous_model) = last_decision.clone()?;
@@ -934,6 +949,31 @@ pub fn run_loop(
                     None
                 }
             });
+            // The user overruling the pick is an escalation too: it counts
+            // against the task's steps and is logged with the decision.
+            if matches!(
+                &follows,
+                Some((_, crate::decisions::Outcome::UserSwitchModel))
+            ) {
+                // After a failure the step is already counted: the user's pick
+                // is the answer to it, not a second climb.
+                if steer.above.is_none() {
+                    steer.escalations += 1;
+                }
+                decision.escalation = steer.escalations;
+                escalating = Some(Escalating {
+                    kind: task_kind.clone(),
+                    failed: None,
+                    steps: steer.escalations,
+                });
+            }
+            let record = crate::decisions::DecisionRecord::new(
+                "chat",
+                &message,
+                cfg.inner.routing.log_prompt_text,
+                &classification,
+                &decision,
+            );
             let decision_id = record.id.clone();
             let route = crate::session::Route {
                 why: why.clone(),
@@ -974,6 +1014,14 @@ pub fn run_loop(
                 if let Some(outcome) = failed {
                     session.outcome(&decision_id, outcome, None)?;
                     fallback_from = Some((decision_id.clone(), outcome));
+                    // A tool error that is not a limit steps the task up its ladder.
+                    if outcome == Outcome::ToolError && decision.ladder.is_some() {
+                        escalating = Some(Escalating {
+                            kind: task_kind.clone(),
+                            failed: Some(decision.model.clone()),
+                            steps: steer.escalations + 1,
+                        });
+                    }
                 }
             }
             match response {
@@ -981,6 +1029,12 @@ pub fn run_loop(
                     successful_models.insert(decision.model.clone());
                     session.complete_in(&reply, turn_session.id.as_deref())?;
                     session.outcome(&decision_id, crate::decisions::Outcome::Completed, None)?;
+                    // An answer ends a failure's escalation; /again can still climb on.
+                    escalating = (steer.escalations > 0).then(|| Escalating {
+                        kind: task_kind.clone(),
+                        failed: None,
+                        steps: steer.escalations,
+                    });
                     unanswered = None;
                     // Real chats only: a test run (no cooldown state) never reads real logs.
                     if cooldown_state.is_some() {
@@ -1119,6 +1173,17 @@ pub fn run_loop(
 }
 
 /// What `/again` asked of the next turn.
+/// Where a task stands on its table ladder after a failure or an override.
+struct Escalating {
+    /// The task kind; a different kind is a different task.
+    kind: String,
+    /// The model that failed; the next pick is one rung above it. None after
+    /// the user chose a model themselves.
+    failed: Option<String>,
+    /// Escalations taken so far, against `[routing] max_escalations`.
+    steps: u32,
+}
+
 enum Again {
     /// Route afresh, excluding this model and judging on capability.
     Stronger(String),
