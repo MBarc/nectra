@@ -105,7 +105,8 @@ impl RateLimited {
         // this provider is exhausted.
         let says = |s: &&str| kind.contains(s) || lower.contains(s);
         // A stated wait: agy's "Resets in 79h35m25s".
-        let stated = resets_after(&message);
+        // Gemini's per-minute 429s say "Please retry in 23.5s".
+        let stated = resets_after(&message).or_else(|| retry_in(&message));
         // An exhausted plan or spend cap lasts hours; an organization's
         // per-minute rate limit is provider-wide but clears within a minute.
         let exhausted = [
@@ -115,13 +116,15 @@ impl RateLimited {
             "spend limit",
             "hit your limit",
             "quota reached",
-            // Google's plan or billing quota (agy, the Gemini API); its
-            // "exhausted your capacity" notice resets within seconds and is not one.
-            "exceeded your current quota",
-            "check your plan and billing",
         ]
         .iter()
         .any(says)
+            // Google's plan or billing quota (agy, the Gemini API) -- but the same
+            // words come with per-minute 429s, which state a short wait.
+            || (stated.is_none()
+                && ["exceeded your current quota", "check your plan and billing"]
+                    .iter()
+                    .any(says))
             || stated.is_some_and(|s| s >= 3600);
         let provider_wide = exhausted || says(&"organization");
         let seconds = event["retry_after"]
@@ -176,6 +179,18 @@ const MAX_COOLDOWN: u64 = 8 * 86400;
 
 /// Seconds in a wait stated as a duration: "Resets in 79h35m25s" (agy) or
 /// "Your quota will reset after 3s" (Gemini).
+/// "Please retry in 23.5s": whole seconds, rounded up.
+fn retry_in(message: &str) -> Option<u64> {
+    let lower = message.to_lowercase();
+    let rest = lower.split("retry in ").nth(1)?;
+    let number: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '.')
+        .collect();
+    rest[number.len()..].starts_with('s').then_some(())?;
+    Some(number.parse::<f64>().ok()?.ceil() as u64)
+}
+
 fn resets_after(message: &str) -> Option<u64> {
     let lower = message.to_lowercase();
     let rest = ["resets in ", "reset after "]
@@ -358,6 +373,14 @@ mod tests {
         assert!(!exhausted(
             "You have exhausted your capacity on this model. Your quota will reset after 3s."
         ));
+        // The per-minute 429 uses the same words but states a short wait.
+        let minute = RateLimited::from_error(
+            &serde_json::json!({"message":"You exceeded your current quota, please check your plan and billing details. Please retry in 23.5s."}),
+            true,
+        )
+        .unwrap();
+        assert!(!minute.exhausted && !minute.provider_wide);
+        assert_eq!(minute.retry_after.as_secs(), 24);
     }
 
     #[test]

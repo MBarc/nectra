@@ -352,6 +352,26 @@ fn a_switch_after_a_failed_turn_links_to_the_failed_decision() {
 }
 
 #[test]
+fn a_switch_after_clear_does_not_link_to_the_earlier_decision() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("clear.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/model opus\nfirst\n/clear\n/model gpt-5.6-sol\nsecond\n/quit\n"),
+        &mut vec![],
+        &mut Mock::default(),
+    )
+    .unwrap();
+    let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
+    assert_eq!(logged.len(), 2);
+    assert!(logged[0].user_action.is_none() && logged[0].follow_up.is_none());
+}
+
+#[test]
 fn exhaustion_and_partial_work_do_not_replay_forever() {
     for started_work in [false, true] {
         let (dir, cfg, reg) = fixture();

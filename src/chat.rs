@@ -442,6 +442,8 @@ pub fn run_loop(
                 }
                 "/clear" => {
                     session.clear()?;
+                    // A new context: later switches don't link to earlier turns.
+                    last_decision = None;
                     provider_session = None;
                     unanswered = None;
                     writeln!(
