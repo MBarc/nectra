@@ -115,6 +115,10 @@ impl RateLimited {
             "spend limit",
             "hit your limit",
             "quota reached",
+            // Google's plan or billing quota (agy, the Gemini API); its
+            // "exhausted your capacity" notice resets within seconds and is not one.
+            "exceeded your current quota",
+            "check your plan and billing",
         ]
         .iter()
         .any(says)
@@ -339,6 +343,21 @@ mod tests {
         };
         assert!(exhausted("You've hit your usage limit."));
         assert!(!exhausted("rate limit exceeded"));
+    }
+
+    #[test]
+    fn google_plan_exhaustion_is_exhausted_but_a_short_capacity_limit_is_not() {
+        let exhausted = |message: &str| {
+            RateLimited::from_error(&serde_json::json!({ "message": message }), true)
+                .unwrap()
+                .exhausted
+        };
+        assert!(exhausted(
+            "429 RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details."
+        ));
+        assert!(!exhausted(
+            "You have exhausted your capacity on this model. Your quota will reset after 3s."
+        ));
     }
 
     #[test]

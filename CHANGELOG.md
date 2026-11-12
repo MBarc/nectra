@@ -16,6 +16,9 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
   other limits end at their `retry_after`.
 - Ollama models take `prefers` and `capabilities` from config (default roles
   `simple`, `general`); `prefers` in any registry must name a known role.
+- Session logs written from now on contain `outcome` records and a `decision` field
+  on user turns. An older Nectra cannot `--resume` such a session (it rejects the
+  unknown record); upgrade before resuming, or start a new session.
 
 - Laya `laya-model-1-alpha.2` (`nectra-laya` `1~alpha.2`): routes more hard,
   high-stakes specs to the demanding model and improves task accuracy on every

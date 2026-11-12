@@ -149,6 +149,7 @@ follow_up}}` in a session log) so a decision is never rewritten; the latest wins
 | `failed_tests` | Reserved for writers that run tests; chat and `run` do not emit it yet |
 | `tool_error` | The agent failed, was unavailable, or returned no answer |
 | `limit` | A provider rate or usage limit stopped it |
+| `deadline` | `nectra run --deadline` passed before the turn finished |
 | `user_again` | The user sent `/again` (links to the retry) |
 | `user_switch_model` | The user pinned a different model for the next message |
 | `override` | The user pinned a provider for the next message |

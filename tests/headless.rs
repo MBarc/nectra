@@ -550,6 +550,11 @@ fn deadline() {
     assert!(started.elapsed() < Duration::from_secs(20));
     assert_eq!(result(&events)["error_class"], "deadline");
     assert_eq!(out.status.code(), Some(4));
+    // The routed decision still gets an outcome.
+    let route_id = events.iter().find(|e| e["type"] == "route").unwrap()["decision"]["id"].clone();
+    let outcomes = &result(&events)["decision_outcomes"];
+    assert_eq!(outcomes[0]["decision"], route_id, "{outcomes}");
+    assert_eq!(outcomes[0]["outcome"], "deadline", "{outcomes}");
 }
 
 fn failover() {

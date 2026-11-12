@@ -271,7 +271,7 @@ pub fn run_loop(
     // provider says it resets: walking back into it costs the user a turn.
     let mut session_limits = crate::limits::Cooldowns::default();
     // The routing decision behind the last turn, so a retry or switch links to it.
-    let mut last_decision: Option<String> = None;
+    let mut last_decision: Option<(String, String)> = None;
     let mut needs_login: Vec<String> = vec![];
     let mut denied_models = std::collections::HashSet::<String>::new();
     let mut successful_models = std::collections::HashSet::<String>::new();
@@ -918,12 +918,10 @@ pub fn run_loop(
             );
             let follows = fallback_from.take().or_else(|| {
                 use crate::decisions::Outcome;
-                let previous = last_decision.clone()?;
+                let (previous, previous_model) = last_decision.clone()?;
                 if again.is_some() {
                     Some((previous, Outcome::UserAgain))
-                } else if decision.overridden
-                    && last_model.as_ref().is_some_and(|m| m != &decision.model)
-                {
+                } else if decision.overridden && previous_model != decision.model {
                     let outcome = if turn_model.is_some() {
                         Outcome::UserSwitchModel
                     } else {
@@ -961,7 +959,7 @@ pub fn run_loop(
             };
             // A failed turn may have left the provider session half-written; start fresh.
             provider_session = None;
-            last_decision = Some(decision_id.clone());
+            last_decision = Some((decision_id.clone(), decision.model.clone()));
             {
                 use crate::decisions::Outcome;
                 let failed = match &response {

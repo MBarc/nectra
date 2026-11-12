@@ -1191,6 +1191,7 @@ fn task(
             )?;
             let remaining = match until.map(|u| u.checked_duration_since(Instant::now())) {
                 Some(None) => {
+                    outcomes.push(json!({"decision": decision_id, "outcome": crate::decisions::Outcome::Deadline, "follow_up": null}));
                     last = Some(decision);
                     return fail("deadline", executor::DeadlineExceeded.into());
                 }
@@ -1312,6 +1313,8 @@ fn task(
             let (class, retry) = classify(&e, cancel);
             let outcome = if e.downcast_ref::<crate::limits::RateLimited>().is_some() {
                 crate::decisions::Outcome::Limit
+            } else if class == "deadline" {
+                crate::decisions::Outcome::Deadline
             } else {
                 crate::decisions::Outcome::ToolError
             };

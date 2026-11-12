@@ -316,6 +316,42 @@ fn every_decision_is_logged_with_its_outcome_and_the_fallback_linked() {
 }
 
 #[test]
+fn a_switch_after_a_failed_turn_links_to_the_failed_decision() {
+    let (dir, cfg, reg) = fixture();
+    let path = dir.path().join("switch.jsonl");
+    let mut session = Session::create(&path, dir.path()).unwrap();
+    // The first turn fails, so no answer exists to compare the next pick with.
+    let mut backend = Mock {
+        fail_next: true,
+        ..Default::default()
+    };
+    chat::run_loop(
+        &cfg,
+        &reg,
+        options(),
+        &mut session,
+        &mut Cursor::new("/model opus\nfirst\n/model gpt-5.6-sol\nsecond\n/quit\n"),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
+    assert_eq!(logged.len(), 2, "{logged:?}");
+    assert_eq!(
+        logged[0].outcome,
+        Some(nectra::decisions::Outcome::ToolError)
+    );
+    assert_eq!(
+        logged[0].user_action,
+        Some(nectra::decisions::Outcome::UserSwitchModel)
+    );
+    assert_eq!(
+        logged[0].follow_up.as_deref(),
+        Some(logged[1].decision.id.as_str())
+    );
+}
+
+#[test]
 fn exhaustion_and_partial_work_do_not_replay_forever() {
     for started_work in [false, true] {
         let (dir, cfg, reg) = fixture();

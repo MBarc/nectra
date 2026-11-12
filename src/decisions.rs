@@ -68,6 +68,8 @@ pub enum Outcome {
     ToolError,
     /// The provider's rate or usage limit stopped it.
     Limit,
+    /// The run's `--deadline` passed before it finished.
+    Deadline,
     /// The user sent `/again`.
     UserAgain,
     /// The user switched to another model for the next message.
