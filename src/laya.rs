@@ -124,7 +124,11 @@ static WARMING: AtomicBool = AtomicBool::new(false);
 /// Threads currently inside ONNX Runtime (the loader, an inference).
 static BUSY: AtomicUsize = AtomicUsize::new(0);
 
-struct Busy;
+pub(crate) struct Busy;
+/// Marks the calling thread as inside ONNX Runtime until the guard drops.
+pub(crate) fn busy() -> Busy {
+    Busy::enter()
+}
 impl Busy {
     fn enter() -> Self {
         BUSY.fetch_add(1, Ordering::SeqCst);
@@ -197,9 +201,44 @@ pub fn warm(cfg: &Config) {
     let busy = Busy::enter();
     std::thread::spawn(move || {
         let _busy = busy;
+        // The shared server first: it may be loaded already, and if not this
+        // process starts it and keeps using keywords until it is ready.
+        if via_service(&cfg) {
+            return;
+        }
         guarded(&cfg);
     });
 }
+
+/// True when this process routes through the shared server from now on.
+fn via_service(cfg: &Config) -> bool {
+    let Some(client) = crate::laya_serve::client_for(cfg) else {
+        return false;
+    };
+    match client.call(None, true) {
+        crate::laya_serve::Outcome::Ready => {
+            VIA_SERVICE.store(true, Ordering::SeqCst);
+            true
+        }
+        crate::laya_serve::Outcome::Local(why) => {
+            note_local(&why);
+            false
+        }
+        _ => false,
+    }
+}
+
+/// Said once on stderr when a running server is passed over, so a stale one
+/// is not a silent second copy of the model.
+fn note_local(why: &str) {
+    static SAID: AtomicBool = AtomicBool::new(false);
+    if why.starts_with("stale") && !SAID.swap(true, Ordering::SeqCst) {
+        eprintln!("Nectra: not using the Laya service ({why}); loading the model here. `nectra laya stop` ends it.");
+    }
+}
+
+/// This process routes through the shared server (set once it was ready).
+static VIA_SERVICE: AtomicBool = AtomicBool::new(false);
 
 /// [`engine`], with a panic remembered as a failed load: otherwise the cell
 /// stays empty and "still loading" forever, and messages use keywords.
@@ -219,7 +258,9 @@ fn guarded(cfg: &Config) {
 pub fn preload(cfg: &Config) {
     if cfg.inner.classifier.backend == crate::config::ClassifierBackend::Laya {
         let _busy = Busy::enter();
-        guarded(cfg);
+        if !via_service(cfg) {
+            guarded(cfg);
+        }
     }
 }
 
@@ -625,27 +666,72 @@ pub(crate) fn ask(
     roles: &[Role],
     cfg: &Config,
 ) -> Result<Answer> {
+    // A process that owns an engine uses it; so does one whose server is
+    // absent or refused. Otherwise the shared server, which gives the same
+    // answer: it runs the same code on the same pinned files.
+    if ENGINE.get().is_none() {
+        let warming = WARMING.load(Ordering::SeqCst);
+        if !warming || VIA_SERVICE.load(Ordering::SeqCst) {
+            if let Some(client) = crate::laya_serve::client_for(cfg) {
+                let names: Vec<&str> = roles.iter().map(|(name, _)| *name).collect();
+                match client.call(Some((prompt, previous, &names)), !warming) {
+                    crate::laya_serve::Outcome::Answer(a) => return Ok(a),
+                    crate::laya_serve::Outcome::Failed(why) => bail!("{why}"),
+                    crate::laya_serve::Outcome::Local(why) if warming => {
+                        bail!("Laya service unusable: {why}")
+                    }
+                    crate::laya_serve::Outcome::Local(why) => note_local(&why),
+                    crate::laya_serve::Outcome::Ready => {}
+                }
+            }
+        }
+    }
     let engine = match ENGINE.get() {
         None if WARMING.load(Ordering::SeqCst) => bail!("Laya still loading"),
         found => found.unwrap_or_else(|| engine(cfg)),
     }
     .as_ref()
     .map_err(|e| anyhow::anyhow!("Laya failed to load: {e}"))?;
-    let (prompt, previous, roles) = (
+    let (prompt, previous, names) = (
         prompt.to_string(),
         previous.map(str::to_string),
-        roles.to_vec(),
+        roles.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
     );
     within(Duration::from_millis(timeout_ms(cfg)), move || {
-        ask_with(engine, &prompt, previous.as_deref(), &roles)
+        ask_with(engine, &prompt, previous.as_deref(), &names)
     })
+}
+
+/// The pinned files, as one hash: what a server and its clients must share.
+pub fn model_identity() -> String {
+    let runtime = RUNTIME.map(|(_, _, sha)| sha).unwrap_or("");
+    let mut parts: Vec<&str> = MODEL_FILES.iter().map(|(_, _, sha)| *sha).collect();
+    parts.push(runtime);
+    crate::laya_serve::sha_hex(&parts)
+}
+
+struct Served(&'static LayaEngine);
+impl crate::laya_serve::Answerer for Served {
+    fn answer(&self, prompt: &str, previous: Option<&str>, roles: &[&str]) -> Result<Answer> {
+        ask_with(self.0, prompt, previous, roles)
+    }
+}
+
+/// Loads the model for `nectra laya serve`, exactly as a process would for itself.
+pub(crate) fn served_engine(
+    cfg: &Config,
+) -> std::result::Result<Box<dyn crate::laya_serve::Answerer>, String> {
+    match engine(cfg) {
+        Ok(e) => Ok(Box::new(Served(e))),
+        Err(e) => Err(e.clone()),
+    }
 }
 
 fn ask_with(
     engine: &LayaEngine,
     prompt: &str,
     previous: Option<&str>,
-    roles: &[Role],
+    roles: &[&str],
 ) -> Result<Answer> {
     let state = match previous {
         Some(prev) => json!({ "previous_message": prev, "current_message": prompt }),
@@ -666,7 +752,7 @@ fn ask_with(
     if roles.len() > 1 {
         questions = questions.with(
             "role",
-            Question::choice(ROLE_Q, roles.iter().map(|(name, _)| (*name, "")))?,
+            Question::choice(ROLE_Q, roles.iter().map(|name| (*name, "")))?,
         )?;
     }
     let result = engine.predict(state, &questions)?;

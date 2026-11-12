@@ -11,6 +11,7 @@ pub mod headless;
 pub mod jev;
 pub mod knowledge;
 pub mod laya;
+pub mod laya_serve;
 pub mod limits;
 pub mod mcp;
 pub mod models;

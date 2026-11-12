@@ -726,6 +726,7 @@ pub const TASK_CRITERIA: [(&str, &str); 10] = [
     ),
 ];
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Answer {
     pub task: TaskType,
     pub confidence: f64,

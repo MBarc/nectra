@@ -67,6 +67,16 @@ pub enum ClassifierBackend {
     /// The downloaded Laya model, on this machine (`nectra classifier laya`).
     Laya,
 }
+/// Whether processes share one Laya server per user (docs/design/LAYA-SHARED.md).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LayaService {
+    /// Use the server, starting it on demand; load in-process if it is absent or refused.
+    #[default]
+    Auto,
+    /// Every process loads the model itself.
+    Off,
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct ClassifierConfig {
@@ -91,6 +101,12 @@ pub struct ClassifierConfig {
     /// the memory-mapped model file: half the private memory, about 15%
     /// slower messages. Unset: off on Linux with under 4 GiB of RAM.
     pub laya_prepacking: Option<bool>,
+    /// `auto` shares one model between all Nectra processes through a
+    /// per-user server (`nectra laya status`); `off` loads it in every process.
+    pub laya_service: LayaService,
+    /// The shared server exits, and frees its memory, after this many seconds
+    /// without a request.
+    pub laya_idle_secs: u64,
 }
 impl Default for ClassifierConfig {
     fn default() -> Self {
@@ -104,6 +120,8 @@ impl Default for ClassifierConfig {
             allow_unpinned_model: false,
             laya_timeout_ms: None,
             laya_prepacking: None,
+            laya_service: LayaService::Auto,
+            laya_idle_secs: 600,
         }
     }
 }

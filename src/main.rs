@@ -73,6 +73,30 @@ fn app() -> Result<i32> {
         }
         return Ok(0);
     }
+    if let Some(Commands::Laya { command }) = &cli.command {
+        use nectra::cli::LayaCommands;
+        return match command {
+            LayaCommands::Serve { idle } => {
+                let cfg = config::Config::load(cli.config.as_deref())?;
+                match nectra::laya_serve::run_server(&cfg, *idle) {
+                    Ok(()) => Ok(0),
+                    // Losing the race to start is not a failure.
+                    Err(e) if format!("{e:#}").contains("another Laya server") => Ok(0),
+                    Err(e) => Err(e),
+                }
+            }
+            LayaCommands::Status => {
+                let status = nectra::laya_serve::status()?;
+                println!("{status}");
+                Ok(if status["running"] == true { 0 } else { 1 })
+            }
+            LayaCommands::Stop => {
+                let stopped = nectra::laya_serve::stop()?;
+                println!("{stopped}");
+                Ok(if stopped["stopped"] == true || stopped["running"] == false { 0 } else { 1 })
+            }
+        };
+    }
     if let Some(Commands::Ollama {
         url,
         models,

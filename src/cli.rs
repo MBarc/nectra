@@ -121,6 +121,12 @@ pub enum Commands {
         #[arg(long)]
         verify_only: bool,
     },
+    /// The shared Laya server: one copy of the model for all your Nectra
+    /// processes (docs/design/LAYA-SHARED.md). Prints JSON.
+    Laya {
+        #[command(subcommand)]
+        command: LayaCommands,
+    },
     /// Configure an Ollama server and selected local models without prompts.
     Ollama {
         #[arg(long, default_value = "http://localhost:11434")]
@@ -221,6 +227,24 @@ pub enum Commands {
         #[arg(long)]
         link: bool,
     },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum LayaCommands {
+    /// Run the server in the foreground: loads the model, answers over a
+    /// per-user socket, exits after the idle time. Other commands start it
+    /// on demand, so you rarely run this yourself (systemd --user does).
+    Serve {
+        /// Exit after this many seconds without a request
+        /// (default `classifier.laya_idle_secs`, 600).
+        #[arg(long)]
+        idle: Option<u64>,
+    },
+    /// Whether a server runs, what it is and whether this build would use it.
+    /// Exit 0 when one runs, 1 when none does.
+    Status,
+    /// Ask the running server to exit, freeing its memory.
+    Stop,
 }
 
 #[derive(Subcommand, Debug, Clone)]
