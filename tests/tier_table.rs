@@ -232,6 +232,7 @@ fn a_retry_steps_up_and_stops_at_the_top() {
             &table::Steer {
                 above: Some(above.into()),
                 escalations: n,
+                ..Default::default()
             },
         )
     };

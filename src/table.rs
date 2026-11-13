@@ -279,6 +279,9 @@ pub struct Steer {
     pub above: Option<String>,
     /// Escalations the task has already taken, counting this one.
     pub escalations: u32,
+    /// Do not climb: the ladder is exhausted, so route normally but never
+    /// back onto `above`.
+    pub stay: bool,
 }
 
 fn find<'a>(table: &'a [TableEntry], kind: &str, tier: Tier) -> Option<&'a TableEntry> {
@@ -344,14 +347,26 @@ pub fn select(
     // doubt about the tier: one rung above it on the ladder it was picked
     // from (the hedge may have taken it from a neighbouring tier). It never
     // stands still or steps down.
-    if let Some(above) = &steer.above {
-        let climb = std::iter::once(entry)
+    if let Some(above) = steer.above.as_ref().filter(|_| !steer.stay) {
+        // Several ladders may hold the model (a Top2 pick shares models with
+        // the tier's own): prefer the one it can still climb.
+        let holding: Vec<&TableEntry> = std::iter::once(entry)
             .chain(
                 table
                     .iter()
                     .filter(|e| e.kind == inp.kind && !std::ptr::eq(*e, entry)),
             )
-            .find(|e| e.ladder.iter().any(|r| &r.model == above));
+            .filter(|e| e.ladder.iter().any(|r| &r.model == above))
+            .collect();
+        let can_climb = |e: &&TableEntry| {
+            let p = e.ladder.iter().position(|r| &r.model == above).unwrap_or(0);
+            (p + 1..e.ladder.len()).any(|i| usable(&e.ladder[i].model))
+        };
+        let climb = holding
+            .iter()
+            .find(|e| can_climb(e))
+            .or(holding.first())
+            .copied();
         if let Some(e) = climb {
             let p = e.ladder.iter().position(|r| &r.model == above).unwrap_or(0);
             if let Some(next) = (p + 1..e.ladder.len()).find(|&i| usable(&e.ladder[i].model)) {
@@ -373,13 +388,6 @@ pub fn select(
     let ok: Vec<usize> = (0..entry.ladder.len())
         .filter(|&i| usable(&entry.ladder[i].model))
         .collect();
-    if steer.escalations > cfg.max_escalations {
-        bail!(
-            "escalation cap reached ({} step{})",
-            cfg.max_escalations,
-            if cfg.max_escalations == 1 { "" } else { "s" }
-        );
-    }
     let Some(&first) = ok.first() else {
         return Ok(None);
     };
@@ -476,10 +484,26 @@ pub fn command(
                 );
                 return Ok(0);
             }
+            // Write beside the real file (through a symlink), with its
+            // permissions, synced, and leave nothing behind on failure.
+            let path = std::fs::canonicalize(&path).unwrap_or(path);
             let tmp = path.with_extension("toml.new");
-            std::fs::write(&tmp, &next).with_context(|| format!("writing {}", tmp.display()))?;
-            std::fs::rename(&tmp, &path)
-                .with_context(|| format!("replacing {}", path.display()))?;
+            let written = (|| -> Result<()> {
+                use std::io::Write;
+                let mut f = std::fs::File::create(&tmp)
+                    .with_context(|| format!("writing {}", tmp.display()))?;
+                if let Ok(meta) = std::fs::metadata(&path) {
+                    let _ = f.set_permissions(meta.permissions());
+                }
+                f.write_all(next.as_bytes())?;
+                f.sync_all()?;
+                std::fs::rename(&tmp, &path)
+                    .with_context(|| format!("replacing {}", path.display()))
+            })();
+            if let Err(e) = written {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(e);
+            }
             println!(
                 "Imported {} table entries into {}.",
                 table.len(),
@@ -682,6 +706,7 @@ mod tests {
         let steer = Steer {
             above: Some("sonnet".into()),
             escalations: 1,
+            ..Default::default()
         };
         assert_eq!(
             pick(
@@ -696,6 +721,7 @@ mod tests {
         let steer = Steer {
             above: Some("gpt".into()),
             escalations: 2,
+            ..Default::default()
         };
         assert_eq!(
             pick(
@@ -714,6 +740,7 @@ mod tests {
         let top = Steer {
             above: Some("opus".into()),
             escalations: 1,
+            ..Default::default()
         };
         let err = select(
             &table(),
@@ -731,6 +758,7 @@ mod tests {
         let capped = Steer {
             above: Some("sonnet".into()),
             escalations: 2,
+            ..Default::default()
         };
         let err = select(
             &table(),
@@ -752,12 +780,14 @@ mod tests {
         let steer = Steer {
             above: Some("sonnet".into()),
             escalations: 1,
+            ..Default::default()
         };
         // Hedged start is gpt; one above sonnet is also gpt.
         assert_eq!(pick(&table(), &i, Mode::Balanced, &cfg(), &steer), "gpt");
         let steer = Steer {
             above: Some("sonnet".into()),
             escalations: 1,
+            ..Default::default()
         };
         let mut c = cfg();
         c.tier_hedge = TierHedge::Off;
@@ -864,6 +894,7 @@ mod review_tests {
         let steer = Steer {
             above: Some("gpt".into()),
             escalations: 1,
+            ..Default::default()
         };
         let s = select(
             &t,
@@ -883,6 +914,7 @@ mod review_tests {
         let steer = Steer {
             above: Some("sonnet-x".into()),
             escalations: 1,
+            ..Default::default()
         };
         let s = select(
             &t,
@@ -898,6 +930,7 @@ mod review_tests {
         let steer = Steer {
             above: Some("sonnet".into()),
             escalations: 1,
+            ..Default::default()
         };
         let s = select(
             &t,
@@ -917,6 +950,7 @@ mod review_tests {
         let steer = Steer {
             above: Some("sonnet".into()),
             escalations: 1,
+            ..Default::default()
         };
         let err = select(
             &t,
@@ -958,5 +992,51 @@ mod review_tests {
         let twice = splice(&once, &t).unwrap();
         assert_eq!(once, twice);
         assert!(!twice.replace("\r\n", "").contains('\n'));
+    }
+
+    #[test]
+    fn overlapping_ladders_climb_the_one_with_room() {
+        // A Top2 pick of sonnet from the normal ladder: sonnet also tops the
+        // simple ladder, but gpt and opus are above it on the normal one.
+        let t = vec![
+            entry("simple", &["haiku", "sonnet"]),
+            entry("normal", &["sonnet", "gpt", "opus"]),
+        ];
+        let steer = Steer {
+            above: Some("sonnet".into()),
+            escalations: 1,
+            ..Default::default()
+        };
+        let s = select(
+            &t,
+            &inp(Tier::Simple),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|_| true,
+            &steer,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(s.model, "gpt");
+    }
+    #[test]
+    fn stay_never_returns_the_failed_model_and_never_climbs() {
+        let t = vec![entry("simple", &["haiku", "sonnet"])];
+        let steer = Steer {
+            above: Some("haiku".into()),
+            escalations: 0,
+            stay: true,
+        };
+        let s = select(
+            &t,
+            &inp(Tier::Simple),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|_| true,
+            &steer,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(s.model, "sonnet");
     }
 }

@@ -732,6 +732,7 @@ pub fn run_loop(
         let mut steer = crate::table::Steer {
             above: carried.as_ref().and_then(|e| e.failed.clone()),
             escalations: carried.as_ref().map_or(0, |e| e.steps),
+            ..Default::default()
         };
         if let Some(Again::Stronger(beat)) = &again {
             steer.above = Some(beat.clone());
@@ -819,7 +820,12 @@ pub fn run_loop(
                                 output,
                                 "Not escalating: {error:#}. Routing this message normally."
                             )?;
-                            steer = crate::table::Steer::default();
+                            // Never back onto the model that just failed.
+                            steer = crate::table::Steer {
+                                above: steer.above.clone(),
+                                escalations: 0,
+                                stay: true,
+                            };
                             continue;
                         }
                         // /again past the cap or the top: say so, and keep the
@@ -980,7 +986,7 @@ pub fn run_loop(
             if matches!(
                 &follows,
                 Some((_, crate::decisions::Outcome::UserSwitchModel))
-            ) && !registry.table.is_empty()
+            ) && registry.table.iter().any(|e| e.kind == task_kind)
                 && cfg.inner.routing.max_escalations > 0
             {
                 // After a failure the step is already counted: the user's pick
@@ -1043,7 +1049,16 @@ pub fn run_loop(
                     session.outcome(&decision_id, outcome, None)?;
                     fallback_from = Some((decision_id.clone(), outcome));
                     // A tool error that is not a limit steps the task up its ladder.
-                    if outcome == Outcome::ToolError && decision.ladder.is_some() {
+                    // Access, login and cooldown problems say nothing about the
+                    // model's ability, so they do not climb.
+                    let access = response.as_ref().err().is_some_and(|e| {
+                        e.downcast_ref::<crate::access::ModelUnavailable>()
+                            .is_some()
+                            || e.downcast_ref::<executor::AuthenticationRequired>()
+                                .is_some()
+                            || e.downcast_ref::<crate::ollama::Unavailable>().is_some()
+                    });
+                    if outcome == Outcome::ToolError && decision.ladder.is_some() && !access {
                         escalating = Some(Escalating {
                             kind: task_kind.clone(),
                             failed: Some(decision.model.clone()),

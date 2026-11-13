@@ -739,7 +739,7 @@ fn classify(error: &anyhow::Error, cancel: &CancellationToken) -> (&'static str,
 fn exit_code(class: Option<&str>) -> i32 {
     match class {
         None => 0,
-        Some("harness_error" | "no_model") => 1,
+        Some("harness_error" | "no_model" | "ladder_limit") => 1,
         Some("cost_limit" | "deadline") => 4,
         Some("cancelled") => 130,
         Some(_) => 3,
@@ -1111,14 +1111,8 @@ fn task(
                 .escalate_from
                 .as_ref()
                 .map_or(0, |_| args.escalation.unwrap_or(1)),
+            ..Default::default()
         };
-        if let (Some(_), Some(prior)) = (&args.escalate_from, &args.prior_decision) {
-            let why = args
-                .prior_outcome
-                .unwrap_or(crate::decisions::Outcome::FailedTests);
-            outcomes.push(json!({"decision": prior, "outcome": why, "follow_up": null}));
-            failed_decision = Some((prior.clone(), why));
-        }
         if let Some(from) = &args.escalate_from {
             if !registry.models.iter().any(|m| &m.id == from) {
                 return fail(
@@ -1126,6 +1120,13 @@ fn task(
                     anyhow::anyhow!("--escalate-from: {from} is not in the model registry"),
                 );
             }
+        }
+        if let (Some(_), Some(prior)) = (&args.escalate_from, &args.prior_decision) {
+            let why = args
+                .prior_outcome
+                .unwrap_or(crate::decisions::Outcome::FailedTests);
+            outcomes.push(json!({"decision": prior, "outcome": why, "follow_up": null}));
+            failed_decision = Some((prior.clone(), why));
         }
         let mut names = HashMap::new();
         if let Some(m) = registry
@@ -1185,6 +1186,9 @@ fn task(
                 Ok(d) => d,
                 Err(e) => {
                     let class = match early(&e) {
+                        _ if e.downcast_ref::<crate::table::LadderLimit>().is_some() => {
+                            "ladder_limit"
+                        }
                         "harness_error" => "no_model",
                         class => class,
                     };

@@ -373,7 +373,7 @@ pub fn route_summarized_steered(
             ambiguous,
             overridden,
             reason,
-            escalation: if ladder.is_some() {
+            escalation: if ladder.is_some() && cfg.inner.routing.max_escalations > 0 {
                 steer.escalations
             } else {
                 0

@@ -120,6 +120,7 @@ Ctrl+C while it is being put together cancels rather than exits.
 | `null` | 0 | Completed. |
 | `harness_error` | 1 | Nectra's own failure: an empty prompt, an unreadable `--mcp-config`, unknown or misplaced `--resume`, provider CLI missing. |
 | `no_model` | 1 | No eligible model (none enabled, all tried, all cooling down, or the pinned one is excluded). |
+| `ladder_limit` | 1 | `--escalate-from` found no rung above the failed model (top of the ladder, rungs unavailable, or the escalation cap reached). |
 | `model_unavailable` | 3 | The provider rejected the model. |
 | `auth` | 3 | The provider CLI needs a login. Nectra never opens a login flow in headless mode. |
 | `rate_limited` | 3 | The provider's rate or usage limit. A cooldown is recorded unless `--no-session`. |
