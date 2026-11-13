@@ -5,6 +5,7 @@ edition = "2021"
 rust-version = "1.89"
 description = "Local conversation router for Claude Code, Codex, Gemini CLI, and Ollama"
 license = "MIT"
+publish = false # shipped as release archives and packages, never on crates.io
 
 [dependencies]
 anyhow = "1"
