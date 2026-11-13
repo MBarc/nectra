@@ -3,7 +3,7 @@
 **Status:** user approved starting external isolation on 2026-09-16. Implementation
 and offline verification are underway; real container validation remains pending.
 See [implementation setup and limits](../../debate-isolation.md).
-**Origin:** user request `user-001`, recorded in `AGENT_HANDOFF.md`.
+**Origin:** user request `user-001`, recorded in the local agent handoff notes (not in the repository).
 **Revision 6:** user ruled out Docker; participants run with no tools and
 Nectra supplies the evidence. Codex CLI is excluded as a participant.
 **Revision 5:** Claude profile additionally survives a hostile project config;

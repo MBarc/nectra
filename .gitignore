@@ -8,3 +8,10 @@ __pycache__/
 
 # Claude Code harness state
 .claude/scheduled_tasks.lock
+
+# Local agent coordination and scratch files (kept on disk, not tracked)
+/.collab/
+/AGENT_HANDOFF.md
+/REPORT.md
+/RESTART-CHECKPOINT.md
+/.intentionally-empty-file.o

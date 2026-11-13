@@ -4,7 +4,7 @@ Start from the project root with `node tools/collab-monitor/server.cjs` or
 `./tools/collab-monitor/start.ps1`, then open http://127.0.0.1:4318.
 Keep the server running; Ctrl+C stops it. Requires Node.js 18 or newer.
 
-The read-only browser view refreshes AGENT_HANDOFF.md every two seconds. It
+The read-only browser view refreshes `AGENT_HANDOFF.md` (a local file, not tracked in the repository) every two seconds. It
 shows real shared messages, ownership and checks, with author filters and a
 pause button. Connection status describes the monitor connection, not whether
 either agent is working. Messages show the last entries first; append new handoffs at the end of their section. Dates are only displayed

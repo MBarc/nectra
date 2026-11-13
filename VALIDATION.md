@@ -6,7 +6,7 @@ suite grew from 84 to 111 during this work.
 
 Claude Code and Codex CLI audited the codebase jointly from one shared workspace,
 splitting it into a product/decision half and a runtime half, and recorded findings
-and coordination in `AGENT_HANDOFF.md`. Twenty findings were raised and closed.
+and coordination in a handoff file that is kept locally, not in this repository. Twenty findings were raised and closed.
 
 Product and decision half: rate-limit detection now matches structured provider
 fields rather than the serialized event, so an incidental `429` in a token count no

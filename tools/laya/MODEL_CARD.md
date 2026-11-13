@@ -88,7 +88,7 @@ just under 95%. Recall per class on fresh-test-3 ranges from 94.4% (planning,
 The keyword fallback scores 99/323 on `fresh-test.json`. Residual errors are
 boundary cases: a review word next to a failure, "works fine, but add X", and
 short creative requests read as general. The full confusion is in
-`REPORT.md`.
+the local report from the measurement run (not in the repository).
 
 ## Latency
 
