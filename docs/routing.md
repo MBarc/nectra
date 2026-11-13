@@ -237,6 +237,8 @@ import replaces just that block; the models are untouched) and refuses a table t
 fails validation. `nectra registry table show [--json]` prints what the registry
 holds. The input format is [docs/examples/tier-table.example.json](examples/tier-table.example.json):
 a placeholder, not measured, and not part of the default configuration.
+A rung that names a model no longer in `models.toml` is dropped when the registry loads, with one warning on stderr; a cell left with no rung routes the old way. `registry table import` still works in that state, so it can repair the table.
+
 
 ## Access and fallback
 

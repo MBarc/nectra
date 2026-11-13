@@ -180,6 +180,39 @@ pub fn parse_calibration(json: &str) -> Result<Vec<TableEntry>> {
     Ok(table)
 }
 
+/// Drop rungs naming a model the registry no longer has, and cells left with
+/// no rung (those route the old way). Returns one line per dropped rung.
+pub fn prune(table: &mut Vec<TableEntry>, known: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut dropped = vec![];
+    for e in table.iter_mut() {
+        let (kind, tier) = (e.kind.clone(), e.tier.clone());
+        e.ladder.retain(|r| {
+            let keep = known(&r.model);
+            if !keep {
+                dropped.push(format!("{kind} x {tier}: {}", r.model));
+            }
+            keep
+        });
+    }
+    table.retain(|e| !e.ladder.is_empty());
+    dropped
+}
+
+/// Warn about dropped rungs, once per process.
+pub fn warn_dropped(dropped: &[String]) {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    if dropped.is_empty() {
+        return;
+    }
+    ONCE.call_once(|| {
+        eprintln!(
+            "nectra: the table names models that are not in the model registry; ignoring those rungs ({}). \
+             Re-run `nectra registry table import` to repair the table.",
+            dropped.join(", ")
+        );
+    });
+}
+
 const BEGIN: &str =
     "# --- nectra registry table import: begin (generated; replaced by the next import) ---";
 const END: &str = "# --- nectra registry table import: end ---";

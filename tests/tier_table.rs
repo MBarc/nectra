@@ -244,7 +244,7 @@ fn a_retry_steps_up_and_stops_at_the_top() {
 }
 
 #[test]
-fn a_table_naming_an_unknown_model_is_refused_at_load() {
+fn a_table_naming_an_unknown_model_loses_that_rung_at_load() {
     let bad = vec![entry("normal", &["sonnet", "no-such-model"])];
     let dir = tempfile::tempdir().unwrap();
     fs::write(
@@ -258,8 +258,9 @@ fn a_table_naming_an_unknown_model_is_refused_at_load() {
     )
     .unwrap();
     let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
-    let err = Registry::load(&cfg).unwrap_err();
-    assert!(format!("{err:#}").contains("no-such-model"), "{err:#}");
+    let reg = Registry::load(&cfg).unwrap();
+    assert_eq!(reg.table[0].ladder.len(), 1);
+    assert_eq!(reg.table[0].ladder[0].model, "sonnet");
 }
 
 #[test]
@@ -363,5 +364,57 @@ fn an_import_that_would_duplicate_a_hand_written_entry_is_refused() {
     assert_eq!(
         fs::read_to_string(dir.path().join("models.toml")).unwrap(),
         models
+    );
+}
+
+#[test]
+fn a_rung_naming_a_removed_model_is_dropped_with_one_warning_and_import_still_repairs() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("config.toml"),
+        include_str!("../config/nectra.toml"),
+    )
+    .unwrap();
+    let rung = |m: &str| {
+        format!(
+            "[[table.ladder]]\nmodel = \"{m}\"\nn = 30\npass_rate = 0.8\nci = [0.6, 0.9]\nrun = \"r\"\n"
+        )
+    };
+    let models = format!(
+        "{}\n[[table]]\nkind = \"research\"\ntier = \"simple\"\n{}{}\n[[table]]\nkind = \"writing\"\ntier = \"simple\"\n{}",
+        include_str!("../config/models.toml"),
+        rung("gone-model"),
+        rung("haiku"),
+        rung("also-gone"),
+    );
+    fs::write(dir.path().join("models.toml"), models).unwrap();
+    let nectra = |args: &[&str]| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_nectra"))
+            .arg("--config")
+            .arg(dir.path().join("config.toml"))
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let show = nectra(&["registry", "table", "show", "--json"]);
+    assert!(
+        show.status.success(),
+        "{}",
+        String::from_utf8_lossy(&show.stderr)
+    );
+    let err = String::from_utf8_lossy(&show.stderr);
+    assert_eq!(err.matches("not in the model registry").count(), 1, "{err}");
+    let table: serde_json::Value = serde_json::from_slice(&show.stdout).unwrap();
+    // The mixed ladder keeps haiku; the all-removed cell is gone entirely.
+    assert_eq!(table.as_array().unwrap().len(), 1);
+    assert_eq!(table[0]["ladder"].as_array().unwrap().len(), 1);
+    assert_eq!(table[0]["ladder"][0]["model"], "haiku");
+    let json = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("docs/examples/tier-table.example.json");
+    let import = nectra(&["registry", "table", "import", json.to_str().unwrap()]);
+    assert!(
+        import.status.success(),
+        "{}",
+        String::from_utf8_lossy(&import.stderr)
     );
 }

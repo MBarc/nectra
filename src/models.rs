@@ -221,9 +221,14 @@ impl Registry {
                 }
             }
         }
+        // A rung for a model that has since been removed must not lock every
+        // command out (the import that repairs it included): drop it.
+        let mut table = file.table;
+        let dropped = crate::table::prune(&mut table, |id| file.model.iter().any(|m| m.id == id));
+        crate::table::warn_dropped(&dropped);
         let registry = Self {
             models: file.model,
-            table: file.table,
+            table,
         };
         registry.validate()?;
         Ok(registry)
