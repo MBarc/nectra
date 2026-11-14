@@ -58,6 +58,26 @@ pub struct Rung {
     /// reports it; `top2` compares picks by it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost_usd: Option<f64>,
+    /// What the numbers were measured on; see [`Basis`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub basis: Option<Basis>,
+}
+
+/// The identity the measurement is bound to. A rung measured on another
+/// effort, harness or task set than the registry's model is stale.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Basis {
+    /// `complete`, `partial` or `quarantined`; only `complete` is imported.
+    pub status: String,
+    /// The model's reasoning effort during the run ("" = the default).
+    pub effort: String,
+    /// The harness and check version that graded the runs.
+    pub harness: String,
+    /// Hash of the task set.
+    pub task_set: String,
+    /// Date measured (YYYY-MM-DD).
+    pub measured: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -98,6 +118,15 @@ impl TableEntry {
             }
             if r.n == 0 || r.run.trim().is_empty() {
                 bail!("{at}: {}: evidence needs n > 0 and a run id", r.model);
+            }
+            if let Some(b) = &r.basis {
+                if b.status != "complete" {
+                    bail!(
+                        "{at}: {}: evidence status is {}; only complete evidence is imported",
+                        r.model,
+                        b.status
+                    );
+                }
             }
         }
         Ok(())
@@ -151,6 +180,8 @@ struct CalibrationRung {
     run: Option<String>,
     #[serde(default)]
     cost_usd: Option<f64>,
+    #[serde(default)]
+    basis: Option<Basis>,
 }
 
 pub fn parse_calibration(json: &str) -> Result<Vec<TableEntry>> {
@@ -173,6 +204,7 @@ pub fn parse_calibration(json: &str) -> Result<Vec<TableEntry>> {
                         pass_rate: r.pass_rate,
                         ci: r.ci,
                         cost_usd: r.cost_usd,
+                        basis: r.basis,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -203,6 +235,35 @@ pub fn prune(table: &mut Vec<TableEntry>, known: impl Fn(&str) -> bool) -> Vec<S
     }
     table.retain(|e| !e.ladder.is_empty());
     dropped
+}
+
+/// Rungs measured on a different effort than the registry's model now runs
+/// at are stale: drop them (`drop`) or just list them. `effort_of` gives a
+/// model's current effort.
+pub fn prune_stale(
+    table: &mut Vec<TableEntry>,
+    effort_of: impl Fn(&str) -> Option<String>,
+    drop: bool,
+) -> Vec<String> {
+    let mut stale = vec![];
+    for e in table.iter_mut() {
+        let (kind, tier) = (e.kind.clone(), e.tier.clone());
+        e.ladder.retain(|r| {
+            let now = effort_of(&r.model);
+            let bad = matches!((&r.basis, &now), (Some(b), Some(n)) if &b.effort != n);
+            if bad {
+                stale.push(format!(
+                    "{kind} x {tier}: {} (measured at effort {:?}, now {:?})",
+                    r.model,
+                    r.basis.as_ref().map(|b| b.effort.as_str()).unwrap_or(""),
+                    now.as_deref().unwrap_or("")
+                ));
+            }
+            !(bad && drop)
+        });
+    }
+    table.retain(|e| !e.ladder.is_empty());
+    stale
 }
 
 /// Warn about dropped rungs, once per process.
@@ -549,6 +610,19 @@ pub fn command(
                     cfg.registry_path().display()
                 );
             }
+            if !*json && !registry.table.is_empty() {
+                let unmeasured: Vec<&str> = KINDS
+                    .iter()
+                    .copied()
+                    .filter(|k| !registry.table.iter().any(|e| e.kind == *k))
+                    .collect();
+                if !unmeasured.is_empty() {
+                    println!(
+                        "UNMEASURED (no cells; routed by the heuristic): {}",
+                        unmeasured.join(", ")
+                    );
+                }
+            }
             for e in registry.table.iter().filter(|_| !*json) {
                 println!("{} x {}", e.kind, e.tier);
                 for (i, r) in e.ladder.iter().enumerate() {
@@ -562,6 +636,24 @@ pub fn command(
                 .with_context(|| format!("reading {}", json.display()))?;
             let table = parse_calibration(&text)?;
             validate(&table, |id| registry.models.iter().any(|m| m.id == id))?;
+            let mut copy = table.clone();
+            let stale = prune_stale(
+                &mut copy,
+                |id| {
+                    registry
+                        .models
+                        .iter()
+                        .find(|m| m.id == id)
+                        .map(|m| m.effort.clone())
+                },
+                false,
+            );
+            if !stale.is_empty() {
+                eprintln!(
+                    "nectra: warning: evidence was measured on a different effort than the registry's model; the router will ignore these rungs until they are re-measured: {}",
+                    stale.join(", ")
+                );
+            }
             if cfg.embedded {
                 bail!("no registry file to write: copy config/models.toml beside your config.toml first");
             }
@@ -624,6 +716,7 @@ mod tests {
             ci: [pass - 0.1, (pass + 0.05).min(1.0)],
             run: "rh-v2-test".into(),
             cost_usd: None,
+            basis: None,
         }
     }
     fn entry(kind: &str, tier: &str, models: &[&str]) -> TableEntry {
@@ -967,6 +1060,7 @@ mod review_tests {
             ci: [0.7, 0.9],
             run: "r".into(),
             cost_usd: None,
+            basis: None,
         }
     }
     fn entry(tier: &str, models: &[&str]) -> TableEntry {
@@ -1241,5 +1335,31 @@ mod review_tests {
         assert_eq!(run(&t).model, "cheap", "the neighbour's pick is dearer");
         t[0].ladder[0].cost_usd = None;
         assert_eq!(run(&t).model, "cheap", "no costs: the higher tier");
+    }
+
+    #[test]
+    fn partial_evidence_is_refused_and_stale_effort_is_dropped() {
+        let basis = |status: &str, effort: &str| Basis {
+            status: status.into(),
+            effort: effort.into(),
+            harness: "h1".into(),
+            task_set: "abc".into(),
+            measured: "2026-11-14".into(),
+        };
+        let mut t = vec![entry("normal", &["a", "b"])];
+        t[0].ladder[0].basis = Some(basis("partial", ""));
+        assert!(validate(&t, |_| true).is_err());
+        t[0].ladder[0].basis = Some(basis("complete", "high"));
+        t[0].ladder[1].basis = Some(basis("complete", ""));
+        validate(&t, |_| true).unwrap();
+        // "a" now runs at medium: its rung measured at high is stale.
+        let stale = prune_stale(&mut t, |_| Some("medium".into()), true);
+        assert_eq!(stale.len(), 2, "{stale:?}");
+        assert!(t.is_empty());
+        let mut t = vec![entry("normal", &["a", "b"])];
+        t[0].ladder[0].basis = Some(basis("complete", "medium"));
+        let stale = prune_stale(&mut t, |_| Some("medium".into()), true);
+        assert!(stale.is_empty());
+        assert_eq!(t[0].ladder.len(), 2);
     }
 }

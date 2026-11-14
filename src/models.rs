@@ -224,7 +224,20 @@ impl Registry {
         // A rung for a model that has since been removed must not lock every
         // command out (the import that repairs it included): drop it.
         let mut table = file.table;
-        let dropped = crate::table::prune(&mut table, |id| file.model.iter().any(|m| m.id == id));
+        let mut dropped =
+            crate::table::prune(&mut table, |id| file.model.iter().any(|m| m.id == id));
+        // Evidence measured at another effort than the model runs at now is
+        // stale: the router ignores it.
+        dropped.extend(crate::table::prune_stale(
+            &mut table,
+            |id| {
+                file.model
+                    .iter()
+                    .find(|m| m.id == id)
+                    .map(|m| m.effort.clone())
+            },
+            true,
+        ));
         crate::table::warn_dropped(&dropped);
         let registry = Self {
             models: file.model,

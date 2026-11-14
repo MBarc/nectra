@@ -237,6 +237,19 @@ import replaces just that block; the models are untouched) and refuses a table t
 fails validation. `nectra registry table show [--json]` prints what the registry
 holds. The input format is [docs/examples/tier-table.example.json](examples/tier-table.example.json):
 a placeholder, not measured, and not part of the default configuration.
+Retries (`/again`, a failed test, a tool error) climb one fixed ladder per task, the one the
+first pick came from, in order of measured quality (pass rate; the cost order is only for the
+first pick), and never return to a model the task already tried. Running out of untried models
+is an explicit stop, not a silent re-pick. `--mode best` takes the rung with the highest
+measured pass rate. `top2` takes the dearer of the two picks by the rungs' `cost_usd`, the
+higher tier's pick when no costs are recorded.
+
+Evidence is bound to what it was measured on. A rung may carry `cost_usd` and a `basis`
+(`status`, `effort`, `harness`, `task_set`, `measured`). Only `status = "complete"` is imported.
+A rung measured at a different `effort` than the registry's model now runs at is stale: import
+warns, and the router ignores it (one warning at load). `registry table show` lists the kinds
+with no measured cells as UNMEASURED; they are routed by the heuristic.
+
 A rung that names a model no longer in `models.toml` is dropped when the registry loads, with one warning on stderr; a cell left with no rung routes the old way. `registry table import` still works in that state, so it can repair the table.
 
 

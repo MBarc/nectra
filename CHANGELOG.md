@@ -4,6 +4,12 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- Escalation fixes after review: one immutable ladder per task and a task-wide tried-model
+  set (`nectra run --attempted MODEL`, `--cell KIND:TIER`), retries by measured quality,
+  `--mode best` = highest measured pass rate, `top2` = the dearer pick, an explicit
+  ladder-limit stop instead of re-picking a failed model, rung `cost_usd` and `basis`
+  (evidence identity; stale effort ignored), UNMEASURED kinds in `registry table show`.
+
 - Task x tier table: `[[table]]` entries in the registry map task kind x difficulty
   tier to an ordered model ladder (cheapest acceptable first) with the evidence for
   each rung; the router uses an entry whenever one exists and otherwise routes as
