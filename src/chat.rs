@@ -825,6 +825,7 @@ pub fn run_loop(
                                 above: steer.above.clone(),
                                 escalations: 0,
                                 stay: true,
+                                ..Default::default()
                             };
                             continue;
                         }

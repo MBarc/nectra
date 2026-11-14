@@ -1085,6 +1085,7 @@ mod review_tests {
             above: Some("haiku".into()),
             escalations: 0,
             stay: true,
+            ..Default::default()
         };
         let s = select(
             &t,
