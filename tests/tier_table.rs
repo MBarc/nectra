@@ -18,6 +18,7 @@ fn rung(model: &str, pass: f64) -> Rung {
         pass_rate: pass,
         ci: [pass - 0.1, (pass + 0.05).min(1.0)],
         run: "rh-v2-test".into(),
+        cost_usd: None,
     }
 }
 fn entry(tier: &str, models: &[&str]) -> TableEntry {

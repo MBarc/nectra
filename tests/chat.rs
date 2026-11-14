@@ -1238,6 +1238,7 @@ fn fixture_with_ladder(max_escalations: u32) -> (tempfile::TempDir, Config, Regi
         pass_rate: p,
         ci: [0.5, 0.99],
         run: "t1".into(),
+        cost_usd: None,
     };
     let table: Vec<_> = nectra::table::KINDS
         .iter()

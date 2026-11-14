@@ -54,6 +54,10 @@ pub struct Rung {
     pub ci: [f64; 2],
     /// The calibration run the numbers come from.
     pub run: String,
+    /// Mean measured cost of one run on this model, when the calibration
+    /// reports it; `top2` compares picks by it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_usd: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -145,6 +149,8 @@ struct CalibrationRung {
     ci: [f64; 2],
     #[serde(default)]
     run: Option<String>,
+    #[serde(default)]
+    cost_usd: Option<f64>,
 }
 
 pub fn parse_calibration(json: &str) -> Result<Vec<TableEntry>> {
@@ -166,6 +172,7 @@ pub fn parse_calibration(json: &str) -> Result<Vec<TableEntry>> {
                         n: r.n,
                         pass_rate: r.pass_rate,
                         ci: r.ci,
+                        cost_usd: r.cost_usd,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -508,9 +515,14 @@ pub fn select(
                     if let Some(j) =
                         (0..other.ladder.len()).find(|&j| usable(&other.ladder[j].model))
                     {
-                        // The higher tier's cheapest acceptable model.
-                        chosen = Some((other, j));
-                        hedged = true;
+                        // The dearer of the two picks (by measured cost); with
+                        // no costs on record, the higher tier's pick.
+                        let own = entry.ladder[idx].cost_usd;
+                        let theirs = other.ladder[j].cost_usd;
+                        if !matches!((own, theirs), (Some(a), Some(b)) if a > b) {
+                            chosen = Some((other, j));
+                            hedged = true;
+                        }
                     }
                 }
             }
@@ -611,6 +623,7 @@ mod tests {
             pass_rate: pass,
             ci: [pass - 0.1, (pass + 0.05).min(1.0)],
             run: "rh-v2-test".into(),
+            cost_usd: None,
         }
     }
     fn entry(kind: &str, tier: &str, models: &[&str]) -> TableEntry {
@@ -953,6 +966,7 @@ mod review_tests {
             pass_rate: 0.8,
             ci: [0.7, 0.9],
             run: "r".into(),
+            cost_usd: None,
         }
     }
     fn entry(tier: &str, models: &[&str]) -> TableEntry {
@@ -1198,5 +1212,34 @@ mod review_tests {
         .unwrap()
         .unwrap();
         assert_eq!(s.model, "b");
+    }
+
+    #[test]
+    fn top2_takes_the_dearer_of_the_two_picks() {
+        let mut t = vec![
+            entry("simple", &["pricey"]),
+            entry("normal", &["cheap", "other"]),
+        ];
+        let cfg = RoutingConfig {
+            tier_hedge: TierHedge::Top2,
+            ..Default::default()
+        };
+        let run = |t: &[TableEntry]| {
+            let i = Inputs {
+                confidence: Some(0.1),
+                neighbour: Some(Tier::Normal),
+                ..inp(Tier::Simple)
+            };
+            select(t, &i, Mode::Balanced, &cfg, &|_| true, &Steer::default())
+                .unwrap()
+                .unwrap()
+        };
+        t[0].ladder[0].cost_usd = Some(0.5);
+        t[1].ladder[0].cost_usd = Some(0.01);
+        assert_eq!(run(&t).model, "pricey", "the lower tier's pick is dearer");
+        t[0].ladder[0].cost_usd = Some(0.005);
+        assert_eq!(run(&t).model, "cheap", "the neighbour's pick is dearer");
+        t[0].ladder[0].cost_usd = None;
+        assert_eq!(run(&t).model, "cheap", "no costs: the higher tier");
     }
 }
