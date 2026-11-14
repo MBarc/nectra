@@ -418,3 +418,64 @@ fn a_rung_naming_a_removed_model_is_dropped_with_one_warning_and_import_still_re
         String::from_utf8_lossy(&import.stderr)
     );
 }
+
+#[test]
+fn a_failed_model_is_excluded_from_heuristic_candidates_too() {
+    // No table: the retry routes the old way, but never back onto the model
+    // that failed.
+    let (_d, cfg, reg) = setup(&[], "", "");
+    let route = |steer: &table::Steer| {
+        router::route_summarized_steered(
+            laya(0.4, 0.9),
+            "fix the crash",
+            &cfg,
+            &reg,
+            Mode::Balanced,
+            None,
+            None,
+            steer,
+        )
+    };
+    let first = route(&table::Steer::default()).unwrap().0.model;
+    let again = route(&table::Steer {
+        above: Some(first.clone()),
+        escalations: 1,
+        attempted: vec![first.clone()],
+        ..Default::default()
+    })
+    .unwrap()
+    .0
+    .model;
+    assert_ne!(first, again);
+}
+
+#[test]
+fn exhausting_every_candidate_is_an_explicit_ladder_limit() {
+    let (_d, cfg, reg) = setup(&[], "", "");
+    let all: Vec<String> = reg
+        .models
+        .iter()
+        .filter(|m| m.enabled)
+        .map(|m| m.id.clone())
+        .collect();
+    let err = router::route_summarized_steered(
+        laya(0.4, 0.9),
+        "fix the crash",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+        &table::Steer {
+            above: Some(all[0].clone()),
+            escalations: 1,
+            attempted: all,
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert!(
+        err.downcast_ref::<table::LadderLimit>().is_some(),
+        "{err:#}"
+    );
+}

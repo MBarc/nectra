@@ -261,6 +261,22 @@ pub fn route_summarized_steered(
     if candidates.is_empty() {
         bail!("no enabled model matches the requested provider/model; run nectra models");
     }
+    // A retry never goes back to a model this task already tried, table or
+    // not; running out of models is an explicit result, not a silent re-pick.
+    if model.is_none() && cfg.inner.routing.max_escalations > 0 {
+        let tried = |id: &str| {
+            steer.attempted.iter().any(|a| a == id) || steer.above.as_deref() == Some(id)
+        };
+        if steer.above.is_some() || !steer.attempted.is_empty() {
+            candidates.retain(|(m, _)| !tried(&m.id));
+            if candidates.is_empty() {
+                return Err(table::LadderLimit(
+                    "every eligible model has already been tried for this task".into(),
+                )
+                .into());
+            }
+        }
+    }
     candidates.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.id.cmp(&b.0.id)));
     // The measured table decides when it has an entry for this kind and tier;
     // a pinned model is the user's word and skips it.

@@ -816,7 +816,10 @@ pub fn run_loop(
                 }
                 Err(error) => {
                     if error.downcast_ref::<crate::table::LadderLimit>().is_some() {
-                        if !matches!(&again, Some(Again::Stronger(_))) && steer.above.is_some() {
+                        if !matches!(&again, Some(Again::Stronger(_)))
+                            && steer.above.is_some()
+                            && !steer.stay
+                        {
                             // A new message after a failure at the top of the
                             // ladder is still answered: route it afresh.
                             writeln!(
