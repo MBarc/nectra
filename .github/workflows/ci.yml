@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
       - run: cargo fmt --all --check
       - run: cargo test --all-targets --locked
@@ -28,7 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-      - run: cargo install --locked cargo-audit
+        with:
+          toolchain: stable
+      - run: cargo install --locked cargo-audit@0.23.0
       - run: cargo audit --deny warnings
   deny:
     # Licenses, bans, advisories and sources, as configured in deny.toml.
@@ -36,7 +39,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-      - run: cargo install --locked cargo-deny
+        with:
+          toolchain: stable
+      - run: cargo install --locked cargo-deny@0.20.2
       - run: cargo deny --locked check
   windows-gnu-wine:
     # The x86_64-pc-windows-gnu build, run for real under wine: the test
@@ -50,6 +55,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: x86_64-pc-windows-gnu
       - run: |
           sudo apt-get update
