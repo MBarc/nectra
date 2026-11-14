@@ -322,6 +322,19 @@ pub struct Steer {
     pub attempted: Vec<String>,
 }
 
+/// Ladder indexes by measured quality, weakest first; equal pass rates keep
+/// the cheaper (earlier) rung first.
+fn quality_order(e: &TableEntry) -> Vec<usize> {
+    let mut o: Vec<usize> = (0..e.ladder.len()).collect();
+    o.sort_by(|&a, &b| {
+        e.ladder[a]
+            .pass_rate
+            .total_cmp(&e.ladder[b].pass_rate)
+            .then(a.cmp(&b))
+    });
+    o
+}
+
 fn find<'a>(table: &'a [TableEntry], kind: &str, tier: Tier) -> Option<&'a TableEntry> {
     table
         .iter()
@@ -406,18 +419,24 @@ pub fn select(
                 .filter(|e| e.ladder.iter().any(|r| &r.model == above))
                 .collect()
         };
-        // Climb from the highest rung already tried on the ladder.
+        // Retries climb by measured quality (pass rate, ties to the cheaper
+        // rung), not by cost: cost order is only the initial-choice order.
+        let order = |e: &TableEntry| quality_order(e);
         let from = |e: &TableEntry| {
-            e.ladder
+            order(e)
                 .iter()
-                .rposition(|r| &r.model == above || tried(&r.model))
+                .rposition(|&i| e.ladder[i].model == *above || tried(&e.ladder[i].model))
         };
-        let can_climb = |e: &&TableEntry| {
-            from(e).is_some_and(|p| {
-                (p + 1..e.ladder.len())
-                    .any(|i| usable(&e.ladder[i].model) && !tried(&e.ladder[i].model))
+        let next_of = |e: &TableEntry| {
+            let o = order(e);
+            from(e).and_then(|p| {
+                o[p + 1..]
+                    .iter()
+                    .copied()
+                    .find(|&i| usable(&e.ladder[i].model) && !tried(&e.ladder[i].model))
             })
         };
+        let can_climb = |e: &&TableEntry| next_of(e).is_some();
         let climb = holding
             .iter()
             .find(|e| can_climb(e))
@@ -425,12 +444,10 @@ pub fn select(
             .copied()
             .filter(|e| from(e).is_some());
         if let Some(e) = climb {
-            let p = from(e).unwrap_or(0);
-            if let Some(next) = (p + 1..e.ladder.len())
-                .find(|&i| usable(&e.ladder[i].model) && !tried(&e.ladder[i].model))
-            {
+            if let Some(next) = next_of(e) {
                 return Ok(Some(pick(e, next, false)));
             }
+            let p = from(e).unwrap_or(0);
             let why = if p + 1 < e.ladder.len() {
                 format!(
                     "the rungs above {above} on the {} x {} ladder are unavailable or already tried",
@@ -454,7 +471,17 @@ pub fn select(
     // cheapest acceptable one, one higher when the tier is a close call.
     let mut idx = match mode {
         Mode::Fast => first,
-        Mode::Best => *ok.last().unwrap_or(&first),
+        // The best measured quality among the usable rungs (ties to the cheaper).
+        Mode::Best => ok
+            .iter()
+            .copied()
+            .max_by(|&a, &b| {
+                entry.ladder[a]
+                    .pass_rate
+                    .total_cmp(&entry.ladder[b].pass_rate)
+                    .then(b.cmp(&a))
+            })
+            .unwrap_or(first),
         Mode::Balanced => first,
     };
     let mut hedged = false;
@@ -1125,5 +1152,51 @@ mod review_tests {
             &steer,
         );
         assert!(r.is_err(), "{r:?}");
+    }
+
+    #[test]
+    fn a_retry_climbs_by_measured_quality_not_cost() {
+        // Cost order a, b, c; quality order a (0.5) < c (0.7) < b (0.9).
+        let mut t = vec![entry("normal", &["a", "b", "c"])];
+        t[0].ladder[0].pass_rate = 0.5;
+        t[0].ladder[1].pass_rate = 0.9;
+        t[0].ladder[2].pass_rate = 0.7;
+        let run = |above: &str, tried: &[&str]| {
+            select(
+                &t,
+                &inp(Tier::Normal),
+                Mode::Balanced,
+                &RoutingConfig::default(),
+                &|_| true,
+                &Steer {
+                    above: Some(above.into()),
+                    escalations: 1,
+                    attempted: tried.iter().map(|m| m.to_string()).collect(),
+                    ..Default::default()
+                },
+            )
+            .map(|s| s.unwrap().model)
+        };
+        assert_eq!(run("a", &["a"]).unwrap(), "c");
+        assert_eq!(run("c", &["a", "c"]).unwrap(), "b");
+        assert!(run("b", &["a", "c", "b"]).is_err());
+    }
+    #[test]
+    fn best_takes_the_highest_measured_quality_not_the_dearest_rung() {
+        let mut t = vec![entry("normal", &["a", "b", "c"])];
+        t[0].ladder[0].pass_rate = 0.5;
+        t[0].ladder[1].pass_rate = 0.9;
+        t[0].ladder[2].pass_rate = 0.7;
+        let s = select(
+            &t,
+            &inp(Tier::Normal),
+            Mode::Best,
+            &RoutingConfig::default(),
+            &|_| true,
+            &Steer::default(),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(s.model, "b");
     }
 }
