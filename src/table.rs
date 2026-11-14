@@ -315,6 +315,11 @@ pub struct Steer {
     /// Do not climb: the ladder is exhausted, so route normally but never
     /// back onto `above`.
     pub stay: bool,
+    /// The cell (kind, tier) the task's first pick came from. Every retry
+    /// climbs this one ladder, whatever the prompt classifies as later.
+    pub cell: Option<(String, String)>,
+    /// Every model already tried for this task: never picked again.
+    pub attempted: Vec<String>,
 }
 
 fn find<'a>(table: &'a [TableEntry], kind: &str, tier: Tier) -> Option<&'a TableEntry> {
@@ -353,9 +358,14 @@ pub fn select(
     } else {
         steer
     };
-    let Some(entry) = find(table, inp.kind, inp.tier) else {
+    let pinned = steer
+        .cell
+        .as_ref()
+        .and_then(|(k, t)| table.iter().find(|e| &e.kind == k && &e.tier == t));
+    let Some(entry) = pinned.or_else(|| find(table, inp.kind, inp.tier)) else {
         return Ok(None);
     };
+    let tried = |m: &str| steer.attempted.iter().any(|a| a == m);
     if steer.escalations > cfg.max_escalations {
         return Err(LadderLimit(format!(
             "escalation cap reached ({} step{})",
@@ -381,33 +391,49 @@ pub fn select(
     // from (the hedge may have taken it from a neighbouring tier). It never
     // stands still or steps down.
     if let Some(above) = steer.above.as_ref().filter(|_| !steer.stay) {
-        // Several ladders may hold the model (a Top2 pick shares models with
-        // the tier's own): prefer the one it can still climb.
-        let holding: Vec<&TableEntry> = std::iter::once(entry)
-            .chain(
-                table
-                    .iter()
-                    .filter(|e| e.kind == inp.kind && !std::ptr::eq(*e, entry)),
-            )
-            .filter(|e| e.ladder.iter().any(|r| &r.model == above))
-            .collect();
+        // One immutable ladder per task: the cell of the first pick when the
+        // caller knows it, else the one ladder (preferring the tier's own)
+        // that still has room above the failed model.
+        let holding: Vec<&TableEntry> = if steer.cell.is_some() && pinned.is_some() {
+            vec![entry]
+        } else {
+            std::iter::once(entry)
+                .chain(
+                    table
+                        .iter()
+                        .filter(|e| e.kind == inp.kind && !std::ptr::eq(*e, entry)),
+                )
+                .filter(|e| e.ladder.iter().any(|r| &r.model == above))
+                .collect()
+        };
+        // Climb from the highest rung already tried on the ladder.
+        let from = |e: &TableEntry| {
+            e.ladder
+                .iter()
+                .rposition(|r| &r.model == above || tried(&r.model))
+        };
         let can_climb = |e: &&TableEntry| {
-            let p = e.ladder.iter().position(|r| &r.model == above).unwrap_or(0);
-            (p + 1..e.ladder.len()).any(|i| usable(&e.ladder[i].model))
+            from(e).is_some_and(|p| {
+                (p + 1..e.ladder.len())
+                    .any(|i| usable(&e.ladder[i].model) && !tried(&e.ladder[i].model))
+            })
         };
         let climb = holding
             .iter()
             .find(|e| can_climb(e))
             .or(holding.first())
-            .copied();
+            .copied()
+            .filter(|e| from(e).is_some());
         if let Some(e) = climb {
-            let p = e.ladder.iter().position(|r| &r.model == above).unwrap_or(0);
-            if let Some(next) = (p + 1..e.ladder.len()).find(|&i| usable(&e.ladder[i].model)) {
+            let p = from(e).unwrap_or(0);
+            if let Some(next) = (p + 1..e.ladder.len())
+                .find(|&i| usable(&e.ladder[i].model) && !tried(&e.ladder[i].model))
+            {
                 return Ok(Some(pick(e, next, false)));
             }
             let why = if p + 1 < e.ladder.len() {
                 format!(
-                    "the rungs above {above} on the {} x {} ladder are unavailable right now",
+                    "the rungs above {above} on the {} x {} ladder are unavailable or already tried",
                     e.kind, e.tier
                 )
             } else {
@@ -417,7 +443,7 @@ pub fn select(
         }
     }
     // A failed model that is on no ladder is not tried again either.
-    let usable = |m: &str| usable(m) && steer.above.as_deref() != Some(m);
+    let usable = |m: &str| usable(m) && steer.above.as_deref() != Some(m) && !tried(m);
     let ok: Vec<usize> = (0..entry.ladder.len())
         .filter(|&i| usable(&entry.ladder[i].model))
         .collect();
@@ -1071,5 +1097,32 @@ mod review_tests {
         .unwrap()
         .unwrap();
         assert_eq!(s.model, "sonnet");
+    }
+
+    #[test]
+    fn sol_astra_sol_is_impossible() {
+        // OpenAI-only demanding refactoring: Sol fails on the demanding
+        // ladder, Astra fails after it. The retry must not climb another
+        // ladder back to Sol.
+        let t = vec![
+            entry("simple", &["luna", "sol"]),
+            entry("demanding", &["astra", "sol"]),
+        ];
+        let steer = Steer {
+            above: Some("astra".into()),
+            escalations: 2,
+            cell: Some(("debugging".into(), "demanding".into())),
+            attempted: vec!["sol".into(), "astra".into()],
+            ..Default::default()
+        };
+        let r = select(
+            &t,
+            &inp(Tier::Demanding),
+            Mode::Balanced,
+            &RoutingConfig::default(),
+            &|_| true,
+            &steer,
+        );
+        assert!(r.is_err(), "{r:?}");
     }
 }
