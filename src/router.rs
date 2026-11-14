@@ -71,12 +71,12 @@ pub fn route_traced(
     )
 }
 
-/// `route_traced` for a retry after a failure: `steer` says which model failed.
 /// A lower-bound estimate of the input's tokens (about four characters each).
 pub fn estimate_tokens(text: &str) -> u64 {
     (text.chars().count() as u64).div_ceil(4)
 }
 
+/// `route_traced` for a retry after a failure: `steer` says which model failed.
 pub fn route_traced_steered(
     prompt: &str,
     cfg: &Config,
@@ -219,7 +219,10 @@ pub fn route_summarized_steered(
     }
     let input_tokens = estimate_tokens(prompt);
     let before = eligible.len();
-    eligible.retain(|m| m.context_tokens.is_none_or(|c| c >= input_tokens));
+    // A model the user (or the sticky task) named is not second-guessed.
+    if model.is_none() {
+        eligible.retain(|m| m.context_tokens.is_none_or(|c| c >= input_tokens));
+    }
     if eligible.is_empty() && before > 0 {
         bail!(
             "no eligible model has a context window for this input (about {input_tokens} tokens); shorten it or add a larger model"

@@ -119,6 +119,11 @@ impl TableEntry {
             if r.n == 0 || r.run.trim().is_empty() {
                 bail!("{at}: {}: evidence needs n > 0 and a run id", r.model);
             }
+            if let Some(c) = r.cost_usd {
+                if !c.is_finite() || c < 0.0 {
+                    bail!("{at}: {}: cost_usd must be a finite number >= 0", r.model);
+                }
+            }
             if let Some(b) = &r.basis {
                 if b.status != "complete" {
                     bail!(
@@ -266,18 +271,27 @@ pub fn prune_stale(
     stale
 }
 
-/// Warn about dropped rungs, once per process.
-pub fn warn_dropped(dropped: &[String]) {
+/// Warn about dropped rungs, once per process: `missing` name a model the
+/// registry no longer has, `stale` were measured at another effort.
+pub fn warn_dropped(missing: &[String], stale: &[String]) {
     static ONCE: std::sync::Once = std::sync::Once::new();
-    if dropped.is_empty() {
+    if missing.is_empty() && stale.is_empty() {
         return;
     }
     ONCE.call_once(|| {
-        eprintln!(
-            "nectra: the table names models that are not in the model registry; ignoring those rungs ({}). \
-             Re-run `nectra registry table import` to repair the table.",
-            dropped.join(", ")
-        );
+        if !missing.is_empty() {
+            eprintln!(
+                "nectra: the table names models that are not in the model registry; ignoring those rungs ({}). \
+                 Re-run `nectra registry table import` to repair the table.",
+                missing.join(", ")
+            );
+        }
+        if !stale.is_empty() {
+            eprintln!(
+                "nectra: the table has evidence measured at a different effort than the model now runs at; ignoring those rungs until they are re-measured ({}).",
+                stale.join(", ")
+            );
+        }
     });
 }
 

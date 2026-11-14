@@ -556,3 +556,59 @@ fn work_that_needs_tools_skips_a_model_without_them() {
     .unwrap();
     assert_eq!(d.model, "opus", "{}", d.reason);
 }
+
+#[test]
+fn a_named_model_is_not_filtered_on_context_size() {
+    // A pinned or sticky model is the caller's word: no context filter.
+    let (_d, cfg, mut reg) = with_models("");
+    for m in &mut reg.models {
+        if m.id == "haiku" {
+            m.context_tokens = Some(50);
+            m.context_source = Some("test".into());
+        }
+    }
+    let long = "word ".repeat(400);
+    let d = router::route_with(
+        laya(0.1, 0.9),
+        &long,
+        &cfg,
+        &reg,
+        Mode::Fast,
+        None,
+        Some("haiku".into()),
+    )
+    .unwrap();
+    assert_eq!(d.model, "haiku");
+}
+
+#[test]
+fn a_negative_or_nan_cost_is_refused() {
+    let mut t = example();
+    t[0].ladder[0].cost_usd = Some(-1.0);
+    assert!(table::validate(&t, |_| true).is_err());
+    t[0].ladder[0].cost_usd = Some(f64::NAN);
+    assert!(table::validate(&t, |_| true).is_err());
+    t[0].ladder[0].cost_usd = Some(0.02);
+    table::validate(&t, |_| true).unwrap();
+}
+
+#[test]
+fn a_steer_cell_missing_from_the_table_falls_back_to_the_prompts_cell() {
+    let (_d, cfg, reg) = setup(&example(), "", "");
+    let d = router::route_summarized_steered(
+        laya(0.4, 0.9),
+        "fix the crash",
+        &cfg,
+        &reg,
+        Mode::Balanced,
+        None,
+        None,
+        &table::Steer {
+            cell: Some(("research".into(), "normal".into())),
+            ..Default::default()
+        },
+    )
+    .unwrap()
+    .0;
+    assert!(d.ladder.is_some());
+}

@@ -27,6 +27,21 @@ pub enum Events {
     Jsonl,
 }
 
+/// `--cell`: a known task kind and tier, `KIND:TIER`.
+fn parse_cell(s: &str) -> Result<String, String> {
+    let (k, t) = s.split_once(':').ok_or("expected KIND:TIER")?;
+    if !crate::table::KINDS.contains(&k) {
+        return Err(format!(
+            "unknown kind {k} (known: {})",
+            crate::table::KINDS.join(", ")
+        ));
+    }
+    if crate::jev::Tier::parse(t).is_none() {
+        return Err(format!("unknown tier {t} (simple, normal, demanding)"));
+    }
+    Ok(s.to_string())
+}
+
 #[derive(Debug, Clone, Default, clap::Args)]
 pub struct Args {
     /// Run unattended and report as JSON lines on stdout (docs/headless.md).
@@ -75,7 +90,7 @@ pub struct Args {
     pub attempted: Vec<String>,
     /// The ladder the task's first pick came from, as `KIND:TIER`; the retry
     /// climbs that ladder even if the prompt now classifies elsewhere.
-    #[arg(long, requires = "escalate_from", value_name = "KIND:TIER")]
+    #[arg(long, requires = "escalate_from", value_name = "KIND:TIER", value_parser = parse_cell)]
     pub cell: Option<String>,
     /// The failed attempt's decision id (from its `route` event), so the log
     /// links its outcome to this run's decision.
@@ -2138,5 +2153,12 @@ mod tests {
         assert!(record_path(dir, "../../etc/passwd").is_err());
         assert!(record_path(dir, "").is_err());
         assert!(record_path(dir, &executor::new_session_id()).is_ok());
+    }
+    #[test]
+    fn cell_must_be_a_known_kind_and_tier() {
+        assert!(super::parse_cell("debugging:normal").is_ok());
+        assert!(super::parse_cell("debugging").is_err());
+        assert!(super::parse_cell("debuging:normal").is_err());
+        assert!(super::parse_cell("debugging:hard").is_err());
     }
 }
