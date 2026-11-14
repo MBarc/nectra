@@ -525,8 +525,8 @@ fn context_tokens_needs_a_source() {
     )
     .unwrap();
     let text = include_str!("../config/models.toml").replacen(
-        "[[model]]\nid = \"haiku\"",
-        "[[model]]\nid = \"haiku\"\ncontext_tokens = 200000",
+        "[[model]]\nid = \"gpt-5.6-luna\"",
+        "[[model]]\nid = \"gpt-5.6-luna\"\ncontext_tokens = 200000",
         1,
     );
     fs::write(dir.path().join("models.toml"), text).unwrap();

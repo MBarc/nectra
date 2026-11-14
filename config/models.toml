@@ -1,3 +1,5 @@
+# context_tokens/context_source/tools: from the providers' official model pages (cited per model).
+# gpt-5.6-sol and gpt-5.6-luna are left unset: no official page states them. Ollama models: unset (local).
 # Capability scores are hand-set estimates, product policy and not benchmark claims,
 # until a calibration run measures them. Editable without recompiling.
 
@@ -8,6 +10,9 @@ runtime = "claude"
 enabled = true
 effort = ""
 prefers = ["planning"]
+context_tokens = 1000000
+context_source = "https://platform.claude.com/docs/en/about-claude/models/overview"
+tools = true
 [model.capabilities]
 coding=0.97
 reasoning=0.99
@@ -24,6 +29,9 @@ runtime = "claude"
 enabled = true
 effort = ""
 prefers = ["general"]
+context_tokens = 1000000
+context_source = "https://platform.claude.com/docs/en/about-claude/models/overview"
+tools = true
 [model.capabilities]
 coding=0.94
 reasoning=0.93
@@ -72,6 +80,9 @@ runtime = "claude"
 enabled = true
 effort = ""
 prefers = ["simple"]
+context_tokens = 1000000
+context_source = "https://platform.claude.com/docs/en/about-claude/models/overview"
+tools = true
 [model.capabilities]
 coding=0.82
 reasoning=0.80
@@ -88,6 +99,9 @@ runtime = "codex"
 enabled = true
 effort = "high"
 prefers = ["demanding"]
+context_tokens = 1050000
+context_source = "https://developers.openai.com/api/docs/models/gpt-6-astra"
+tools = true
 [model.capabilities]
 coding=1.0
 reasoning=1.0
@@ -110,6 +124,9 @@ runtime = "agy"
 enabled = true
 effort = ""
 prefers = []
+context_tokens = 1048576
+context_source = "https://aistudio.google.com/docs/models/gemini-3.8-flash"
+tools = true
 [model.capabilities]
 coding=0.9
 reasoning=0.9
@@ -126,6 +143,9 @@ runtime = "agy"
 enabled = true
 effort = ""
 prefers = []
+context_tokens = 1048576
+context_source = "https://aistudio.google.com/docs/models/gemini-3.8-flash"
+tools = true
 [model.capabilities]
 coding=0.8
 reasoning=0.8
@@ -142,6 +162,9 @@ runtime = "agy"
 enabled = true
 effort = ""
 prefers = []
+context_tokens = 1048576
+context_source = "https://aistudio.google.com/docs/models/gemini-3.8-flash"
+tools = true
 [model.capabilities]
 coding=0.8
 reasoning=0.8
@@ -162,6 +185,9 @@ runtime = "claude"
 enabled = true
 effort = ""
 prefers = ["demanding"]
+context_tokens = 1000000
+context_source = "https://platform.claude.com/docs/en/about-claude/models/overview"
+tools = true
 [model.capabilities]
 coding=0.98
 reasoning=1.0
@@ -183,6 +209,9 @@ runtime = "codex"
 enabled = true
 effort = "high"
 prefers = []
+context_tokens = 1050000
+context_source = "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+tools = true
 [model.capabilities]
 coding=0.99
 reasoning=0.99
@@ -199,6 +228,9 @@ runtime = "codex"
 enabled = true
 effort = "medium"
 prefers = []
+context_tokens = 1050000
+context_source = "https://developers.openai.com/api/docs/models/gpt-6-luna"
+tools = true
 [model.capabilities]
 coding=0.89
 reasoning=0.86
