@@ -149,6 +149,8 @@ follow_up}}` in a session log) so a decision is never rewritten; the latest wins
 | --- | --- |
 | `completed` | The model answered |
 | `failed_tests` | The caller's objective test failed; `nectra run --prior-outcome` (default) records it for the attempt `--escalate-from` names. Chat does not run tests |
+
+**Completed is not success.** `completed` only means the model returned an answer. Each decision record has a `verified` field, null until an explicit verifier (a test run, a checker) says so: `nectra run --prior-decision ID --prior-verified true|false` records a verifier's verdict on that decision. Nothing may train a success predictor or a bandit on records whose `verified` is null.
 | `tool_error` | The agent failed, was unavailable, or returned no answer |
 | `limit` | A provider rate or usage limit stopped it |
 | `deadline` | `nectra run --deadline` passed before the turn finished |
@@ -249,6 +251,14 @@ Evidence is bound to what it was measured on. A rung may carry `cost_usd` and a 
 A rung measured at a different `effort` than the registry's model now runs at is stale: import
 warns, and the router ignores it (one warning at load). `registry table show` lists the kinds
 with no measured cells as UNMEASURED; they are routed by the heuristic.
+
+Long context and tool use are capability filters, not task kinds. A `[[model]]` may carry
+`context_tokens` (its window, with a required `context_source`: the provider docs URL and
+date) and `tools = false` (it can only answer). The router drops a model whose window is
+smaller than the input (estimated at four characters a token, from the prompt it is given:
+history and attachments the caller adds are not counted) and, for work on code, a model
+without tools. A model with no recorded window is never filtered on size. The shipped
+registry sets none of these: fill them in from the provider docs.
 
 A rung that names a model no longer in `models.toml` is dropped when the registry loads, with one warning on stderr; a cell left with no rung routes the old way. `registry table import` still works in that state, so it can repair the table.
 

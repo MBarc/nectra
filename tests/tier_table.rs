@@ -481,3 +481,78 @@ fn exhausting_every_candidate_is_an_explicit_ladder_limit() {
         "{err:#}"
     );
 }
+
+fn with_models(extra: &str) -> (tempfile::TempDir, Config, Registry) {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("config.toml"),
+        include_str!("../config/nectra.toml"),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("models.toml"),
+        format!("{}\n{extra}", include_str!("../config/models.toml")),
+    )
+    .unwrap();
+    let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
+    let registry = Registry::load(&cfg).unwrap();
+    (dir, cfg, registry)
+}
+
+#[test]
+fn a_model_too_small_for_the_input_is_filtered_out() {
+    let (_d, cfg, mut reg) = with_models("");
+    for m in &mut reg.models {
+        if m.id == "haiku" {
+            m.context_tokens = Some(50);
+            m.context_source = Some("test".into());
+        }
+    }
+    let long = "word ".repeat(400);
+    let d = router::route_with(laya(0.1, 0.9), &long, &cfg, &reg, Mode::Fast, None, None).unwrap();
+    assert_ne!(d.model, "haiku", "{}", d.reason);
+    // The same model still routes when the input fits.
+    let d = router::route_with(laya(0.1, 0.9), "hi", &cfg, &reg, Mode::Fast, None, None).unwrap();
+    assert!(!d.model.is_empty());
+}
+
+#[test]
+fn context_tokens_needs_a_source() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("config.toml"),
+        include_str!("../config/nectra.toml"),
+    )
+    .unwrap();
+    let text = include_str!("../config/models.toml").replacen(
+        "[[model]]\nid = \"haiku\"",
+        "[[model]]\nid = \"haiku\"\ncontext_tokens = 200000",
+        1,
+    );
+    fs::write(dir.path().join("models.toml"), text).unwrap();
+    let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
+    let err = Registry::load(&cfg).unwrap_err();
+    assert!(format!("{err:#}").contains("context_source"), "{err:#}");
+}
+
+#[test]
+fn work_that_needs_tools_skips_a_model_without_them() {
+    let (_d, cfg, mut reg) = with_models("");
+    for m in &mut reg.models {
+        m.tools = Some(false);
+        if m.id == "opus" {
+            m.tools = None;
+        }
+    }
+    let d = router::route_with(
+        laya(0.1, 0.9),
+        "fix the crash in the parser",
+        &cfg,
+        &reg,
+        Mode::Fast,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(d.model, "opus", "{}", d.reason);
+}

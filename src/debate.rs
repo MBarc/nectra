@@ -114,6 +114,9 @@ mod tests {
             enabled: true,
             effort: String::new(),
             prefers: vec![],
+            context_tokens: None,
+            context_source: None,
+            tools: None,
             capabilities: Capabilities {
                 coding: 0.8,
                 reasoning: 0.8,

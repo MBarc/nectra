@@ -65,6 +65,12 @@ pub struct DecisionRecord {
     /// through its `follow_up`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub escalation: Option<u32>,
+    /// Whether an explicit verifier (a test run, a checker) confirmed the
+    /// result: null until one says so. `completed` is NOT success: it only
+    /// means the model returned an answer. Nothing trains on a record whose
+    /// `verified` is not true or false.
+    #[serde(default)]
+    pub verified: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -106,6 +112,10 @@ pub struct OutcomeRecord {
     /// The decision that followed from this outcome (a fallback, a retry).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow_up: Option<String>,
+    /// A verifier's verdict on the decision's result; set only by an explicit
+    /// verifier, never inferred from the outcome.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified: Option<bool>,
 }
 
 pub fn prompt_hash(prompt: &str) -> String {
@@ -204,6 +214,7 @@ impl DecisionRecord {
                 hedged: l.hedged,
             }),
             escalation: (decision.escalation > 0).then_some(decision.escalation),
+            verified: None,
         }
     }
 }
@@ -281,6 +292,9 @@ pub fn read_log(text: &str, session: &str) -> Vec<LoggedDecision> {
                         d.outcome = Some(o.outcome);
                     }
                     d.follow_up = o.follow_up.or(d.follow_up.take());
+                    if o.verified.is_some() {
+                        d.decision.verified = o.verified;
+                    }
                 }
             }
             _ => {}
@@ -340,6 +354,7 @@ mod tests {
             overridden: false,
             ladder: None,
             escalation: None,
+            verified: None,
         }
     }
 
@@ -433,5 +448,27 @@ mod tests {
         assert_eq!(parse_since("1000", 5).unwrap(), 1000);
         assert_eq!(parse_since("2d", 200_000).unwrap(), 200_000 - 172_800);
         assert!(parse_since("soon", 0).is_err());
+    }
+
+    #[test]
+    fn verified_is_null_until_a_verifier_says_so_and_completed_never_sets_it() {
+        let line = |v: serde_json::Value| format!("{v}\n");
+        let mut log = line(
+            serde_json::json!({"type":"user","text":"x","model":"a","decision":record("d-1",10)}),
+        );
+        log += &line(
+            serde_json::json!({"type":"outcome","outcome":{"decision":"d-1","outcome":"completed"}}),
+        );
+        let got = read_log(&log, "s");
+        assert_eq!(got[0].decision.verified, None);
+        assert_eq!(
+            serde_json::to_value(&got[0].decision).unwrap()["verified"],
+            serde_json::Value::Null
+        );
+        log += &line(
+            serde_json::json!({"type":"outcome","outcome":{"decision":"d-1","outcome":"failed_tests","verified":false}}),
+        );
+        let got = read_log(&log, "s");
+        assert_eq!(got[0].decision.verified, Some(false));
     }
 }

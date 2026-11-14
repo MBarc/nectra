@@ -208,6 +208,9 @@ mod tests {
             enabled: true,
             effort: String::new(),
             prefers: prefers.iter().map(|s| s.to_string()).collect(),
+            context_tokens: None,
+            context_source: None,
+            tools: None,
             capabilities: Capabilities {
                 coding: 0.65,
                 reasoning: 0.65,

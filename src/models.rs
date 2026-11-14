@@ -92,6 +92,18 @@ pub struct ModelProfile {
     /// Any model may declare these, including generated ollama/* ids.
     #[serde(default)]
     pub prefers: Vec<String>,
+    /// The model's context window in tokens, from the provider's docs; unset
+    /// means unknown (the model is never filtered on size).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_tokens: Option<u64>,
+    /// Where `context_tokens` comes from (a docs URL and date); required when
+    /// it is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_source: Option<String>,
+    /// False for a model that can only answer, not read, edit or run
+    /// anything; work that needs tools skips it. Unset means it can.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<bool>,
 }
 
 /// Warn when a registry predates declared routing roles.
@@ -190,6 +202,9 @@ impl Registry {
                             vec![]
                         }
                     }),
+                    context_tokens: None,
+                    context_source: None,
+                    tools: None,
                     capabilities: model.capabilities.clone().unwrap_or(Capabilities {
                         coding: 0.65,
                         reasoning: 0.65,
@@ -258,6 +273,13 @@ impl Registry {
         crate::table::validate(&self.table, |id| self.models.iter().any(|m| m.id == id))?;
         let mut ids = std::collections::HashSet::new();
         for m in &self.models {
+            if m.context_tokens.is_some()
+                && m.context_source
+                    .as_deref()
+                    .is_none_or(|s| s.trim().is_empty())
+            {
+                bail!("{}: context_tokens needs a context_source", m.id);
+            }
             if m.id.trim().is_empty()
                 || m.id.starts_with('-')
                 || m.id.chars().any(char::is_whitespace)

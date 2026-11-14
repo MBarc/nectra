@@ -81,6 +81,10 @@ pub struct Args {
     /// links its outcome to this run's decision.
     #[arg(long, requires = "escalate_from", value_name = "ID")]
     pub prior_decision: Option<String>,
+    /// What the caller's verifier said about the failed attempt; recorded on
+    /// that decision. Never inferred: without it `verified` stays null.
+    #[arg(long, requires = "prior_decision", value_name = "BOOL")]
+    pub prior_verified: Option<bool>,
     /// How the failed attempt ended (default failed-tests).
     #[arg(long, requires = "prior_decision", value_enum)]
     pub prior_outcome: Option<crate::decisions::Outcome>,
@@ -1144,7 +1148,11 @@ fn task(
             let why = args
                 .prior_outcome
                 .unwrap_or(crate::decisions::Outcome::FailedTests);
-            outcomes.push(json!({"decision": prior, "outcome": why, "follow_up": null}));
+            let mut o = json!({"decision": prior, "outcome": why, "follow_up": null});
+            if let Some(v) = args.prior_verified {
+                o["verified"] = json!(v);
+            }
+            outcomes.push(o);
             failed_decision = Some((prior.clone(), why));
         }
         let mut names = HashMap::new();

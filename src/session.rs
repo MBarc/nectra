@@ -386,6 +386,7 @@ impl Session {
                 decision: decision.into(),
                 outcome,
                 follow_up: follow_up.map(String::from),
+                verified: None,
             },
         })
     }
