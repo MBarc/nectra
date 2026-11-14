@@ -69,6 +69,14 @@ pub struct Args {
     /// `[routing] max_escalations`.
     #[arg(long, requires = "escalate_from", value_parser = clap::value_parser!(u32).range(1..))]
     pub escalation: Option<u32>,
+    /// Models the task already tried (repeatable); never picked again. The
+    /// `--escalate-from` model counts as tried.
+    #[arg(long, requires = "escalate_from", value_name = "MODEL")]
+    pub attempted: Vec<String>,
+    /// The ladder the task's first pick came from, as `KIND:TIER`; the retry
+    /// climbs that ladder even if the prompt now classifies elsewhere.
+    #[arg(long, requires = "escalate_from", value_name = "KIND:TIER")]
+    pub cell: Option<String>,
     /// The failed attempt's decision id (from its `route` event), so the log
     /// links its outcome to this run's decision.
     #[arg(long, requires = "escalate_from", value_name = "ID")]
@@ -1111,6 +1119,17 @@ fn task(
                 .escalate_from
                 .as_ref()
                 .map_or(0, |_| args.escalation.unwrap_or(1)),
+            cell: args
+                .cell
+                .as_deref()
+                .and_then(|c| c.split_once(':'))
+                .map(|(k, t)| (k.to_string(), t.to_string())),
+            attempted: args
+                .attempted
+                .iter()
+                .chain(args.escalate_from.iter())
+                .cloned()
+                .collect(),
             ..Default::default()
         };
         if let Some(from) = &args.escalate_from {

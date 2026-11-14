@@ -33,6 +33,7 @@ need `--events jsonl`:
 | `--serve` | Answer many tasks in one process, reading requests from stdin. See [Many tasks in one process](#many-tasks-in-one-process---serve). |
 | `--no-tools` | Answers only: no tools, files or shell. See [Answers only](#answers-only---no-tools). |
 | `--escalate-from MODEL` | The caller's last attempt failed on MODEL: start one rung above it on the task's table ladder. With `--escalation N` (steps taken, default 1), `--prior-decision ID` and `--prior-outcome` to link the log. See [routing](routing.md#escalation). |
+| `--attempted MODEL` (repeatable), `--cell KIND:TIER` | Every model the task already tried (never picked again), and the ladder its first pick came from (every retry climbs that ladder). Pass them on each retry. |
 
 ## Events
 

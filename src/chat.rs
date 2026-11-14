@@ -732,10 +732,13 @@ pub fn run_loop(
         let mut steer = crate::table::Steer {
             above: carried.as_ref().and_then(|e| e.failed.clone()),
             escalations: carried.as_ref().map_or(0, |e| e.steps),
+            cell: carried.as_ref().and_then(|e| e.cell.clone()),
+            attempted: carried.as_ref().map_or(vec![], |e| e.attempted.clone()),
             ..Default::default()
         };
         if let Some(Again::Stronger(beat)) = &again {
             steer.above = Some(beat.clone());
+            steer.attempted.push(beat.clone());
             steer.escalations += 1;
         }
         let last_model = previous.map(|e| e.model.clone());
@@ -825,7 +828,8 @@ pub fn run_loop(
                                 above: steer.above.clone(),
                                 escalations: 0,
                                 stay: true,
-                                ..Default::default()
+                                cell: steer.cell.clone(),
+                                attempted: steer.attempted.clone(),
                             };
                             continue;
                         }
@@ -836,6 +840,8 @@ pub fn run_loop(
                             kind: task_kind.clone(),
                             failed: None,
                             steps: steer.escalations.saturating_sub(1),
+                            cell: steer.cell.clone(),
+                            attempted: steer.attempted.clone(),
                         });
                         continue 'messages;
                     }
@@ -1000,6 +1006,8 @@ pub fn run_loop(
                     kind: task_kind.clone(),
                     failed: None,
                     steps: steer.escalations,
+                    cell: steer.cell.clone(),
+                    attempted: steer.attempted.clone(),
                 });
             }
             let record = crate::decisions::DecisionRecord::new(
@@ -1060,10 +1068,20 @@ pub fn run_loop(
                             || e.downcast_ref::<crate::ollama::Unavailable>().is_some()
                     });
                     if outcome == Outcome::ToolError && decision.ladder.is_some() && !access {
+                        let mut attempted = steer.attempted.clone();
+                        attempted.push(decision.model.clone());
                         escalating = Some(Escalating {
                             kind: task_kind.clone(),
                             failed: Some(decision.model.clone()),
                             steps: steer.escalations + 1,
+                            // The first pick fixes the ladder for the whole task.
+                            cell: steer.cell.clone().or_else(|| {
+                                decision
+                                    .ladder
+                                    .as_ref()
+                                    .map(|l| (l.kind.clone(), l.tier.clone()))
+                            }),
+                            attempted,
                         });
                     }
                 }
@@ -1078,6 +1096,8 @@ pub fn run_loop(
                         kind: task_kind.clone(),
                         failed: None,
                         steps: steer.escalations,
+                        cell: steer.cell.clone(),
+                        attempted: steer.attempted.clone(),
                     });
                     unanswered = None;
                     // Real chats only: a test run (no cooldown state) never reads real logs.
@@ -1226,6 +1246,10 @@ struct Escalating {
     failed: Option<String>,
     /// Escalations taken so far, against `[routing] max_escalations`.
     steps: u32,
+    /// The ladder the task's first pick came from; every retry climbs it.
+    cell: Option<(String, String)>,
+    /// Every model already tried for this task: never picked again.
+    attempted: Vec<String>,
 }
 
 enum Again {
