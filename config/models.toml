@@ -1,5 +1,5 @@
 # context_tokens/context_source/tools: from the providers' official model pages (cited per model).
-# gpt-5.6-sol and gpt-5.6-luna are left unset: no official page states them. Ollama models: unset (local).
+# Ollama models (none shipped): leave unset, it depends on the local model.
 # Capability scores are hand-set estimates, product policy and not benchmark claims,
 # until a calibration run measures them. Editable without recompiling.
 
@@ -48,6 +48,9 @@ runtime = "codex"
 enabled = true
 effort = "high"
 prefers = ["coding"]
+context_tokens = 1050000
+context_source = "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+tools = true
 [model.capabilities]
 coding=0.99
 reasoning=0.99
@@ -64,6 +67,9 @@ runtime = "codex"
 enabled = true
 effort = "medium"
 prefers = ["simple-coding"]
+context_tokens = 1050000
+context_source = "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+tools = true
 [model.capabilities]
 coding=0.87
 reasoning=0.84

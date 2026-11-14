@@ -524,11 +524,12 @@ fn context_tokens_needs_a_source() {
         include_str!("../config/nectra.toml"),
     )
     .unwrap();
-    let text = include_str!("../config/models.toml").replacen(
-        "[[model]]\nid = \"gpt-5.6-luna\"",
-        "[[model]]\nid = \"gpt-5.6-luna\"\ncontext_tokens = 200000",
-        1,
-    );
+    // Drop every source: a model with context_tokens but no source must be rejected.
+    let text: String = include_str!("../config/models.toml")
+        .lines()
+        .filter(|l| !l.starts_with("context_source"))
+        .map(|l| format!("{l}\n"))
+        .collect();
     fs::write(dir.path().join("models.toml"), text).unwrap();
     let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
     let err = Registry::load(&cfg).unwrap_err();
