@@ -1,0 +1,5 @@
+[advisories]
+# paste is unmaintained (no fix exists). It is a compile-time proc macro pulled
+# in only through tokenizers -> vendor/laya-onnx; it is not in any runtime path
+# and there is no vulnerability, only the maintenance notice.
+ignore = ["RUSTSEC-2024-0436"]

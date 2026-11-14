@@ -9,9 +9,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
       - run: cargo fmt --all --check
       - run: cargo test --all-targets --locked
@@ -22,3 +23,45 @@ jobs:
         run: ./scripts/test-uninstall.ps1
       - if: runner.os != 'Windows'
         run: sh scripts/test-uninstall.sh
+  audit:
+    # RustSec advisories for the locked dependency tree.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - run: cargo install --locked cargo-audit@0.23.0
+      - run: cargo audit --deny warnings
+  deny:
+    # Licenses, bans, advisories and sources, as configured in deny.toml.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - run: cargo install --locked cargo-deny@0.20.2
+      - run: cargo deny --locked check
+  windows-gnu-wine:
+    # The x86_64-pc-windows-gnu build, run for real under wine: the test
+    # binaries and the release binary. (The Windows MSVC build is the `test`
+    # job above; this one covers the gnu target the release also ships.)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUNNER: wine
+      WINEDEBUG: -all
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-gnu
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 wine64
+          wineboot --init || true
+      - run: cargo test --locked --target x86_64-pc-windows-gnu --all-targets
+      - run: cargo build --release --locked --target x86_64-pc-windows-gnu
+      - name: Run the release binary under wine
+        run: wine target/x86_64-pc-windows-gnu/release/nectra.exe --version
