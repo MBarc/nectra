@@ -28,7 +28,7 @@ def build_snapshot(data):
             if r.get("rep", 0) != 0 or (o.get("outcome") == "input_missing" and not o.get("passed")):
                 continue
             c = r.get("cost_usd") if r.get("cost_usd") is not None else r.get("provider_cost_usd")
-            runs[r["task"]][m] = [bool(o.get("passed")), c or 0.0]
+            runs[r["task"]][m] = [bool(o.get("passed")), c or 0.0, r.get("status") == "failed", r.get("answer_chars") or 0]
     pred = json.load(open(data / "predictions.json"))
     table = json.load(open(data / "results" / "rh-v2-table.nectra.json"))["entries"]
     tasks = {}
@@ -36,7 +36,7 @@ def build_snapshot(data):
         j = json.load(open(t))
         if j["id"] in runs and all(m in runs[j["id"]] for m in MODELS):
             p = pred.get(j["id"], {})
-            tasks[j["id"]] = {"kind": j["type"], "tier": TIER[str(j["tier"])], "family": j["id"].rsplit("-", 1)[0],
+            tasks[j["id"]] = {"prompt_chars": len(j.get("prompt", "")), "kind": j["type"], "tier": TIER[str(j["tier"])], "family": j["id"].rsplit("-", 1)[0],
                               "runs": runs[j["id"]], "pred_kind": p.get("kind"), "pred_tier": p.get("tier"),
                               "pred_difficulty": p.get("difficulty")}
     snap = {"tasks": tasks, "table": [[e["kind"], e["tier"], [r["model"] for r in e["ladder"]]] for e in table]}
@@ -56,7 +56,7 @@ def main():
     def cascade(i, ladder):
         spent, tried = 0.0, 0
         for m in ladder:
-            ok, c = T[i]["runs"][m]; spent += c; tried += 1
+            ok, c = T[i]["runs"][m][:2]; spent += c; tried += 1
             if ok: return True, spent, tried, m
         return False, spent, tried, None
 
@@ -143,8 +143,8 @@ def main():
         w(f"| {r['name']} | {r['under']} | {r['nobody']} | {fmt(r['attempt_cost'])} | {fmt(r['over'])} | {fmt(r['nobody_cost'])} |")
     w("\n## Per authored kind (pass / $ per task; n<20 flagged)\n")
     pol_short = [n for n, _ in policies]
+    w("; ".join(f"P{k+1} = {p}" for k, p in enumerate(pol_short)) + "\n")
     w("| kind | n | " + " | ".join(f"P{k+1}" for k in range(len(pol_short))) + " |")
-    w("\n" + "; ".join(f"P{k+1} = {p}" for k, p in enumerate(pol_short)) + "\n")
     w("|---|---:|" + "---:|" * len(pol_short))
     kinds = sorted({T[i]["kind"] for i in ids})
     for k in kinds:
@@ -182,6 +182,57 @@ def main():
     w(f"| authored tier (human label) | {au(authored,'luna')} | {au(authored,'haiku')} | {au(authored,'sonnet')} | {len(ids)} |")
     agree_k = sum(T[i]["pred_kind"] == T[i]["kind"] for i in ids); agree_t = sum(T[i]["pred_tier"] == T[i]["tier"] for i in ids)
     w(f"\nLaya vs authored labels: kind {agree_k}/{len(ids)}, tier {agree_t}/{len(ids)}; {len(ids) - len(diff)} prompts unclassified (keyword fallback).")
+
+    # ---- Follow-up 2: what nectra's own escalation signal sees
+    w("\n## Free failure detection: what nectra's real signal sees\n")
+    w("What triggers an escalation in nectra today (`src/chat.rs`, `src/headless.rs`): a **failed turn** (the provider run errored: deadline, rate limit, tool error) steps the task up the ladder; the user can ask for a stronger model (`/model`, a demanding follow-up); and a headless caller passes `--escalate-from` (optionally with `--prior-verified`, a verifier verdict). **Nothing in nectra judges whether a completed answer is right** (`Completed` is not success). In these runs the only recorded signal of that kind is `status == failed` (`error_class`). The objective check is a grader the real system does not have.\n")
+    w("Confusion matrix per rung: 'nectra would escalate' = the run's turn failed; truth = the objective check failed (the run did not pass).\n")
+    w("| rung | runs | escalate & check failed | escalate & check passed | no escalate & check failed (missed) | no escalate & check passed | recall of check failures |")
+    w("|---|---:|---:|---:|---:|---:|---:|")
+    for m in order:
+        tp = sum(1 for i in ids if T[i]["runs"][m][2] and not T[i]["runs"][m][0]); fp = sum(1 for i in ids if T[i]["runs"][m][2] and T[i]["runs"][m][0])
+        fn = sum(1 for i in ids if not T[i]["runs"][m][2] and not T[i]["runs"][m][0]); tn = sum(1 for i in ids if not T[i]["runs"][m][2] and T[i]["runs"][m][0])
+        w(f"| {m} | {len(ids)} | {tp} | {fp} | {fn} | {tn} | {tp/(tp+fn):.1%} |")
+    w("\nSo on these runs the real signal fires on a handful of deadline failures and misses essentially every wrong answer. Cascades re-run with it (a failed turn always escalates; otherwise a wrong answer is accepted with probability 1-d, where d is the share of wrong answers some detector would catch; false alarms assumed zero; expected values are exact, not sampled). d=1 is the oracle check used above; 'real' is d=0 plus the failed-turn trigger.\n")
+    def expected(i, ladder, d):
+        pp, cost, alive = 0.0, 0.0, 1.0
+        for m in ladder:
+            ok, c, failed = T[i]["runs"][m][:3]; cost += alive * c
+            if ok: pp += alive; alive = 0; break
+            alive *= 1.0 if failed else d
+        return pp, cost
+    w("| cascade | detection of wrong answers | pass (expected) | pass 95% CI (task / family) | $/task | $/task 95% CI (task / family) |")
+    w("|---|---|---:|---|---:|---|")
+    for lname, start in (("luna-first", "luna"), ("haiku-first", "haiku")):
+        for label, d in (("oracle check (d=1)", 1.0), ("d=0.75", .75), ("d=0.5", .5), ("d=0.25", .25), ("**real: failed turns only**", 0.0)):
+            ev = {i: expected(i, up(start), d) for i in ids}
+            pas = lambda s, ev=ev: sum(ev[i][0] for i in s) / len(s); cst = lambda s, ev=ev: sum(ev[i][1] for i in s) / len(s)
+            a, b, c2, d2 = ci(pas); e, f, g, h = ci(cst)
+            w(f"| {lname} | {label} | {pas(ids)*len(ids):.1f}/{len(ids)} ({pas(ids):.1%}) | {a:.3f}-{b:.3f} / {c2:.3f}-{d2:.3f} | {cst(ids):.4f} | {e:.4f}-{f:.4f} / {g:.4f}-{h:.4f} |")
+    first = {m: sum(T[i]["runs"][m][0] for i in ids) for m in order}
+    w(f"\nWith the real signal a cascade is just its first rung (luna alone {first['luna']}/{len(ids)}, haiku alone {first['haiku']}/{len(ids)}): the cascade's whole pass-rate advantage comes from a detector the system does not have. Any real deployment needs a verifier (tests, a grader model, the user), and its recall d sets the result between the d=0 and d=1 rows.\n")
+    # verifier cost: grade the saved answers
+    prices = json.load(open(HERE.parent / "chat-savings" / "prices.json"))
+    ans_tok = sum(T[i]["runs"][m][3] for i in ids for m in MODELS) / 4; prm_tok = sum(T[i]["prompt_chars"] for i in ids) * len(MODELS) / 4
+    n_runs = len(ids) * len(MODELS); in_tok = ans_tok + prm_tok + 400 * n_runs; out_tok = 150 * n_runs   # +400 rubric/instructions, 150 verdict tokens per answer
+    w("**What is missing, and the minimal re-run.** Not recorded: any automated verdict on a completed answer (a verifier result, a test run by nectra, a user reaction). Recorded and usable: `status`, `error_class`, `answer_chars`, the answer text (`*.answer.md`) and the objective check. To measure a real verifier's recall d and false-alarm rate, no task or model needs re-running: grade the saved answers. "
+      f"{n_runs} answers, about {in_tok/1e6:.2f}M input and {out_tok/1e6:.2f}M output tokens (chars/4, 400 tokens of rubric and 150 of verdict per answer). At the registry's list prices the whole set costs, by grader: " +
+      "; ".join(f"{m} ${prices[m]['input']*in_tok/1e6 + prices[m]['output']*out_tok/1e6:.2f}" for m in ("haiku", "sonnet", "opus")) +
+      ". Comparing each verdict with the objective check gives d and the false-alarm rate to plug into the table above.\n")
+    # ---- Follow-up 3: stop rule
+    w("## Stop rule: capping escalations\n")
+    w("Oracle check as the trigger. 'Nobody-passed' = the 20 tasks no model passes; they climb the whole ladder under no cap. Pass lost = tasks the uncapped cascade passes and the capped one does not.\n")
+    w("| cascade | cap (max escalations) | pass | pass lost vs no cap | $/task | $/task saved | spent on nobody-passed $/task | saved there |")
+    w("|---|---:|---:|---:|---:|---:|---:|---:|")
+    for lname, start in (("luna-first", "luna"), ("haiku-first", "haiku")):
+        full = up(start); base = {i: cascade(i, full) for i in ids}; bp = sum(base[i][0] for i in ids); bc = sum(base[i][1] for i in ids) / len(ids)
+        bn = sum(base[i][1] for i in ids if cheapest_pass[i] is None) / len(ids)
+        for cap in sorted({0, 1, 2, len(full) - 1}):
+            lad = full[: cap + 1]; r = {i: cascade(i, lad) for i in ids}
+            pp = sum(r[i][0] for i in ids); cc = sum(r[i][1] for i in ids) / len(ids); nn = sum(r[i][1] for i in ids if cheapest_pass[i] is None) / len(ids)
+            tag = f"{cap}" + (" (= no cap)" if cap == len(full) - 1 else "")
+            w(f"| {lname} | {tag} | {pp}/{len(ids)} | {bp-pp} | {cc:.4f} | {bc-cc:.4f} | {nn:.4f} | {bn-nn:.4f} |")
+
     byname = {r["name"]: r for r in rows}
     best_casc = min((byname[n] for n in ("haiku-first cascade", "luna-first cascade", "sonnet-first cascade")), key=lambda r: r["cost"])
     w("\n## Conclusion\n")
@@ -192,6 +243,7 @@ def main():
     w(f"- **Laya as it stands on master is the worst of the routed policies**: the certified table is opus-only, and opus alone passes {R('always-opus')['passn']}/{len(ids)}; the table costs {lt['cost']/hf_['cost']:.1f}x haiku-first and passes {hf_['passn']-lt['passn']} fewer tasks. That is the cost of requiring certification at ~22 tasks per kind, not a classifier error.")
     w(f"- **The signal is not there.** Laya's predicted difficulty has AUC {au(diff,'luna')} / {au(diff,'haiku')} / {au(diff,'sonnet')} for luna / haiku / sonnet failing (0.5 = nothing); the authored tier is no better. Skipping haiku needs at least 91% precision to pay (haiku is so cheap that a skip costs 11x when wrong); skipping luna needs only 29% but can save at most ${rung_stats('luna')[2]/len(ids):.4f}/task. The most any skip rule could save over luna-first is its failed-attempt cost (${lf_['attempt_cost']:.4f}/task) plus overshoot (${lf_['over']:.4f}).")
     w(f"- **The money left on the table is elsewhere**: luna-first spends ${lf_['nobody_cost']:.4f}/task climbing the full ladder on the {lf_['nobody']} tasks no model passes. Capping at two escalations costs {lf_['passn']-l2['passn']} passes and ${lf_['cost']-l2['cost']:.4f}/task saved ({l2['passn']}/{len(ids)}, ${l2['cost']:.4f}). That is a stop rule, not a classifier.")
+    w(f"- **Free failure detection is the dominant caveat, and it is large.** nectra's own signal (a failed turn) catches 0-5% of wrong answers on these runs, so a cascade driven by it is just its first rung: luna-first {first['luna']}/{len(ids)} at $0.0055, haiku-first {first['haiku']}/{len(ids)} at $0.0105 (against 174 and 170 with the objective check). Every cascade advantage above needs a verifier with high recall; at d=0.5 luna-first drops to about 131/194 and haiku-first to about 159/194. A verifier (tests, a grader model, the user) matters more than any classifier. The saved answers allow measuring a grader's d with no new model runs (cost in the section above).")
     w("- **Where a classifier could still win**: (1) a *stop/give-up* predictor for tasks that will fail at every rung (largest unpaid cost above); (2) a *difficulty* signal with AUC well above 0.5 for luna/haiku failure (none measured here); (3) kinds or workloads where the cheap rung fails often and a mid rung is cheap relative to opus (the p* column). Caveats: one run per model and task, 194 tasks, free failure detection, no project identifier (clusters are id families), noise data empty, and costs are notional API list prices.")
     w("\n## Reproduce\n\n`python3 eval/calibration/classifier_vs_cascade.py` (reads `rhv2-snapshot.json`); add `--data ~/nectra-calibration/eval/calibration` to rebuild the snapshot from the run files.")
     (HERE / "CLASSIFIER-VS-CASCADE.md").write_text("\n".join(L) + "\n")

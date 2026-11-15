@@ -155,22 +155,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_generation",
    "pred_tier": null,
+   "prompt_chars": 356,
    "runs": {
     "haiku": [
      false,
-     0.005375780000000001
+     0.005375780000000001,
+     false,
+     606
     ],
     "luna": [
      false,
-     0.004980559999999999
+     0.004980559999999999,
+     false,
+     266
     ],
     "opus": [
      false,
-     0.1586112
+     0.1586112,
+     false,
+     1148
     ],
     "sonnet": [
      false,
-     0.078076
+     0.078076,
+     false,
+     659
     ]
    },
    "tier": "simple"
@@ -181,22 +190,31 @@
    "pred_difficulty": 0.44,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 191,
    "runs": {
     "haiku": [
      false,
-     0.00716955
+     0.00716955,
+     false,
+     913
     ],
     "luna": [
      false,
-     0.01153756
+     0.01153756,
+     false,
+     291
     ],
     "opus": [
      true,
-     0.2531432
+     0.2531432,
+     false,
+     1651
     ],
     "sonnet": [
      false,
-     0.1010336
+     0.1010336,
+     false,
+     1079
     ]
    },
    "tier": "simple"
@@ -207,22 +225,31 @@
    "pred_difficulty": 0.68,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 195,
    "runs": {
     "haiku": [
      false,
-     0.01064754
+     0.01064754,
+     false,
+     1493
     ],
     "luna": [
      false,
-     0.006790399999999999
+     0.006790399999999999,
+     false,
+     301
     ],
     "opus": [
      false,
-     0.3151966
+     0.3151966,
+     false,
+     2276
     ],
     "sonnet": [
      false,
-     0.10226160000000001
+     0.10226160000000001,
+     false,
+     1205
     ]
    },
    "tier": "normal"
@@ -233,22 +260,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 732,
    "runs": {
     "haiku": [
      true,
-     0.01171147
+     0.01171147,
+     false,
+     2193
     ],
     "luna": [
      true,
-     0.0073271199999999995
+     0.0073271199999999995,
+     false,
+     370
     ],
     "opus": [
      true,
-     0.239293
+     0.239293,
+     false,
+     1943
     ],
     "sonnet": [
      true,
-     0.09629339999999999
+     0.09629339999999999,
+     false,
+     1333
     ]
    },
    "tier": "demanding"
@@ -259,22 +295,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "code_generation",
    "pred_tier": "simple",
+   "prompt_chars": 431,
    "runs": {
     "haiku": [
      true,
-     0.00690943
+     0.00690943,
+     false,
+     883
     ],
     "luna": [
      true,
-     0.00703356
+     0.00703356,
+     false,
+     294
     ],
     "opus": [
      true,
-     0.18482479999999998
+     0.18482479999999998,
+     false,
+     1445
     ],
     "sonnet": [
      true,
-     0.0881004
+     0.0881004,
+     false,
+     929
     ]
    },
    "tier": "simple"
@@ -285,22 +330,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "code_generation",
    "pred_tier": "simple",
+   "prompt_chars": 333,
    "runs": {
     "haiku": [
      true,
-     0.004135010000000001
+     0.004135010000000001,
+     false,
+     859
     ],
     "luna": [
      true,
-     0.0022610399999999998
+     0.0022610399999999998,
+     false,
+     85
     ],
     "opus": [
      true,
-     0.15028439999999998
+     0.15028439999999998,
+     false,
+     1111
     ],
     "sonnet": [
      true,
-     0.06719960000000001
+     0.06719960000000001,
+     false,
+     544
     ]
    },
    "tier": "simple"
@@ -311,22 +365,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "code_generation",
    "pred_tier": "simple",
+   "prompt_chars": 142,
    "runs": {
     "haiku": [
      false,
-     0.00723687
+     0.00723687,
+     false,
+     1123
     ],
     "luna": [
      false,
-     0.004722280000000001
+     0.004722280000000001,
+     false,
+     241
     ],
     "opus": [
      false,
-     0.17935279999999998
+     0.17935279999999998,
+     false,
+     1977
     ],
     "sonnet": [
      false,
-     0.077451
+     0.077451,
+     false,
+     930
     ]
    },
    "tier": "simple"
@@ -337,22 +400,31 @@
    "pred_difficulty": 0.41,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 260,
    "runs": {
     "haiku": [
      true,
-     0.00390329
+     0.00390329,
+     false,
+     537
     ],
     "luna": [
      true,
-     0.00232744
+     0.00232744,
+     false,
+     126
     ],
     "opus": [
      true,
-     0.165589
+     0.165589,
+     false,
+     1364
     ],
     "sonnet": [
      true,
-     0.0614604
+     0.0614604,
+     false,
+     538
     ]
    },
    "tier": "simple"
@@ -363,22 +435,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 183,
    "runs": {
     "haiku": [
      false,
-     0.00889942
+     0.00889942,
+     false,
+     1383
     ],
     "luna": [
      false,
-     0.009244720000000001
+     0.009244720000000001,
+     false,
+     295
     ],
     "opus": [
      false,
-     0.2164154
+     0.2164154,
+     false,
+     1802
     ],
     "sonnet": [
      true,
-     0.0997284
+     0.0997284,
+     false,
+     1147
     ]
    },
    "tier": "simple"
@@ -389,22 +470,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "code_generation",
    "pred_tier": "simple",
+   "prompt_chars": 460,
    "runs": {
     "haiku": [
      true,
-     0.00569311
+     0.00569311,
+     false,
+     947
     ],
     "luna": [
      true,
-     0.00497208
+     0.00497208,
+     false,
+     336
     ],
     "opus": [
      true,
-     0.181137
+     0.181137,
+     false,
+     981
     ],
     "sonnet": [
      true,
-     0.0821458
+     0.0821458,
+     false,
+     1031
     ]
    },
    "tier": "simple"
@@ -415,22 +505,31 @@
    "pred_difficulty": 0.9,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 196,
    "runs": {
     "haiku": [
      false,
-     0.014452540000000002
+     0.014452540000000002,
+     false,
+     2591
     ],
     "luna": [
      false,
-     0.0084858
+     0.0084858,
+     false,
+     388
     ],
     "opus": [
      false,
-     0.3503748
+     0.3503748,
+     false,
+     2646
     ],
     "sonnet": [
      false,
-     0.1127026
+     0.1127026,
+     false,
+     2120
     ]
    },
    "tier": "normal"
@@ -441,22 +540,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 772,
    "runs": {
     "haiku": [
      true,
-     0.0141417
+     0.0141417,
+     false,
+     1550
     ],
     "luna": [
      true,
-     0.008400280000000001
+     0.008400280000000001,
+     false,
+     386
     ],
     "opus": [
      true,
-     0.2441518
+     0.2441518,
+     false,
+     1608
     ],
     "sonnet": [
      true,
-     0.106502
+     0.106502,
+     false,
+     1227
     ]
    },
    "tier": "normal"
@@ -467,22 +575,31 @@
    "pred_difficulty": 0.89,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 174,
    "runs": {
     "haiku": [
      false,
-     0.01543617
+     0.01543617,
+     false,
+     1222
     ],
     "luna": [
      false,
-     0.008690880000000002
+     0.008690880000000002,
+     false,
+     408
     ],
     "opus": [
      false,
-     0.3163996
+     0.3163996,
+     false,
+     2098
     ],
     "sonnet": [
      false,
-     0.124768
+     0.124768,
+     false,
+     1603
     ]
    },
    "tier": "normal"
@@ -493,22 +610,31 @@
    "pred_difficulty": 0.57,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 591,
    "runs": {
     "haiku": [
      true,
-     0.00726904
+     0.00726904,
+     false,
+     858
     ],
     "luna": [
      true,
-     0.00927576
+     0.00927576,
+     false,
+     237
     ],
     "opus": [
      true,
-     0.217997
+     0.217997,
+     false,
+     1419
     ],
     "sonnet": [
      true,
-     0.093366
+     0.093366,
+     false,
+     707
     ]
    },
    "tier": "normal"
@@ -519,22 +645,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 230,
    "runs": {
     "haiku": [
      false,
-     0.01219557
+     0.01219557,
+     false,
+     1877
     ],
     "luna": [
      false,
-     0.012485360000000001
+     0.012485360000000001,
+     false,
+     261
     ],
     "opus": [
      false,
-     0.3451048
+     0.3451048,
+     false,
+     2165
     ],
     "sonnet": [
      false,
-     0.1020592
+     0.1020592,
+     false,
+     1308
     ]
    },
    "tier": "normal"
@@ -545,22 +680,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 237,
    "runs": {
     "haiku": [
      false,
-     0.01592054
+     0.01592054,
+     false,
+     1110
     ],
     "luna": [
      true,
-     0.01276392
+     0.01276392,
+     false,
+     333
     ],
     "opus": [
      false,
-     0.2735238
+     0.2735238,
+     false,
+     1723
     ],
     "sonnet": [
      false,
-     0.1155936
+     0.1155936,
+     false,
+     1074
     ]
    },
    "tier": "normal"
@@ -571,22 +715,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 982,
    "runs": {
     "haiku": [
      true,
-     0.02525893
+     0.02525893,
+     false,
+     2198
     ],
     "luna": [
      true,
-     0.0156404
+     0.0156404,
+     false,
+     350
     ],
     "opus": [
      true,
-     0.5225896
+     0.5225896,
+     false,
+     2898
     ],
     "sonnet": [
      true,
-     0.1203504
+     0.1203504,
+     false,
+     1678
     ]
    },
    "tier": "demanding"
@@ -597,22 +750,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 266,
    "runs": {
     "haiku": [
      false,
-     0.03548518
+     0.03548518,
+     false,
+     2118
     ],
     "luna": [
      false,
-     0.03949732
+     0.03949732,
+     false,
+     474
     ],
     "opus": [
      false,
-     0.524119
+     0.524119,
+     false,
+     3079
     ],
     "sonnet": [
      false,
-     0.22323520000000002
+     0.22323520000000002,
+     false,
+     1713
     ]
    },
    "tier": "demanding"
@@ -623,22 +785,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 248,
    "runs": {
     "haiku": [
      false,
-     0.012006200000000002
+     0.012006200000000002,
+     false,
+     1437
     ],
     "luna": [
      false,
-     0.01093084
+     0.01093084,
+     false,
+     566
     ],
     "opus": [
      false,
-     0.33623359999999997
+     0.33623359999999997,
+     false,
+     1926
     ],
     "sonnet": [
      false,
-     0.1183908
+     0.1183908,
+     false,
+     1288
     ]
    },
    "tier": "demanding"
@@ -649,22 +820,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 263,
    "runs": {
     "haiku": [
      true,
-     0.03683023
+     0.03683023,
+     false,
+     1505
     ],
     "luna": [
      false,
-     0.011470719999999998
+     0.011470719999999998,
+     false,
+     352
     ],
     "opus": [
      true,
-     0.5792694
+     0.5792694,
+     false,
+     3389
     ],
     "sonnet": [
      true,
-     0.1776726
+     0.1776726,
+     false,
+     2016
     ]
    },
    "tier": "demanding"
@@ -675,22 +855,31 @@
    "pred_difficulty": 0.82,
    "pred_kind": "code_generation",
    "pred_tier": "demanding",
+   "prompt_chars": 1292,
    "runs": {
     "haiku": [
      true,
-     0.014346649999999999
+     0.014346649999999999,
+     false,
+     1471
     ],
     "luna": [
      true,
-     0.012272880000000002
+     0.012272880000000002,
+     false,
+     416
     ],
     "opus": [
      true,
-     0.35648779999999997
+     0.35648779999999997,
+     false,
+     2702
     ],
     "sonnet": [
      true,
-     0.1269584
+     0.1269584,
+     false,
+     1306
     ]
    },
    "tier": "demanding"
@@ -701,22 +890,31 @@
    "pred_difficulty": 0.52,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 206,
    "runs": {
     "haiku": [
      true,
-     0.006401950000000001
+     0.006401950000000001,
+     false,
+     1153
     ],
     "luna": [
      true,
-     0.004707520000000001
+     0.004707520000000001,
+     false,
+     391
     ],
     "opus": [
      true,
-     0.1912118
+     0.1912118,
+     false,
+     1457
     ],
     "sonnet": [
      true,
-     0.10484660000000001
+     0.10484660000000001,
+     false,
+     989
     ]
    },
    "tier": "simple"
@@ -727,22 +925,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 279,
    "runs": {
     "haiku": [
      true,
-     0.006615520000000001
+     0.006615520000000001,
+     false,
+     1536
     ],
     "luna": [
      true,
-     0.00397448
+     0.00397448,
+     false,
+     348
     ],
     "opus": [
      true,
-     0.1962174
+     0.1962174,
+     false,
+     2095
     ],
     "sonnet": [
      true,
-     0.10714539999999999
+     0.10714539999999999,
+     false,
+     1414
     ]
    },
    "tier": "simple"
@@ -753,22 +960,31 @@
    "pred_difficulty": 0.67,
    "pred_kind": "debugging",
    "pred_tier": "demanding",
+   "prompt_chars": 415,
    "runs": {
     "haiku": [
      true,
-     0.00634383
+     0.00634383,
+     false,
+     1602
     ],
     "luna": [
      true,
-     0.00652024
+     0.00652024,
+     false,
+     254
     ],
     "opus": [
      true,
-     0.2172548
+     0.2172548,
+     false,
+     2139
     ],
     "sonnet": [
      true,
-     0.0919782
+     0.0919782,
+     false,
+     1061
     ]
    },
    "tier": "normal"
@@ -779,22 +995,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 336,
    "runs": {
     "haiku": [
      true,
-     0.008393049999999999
+     0.008393049999999999,
+     false,
+     3708
     ],
     "luna": [
      true,
-     0.00276776
+     0.00276776,
+     false,
+     2773
     ],
     "opus": [
      true,
-     0.2344622
+     0.2344622,
+     false,
+     4520
     ],
     "sonnet": [
      true,
-     0.08106160000000001
+     0.08106160000000001,
+     false,
+     5421
     ]
    },
    "tier": "normal"
@@ -805,22 +1030,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_generation",
    "pred_tier": null,
+   "prompt_chars": 398,
    "runs": {
     "haiku": [
      true,
-     0.008395030000000001
+     0.008395030000000001,
+     false,
+     4906
     ],
     "luna": [
      false,
-     0.00286576
+     0.00286576,
+     false,
+     3500
     ],
     "opus": [
      false,
-     0.39649959999999995
+     0.39649959999999995,
+     false,
+     4333
     ],
     "sonnet": [
      true,
-     0.099024
+     0.099024,
+     false,
+     5363
     ]
    },
    "tier": "demanding"
@@ -831,22 +1065,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 430,
    "runs": {
     "haiku": [
      true,
-     0.00633122
+     0.00633122,
+     false,
+     5133
     ],
     "luna": [
      true,
-     0.00276172
+     0.00276172,
+     false,
+     2541
     ],
     "opus": [
      false,
-     0.17413679999999998
+     0.17413679999999998,
+     false,
+     4192
     ],
     "sonnet": [
      true,
-     0.0833668
+     0.0833668,
+     false,
+     4401
     ]
    },
    "tier": "demanding"
@@ -857,22 +1100,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 201,
    "runs": {
     "haiku": [
      true,
-     0.0040764700000000004
+     0.0040764700000000004,
+     false,
+     485
     ],
     "luna": [
      true,
-     0.00313388
+     0.00313388,
+     false,
+     177
     ],
     "opus": [
      true,
-     0.1384696
+     0.1384696,
+     false,
+     683
     ],
     "sonnet": [
      true,
-     0.0646666
+     0.0646666,
+     false,
+     374
     ]
    },
    "tier": "simple"
@@ -883,22 +1135,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "debugging",
    "pred_tier": "simple",
+   "prompt_chars": 185,
    "runs": {
     "haiku": [
      true,
-     0.0025442200000000002
+     0.0025442200000000002,
+     false,
+     774
     ],
     "luna": [
      false,
-     0.0007932000000000001
+     0.0007932000000000001,
+     false,
+     343
     ],
     "opus": [
      true,
-     0.0906348
+     0.0906348,
+     false,
+     1035
     ],
     "sonnet": [
      true,
-     0.043872
+     0.043872,
+     false,
+     582
     ]
    },
    "tier": "simple"
@@ -909,22 +1170,31 @@
    "pred_difficulty": 0.33,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 383,
    "runs": {
     "haiku": [
      true,
-     0.004445540000000001
+     0.004445540000000001,
+     false,
+     2715
     ],
     "luna": [
      true,
-     0.0020767199999999998
+     0.0020767199999999998,
+     false,
+     1190
     ],
     "opus": [
      true,
-     0.1442226
+     0.1442226,
+     false,
+     2701
     ],
     "sonnet": [
      true,
-     0.0664328
+     0.0664328,
+     false,
+     2121
     ]
    },
    "tier": "simple"
@@ -935,22 +1205,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 131,
    "runs": {
     "haiku": [
      false,
-     0.0024182200000000004
+     0.0024182200000000004,
+     false,
+     650
     ],
     "luna": [
      false,
-     0.000882
+     0.000882,
+     false,
+     397
     ],
     "opus": [
      true,
-     0.0934628
+     0.0934628,
+     false,
+     1234
     ],
     "sonnet": [
      true,
-     0.04629
+     0.04629,
+     false,
+     1120
     ]
    },
    "tier": "simple"
@@ -961,22 +1240,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 298,
    "runs": {
     "haiku": [
      true,
-     0.00528421
+     0.00528421,
+     false,
+     804
     ],
     "luna": [
      true,
-     0.00302636
+     0.00302636,
+     false,
+     258
     ],
     "opus": [
      true,
-     0.1378294
+     0.1378294,
+     false,
+     646
     ],
     "sonnet": [
      true,
-     0.074844
+     0.074844,
+     false,
+     560
     ]
    },
    "tier": "simple"
@@ -987,22 +1275,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_generation",
    "pred_tier": null,
+   "prompt_chars": 315,
    "runs": {
     "haiku": [
      true,
-     0.00568685
+     0.00568685,
+     false,
+     1195
     ],
     "luna": [
      true,
-     0.00333984
+     0.00333984,
+     false,
+     791
     ],
     "opus": [
      true,
-     0.1728208
+     0.1728208,
+     false,
+     2234
     ],
     "sonnet": [
      true,
-     0.07215880000000001
+     0.07215880000000001,
+     false,
+     1408
     ]
    },
    "tier": "simple"
@@ -1013,22 +1310,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 324,
    "runs": {
     "haiku": [
      true,
-     0.00746013
+     0.00746013,
+     false,
+     2124
     ],
     "luna": [
      true,
-     0.00588348
+     0.00588348,
+     false,
+     2550
     ],
     "opus": [
      true,
-     0.25712
+     0.25712,
+     false,
+     3200
     ],
     "sonnet": [
      true,
-     0.1486216
+     0.1486216,
+     false,
+     2537
     ]
    },
    "tier": "normal"
@@ -1039,22 +1345,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 366,
    "runs": {
     "haiku": [
      true,
-     0.00684256
+     0.00684256,
+     false,
+     2960
     ],
     "luna": [
      true,
-     0.00248296
+     0.00248296,
+     false,
+     2047
     ],
     "opus": [
      false,
-     0.2163702
+     0.2163702,
+     false,
+     2983
     ],
     "sonnet": [
      false,
-     0.1005842
+     0.1005842,
+     false,
+     2549
     ]
    },
    "tier": "normal"
@@ -1065,22 +1380,31 @@
    "pred_difficulty": null,
    "pred_kind": "general",
    "pred_tier": null,
+   "prompt_chars": 284,
    "runs": {
     "haiku": [
      true,
-     0.0088258
+     0.0088258,
+     false,
+     3481
     ],
     "luna": [
      true,
-     0.003383
+     0.003383,
+     false,
+     2585
     ],
     "opus": [
      true,
-     0.165027
+     0.165027,
+     false,
+     4214
     ],
     "sonnet": [
      true,
-     0.07292539999999999
+     0.07292539999999999,
+     false,
+     3690
     ]
    },
    "tier": "normal"
@@ -1091,22 +1415,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 262,
    "runs": {
     "haiku": [
      true,
-     0.00429005
+     0.00429005,
+     false,
+     2556
     ],
     "luna": [
      true,
-     0.00223096
+     0.00223096,
+     false,
+     1200
     ],
     "opus": [
      true,
-     0.13393839999999999
+     0.13393839999999999,
+     false,
+     2258
     ],
     "sonnet": [
      true,
-     0.06721919999999999
+     0.06721919999999999,
+     false,
+     1916
     ]
    },
    "tier": "normal"
@@ -1117,22 +1450,31 @@
    "pred_difficulty": null,
    "pred_kind": "general",
    "pred_tier": null,
+   "prompt_chars": 243,
    "runs": {
     "haiku": [
      true,
-     0.00378682
+     0.00378682,
+     false,
+     3848
     ],
     "luna": [
      true,
-     0.0018088000000000002
+     0.0018088000000000002,
+     false,
+     2367
     ],
     "opus": [
      true,
-     0.1279148
+     0.1279148,
+     false,
+     3755
     ],
     "sonnet": [
      true,
-     0.053728
+     0.053728,
+     false,
+     3063
     ]
    },
    "tier": "normal"
@@ -1143,22 +1485,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 400,
    "runs": {
     "haiku": [
      true,
-     0.0070809
+     0.0070809,
+     false,
+     1891
     ],
     "luna": [
      true,
-     0.00430232
+     0.00430232,
+     false,
+     669
     ],
     "opus": [
      true,
-     0.2159884
+     0.2159884,
+     false,
+     2475
     ],
     "sonnet": [
      true,
-     0.089206
+     0.089206,
+     false,
+     2343
     ]
    },
    "tier": "demanding"
@@ -1169,22 +1520,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 379,
    "runs": {
     "haiku": [
      true,
-     0.00542343
+     0.00542343,
+     false,
+     3399
     ],
     "luna": [
      false,
-     0.00262896
+     0.00262896,
+     false,
+     1650
     ],
     "opus": [
      true,
-     0.2477762
+     0.2477762,
+     false,
+     3368
     ],
     "sonnet": [
      true,
-     0.10682180000000001
+     0.10682180000000001,
+     false,
+     2617
     ]
    },
    "tier": "demanding"
@@ -1195,22 +1555,31 @@
    "pred_difficulty": 0.54,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 436,
    "runs": {
     "haiku": [
      false,
-     0.00537882
+     0.00537882,
+     false,
+     2125
     ],
     "luna": [
      false,
-     0.00488756
+     0.00488756,
+     false,
+     558
     ],
     "opus": [
      false,
-     0.29224059999999996
+     0.29224059999999996,
+     false,
+     2839
     ],
     "sonnet": [
      true,
-     0.09541519999999999
+     0.09541519999999999,
+     false,
+     2104
     ]
    },
    "tier": "demanding"
@@ -1221,22 +1590,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 246,
    "runs": {
     "haiku": [
      false,
-     0.00569184
+     0.00569184,
+     false,
+     4923
     ],
     "luna": [
      false,
-     0.00518308
+     0.00518308,
+     false,
+     416
     ],
     "opus": [
      true,
-     0.19748220000000002
+     0.19748220000000002,
+     false,
+     7624
     ],
     "sonnet": [
      false,
-     0.060148
+     0.060148,
+     false,
+     5133
     ]
    },
    "tier": "demanding"
@@ -1247,22 +1625,31 @@
    "pred_difficulty": 0.52,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 341,
    "runs": {
     "haiku": [
      true,
-     0.008702380000000001
+     0.008702380000000001,
+     false,
+     2065
     ],
     "luna": [
      true,
-     0.00525484
+     0.00525484,
+     false,
+     745
     ],
     "opus": [
      true,
-     0.1872798
+     0.1872798,
+     false,
+     2421
     ],
     "sonnet": [
      true,
-     0.0974544
+     0.0974544,
+     false,
+     1794
     ]
    },
    "tier": "demanding"
@@ -1273,22 +1660,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 207,
    "runs": {
     "haiku": [
      false,
-     0.00355819
+     0.00355819,
+     false,
+     751
     ],
     "luna": [
      false,
-     0.00145176
+     0.00145176,
+     false,
+     508
     ],
     "opus": [
      false,
-     0.12838639999999998
+     0.12838639999999998,
+     false,
+     1820
     ],
     "sonnet": [
      false,
-     0.0655902
+     0.0655902,
+     false,
+     1793
     ]
    },
    "tier": "simple"
@@ -1299,22 +1695,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 226,
    "runs": {
     "haiku": [
      true,
-     0.0090171
+     0.0090171,
+     false,
+     5193
     ],
     "luna": [
      false,
-     0.006769280000000001
+     0.006769280000000001,
+     false,
+     264
     ],
     "opus": [
      false,
-     0.318724
+     0.318724,
+     false,
+     2805
     ],
     "sonnet": [
      false,
-     0.108776
+     0.108776,
+     false,
+     7058
     ]
    },
    "tier": "normal"
@@ -1325,22 +1730,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 227,
    "runs": {
     "haiku": [
      true,
-     0.00646763
+     0.00646763,
+     false,
+     4419
     ],
     "luna": [
      false,
-     0.00365036
+     0.00365036,
+     false,
+     3041
     ],
     "opus": [
      true,
-     0.1827028
+     0.1827028,
+     false,
+     3385
     ],
     "sonnet": [
      true,
-     0.0974892
+     0.0974892,
+     false,
+     3998
     ]
    },
    "tier": "normal"
@@ -1351,22 +1765,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 323,
    "runs": {
     "haiku": [
      true,
-     0.00786068
+     0.00786068,
+     false,
+     4020
     ],
     "luna": [
      false,
-     0.00637136
+     0.00637136,
+     false,
+     3107
     ],
     "opus": [
      true,
-     0.2094288
+     0.2094288,
+     false,
+     5248
     ],
     "sonnet": [
      false,
-     0.1005332
+     0.1005332,
+     false,
+     3801
     ]
    },
    "tier": "demanding"
@@ -1377,22 +1800,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 256,
    "runs": {
     "haiku": [
      true,
-     0.00525905
+     0.00525905,
+     false,
+     3662
     ],
     "luna": [
      false,
-     0.00859332
+     0.00859332,
+     false,
+     210
     ],
     "opus": [
      true,
-     0.2339552
+     0.2339552,
+     false,
+     2419
     ],
     "sonnet": [
      true,
-     0.0978166
+     0.0978166,
+     false,
+     1691
     ]
    },
    "tier": "demanding"
@@ -1403,22 +1835,31 @@
    "pred_difficulty": 0.24,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 164,
    "runs": {
     "haiku": [
      false,
-     0.00397469
+     0.00397469,
+     false,
+     1484
     ],
     "luna": [
      true,
-     0.00188396
+     0.00188396,
+     false,
+     914
     ],
     "opus": [
      false,
-     0.14424679999999998
+     0.14424679999999998,
+     false,
+     2087
     ],
     "sonnet": [
      false,
-     0.0702358
+     0.0702358,
+     false,
+     1766
     ]
    },
    "tier": "simple"
@@ -1429,22 +1870,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 169,
    "runs": {
     "haiku": [
      true,
-     0.00387659
+     0.00387659,
+     false,
+     1143
     ],
     "luna": [
      true,
-     0.00161556
+     0.00161556,
+     false,
+     425
     ],
     "opus": [
      true,
-     0.1371514
+     0.1371514,
+     false,
+     1741
     ],
     "sonnet": [
      true,
-     0.0717998
+     0.0717998,
+     false,
+     1548
     ]
    },
    "tier": "simple"
@@ -1455,22 +1905,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 150,
    "runs": {
     "haiku": [
      true,
-     0.00512015
+     0.00512015,
+     false,
+     759
     ],
     "luna": [
      true,
-     0.0033877200000000003
+     0.0033877200000000003,
+     false,
+     352
     ],
     "opus": [
      true,
-     0.147228
+     0.147228,
+     false,
+     782
     ],
     "sonnet": [
      true,
-     0.076898
+     0.076898,
+     false,
+     870
     ]
    },
    "tier": "simple"
@@ -1481,22 +1940,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 165,
    "runs": {
     "haiku": [
      false,
-     0.00522273
+     0.00522273,
+     false,
+     4115
     ],
     "luna": [
      true,
-     0.0033322
+     0.0033322,
+     false,
+     2023
     ],
     "opus": [
      true,
-     0.1773556
+     0.1773556,
+     false,
+     3766
     ],
     "sonnet": [
      true,
-     0.086566
+     0.086566,
+     false,
+     3040
     ]
    },
    "tier": "simple"
@@ -1507,22 +1975,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 118,
    "runs": {
     "haiku": [
      false,
-     0.00515475
+     0.00515475,
+     false,
+     265
     ],
     "luna": [
      false,
-     0.00417128
+     0.00417128,
+     false,
+     207
     ],
     "opus": [
      false,
-     0.1725286
+     0.1725286,
+     false,
+     973
     ],
     "sonnet": [
      false,
-     0.0869066
+     0.0869066,
+     false,
+     492
     ]
    },
    "tier": "simple"
@@ -1533,22 +2010,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 146,
    "runs": {
     "haiku": [
      true,
-     0.00430642
+     0.00430642,
+     false,
+     1268
     ],
     "luna": [
      false,
-     0.0018151600000000001
+     0.0018151600000000001,
+     false,
+     839
     ],
     "opus": [
      false,
-     0.1560592
+     0.1560592,
+     false,
+     1751
     ],
     "sonnet": [
      false,
-     0.0773678
+     0.0773678,
+     false,
+     1747
     ]
    },
    "tier": "simple"
@@ -1559,22 +2045,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 215,
    "runs": {
     "haiku": [
      true,
-     0.00472514
+     0.00472514,
+     false,
+     3617
     ],
     "luna": [
      true,
-     0.0023453599999999995
+     0.0023453599999999995,
+     false,
+     2023
     ],
     "opus": [
      true,
-     0.1487464
+     0.1487464,
+     false,
+     2786
     ],
     "sonnet": [
      true,
-     0.0770752
+     0.0770752,
+     false,
+     3457
     ]
    },
    "tier": "normal"
@@ -1585,22 +2080,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "architecture",
    "pred_tier": "normal",
+   "prompt_chars": 203,
    "runs": {
     "haiku": [
      false,
-     0.00788542
+     0.00788542,
+     false,
+     4920
     ],
     "luna": [
      false,
-     0.00362396
+     0.00362396,
+     false,
+     3121
     ],
     "opus": [
      false,
-     0.1872448
+     0.1872448,
+     false,
+     4710
     ],
     "sonnet": [
      true,
-     0.0959092
+     0.0959092,
+     false,
+     4164
     ]
    },
    "tier": "normal"
@@ -1611,22 +2115,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 250,
    "runs": {
     "haiku": [
      true,
-     0.005875450000000001
+     0.005875450000000001,
+     false,
+     3252
     ],
     "luna": [
      true,
-     0.00530792
+     0.00530792,
+     false,
+     2174
     ],
     "opus": [
      true,
-     0.19527060000000002
+     0.19527060000000002,
+     false,
+     3917
     ],
     "sonnet": [
      true,
-     0.091051
+     0.091051,
+     false,
+     3127
     ]
    },
    "tier": "normal"
@@ -1637,22 +2150,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 190,
    "runs": {
     "haiku": [
      false,
-     0.00822992
+     0.00822992,
+     false,
+     2980
     ],
     "luna": [
      true,
-     0.005513359999999999
+     0.005513359999999999,
+     false,
+     2479
     ],
     "opus": [
      false,
-     0.18998320000000002
+     0.18998320000000002,
+     false,
+     3965
     ],
     "sonnet": [
      false,
-     0.08053460000000001
+     0.08053460000000001,
+     false,
+     3217
     ]
    },
    "tier": "normal"
@@ -1663,22 +2185,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 382,
    "runs": {
     "haiku": [
      true,
-     0.005841150000000001
+     0.005841150000000001,
+     false,
+     2339
     ],
     "luna": [
      true,
-     0.00370996
+     0.00370996,
+     false,
+     1698
     ],
     "opus": [
      true,
-     0.17855020000000002
+     0.17855020000000002,
+     false,
+     2860
     ],
     "sonnet": [
      true,
-     0.0757914
+     0.0757914,
+     false,
+     2383
     ]
    },
    "tier": "normal"
@@ -1689,22 +2220,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 221,
    "runs": {
     "haiku": [
      true,
-     0.00534382
+     0.00534382,
+     false,
+     3077
     ],
     "luna": [
      true,
-     0.0030123199999999998
+     0.0030123199999999998,
+     false,
+     1419
     ],
     "opus": [
      true,
-     0.1559738
+     0.1559738,
+     false,
+     3370
     ],
     "sonnet": [
      true,
-     0.07469719999999999
+     0.07469719999999999,
+     false,
+     3092
     ]
    },
    "tier": "normal"
@@ -1715,22 +2255,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 227,
    "runs": {
     "haiku": [
      true,
-     0.01209933
+     0.01209933,
+     false,
+     1739
     ],
     "luna": [
      false,
-     0.0063114
+     0.0063114,
+     false,
+     312
     ],
     "opus": [
      false,
-     0.2815196
+     0.2815196,
+     false,
+     1925
     ],
     "sonnet": [
      false,
-     0.1428458
+     0.1428458,
+     false,
+     1676
     ]
    },
    "tier": "normal"
@@ -1741,22 +2290,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 335,
    "runs": {
     "haiku": [
      true,
-     0.00931732
+     0.00931732,
+     false,
+     4658
     ],
     "luna": [
      true,
-     0.00383004
+     0.00383004,
+     false,
+     3529
     ],
     "opus": [
      true,
-     0.250079
+     0.250079,
+     false,
+     3213
     ],
     "sonnet": [
      true,
-     0.114596
+     0.114596,
+     false,
+     2124
     ]
    },
    "tier": "demanding"
@@ -1767,22 +2325,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 278,
    "runs": {
     "haiku": [
      false,
-     0.007028110000000001
+     0.007028110000000001,
+     false,
+     3296
     ],
     "luna": [
      true,
-     0.00527852
+     0.00527852,
+     false,
+     1800
     ],
     "opus": [
      true,
-     0.19243739999999998
+     0.19243739999999998,
+     false,
+     3653
     ],
     "sonnet": [
      true,
-     0.0980038
+     0.0980038,
+     false,
+     2882
     ]
    },
    "tier": "demanding"
@@ -1793,22 +2360,31 @@
    "pred_difficulty": 0.35,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 300,
    "runs": {
     "haiku": [
      false,
-     0.012095810000000002
+     0.012095810000000002,
+     false,
+     4892
     ],
     "luna": [
      true,
-     0.00465428
+     0.00465428,
+     false,
+     3410
     ],
     "opus": [
      true,
-     0.23047820000000002
+     0.23047820000000002,
+     false,
+     6149
     ],
     "sonnet": [
      true,
-     0.1093672
+     0.1093672,
+     false,
+     4722
     ]
    },
    "tier": "demanding"
@@ -1819,22 +2395,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 273,
    "runs": {
     "haiku": [
      true,
-     0.009279059999999999
+     0.009279059999999999,
+     false,
+     2193
     ],
     "luna": [
      false,
-     0.00790876
+     0.00790876,
+     false,
+     282
     ],
     "opus": [
      true,
-     0.3146116
+     0.3146116,
+     false,
+     2996
     ],
     "sonnet": [
      true,
-     0.1240808
+     0.1240808,
+     false,
+     2189
     ]
    },
    "tier": "demanding"
@@ -1845,22 +2430,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 161,
    "runs": {
     "haiku": [
      true,
-     0.00538159
+     0.00538159,
+     false,
+     5615
     ],
     "luna": [
      false,
-     0.00651536
+     0.00651536,
+     false,
+     392
     ],
     "opus": [
      true,
-     0.15394560000000002
+     0.15394560000000002,
+     false,
+     5937
     ],
     "sonnet": [
      true,
-     0.07824260000000001
+     0.07824260000000001,
+     false,
+     5698
     ]
    },
    "tier": "simple"
@@ -1871,22 +2465,31 @@
    "pred_difficulty": 0.74,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 177,
    "runs": {
     "haiku": [
      true,
-     0.00947531
+     0.00947531,
+     false,
+     2369
     ],
     "luna": [
      true,
-     0.00587568
+     0.00587568,
+     false,
+     362
     ],
     "opus": [
      true,
-     0.2622618
+     0.2622618,
+     false,
+     4469
     ],
     "sonnet": [
      true,
-     0.0657
+     0.0657,
+     false,
+     6478
     ]
    },
    "tier": "normal"
@@ -1897,22 +2500,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 177,
    "runs": {
     "haiku": [
      true,
-     0.00852692
+     0.00852692,
+     false,
+     1506
     ],
     "luna": [
      true,
-     0.0072419599999999995
+     0.0072419599999999995,
+     false,
+     482
     ],
     "opus": [
      true,
-     0.3204554
+     0.3204554,
+     false,
+     3203
     ],
     "sonnet": [
      true,
-     0.0782
+     0.0782,
+     false,
+     10094
     ]
    },
    "tier": "normal"
@@ -1923,22 +2535,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 185,
    "runs": {
     "haiku": [
      true,
-     0.00907144
+     0.00907144,
+     false,
+     1748
     ],
     "luna": [
      true,
-     0.00579608
+     0.00579608,
+     false,
+     356
     ],
     "opus": [
      true,
-     0.317853
+     0.317853,
+     false,
+     5085
     ],
     "sonnet": [
      true,
-     0.07278
+     0.07278,
+     false,
+     8152
     ]
    },
    "tier": "demanding"
@@ -1949,22 +2570,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 186,
    "runs": {
     "haiku": [
      true,
-     0.00819676
+     0.00819676,
+     false,
+     1912
     ],
     "luna": [
      false,
-     0.005702560000000001
+     0.005702560000000001,
+     false,
+     315
     ],
     "opus": [
      true,
-     0.18354320000000002
+     0.18354320000000002,
+     false,
+     10102
     ],
     "sonnet": [
      true,
-     0.065436
+     0.065436,
+     false,
+     6909
     ]
    },
    "tier": "demanding"
@@ -1975,22 +2605,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 144,
    "runs": {
     "haiku": [
      false,
-     0.004740360000000001
+     0.004740360000000001,
+     false,
+     3020
     ],
     "luna": [
      false,
-     0.0012316
+     0.0012316,
+     false,
+     2136
     ],
     "opus": [
      true,
-     0.1120788
+     0.1120788,
+     false,
+     3923
     ],
     "sonnet": [
      true,
-     0.052378
+     0.052378,
+     false,
+     2797
     ]
    },
    "tier": "simple"
@@ -2001,22 +2640,31 @@
    "pred_difficulty": 0.53,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 160,
    "runs": {
     "haiku": [
      true,
-     0.0027287
+     0.0027287,
+     false,
+     2005
     ],
     "luna": [
      true,
-     0.0009534000000000001
+     0.0009534000000000001,
+     false,
+     784
     ],
     "opus": [
      true,
-     0.1057548
+     0.1057548,
+     false,
+     3070
     ],
     "sonnet": [
      true,
-     0.050762
+     0.050762,
+     false,
+     2297
     ]
    },
    "tier": "simple"
@@ -2027,22 +2675,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 154,
    "runs": {
     "haiku": [
      true,
-     0.00389376
+     0.00389376,
+     false,
+     3709
     ],
     "luna": [
      false,
-     0.00462112
+     0.00462112,
+     false,
+     289
     ],
     "opus": [
      true,
-     0.137864
+     0.137864,
+     false,
+     3941
     ],
     "sonnet": [
      true,
-     0.06438
+     0.06438,
+     false,
+     3860
     ]
    },
    "tier": "simple"
@@ -2053,22 +2710,31 @@
    "pred_difficulty": 0.44,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 150,
    "runs": {
     "haiku": [
      true,
-     0.00598626
+     0.00598626,
+     false,
+     1139
     ],
     "luna": [
      false,
-     0.00432012
+     0.00432012,
+     false,
+     197
     ],
     "opus": [
      true,
-     0.2268858
+     0.2268858,
+     false,
+     2016
     ],
     "sonnet": [
      true,
-     0.07903160000000001
+     0.07903160000000001,
+     false,
+     891
     ]
    },
    "tier": "simple"
@@ -2079,22 +2745,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 115,
    "runs": {
     "haiku": [
      true,
-     0.0034726
+     0.0034726,
+     false,
+     3652
     ],
     "luna": [
      true,
-     0.0011392000000000002
+     0.0011392000000000002,
+     false,
+     1758
     ],
     "opus": [
      true,
-     0.140859
+     0.140859,
+     false,
+     4450
     ],
     "sonnet": [
      true,
-     0.053892
+     0.053892,
+     false,
+     3470
     ]
    },
    "tier": "simple"
@@ -2105,22 +2780,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "planning",
    "pred_tier": "simple",
+   "prompt_chars": 112,
    "runs": {
     "haiku": [
      true,
-     0.00398562
+     0.00398562,
+     false,
+     2710
     ],
     "luna": [
      true,
-     0.0016477600000000003
+     0.0016477600000000003,
+     false,
+     1412
     ],
     "opus": [
      true,
-     0.1289148
+     0.1289148,
+     false,
+     2614
     ],
     "sonnet": [
      true,
-     0.048628
+     0.048628,
+     false,
+     1724
     ]
    },
    "tier": "simple"
@@ -2131,22 +2815,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 200,
    "runs": {
     "haiku": [
      true,
-     0.01033241
+     0.01033241,
+     false,
+     2075
     ],
     "luna": [
      true,
-     0.006995200000000001
+     0.006995200000000001,
+     false,
+     351
     ],
     "opus": [
      true,
-     0.3330282
+     0.3330282,
+     false,
+     4088
     ],
     "sonnet": [
      true,
-     0.07482
+     0.07482,
+     false,
+     8608
     ]
    },
    "tier": "normal"
@@ -2157,22 +2850,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 204,
    "runs": {
     "haiku": [
      true,
-     0.006165950000000001
+     0.006165950000000001,
+     false,
+     9262
     ],
     "luna": [
      true,
-     0.005972760000000001
+     0.005972760000000001,
+     false,
+     389
     ],
     "opus": [
      true,
-     0.19277460000000002
+     0.19277460000000002,
+     false,
+     10631
     ],
     "sonnet": [
      true,
-     0.08653419999999999
+     0.08653419999999999,
+     false,
+     8219
     ]
    },
    "tier": "normal"
@@ -2183,22 +2885,31 @@
    "pred_difficulty": 0.54,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 206,
    "runs": {
     "haiku": [
      true,
-     0.00834362
+     0.00834362,
+     false,
+     1957
     ],
     "luna": [
      true,
-     0.006724719999999999
+     0.006724719999999999,
+     false,
+     203
     ],
     "opus": [
      true,
-     0.2733514
+     0.2733514,
+     false,
+     2571
     ],
     "sonnet": [
      true,
-     0.070994
+     0.070994,
+     false,
+     7690
     ]
    },
    "tier": "normal"
@@ -2209,22 +2920,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 175,
    "runs": {
     "haiku": [
      true,
-     0.00934654
+     0.00934654,
+     false,
+     2378
     ],
     "luna": [
      false,
-     0.0052984
+     0.0052984,
+     false,
+     346
     ],
     "opus": [
      true,
-     0.2651886
+     0.2651886,
+     false,
+     4070
     ],
     "sonnet": [
      true,
-     0.066802
+     0.066802,
+     false,
+     6399
     ]
    },
    "tier": "normal"
@@ -2235,22 +2955,31 @@
    "pred_difficulty": 0.97,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 200,
    "runs": {
     "haiku": [
      true,
-     0.00431375
+     0.00431375,
+     false,
+     3095
     ],
     "luna": [
      false,
-     0.00417088
+     0.00417088,
+     false,
+     390
     ],
     "opus": [
      true,
-     0.14347220000000002
+     0.14347220000000002,
+     false,
+     4363
     ],
     "sonnet": [
      true,
-     0.056568
+     0.056568,
+     false,
+     4177
     ]
    },
    "tier": "normal"
@@ -2261,22 +2990,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 181,
    "runs": {
     "haiku": [
      true,
-     0.00420917
+     0.00420917,
+     false,
+     5630
     ],
     "luna": [
      false,
-     0.00458288
+     0.00458288,
+     false,
+     258
     ],
     "opus": [
      true,
-     0.150827
+     0.150827,
+     false,
+     5443
     ],
     "sonnet": [
      true,
-     0.056998
+     0.056998,
+     false,
+     4027
     ]
    },
    "tier": "normal"
@@ -2287,22 +3025,31 @@
    "pred_difficulty": null,
    "pred_kind": "writing",
    "pred_tier": null,
+   "prompt_chars": 230,
    "runs": {
     "haiku": [
      true,
-     0.0067635
+     0.0067635,
+     false,
+     8952
     ],
     "luna": [
      true,
-     0.00517792
+     0.00517792,
+     false,
+     229
     ],
     "opus": [
      true,
-     0.2516994
+     0.2516994,
+     false,
+     9130
     ],
     "sonnet": [
      true,
-     0.07982
+     0.07982,
+     false,
+     7862
     ]
    },
    "tier": "demanding"
@@ -2313,22 +3060,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 221,
    "runs": {
     "haiku": [
      true,
-     0.008636310000000001
+     0.008636310000000001,
+     false,
+     2330
     ],
     "luna": [
      false,
-     0.00615208
+     0.00615208,
+     false,
+     416
     ],
     "opus": [
      true,
-     0.4044892
+     0.4044892,
+     false,
+     4706
     ],
     "sonnet": [
      true,
-     0.081594
+     0.081594,
+     false,
+     11171
     ]
    },
    "tier": "demanding"
@@ -2339,22 +3095,31 @@
    "pred_difficulty": 0.9,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 257,
    "runs": {
     "haiku": [
      true,
-     0.00636138
+     0.00636138,
+     false,
+     8999
     ],
     "luna": [
      false,
-     0.0069882799999999995
+     0.0069882799999999995,
+     false,
+     384
     ],
     "opus": [
      true,
-     0.243828
+     0.243828,
+     false,
+     4964
     ],
     "sonnet": [
      true,
-     0.072456
+     0.072456,
+     false,
+     8679
     ]
    },
    "tier": "demanding"
@@ -2365,22 +3130,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 255,
    "runs": {
     "haiku": [
      true,
-     0.00866928
+     0.00866928,
+     false,
+     2048
     ],
     "luna": [
      true,
-     0.0018005999999999999
+     0.0018005999999999999,
+     false,
+     4646
     ],
     "opus": [
      true,
-     0.253868
+     0.253868,
+     false,
+     5551
     ],
     "sonnet": [
      true,
-     0.06693
+     0.06693,
+     false,
+     7201
     ]
    },
    "tier": "demanding"
@@ -2391,22 +3165,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "planning",
    "pred_tier": "demanding",
+   "prompt_chars": 216,
    "runs": {
     "haiku": [
      true,
-     0.0044923
+     0.0044923,
+     false,
+     10575
     ],
     "luna": [
      false,
-     0.0060666800000000005
+     0.0060666800000000005,
+     false,
+     273
     ],
     "opus": [
      true,
-     0.191372
+     0.191372,
+     false,
+     11014
     ],
     "sonnet": [
      true,
-     0.075322
+     0.075322,
+     false,
+     9341
     ]
    },
    "tier": "demanding"
@@ -2417,22 +3200,31 @@
    "pred_difficulty": 0.9,
    "pred_kind": "refactoring",
    "pred_tier": "demanding",
+   "prompt_chars": 283,
    "runs": {
     "haiku": [
      true,
-     0.0134222
+     0.0134222,
+     false,
+     2017
     ],
     "luna": [
      false,
-     0.01036104
+     0.01036104,
+     false,
+     915
     ],
     "opus": [
      false,
-     0.2439906
+     0.2439906,
+     false,
+     2525
     ],
     "sonnet": [
      true,
-     0.14294079999999998
+     0.14294079999999998,
+     false,
+     2034
     ]
    },
    "tier": "simple"
@@ -2443,22 +3235,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 498,
    "runs": {
     "haiku": [
      false,
-     0.009059290000000001
+     0.009059290000000001,
+     false,
+     2824
     ],
     "luna": [
      true,
-     0.005718440000000001
+     0.005718440000000001,
+     false,
+     1295
     ],
     "opus": [
      true,
-     0.2674026
+     0.2674026,
+     false,
+     5118
     ],
     "sonnet": [
      true,
-     0.098158
+     0.098158,
+     false,
+     3184
     ]
    },
    "tier": "simple"
@@ -2469,22 +3270,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 608,
    "runs": {
     "haiku": [
      true,
-     0.01580445
+     0.01580445,
+     false,
+     3081
     ],
     "luna": [
      true,
-     0.010133719999999999
+     0.010133719999999999,
+     false,
+     770
     ],
     "opus": [
      false,
-     0.36122340000000003
+     0.36122340000000003,
+     false,
+     3765
     ],
     "sonnet": [
      true,
-     0.11477419999999999
+     0.11477419999999999,
+     false,
+     2690
     ]
    },
    "tier": "normal"
@@ -2495,22 +3305,31 @@
    "pred_difficulty": 0.46,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 358,
    "runs": {
     "haiku": [
      true,
-     0.00797302
+     0.00797302,
+     false,
+     2703
     ],
     "luna": [
      false,
-     0.00661628
+     0.00661628,
+     false,
+     835
     ],
     "opus": [
      true,
-     0.2355638
+     0.2355638,
+     false,
+     3878
     ],
     "sonnet": [
      true,
-     0.1107542
+     0.1107542,
+     false,
+     2865
     ]
    },
    "tier": "normal"
@@ -2521,22 +3340,31 @@
    "pred_difficulty": 0.62,
    "pred_kind": "refactoring",
    "pred_tier": "demanding",
+   "prompt_chars": 295,
    "runs": {
     "haiku": [
      true,
-     0.01001363
+     0.01001363,
+     false,
+     1894
     ],
     "luna": [
      false,
-     0.01518112
+     0.01518112,
+     false,
+     467
     ],
     "opus": [
      true,
-     0.5141766
+     0.5141766,
+     false,
+     3067
     ],
     "sonnet": [
      true,
-     0.13923660000000002
+     0.13923660000000002,
+     false,
+     2245
     ]
    },
    "tier": "demanding"
@@ -2547,22 +3375,31 @@
    "pred_difficulty": 0.0,
    "pred_kind": "refactoring",
    "pred_tier": "simple",
+   "prompt_chars": 426,
    "runs": {
     "haiku": [
      true,
-     0.01032733
+     0.01032733,
+     false,
+     3959
     ],
     "luna": [
      false,
-     0.008879599999999998
+     0.008879599999999998,
+     false,
+     860
     ],
     "opus": [
      false,
-     0.21990379999999998
+     0.21990379999999998,
+     false,
+     3469
     ],
     "sonnet": [
      true,
-     0.11011739999999999
+     0.11011739999999999,
+     false,
+     1746
     ]
    },
    "tier": "simple"
@@ -2573,22 +3410,31 @@
    "pred_difficulty": 0.32,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 181,
    "runs": {
     "haiku": [
      true,
-     0.004443440000000001
+     0.004443440000000001,
+     false,
+     583
     ],
     "luna": [
      false,
-     0.0039061599999999997
+     0.0039061599999999997,
+     false,
+     191
     ],
     "opus": [
      true,
-     0.14571920000000002
+     0.14571920000000002,
+     false,
+     724
     ],
     "sonnet": [
      true,
-     0.0744988
+     0.0744988,
+     false,
+     477
     ]
    },
    "tier": "simple"
@@ -2599,22 +3445,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 284,
    "runs": {
     "haiku": [
      true,
-     0.00494641
+     0.00494641,
+     false,
+     928
     ],
     "luna": [
      true,
-     0.00329968
+     0.00329968,
+     false,
+     249
     ],
     "opus": [
      true,
-     0.19436
+     0.19436,
+     false,
+     757
     ],
     "sonnet": [
      true,
-     0.0739252
+     0.0739252,
+     false,
+     477
     ]
    },
    "tier": "simple"
@@ -2625,22 +3480,31 @@
    "pred_difficulty": 0.17,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 396,
    "runs": {
     "haiku": [
      true,
-     0.00737752
+     0.00737752,
+     false,
+     995
     ],
     "luna": [
      false,
-     0.0064916
+     0.0064916,
+     false,
+     238
     ],
     "opus": [
      false,
-     0.1801398
+     0.1801398,
+     false,
+     1123
     ],
     "sonnet": [
      true,
-     0.0858178
+     0.0858178,
+     false,
+     615
     ]
    },
    "tier": "simple"
@@ -2651,22 +3515,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 390,
    "runs": {
     "haiku": [
      true,
-     0.0058113900000000005
+     0.0058113900000000005,
+     false,
+     1057
     ],
     "luna": [
      true,
-     0.0049285200000000005
+     0.0049285200000000005,
+     false,
+     194
     ],
     "opus": [
      true,
-     0.2126024
+     0.2126024,
+     false,
+     1388
     ],
     "sonnet": [
      true,
-     0.1039944
+     0.1039944,
+     false,
+     728
     ]
    },
    "tier": "simple"
@@ -2677,22 +3550,31 @@
    "pred_difficulty": null,
    "pred_kind": "refactoring",
    "pred_tier": null,
+   "prompt_chars": 306,
    "runs": {
     "haiku": [
      true,
-     0.005941780000000001
+     0.005941780000000001,
+     false,
+     1793
     ],
     "luna": [
      false,
-     0.00470668
+     0.00470668,
+     false,
+     423
     ],
     "opus": [
      true,
-     0.2240158
+     0.2240158,
+     false,
+     2224
     ],
     "sonnet": [
      true,
-     0.0856636
+     0.0856636,
+     false,
+     1344
     ]
    },
    "tier": "simple"
@@ -2703,22 +3585,31 @@
    "pred_difficulty": null,
    "pred_kind": "architecture",
    "pred_tier": null,
+   "prompt_chars": 456,
    "runs": {
     "haiku": [
      true,
-     0.02984225
+     0.02984225,
+     false,
+     2699
     ],
     "luna": [
      false,
-     0.01808264
+     0.01808264,
+     false,
+     1084
     ],
     "opus": [
      true,
-     0.398019
+     0.398019,
+     false,
+     3355
     ],
     "sonnet": [
      false,
-     0.1399544
+     0.1399544,
+     false,
+     2508
     ]
    },
    "tier": "normal"
@@ -2729,22 +3620,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 295,
    "runs": {
     "haiku": [
      true,
-     0.00799967
+     0.00799967,
+     false,
+     2115
     ],
     "luna": [
      false,
-     0.00594796
+     0.00594796,
+     false,
+     749
     ],
     "opus": [
      false,
-     0.21371679999999998
+     0.21371679999999998,
+     false,
+     2842
     ],
     "sonnet": [
      true,
-     0.124893
+     0.124893,
+     false,
+     1880
     ]
    },
    "tier": "normal"
@@ -2755,22 +3655,31 @@
    "pred_difficulty": 0.6,
    "pred_kind": "refactoring",
    "pred_tier": "demanding",
+   "prompt_chars": 252,
    "runs": {
     "haiku": [
      false,
-     0.00673554
+     0.00673554,
+     false,
+     1286
     ],
     "luna": [
      false,
-     0.008257599999999999
+     0.008257599999999999,
+     false,
+     443
     ],
     "opus": [
      false,
-     0.191672
+     0.191672,
+     false,
+     1892
     ],
     "sonnet": [
      false,
-     0.0875586
+     0.0875586,
+     false,
+     1336
     ]
    },
    "tier": "normal"
@@ -2781,22 +3690,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "refactoring",
    "pred_tier": "simple",
+   "prompt_chars": 407,
    "runs": {
     "haiku": [
      true,
-     0.01165765
+     0.01165765,
+     false,
+     3842
     ],
     "luna": [
      false,
-     0.010145
+     0.010145,
+     false,
+     1000
     ],
     "opus": [
      true,
-     0.2615706
+     0.2615706,
+     false,
+     4194
     ],
     "sonnet": [
      false,
-     0.1395774
+     0.1395774,
+     false,
+     2403
     ]
    },
    "tier": "normal"
@@ -2807,22 +3725,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 292,
    "runs": {
     "haiku": [
      true,
-     0.02317679
+     0.02317679,
+     false,
+     4298
     ],
     "luna": [
      false,
-     0.02005924
+     0.02005924,
+     false,
+     555
     ],
     "opus": [
      false,
-     0.4806352
+     0.4806352,
+     false,
+     5242
     ],
     "sonnet": [
      false,
-     0.218166
+     0.218166,
+     false,
+     2204
     ]
    },
    "tier": "normal"
@@ -2833,22 +3760,31 @@
    "pred_difficulty": 0.55,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 355,
    "runs": {
     "haiku": [
      true,
-     0.0127382
+     0.0127382,
+     false,
+     1461
     ],
     "luna": [
      false,
-     0.0146498
+     0.0146498,
+     false,
+     379
     ],
     "opus": [
      true,
-     0.26662040000000004
+     0.26662040000000004,
+     false,
+     1962
     ],
     "sonnet": [
      true,
-     0.1313028
+     0.1313028,
+     false,
+     1334
     ]
    },
    "tier": "normal"
@@ -2859,22 +3795,31 @@
    "pred_difficulty": 0.67,
    "pred_kind": "refactoring",
    "pred_tier": "demanding",
+   "prompt_chars": 546,
    "runs": {
     "haiku": [
      true,
-     0.03816928
+     0.03816928,
+     false,
+     3634
     ],
     "luna": [
      false,
-     0.01607892
+     0.01607892,
+     false,
+     1169
     ],
     "opus": [
      true,
-     0.5924508
+     0.5924508,
+     false,
+     4633
     ],
     "sonnet": [
      true,
-     0.27714059999999996
+     0.27714059999999996,
+     false,
+     3400
     ]
    },
    "tier": "demanding"
@@ -2885,22 +3830,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 369,
    "runs": {
     "haiku": [
      true,
-     0.01790908
+     0.01790908,
+     false,
+     2587
     ],
     "luna": [
      false,
-     0.01303316
+     0.01303316,
+     false,
+     529
     ],
     "opus": [
      false,
-     0.5123856
+     0.5123856,
+     false,
+     3082
     ],
     "sonnet": [
      true,
-     0.12425539999999999
+     0.12425539999999999,
+     false,
+     2044
     ]
    },
    "tier": "demanding"
@@ -2911,22 +3865,31 @@
    "pred_difficulty": null,
    "pred_kind": "debugging",
    "pred_tier": null,
+   "prompt_chars": 357,
    "runs": {
     "haiku": [
      true,
-     0.01828938
+     0.01828938,
+     false,
+     3880
     ],
     "luna": [
      false,
-     0.00834012
+     0.00834012,
+     false,
+     1053
     ],
     "opus": [
      false,
-     0.4288294
+     0.4288294,
+     false,
+     4587
     ],
     "sonnet": [
      true,
-     0.130244
+     0.130244,
+     false,
+     3107
     ]
    },
    "tier": "demanding"
@@ -2937,22 +3900,31 @@
    "pred_difficulty": 0.92,
    "pred_kind": "refactoring",
    "pred_tier": "demanding",
+   "prompt_chars": 311,
    "runs": {
     "haiku": [
      false,
-     0.01078512
+     0.01078512,
+     false,
+     3376
     ],
     "luna": [
      false,
-     0.02126132
+     0.02126132,
+     false,
+     691
     ],
     "opus": [
      false,
-     0.47769659999999997
+     0.47769659999999997,
+     false,
+     3841
     ],
     "sonnet": [
      false,
-     0.14497179999999998
+     0.14497179999999998,
+     false,
+     2627
     ]
    },
    "tier": "demanding"
@@ -2963,22 +3935,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "refactoring",
    "pred_tier": "normal",
+   "prompt_chars": 292,
    "runs": {
     "haiku": [
      false,
-     0.04876603
+     0.04876603,
+     true,
+     0
     ],
     "luna": [
      false,
-     0.013435279999999999
+     0.013435279999999999,
+     false,
+     438
     ],
     "opus": [
      true,
-     1.0280234
+     1.0280234,
+     false,
+     3596
     ],
     "sonnet": [
      true,
-     0.139538
+     0.139538,
+     false,
+     3157
     ]
    },
    "tier": "demanding"
@@ -2989,22 +3970,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 181,
    "runs": {
     "haiku": [
      true,
-     0.0037678
+     0.0037678,
+     false,
+     4814
     ],
     "luna": [
      false,
-     0.0042722
+     0.0042722,
+     false,
+     225
     ],
     "opus": [
      true,
-     0.1118428
+     0.1118428,
+     false,
+     4174
     ],
     "sonnet": [
      true,
-     0.061316
+     0.061316,
+     false,
+     3094
     ]
    },
    "tier": "simple"
@@ -3015,22 +4005,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 154,
    "runs": {
     "haiku": [
      true,
-     0.0031355
+     0.0031355,
+     false,
+     4731
     ],
     "luna": [
      true,
-     0.001013
+     0.001013,
+     false,
+     1363
     ],
     "opus": [
      true,
-     0.1146108
+     0.1146108,
+     false,
+     4825
     ],
     "sonnet": [
      true,
-     0.061768
+     0.061768,
+     false,
+     3114
     ]
    },
    "tier": "simple"
@@ -3041,22 +4040,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 221,
    "runs": {
     "haiku": [
      true,
-     0.00681696
+     0.00681696,
+     false,
+     1662
     ],
     "luna": [
      false,
-     0.004945
+     0.004945,
+     false,
+     380
     ],
     "opus": [
      true,
-     0.16806220000000002
+     0.16806220000000002,
+     false,
+     5499
     ],
     "sonnet": [
      true,
-     0.060346
+     0.060346,
+     false,
+     5155
     ]
    },
    "tier": "normal"
@@ -3067,22 +4075,31 @@
    "pred_difficulty": 0.96,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 177,
    "runs": {
     "haiku": [
      true,
-     0.003432
+     0.003432,
+     false,
+     3489
     ],
     "luna": [
      false,
-     0.0032905600000000005
+     0.0032905600000000005,
+     false,
+     190
     ],
     "opus": [
      true,
-     0.156876
+     0.156876,
+     false,
+     3676
     ],
     "sonnet": [
      true,
-     0.055392
+     0.055392,
+     false,
+     3668
     ]
    },
    "tier": "normal"
@@ -3093,22 +4110,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 202,
    "runs": {
     "haiku": [
      true,
-     0.0041951
+     0.0041951,
+     false,
+     6633
     ],
     "luna": [
      false,
-     0.004939280000000001
+     0.004939280000000001,
+     false,
+     272
     ],
     "opus": [
      true,
-     0.154165
+     0.154165,
+     false,
+     6475
     ],
     "sonnet": [
      true,
-     0.064092
+     0.064092,
+     false,
+     6206
     ]
    },
    "tier": "demanding"
@@ -3119,22 +4145,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "general",
    "pred_tier": "simple",
+   "prompt_chars": 160,
    "runs": {
     "haiku": [
      true,
-     0.0026444
+     0.0026444,
+     false,
+     1431
     ],
     "luna": [
      false,
-     0.0008046
+     0.0008046,
+     false,
+     436
     ],
     "opus": [
      true,
-     0.0966468
+     0.0966468,
+     false,
+     1876
     ],
     "sonnet": [
      true,
-     0.047164
+     0.047164,
+     false,
+     1677
     ]
    },
    "tier": "simple"
@@ -3145,22 +4180,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "general",
    "pred_tier": "normal",
+   "prompt_chars": 114,
    "runs": {
     "haiku": [
      true,
-     0.0035733
+     0.0035733,
+     false,
+     3927
     ],
     "luna": [
      true,
-     0.0011518000000000001
+     0.0011518000000000001,
+     false,
+     1507
     ],
     "opus": [
      true,
-     0.1161508
+     0.1161508,
+     false,
+     4640
     ],
     "sonnet": [
      true,
-     0.060962
+     0.060962,
+     false,
+     2848
     ]
    },
    "tier": "simple"
@@ -3171,22 +4215,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "architecture",
    "pred_tier": "normal",
+   "prompt_chars": 133,
    "runs": {
     "haiku": [
      true,
-     0.0029146000000000003
+     0.0029146000000000003,
+     false,
+     1691
     ],
     "luna": [
      true,
-     0.0007908
+     0.0007908,
+     false,
+     457
     ],
     "opus": [
      true,
-     0.09685880000000001
+     0.09685880000000001,
+     false,
+     1998
     ],
     "sonnet": [
      true,
-     0.048196
+     0.048196,
+     false,
+     1880
     ]
    },
    "tier": "simple"
@@ -3197,22 +4250,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "research",
    "pred_tier": "normal",
+   "prompt_chars": 113,
    "runs": {
     "haiku": [
      true,
-     0.0032535
+     0.0032535,
+     false,
+     3362
     ],
     "luna": [
      true,
-     0.001051
+     0.001051,
+     false,
+     1288
     ],
     "opus": [
      true,
-     0.1115908
+     0.1115908,
+     false,
+     3951
     ],
     "sonnet": [
      true,
-     0.05243
+     0.05243,
+     false,
+     2952
     ]
    },
    "tier": "simple"
@@ -3223,22 +4285,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 126,
    "runs": {
     "haiku": [
      true,
-     0.002416
+     0.002416,
+     false,
+     1208
     ],
     "luna": [
      false,
-     0.00223728
+     0.00223728,
+     false,
+     965
     ],
     "opus": [
      false,
-     0.0905748
+     0.0905748,
+     false,
+     1370
     ],
     "sonnet": [
      false,
-     0.045792
+     0.045792,
+     false,
+     1464
     ]
    },
    "tier": "simple"
@@ -3249,22 +4320,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "research",
    "pred_tier": "normal",
+   "prompt_chars": 117,
    "runs": {
     "haiku": [
      false,
-     0.0026123
+     0.0026123,
+     false,
+     1183
     ],
     "luna": [
      false,
-     0.0024468000000000003
+     0.0024468000000000003,
+     false,
+     137
     ],
     "opus": [
      false,
-     0.0953948
+     0.0953948,
+     false,
+     1848
     ],
     "sonnet": [
      false,
-     0.047566
+     0.047566,
+     false,
+     1660
     ]
    },
    "tier": "simple"
@@ -3275,22 +4355,31 @@
    "pred_difficulty": 0.95,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 195,
    "runs": {
     "haiku": [
      false,
-     0.0076974899999999995
+     0.0076974899999999995,
+     false,
+     1537
     ],
     "luna": [
      false,
-     0.00447732
+     0.00447732,
+     false,
+     413
     ],
     "opus": [
      true,
-     0.1825914
+     0.1825914,
+     false,
+     6629
     ],
     "sonnet": [
      false,
-     0.067142
+     0.067142,
+     false,
+     6893
     ]
    },
    "tier": "normal"
@@ -3301,22 +4390,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 190,
    "runs": {
     "haiku": [
      true,
-     0.0038908000000000002
+     0.0038908000000000002,
+     false,
+     4767
     ],
     "luna": [
      true,
-     0.0023022
+     0.0023022,
+     false,
+     3341
     ],
     "opus": [
      false,
-     0.1429796
+     0.1429796,
+     false,
+     4714
     ],
     "sonnet": [
      true,
-     0.053664
+     0.053664,
+     false,
+     3632
     ]
    },
    "tier": "normal"
@@ -3327,22 +4425,31 @@
    "pred_difficulty": 0.73,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 182,
    "runs": {
     "haiku": [
      true,
-     0.0033938
+     0.0033938,
+     false,
+     3675
     ],
     "luna": [
      true,
-     0.0017217599999999997
+     0.0017217599999999997,
+     false,
+     1582
     ],
     "opus": [
      true,
-     0.11832680000000001
+     0.11832680000000001,
+     false,
+     5048
     ],
     "sonnet": [
      true,
-     0.056284
+     0.056284,
+     false,
+     4220
     ]
    },
    "tier": "normal"
@@ -3353,22 +4460,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 185,
    "runs": {
     "haiku": [
      true,
-     0.004357700000000001
+     0.004357700000000001,
+     false,
+     6406
     ],
     "luna": [
      false,
-     0.0041486399999999994
+     0.0041486399999999994,
+     false,
+     248
     ],
     "opus": [
      true,
-     0.1928236
+     0.1928236,
+     false,
+     8382
     ],
     "sonnet": [
      true,
-     0.063146
+     0.063146,
+     false,
+     6136
     ]
    },
    "tier": "normal"
@@ -3379,22 +4495,31 @@
    "pred_difficulty": 0.97,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 218,
    "runs": {
     "haiku": [
      true,
-     0.0041251000000000005
+     0.0041251000000000005,
+     false,
+     4129
     ],
     "luna": [
      true,
-     0.00792528
+     0.00792528,
+     false,
+     367
     ],
     "opus": [
      true,
-     0.17293820000000001
+     0.17293820000000001,
+     false,
+     6620
     ],
     "sonnet": [
      true,
-     0.064508
+     0.064508,
+     false,
+     5828
     ]
    },
    "tier": "normal"
@@ -3405,22 +4530,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "architecture",
    "pred_tier": "normal",
+   "prompt_chars": 202,
    "runs": {
     "haiku": [
      true,
-     0.00364
+     0.00364,
+     false,
+     3668
     ],
     "luna": [
      true,
-     0.0013978
+     0.0013978,
+     false,
+     2867
     ],
     "opus": [
      true,
-     0.1094788
+     0.1094788,
+     false,
+     3923
     ],
     "sonnet": [
      true,
-     0.053692
+     0.053692,
+     false,
+     3574
     ]
    },
    "tier": "normal"
@@ -3431,22 +4565,31 @@
    "pred_difficulty": 0.94,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 165,
    "runs": {
     "haiku": [
      true,
-     0.005336200000000001
+     0.005336200000000001,
+     false,
+     7392
     ],
     "luna": [
      false,
-     0.00287976
+     0.00287976,
+     false,
+     4894
     ],
     "opus": [
      true,
-     0.14577479999999998
+     0.14577479999999998,
+     false,
+     7831
     ],
     "sonnet": [
      true,
-     0.060672
+     0.060672,
+     false,
+     4961
     ]
    },
    "tier": "normal"
@@ -3457,22 +4600,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 226,
    "runs": {
     "haiku": [
      true,
-     0.004574600000000001
+     0.004574600000000001,
+     false,
+     7312
     ],
     "luna": [
      true,
-     0.0021631999999999997
+     0.0021631999999999997,
+     false,
+     7030
     ],
     "opus": [
      true,
-     0.173601
+     0.173601,
+     false,
+     9301
     ],
     "sonnet": [
      true,
-     0.075962
+     0.075962,
+     false,
+     10471
     ]
    },
    "tier": "demanding"
@@ -3483,22 +4635,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "architecture",
    "pred_tier": "demanding",
+   "prompt_chars": 238,
    "runs": {
     "haiku": [
      true,
-     0.004147200000000001
+     0.004147200000000001,
+     false,
+     5423
     ],
     "luna": [
      false,
-     0.004772360000000001
+     0.004772360000000001,
+     false,
+     305
     ],
     "opus": [
      true,
-     0.1739466
+     0.1739466,
+     false,
+     8511
     ],
     "sonnet": [
      true,
-     0.064722
+     0.064722,
+     false,
+     6619
     ]
    },
    "tier": "demanding"
@@ -3509,22 +4670,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "architecture",
    "pred_tier": "normal",
+   "prompt_chars": 217,
    "runs": {
     "haiku": [
      true,
-     0.0041042000000000006
+     0.0041042000000000006,
+     false,
+     5699
     ],
     "luna": [
      true,
-     0.00465416
+     0.00465416,
+     false,
+     381
     ],
     "opus": [
      true,
-     0.2040216
+     0.2040216,
+     false,
+     7883
     ],
     "sonnet": [
      true,
-     0.06055
+     0.06055,
+     false,
+     5311
     ]
    },
    "tier": "demanding"
@@ -3535,22 +4705,31 @@
    "pred_difficulty": 0.92,
    "pred_kind": "research",
    "pred_tier": "demanding",
+   "prompt_chars": 258,
    "runs": {
     "haiku": [
      true,
-     0.0052075
+     0.0052075,
+     false,
+     5445
     ],
     "luna": [
      false,
-     0.01031556
+     0.01031556,
+     false,
+     698
     ],
     "opus": [
      true,
-     0.239721
+     0.239721,
+     false,
+     7515
     ],
     "sonnet": [
      true,
-     0.075788
+     0.075788,
+     false,
+     8949
     ]
    },
    "tier": "demanding"
@@ -3561,22 +4740,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 348,
    "runs": {
     "haiku": [
      true,
-     0.007835680000000001
+     0.007835680000000001,
+     false,
+     3418
     ],
     "luna": [
      true,
-     0.00271176
+     0.00271176,
+     false,
+     1728
     ],
     "opus": [
      true,
-     0.1719904
+     0.1719904,
+     false,
+     3784
     ],
     "sonnet": [
      true,
-     0.0790986
+     0.0790986,
+     false,
+     3609
     ]
    },
    "tier": "simple"
@@ -3587,22 +4775,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_review",
    "pred_tier": null,
+   "prompt_chars": 258,
    "runs": {
     "haiku": [
      true,
-     0.00591771
+     0.00591771,
+     false,
+     3545
     ],
     "luna": [
      true,
-     0.00325704
+     0.00325704,
+     false,
+     2579
     ],
     "opus": [
      true,
-     0.1958018
+     0.1958018,
+     false,
+     5785
     ],
     "sonnet": [
      true,
-     0.0758148
+     0.0758148,
+     false,
+     3975
     ]
    },
    "tier": "simple"
@@ -3613,22 +4810,31 @@
    "pred_difficulty": 0.93,
    "pred_kind": "code_review",
    "pred_tier": "demanding",
+   "prompt_chars": 244,
    "runs": {
     "haiku": [
      true,
-     0.00620482
+     0.00620482,
+     false,
+     3494
     ],
     "luna": [
      false,
-     0.00220096
+     0.00220096,
+     false,
+     2478
     ],
     "opus": [
      true,
-     0.186054
+     0.186054,
+     false,
+     5337
     ],
     "sonnet": [
      true,
-     0.07601619999999999
+     0.07601619999999999,
+     false,
+     3947
     ]
    },
    "tier": "normal"
@@ -3639,22 +4845,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 308,
    "runs": {
     "haiku": [
      true,
-     0.00657315
+     0.00657315,
+     false,
+     6397
     ],
     "luna": [
      true,
-     0.0039248
+     0.0039248,
+     false,
+     3140
     ],
     "opus": [
      true,
-     0.1824988
+     0.1824988,
+     false,
+     6037
     ],
     "sonnet": [
      true,
-     0.0782044
+     0.0782044,
+     false,
+     4880
     ]
    },
    "tier": "normal"
@@ -3665,22 +4880,31 @@
    "pred_difficulty": 0.99,
    "pred_kind": "code_review",
    "pred_tier": "demanding",
+   "prompt_chars": 281,
    "runs": {
     "haiku": [
      true,
-     0.00761938
+     0.00761938,
+     false,
+     6984
     ],
     "luna": [
      true,
-     0.0048461599999999995
+     0.0048461599999999995,
+     false,
+     3185
     ],
     "opus": [
      true,
-     0.2267952
+     0.2267952,
+     false,
+     7849
     ],
     "sonnet": [
      true,
-     0.0805622
+     0.0805622,
+     false,
+     5782
     ]
    },
    "tier": "demanding"
@@ -3691,22 +4915,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_review",
    "pred_tier": null,
+   "prompt_chars": 215,
    "runs": {
     "haiku": [
      true,
-     0.005432220000000001
+     0.005432220000000001,
+     false,
+     1890
     ],
     "luna": [
      false,
-     0.0016409600000000001
+     0.0016409600000000001,
+     false,
+     595
     ],
     "opus": [
      true,
-     0.1556078
+     0.1556078,
+     false,
+     2361
     ],
     "sonnet": [
      true,
-     0.0759562
+     0.0759562,
+     false,
+     1369
     ]
    },
    "tier": "simple"
@@ -3717,22 +4950,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 217,
    "runs": {
     "haiku": [
      true,
-     0.004396700000000001
+     0.004396700000000001,
+     false,
+     1588
     ],
     "luna": [
      true,
-     0.00174696
+     0.00174696,
+     false,
+     538
     ],
     "opus": [
      true,
-     0.1434154
+     0.1434154,
+     false,
+     2223
     ],
     "sonnet": [
      true,
-     0.0654824
+     0.0654824,
+     false,
+     1697
     ]
    },
    "tier": "simple"
@@ -3743,22 +4985,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 215,
    "runs": {
     "haiku": [
      false,
-     0.00837309
+     0.00837309,
+     false,
+     2621
     ],
     "luna": [
      false,
-     0.00824452
+     0.00824452,
+     false,
+     660
     ],
     "opus": [
      true,
-     0.3656446
+     0.3656446,
+     false,
+     2783
     ],
     "sonnet": [
      true,
-     0.0826262
+     0.0826262,
+     false,
+     3296
     ]
    },
    "tier": "simple"
@@ -3769,22 +5020,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 135,
    "runs": {
     "haiku": [
      true,
-     0.00518958
+     0.00518958,
+     false,
+     3778
     ],
     "luna": [
      true,
-     0.0031937600000000003
+     0.0031937600000000003,
+     false,
+     2343
     ],
     "opus": [
      true,
-     0.1815258
+     0.1815258,
+     false,
+     4038
     ],
     "sonnet": [
      true,
-     0.0778002
+     0.0778002,
+     false,
+     3243
     ]
    },
    "tier": "simple"
@@ -3795,22 +5055,31 @@
    "pred_difficulty": 0.48,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 214,
    "runs": {
     "haiku": [
      true,
-     0.00449724
+     0.00449724,
+     false,
+     2662
     ],
     "luna": [
      true,
-     0.00225484
+     0.00225484,
+     false,
+     1310
     ],
     "opus": [
      false,
-     0.15053139999999998
+     0.15053139999999998,
+     false,
+     2882
     ],
     "sonnet": [
      true,
-     0.06719839999999999
+     0.06719839999999999,
+     false,
+     2430
     ]
    },
    "tier": "simple"
@@ -3821,22 +5090,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 240,
    "runs": {
     "haiku": [
      true,
-     0.00515966
+     0.00515966,
+     false,
+     2801
     ],
     "luna": [
      true,
-     0.00185396
+     0.00185396,
+     false,
+     1185
     ],
     "opus": [
      true,
-     0.15314
+     0.15314,
+     false,
+     4384
     ],
     "sonnet": [
      true,
-     0.0704096
+     0.0704096,
+     false,
+     2672
     ]
    },
    "tier": "simple"
@@ -3847,22 +5125,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 357,
    "runs": {
     "haiku": [
      true,
-     0.00562924
+     0.00562924,
+     false,
+     4238
     ],
     "luna": [
      true,
-     0.00466832
+     0.00466832,
+     false,
+     3434
     ],
     "opus": [
      true,
-     0.1801472
+     0.1801472,
+     false,
+     5166
     ],
     "sonnet": [
      true,
-     0.074535
+     0.074535,
+     false,
+     3727
     ]
    },
    "tier": "normal"
@@ -3873,22 +5160,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 179,
    "runs": {
     "haiku": [
      true,
-     0.00866908
+     0.00866908,
+     false,
+     2025
     ],
     "luna": [
      true,
-     0.0038685600000000005
+     0.0038685600000000005,
+     false,
+     2861
     ],
     "opus": [
      true,
-     0.1656094
+     0.1656094,
+     false,
+     4235
     ],
     "sonnet": [
      true,
-     0.11150739999999999
+     0.11150739999999999,
+     false,
+     1641
     ]
    },
    "tier": "normal"
@@ -3899,22 +5195,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 267,
    "runs": {
     "haiku": [
      true,
-     0.004729389999999999
+     0.004729389999999999,
+     false,
+     3936
     ],
     "luna": [
      true,
-     0.0018821600000000001
+     0.0018821600000000001,
+     false,
+     1377
     ],
     "opus": [
      true,
-     0.15498520000000002
+     0.15498520000000002,
+     false,
+     4340
     ],
     "sonnet": [
      true,
-     0.0726474
+     0.0726474,
+     false,
+     3076
     ]
    },
    "tier": "normal"
@@ -3925,22 +5230,31 @@
    "pred_difficulty": 0.48,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 371,
    "runs": {
     "haiku": [
      true,
-     0.004239460000000001
+     0.004239460000000001,
+     false,
+     2952
     ],
     "luna": [
      true,
-     0.00258332
+     0.00258332,
+     false,
+     1521
     ],
     "opus": [
      true,
-     0.165797
+     0.165797,
+     false,
+     3579
     ],
     "sonnet": [
      true,
-     0.08005419999999999
+     0.08005419999999999,
+     false,
+     3113
     ]
    },
    "tier": "normal"
@@ -3951,22 +5265,31 @@
    "pred_difficulty": 0.54,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 240,
    "runs": {
     "haiku": [
      true,
-     0.00656675
+     0.00656675,
+     false,
+     2828
     ],
     "luna": [
      true,
-     0.0020159600000000002
+     0.0020159600000000002,
+     false,
+     1545
     ],
     "opus": [
      true,
-     0.1745736
+     0.1745736,
+     false,
+     4492
     ],
     "sonnet": [
      true,
-     0.0698094
+     0.0698094,
+     false,
+     3139
     ]
    },
    "tier": "normal"
@@ -3977,22 +5300,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 293,
    "runs": {
     "haiku": [
      true,
-     0.007663530000000001
+     0.007663530000000001,
+     false,
+     3532
     ],
     "luna": [
      false,
-     0.0027086
+     0.0027086,
+     false,
+     1434
     ],
     "opus": [
      true,
-     0.1707144
+     0.1707144,
+     false,
+     5164
     ],
     "sonnet": [
      true,
-     0.0770612
+     0.0770612,
+     false,
+     3511
     ]
    },
    "tier": "normal"
@@ -4003,22 +5335,31 @@
    "pred_difficulty": 0.47,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 403,
    "runs": {
     "haiku": [
      true,
-     0.014080380000000002
+     0.014080380000000002,
+     false,
+     2387
     ],
     "luna": [
      true,
-     0.004565799999999999
+     0.004565799999999999,
+     false,
+     6593
     ],
     "opus": [
      true,
-     0.214739
+     0.214739,
+     false,
+     9583
     ],
     "sonnet": [
      true,
-     0.09079580000000001
+     0.09079580000000001,
+     false,
+     7463
     ]
    },
    "tier": "demanding"
@@ -4029,22 +5370,31 @@
    "pred_difficulty": 0.73,
    "pred_kind": "code_review",
    "pred_tier": "demanding",
+   "prompt_chars": 355,
    "runs": {
     "haiku": [
      true,
-     0.005758630000000001
+     0.005758630000000001,
+     false,
+     4435
     ],
     "luna": [
      false,
-     0.00476348
+     0.00476348,
+     false,
+     3128
     ],
     "opus": [
      true,
-     0.17274520000000002
+     0.17274520000000002,
+     false,
+     5930
     ],
     "sonnet": [
      true,
-     0.07869
+     0.07869,
+     false,
+     5083
     ]
    },
    "tier": "demanding"
@@ -4055,22 +5405,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 409,
    "runs": {
     "haiku": [
      true,
-     0.00666059
+     0.00666059,
+     false,
+     4399
     ],
     "luna": [
      true,
-     0.006184
+     0.006184,
+     false,
+     2249
     ],
     "opus": [
      true,
-     0.2098584
+     0.2098584,
+     false,
+     4347
     ],
     "sonnet": [
      true,
-     0.081763
+     0.081763,
+     false,
+     4477
     ]
    },
    "tier": "demanding"
@@ -4081,22 +5440,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_review",
    "pred_tier": null,
+   "prompt_chars": 333,
    "runs": {
     "haiku": [
      true,
-     0.00594882
+     0.00594882,
+     false,
+     4979
     ],
     "luna": [
      true,
-     0.00307824
+     0.00307824,
+     false,
+     2219
     ],
     "opus": [
      true,
-     0.16682139999999998
+     0.16682139999999998,
+     false,
+     5404
     ],
     "sonnet": [
      true,
-     0.07854639999999999
+     0.07854639999999999,
+     false,
+     5313
     ]
    },
    "tier": "demanding"
@@ -4107,22 +5475,31 @@
    "pred_difficulty": null,
    "pred_kind": "architecture",
    "pred_tier": null,
+   "prompt_chars": 330,
    "runs": {
     "haiku": [
      true,
-     0.00563323
+     0.00563323,
+     false,
+     5306
     ],
     "luna": [
      true,
-     0.00338112
+     0.00338112,
+     false,
+     3026
     ],
     "opus": [
      true,
-     0.1828858
+     0.1828858,
+     false,
+     6034
     ],
     "sonnet": [
      false,
-     0.0818594
+     0.0818594,
+     false,
+     6153
     ]
    },
    "tier": "demanding"
@@ -4133,22 +5510,31 @@
    "pred_difficulty": null,
    "pred_kind": "research",
    "pred_tier": null,
+   "prompt_chars": 312,
    "runs": {
     "haiku": [
      false,
-     0.00519349
+     0.00519349,
+     false,
+     1540
     ],
     "luna": [
      true,
-     0.00277048
+     0.00277048,
+     false,
+     557
     ],
     "opus": [
      false,
-     0.144104
+     0.144104,
+     false,
+     1309
     ],
     "sonnet": [
      false,
-     0.0849602
+     0.0849602,
+     false,
+     1133
     ]
    },
    "tier": "simple"
@@ -4159,22 +5545,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 269,
    "runs": {
     "haiku": [
      true,
-     0.0038663400000000002
+     0.0038663400000000002,
+     false,
+     1662
     ],
     "luna": [
      true,
-     0.00217728
+     0.00217728,
+     false,
+     625
     ],
     "opus": [
      true,
-     0.1351822
+     0.1351822,
+     false,
+     1745
     ],
     "sonnet": [
      true,
-     0.06434240000000001
+     0.06434240000000001,
+     false,
+     1060
     ]
    },
    "tier": "normal"
@@ -4185,22 +5580,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 291,
    "runs": {
     "haiku": [
      true,
-     0.00479506
+     0.00479506,
+     false,
+     2639
     ],
     "luna": [
      true,
-     0.00280852
+     0.00280852,
+     false,
+     1138
     ],
     "opus": [
      false,
-     0.1491738
+     0.1491738,
+     false,
+     2873
     ],
     "sonnet": [
      false,
-     0.0770464
+     0.0770464,
+     false,
+     2074
     ]
    },
    "tier": "normal"
@@ -4211,22 +5615,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_generation",
    "pred_tier": null,
+   "prompt_chars": 390,
    "runs": {
     "haiku": [
      false,
-     0.010801709999999999
+     0.010801709999999999,
+     false,
+     1174
     ],
     "luna": [
      false,
-     0.0121506
+     0.0121506,
+     false,
+     418
     ],
     "opus": [
      true,
-     0.2865592
+     0.2865592,
+     false,
+     2147
     ],
     "sonnet": [
      false,
-     0.13359320000000002
+     0.13359320000000002,
+     false,
+     1418
     ]
    },
    "tier": "demanding"
@@ -4237,22 +5650,31 @@
    "pred_difficulty": 0.03,
    "pred_kind": "data_analysis",
    "pred_tier": "simple",
+   "prompt_chars": 173,
    "runs": {
     "haiku": [
      false,
-     0.00328748
+     0.00328748,
+     false,
+     501
     ],
     "luna": [
      false,
-     0.0012303600000000002
+     0.0012303600000000002,
+     false,
+     74
     ],
     "opus": [
      false,
-     0.1183298
+     0.1183298,
+     false,
+     648
     ],
     "sonnet": [
      false,
-     0.0592366
+     0.0592366,
+     false,
+     524
     ]
    },
    "tier": "simple"
@@ -4263,22 +5685,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 165,
    "runs": {
     "haiku": [
      false,
-     0.0037301900000000004
+     0.0037301900000000004,
+     false,
+     308
     ],
     "luna": [
      true,
-     0.00188924
+     0.00188924,
+     false,
+     193
     ],
     "opus": [
      true,
-     0.1288408
+     0.1288408,
+     false,
+     381
     ],
     "sonnet": [
      true,
-     0.0658402
+     0.0658402,
+     false,
+     378
     ]
    },
    "tier": "simple"
@@ -4289,22 +5720,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 230,
    "runs": {
     "haiku": [
      true,
-     0.00334607
+     0.00334607,
+     false,
+     507
     ],
     "luna": [
      true,
-     0.00144076
+     0.00144076,
+     false,
+     358
     ],
     "opus": [
      true,
-     0.120521
+     0.120521,
+     false,
+     778
     ],
     "sonnet": [
      false,
-     0.0676638
+     0.0676638,
+     false,
+     731
     ]
    },
    "tier": "simple"
@@ -4315,22 +5755,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "data_analysis",
    "pred_tier": "simple",
+   "prompt_chars": 127,
    "runs": {
     "haiku": [
      true,
-     0.00380815
+     0.00380815,
+     false,
+     1175
     ],
     "luna": [
      true,
-     0.00159676
+     0.00159676,
+     false,
+     714
     ],
     "opus": [
      false,
-     0.138413
+     0.138413,
+     false,
+     1689
     ],
     "sonnet": [
      true,
-     0.0664522
+     0.0664522,
+     false,
+     949
     ]
    },
    "tier": "simple"
@@ -4341,22 +5790,31 @@
    "pred_difficulty": 0.25,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 174,
    "runs": {
     "haiku": [
      false,
-     0.00347844
+     0.00347844,
+     false,
+     409
     ],
     "luna": [
      false,
-     0.0030816800000000003
+     0.0030816800000000003,
+     false,
+     169
     ],
     "opus": [
      false,
-     0.1259084
+     0.1259084,
+     false,
+     533
     ],
     "sonnet": [
      false,
-     0.0786878
+     0.0786878,
+     false,
+     387
     ]
    },
    "tier": "simple"
@@ -4367,22 +5825,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 224,
    "runs": {
     "haiku": [
      false,
-     0.00513779
+     0.00513779,
+     false,
+     1803
     ],
     "luna": [
      false,
-     0.0032494800000000003
+     0.0032494800000000003,
+     false,
+     604
     ],
     "opus": [
      false,
-     0.1642764
+     0.1642764,
+     false,
+     1783
     ],
     "sonnet": [
      false,
-     0.0797542
+     0.0797542,
+     false,
+     1310
     ]
    },
    "tier": "normal"
@@ -4393,22 +5860,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 331,
    "runs": {
     "haiku": [
      true,
-     0.004861790000000001
+     0.004861790000000001,
+     false,
+     3390
     ],
     "luna": [
      false,
-     0.006497200000000001
+     0.006497200000000001,
+     false,
+     237
     ],
     "opus": [
      true,
-     0.171522
+     0.171522,
+     false,
+     3436
     ],
     "sonnet": [
      true,
-     0.0781214
+     0.0781214,
+     false,
+     2726
     ]
    },
    "tier": "normal"
@@ -4419,22 +5895,31 @@
    "pred_difficulty": null,
    "pred_kind": "code_generation",
    "pred_tier": null,
+   "prompt_chars": 262,
    "runs": {
     "haiku": [
      true,
-     0.00560642
+     0.00560642,
+     false,
+     3265
     ],
     "luna": [
      true,
-     0.0031096400000000003
+     0.0031096400000000003,
+     false,
+     1658
     ],
     "opus": [
      true,
-     0.1704114
+     0.1704114,
+     false,
+     3628
     ],
     "sonnet": [
      true,
-     0.0710184
+     0.0710184,
+     false,
+     2487
     ]
    },
    "tier": "normal"
@@ -4445,22 +5930,31 @@
    "pred_difficulty": null,
    "pred_kind": "research",
    "pred_tier": null,
+   "prompt_chars": 279,
    "runs": {
     "haiku": [
      true,
-     0.005774
+     0.005774,
+     false,
+     2065
     ],
     "luna": [
      true,
-     0.01081984
+     0.01081984,
+     false,
+     1023
     ],
     "opus": [
      true,
-     0.172341
+     0.172341,
+     false,
+     2726
     ],
     "sonnet": [
      true,
-     0.0842416
+     0.0842416,
+     false,
+     1591
     ]
    },
    "tier": "normal"
@@ -4471,22 +5965,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 236,
    "runs": {
     "haiku": [
      true,
-     0.0061945
+     0.0061945,
+     false,
+     1279
     ],
     "luna": [
      true,
-     0.0037338000000000002
+     0.0037338000000000002,
+     false,
+     600
     ],
     "opus": [
      true,
-     0.152563
+     0.152563,
+     false,
+     1554
     ],
     "sonnet": [
      true,
-     0.08425719999999999
+     0.08425719999999999,
+     false,
+     1452
     ]
    },
    "tier": "normal"
@@ -4497,22 +6000,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "data_analysis",
    "pred_tier": "normal",
+   "prompt_chars": 239,
    "runs": {
     "haiku": [
      true,
-     0.0039466300000000005
+     0.0039466300000000005,
+     false,
+     1212
     ],
     "luna": [
      true,
-     0.0021707600000000003
+     0.0021707600000000003,
+     false,
+     283
     ],
     "opus": [
      true,
-     0.1451806
+     0.1451806,
+     false,
+     1619
     ],
     "sonnet": [
      true,
-     0.06624680000000001
+     0.06624680000000001,
+     false,
+     1170
     ]
    },
    "tier": "normal"
@@ -4523,22 +6035,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "data_analysis",
    "pred_tier": "simple",
+   "prompt_chars": 415,
    "runs": {
     "haiku": [
      true,
-     0.005534140000000001
+     0.005534140000000001,
+     false,
+     1596
     ],
     "luna": [
      false,
-     0.00203352
+     0.00203352,
+     false,
+     642
     ],
     "opus": [
      true,
-     0.167331
+     0.167331,
+     false,
+     1640
     ],
     "sonnet": [
      true,
-     0.0718352
+     0.0718352,
+     false,
+     1465
     ]
    },
    "tier": "normal"
@@ -4549,22 +6070,31 @@
    "pred_difficulty": 0.49,
    "pred_kind": "debugging",
    "pred_tier": "normal",
+   "prompt_chars": 398,
    "runs": {
     "haiku": [
      true,
-     0.00655066
+     0.00655066,
+     false,
+     1169
     ],
     "luna": [
      false,
-     0.00512948
+     0.00512948,
+     false,
+     583
     ],
     "opus": [
      true,
-     0.16740660000000002
+     0.16740660000000002,
+     false,
+     1577
     ],
     "sonnet": [
      true,
-     0.0831272
+     0.0831272,
+     false,
+     860
     ]
    },
    "tier": "demanding"
@@ -4575,22 +6105,31 @@
    "pred_difficulty": 0.53,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 510,
    "runs": {
     "haiku": [
      true,
-     0.02314166
+     0.02314166,
+     false,
+     3203
     ],
     "luna": [
      false,
-     0.0168882
+     0.0168882,
+     false,
+     1438
     ],
     "opus": [
      true,
-     0.3226602
+     0.3226602,
+     false,
+     3643
     ],
     "sonnet": [
      true,
-     0.1384618
+     0.1384618,
+     false,
+     2872
     ]
    },
    "tier": "demanding"
@@ -4601,22 +6140,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "code_review",
    "pred_tier": "normal",
+   "prompt_chars": 508,
    "runs": {
     "haiku": [
      true,
-     0.01027731
+     0.01027731,
+     false,
+     4434
     ],
     "luna": [
      false,
-     0.00664456
+     0.00664456,
+     false,
+     300
     ],
     "opus": [
      true,
-     0.295509
+     0.295509,
+     false,
+     3065
     ],
     "sonnet": [
      true,
-     0.123377
+     0.123377,
+     false,
+     1928
     ]
    },
    "tier": "demanding"
@@ -4627,22 +6175,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "code_generation",
    "pred_tier": "normal",
+   "prompt_chars": 365,
    "runs": {
     "haiku": [
      false,
-     0.01406373
+     0.01406373,
+     true,
+     0
     ],
     "luna": [
      false,
-     0.026450440000000002
+     0.026450440000000002,
+     false,
+     598
     ],
     "opus": [
      false,
-     0.2612098
+     0.2612098,
+     true,
+     0
     ],
     "sonnet": [
      false,
-     0.1420784
+     0.1420784,
+     true,
+     0
     ]
    },
    "tier": "demanding"
@@ -4653,22 +6210,31 @@
    "pred_difficulty": 0.0,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 174,
    "runs": {
     "haiku": [
      true,
-     0.00433466
+     0.00433466,
+     false,
+     654
     ],
     "luna": [
      true,
-     0.0031816400000000003
+     0.0031816400000000003,
+     false,
+     160
     ],
     "opus": [
      true,
-     0.1454052
+     0.1454052,
+     false,
+     822
     ],
     "sonnet": [
      true,
-     0.0671312
+     0.0671312,
+     false,
+     903
     ]
    },
    "tier": "simple"
@@ -4679,22 +6245,31 @@
    "pred_difficulty": 0.41,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 180,
    "runs": {
     "haiku": [
      true,
-     0.00330373
+     0.00330373,
+     false,
+     788
     ],
     "luna": [
      false,
-     0.0016932400000000002
+     0.0016932400000000002,
+     false,
+     153
     ],
     "opus": [
      true,
-     0.1303972
+     0.1303972,
+     false,
+     763
     ],
     "sonnet": [
      true,
-     0.043998
+     0.043998,
+     false,
+     745
     ]
    },
    "tier": "simple"
@@ -4705,22 +6280,31 @@
    "pred_difficulty": 0.96,
    "pred_kind": "writing",
    "pred_tier": "demanding",
+   "prompt_chars": 190,
    "runs": {
     "haiku": [
      false,
-     0.004846780000000001
+     0.004846780000000001,
+     false,
+     627
     ],
     "luna": [
      false,
-     0.00356408
+     0.00356408,
+     false,
+     226
     ],
     "opus": [
      true,
-     0.1799206
+     0.1799206,
+     false,
+     1987
     ],
     "sonnet": [
      true,
-     0.0807532
+     0.0807532,
+     false,
+     1252
     ]
    },
    "tier": "normal"
@@ -4731,22 +6315,31 @@
    "pred_difficulty": 0.98,
    "pred_kind": "writing",
    "pred_tier": "demanding",
+   "prompt_chars": 193,
    "runs": {
     "haiku": [
      true,
-     0.0075084800000000005
+     0.0075084800000000005,
+     false,
+     1625
     ],
     "luna": [
      true,
-     0.005206200000000001
+     0.005206200000000001,
+     false,
+     350
     ],
     "opus": [
      true,
-     0.33331859999999996
+     0.33331859999999996,
+     false,
+     2318
     ],
     "sonnet": [
      true,
-     0.091486
+     0.091486,
+     false,
+     1082
     ]
    },
    "tier": "demanding"
@@ -4757,22 +6350,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 156,
    "runs": {
     "haiku": [
      true,
-     0.00394624
+     0.00394624,
+     false,
+     1065
     ],
     "luna": [
      false,
-     0.0007612000000000001
+     0.0007612000000000001,
+     false,
+     265
     ],
     "opus": [
      true,
-     0.11970360000000001
+     0.11970360000000001,
+     false,
+     1322
     ],
     "sonnet": [
      true,
-     0.044528
+     0.044528,
+     false,
+     948
     ]
    },
    "tier": "simple"
@@ -4783,22 +6385,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 151,
    "runs": {
     "haiku": [
      true,
-     0.0023429
+     0.0023429,
+     false,
+     236
     ],
     "luna": [
      true,
-     0.0007194
+     0.0007194,
+     false,
+     118
     ],
     "opus": [
      true,
-     0.0852468
+     0.0852468,
+     false,
+     328
     ],
     "sonnet": [
      true,
-     0.042816
+     0.042816,
+     false,
+     338
     ]
    },
    "tier": "simple"
@@ -4809,22 +6420,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 149,
    "runs": {
     "haiku": [
      false,
-     0.0037692600000000004
+     0.0037692600000000004,
+     false,
+     367
     ],
     "luna": [
      false,
-     0.00216916
+     0.00216916,
+     false,
+     106
     ],
     "opus": [
      true,
-     0.13620020000000002
+     0.13620020000000002,
+     false,
+     1276
     ],
     "sonnet": [
      false,
-     0.0597374
+     0.0597374,
+     false,
+     373
     ]
    },
    "tier": "simple"
@@ -4835,22 +6455,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 141,
    "runs": {
     "haiku": [
      true,
-     0.005096890000000001
+     0.005096890000000001,
+     false,
+     1051
     ],
     "luna": [
      true,
-     0.00269308
+     0.00269308,
+     false,
+     126
     ],
     "opus": [
      true,
-     0.1177986
+     0.1177986,
+     false,
+     1129
     ],
     "sonnet": [
      true,
-     0.044404
+     0.044404,
+     false,
+     794
     ]
    },
    "tier": "simple"
@@ -4861,22 +6490,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 149,
    "runs": {
     "haiku": [
      true,
-     0.0022618
+     0.0022618,
+     false,
+     107
     ],
     "luna": [
      true,
-     0.0006917999999999999
+     0.0006917999999999999,
+     false,
+     57
     ],
     "opus": [
      true,
-     0.0835548
+     0.0835548,
+     false,
+     106
     ],
     "sonnet": [
      true,
-     0.041822
+     0.041822,
+     false,
+     76
     ]
    },
    "tier": "simple"
@@ -4887,22 +6525,31 @@
    "pred_difficulty": 0.01,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 169,
    "runs": {
     "haiku": [
      true,
-     0.003952560000000001
+     0.003952560000000001,
+     false,
+     617
     ],
     "luna": [
      false,
-     0.00333008
+     0.00333008,
+     false,
+     207
     ],
     "opus": [
      true,
-     0.1500678
+     0.1500678,
+     false,
+     1780
     ],
     "sonnet": [
      false,
-     0.046604
+     0.046604,
+     false,
+     1480
     ]
    },
    "tier": "simple"
@@ -4913,22 +6560,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 232,
    "runs": {
     "haiku": [
      false,
-     0.0058144799999999995
+     0.0058144799999999995,
+     false,
+     1133
     ],
     "luna": [
      false,
-     0.00467072
+     0.00467072,
+     false,
+     218
     ],
     "opus": [
      false,
-     0.239878
+     0.239878,
+     false,
+     1503
     ],
     "sonnet": [
      false,
-     0.0820038
+     0.0820038,
+     false,
+     981
     ]
    },
    "tier": "normal"
@@ -4939,22 +6595,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 213,
    "runs": {
     "haiku": [
      false,
-     0.009201299999999999
+     0.009201299999999999,
+     false,
+     1219
     ],
     "luna": [
      false,
-     0.00557852
+     0.00557852,
+     false,
+     286
     ],
     "opus": [
      false,
-     0.290226
+     0.290226,
+     false,
+     1857
     ],
     "sonnet": [
      false,
-     0.1017976
+     0.1017976,
+     false,
+     1356
     ]
    },
    "tier": "normal"
@@ -4965,22 +6630,31 @@
    "pred_difficulty": 0.54,
    "pred_kind": "architecture",
    "pred_tier": "normal",
+   "prompt_chars": 194,
    "runs": {
     "haiku": [
      false,
-     0.00627767
+     0.00627767,
+     false,
+     782
     ],
     "luna": [
      false,
-     0.00449484
+     0.00449484,
+     false,
+     266
     ],
     "opus": [
      true,
-     0.236434
+     0.236434,
+     false,
+     2505
     ],
     "sonnet": [
      true,
-     0.09729639999999999
+     0.09729639999999999,
+     false,
+     1058
     ]
    },
    "tier": "normal"
@@ -4991,22 +6665,31 @@
    "pred_difficulty": null,
    "pred_kind": "writing",
    "pred_tier": null,
+   "prompt_chars": 190,
    "runs": {
     "haiku": [
      true,
-     0.004875610000000001
+     0.004875610000000001,
+     false,
+     810
     ],
     "luna": [
      true,
-     0.00477992
+     0.00477992,
+     false,
+     291
     ],
     "opus": [
      true,
-     0.1907962
+     0.1907962,
+     false,
+     1311
     ],
     "sonnet": [
      true,
-     0.0882672
+     0.0882672,
+     false,
+     996
     ]
    },
    "tier": "normal"
@@ -5017,22 +6700,31 @@
    "pred_difficulty": 0.04,
    "pred_kind": "writing",
    "pred_tier": "simple",
+   "prompt_chars": 192,
    "runs": {
     "haiku": [
      true,
-     0.0052863400000000005
+     0.0052863400000000005,
+     false,
+     1102
     ],
     "luna": [
      false,
-     0.0037888
+     0.0037888,
+     false,
+     265
     ],
     "opus": [
      true,
-     0.19265
+     0.19265,
+     false,
+     1834
     ],
     "sonnet": [
      true,
-     0.07941160000000001
+     0.07941160000000001,
+     false,
+     1003
     ]
    },
    "tier": "normal"
@@ -5043,22 +6735,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 177,
    "runs": {
     "haiku": [
      false,
-     0.008567479999999999
+     0.008567479999999999,
+     false,
+     1314
     ],
     "luna": [
      false,
-     0.00634612
+     0.00634612,
+     false,
+     289
     ],
     "opus": [
      false,
-     0.35121779999999997
+     0.35121779999999997,
+     false,
+     1761
     ],
     "sonnet": [
      false,
-     0.10845880000000001
+     0.10845880000000001,
+     false,
+     927
     ]
    },
    "tier": "normal"
@@ -5069,22 +6770,31 @@
    "pred_difficulty": 0.62,
    "pred_kind": "writing",
    "pred_tier": "demanding",
+   "prompt_chars": 214,
    "runs": {
     "haiku": [
      true,
-     0.00536511
+     0.00536511,
+     false,
+     2742
     ],
     "luna": [
      false,
-     0.00323468
+     0.00323468,
+     false,
+     214
     ],
     "opus": [
      true,
-     0.1089388
+     0.1089388,
+     false,
+     3386
     ],
     "sonnet": [
      true,
-     0.052234
+     0.052234,
+     false,
+     2961
     ]
    },
    "tier": "normal"
@@ -5095,22 +6805,31 @@
    "pred_difficulty": 0.51,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 259,
    "runs": {
     "haiku": [
      true,
-     0.00772501
+     0.00772501,
+     false,
+     1839
     ],
     "luna": [
      false,
-     0.00493688
+     0.00493688,
+     false,
+     290
     ],
     "opus": [
      true,
-     0.24358739999999998
+     0.24358739999999998,
+     false,
+     2465
     ],
     "sonnet": [
      false,
-     0.0926358
+     0.0926358,
+     false,
+     1260
     ]
    },
    "tier": "demanding"
@@ -5121,22 +6840,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "writing",
    "pred_tier": "normal",
+   "prompt_chars": 202,
    "runs": {
     "haiku": [
      true,
-     0.00594
+     0.00594,
+     false,
+     1548
     ],
     "luna": [
      false,
-     0.00548372
+     0.00548372,
+     false,
+     274
     ],
     "opus": [
      false,
-     0.249507
+     0.249507,
+     false,
+     2013
     ],
     "sonnet": [
      true,
-     0.06063
+     0.06063,
+     false,
+     5739
     ]
    },
    "tier": "demanding"
@@ -5147,22 +6875,31 @@
    "pred_difficulty": 0.5,
    "pred_kind": "planning",
    "pred_tier": "normal",
+   "prompt_chars": 224,
    "runs": {
     "haiku": [
      false,
-     0.00700189
+     0.00700189,
+     false,
+     1654
     ],
     "luna": [
      false,
-     0.00404728
+     0.00404728,
+     false,
+     286
     ],
     "opus": [
      true,
-     0.2519902
+     0.2519902,
+     false,
+     1687
     ],
     "sonnet": [
      true,
-     0.097536
+     0.097536,
+     false,
+     1623
     ]
    },
    "tier": "demanding"
@@ -5173,22 +6910,31 @@
    "pred_difficulty": 0.71,
    "pred_kind": "writing",
    "pred_tier": "demanding",
+   "prompt_chars": 236,
    "runs": {
     "haiku": [
      true,
-     0.01021962
+     0.01021962,
+     false,
+     1715
     ],
     "luna": [
      false,
-     0.00768724
+     0.00768724,
+     false,
+     316
     ],
     "opus": [
      true,
-     0.35241059999999996
+     0.35241059999999996,
+     false,
+     2457
     ],
     "sonnet": [
      true,
-     0.1289076
+     0.1289076,
+     false,
+     2018
     ]
    },
    "tier": "demanding"

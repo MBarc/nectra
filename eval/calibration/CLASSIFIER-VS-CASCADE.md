@@ -44,10 +44,9 @@ Under-routing = tasks the policy failed although some model passed them (cost: l
 
 ## Per authored kind (pass / $ per task; n<20 flagged)
 
-| kind | n | P1 | P2 | P3 | P4 | P5 | P6 | P7 | P8 | P9 |
-
 P1 = laya + table as on master (certified, opus-only); P2 = laya tier-start (simple luna / normal haiku / demanding sonnet, predicted); P3 = tier-start with authored tier (upper bound for that rule); P4 = haiku-first cascade; P5 = luna-first cascade; P6 = luna-first, capped at 2 escalations (luna>haiku>sonnet); P7 = sonnet-first cascade; P8 = always-opus; P9 = oracle (cheapest model that passed)
 
+| kind | n | P1 | P2 | P3 | P4 | P5 | P6 | P7 | P8 | P9 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | code_generation | 21 | 11/21 $0.295 | 12/21 $0.239 | 12/21 $0.238 | 12/21 $0.218 | 13/21 $0.205 | 12/21 $0.072 | 12/21 $0.254 | 11/21 $0.291 | 13/21 $0.027 |
 | code_review | 22 | 21/22 $0.154 | 22/22 $0.020 | 22/22 $0.038 | 22/22 $0.010 | 22/22 $0.009 | 22/22 $0.009 | 22/22 $0.087 | 21/22 $0.185 | 22/22 $0.007 |
@@ -78,12 +77,59 @@ Does Laya's signal predict where a rung fails? AUC (0.5 = no information) of the
 
 Laya vs authored labels: kind 118/194, tier 84/194; 27 prompts unclassified (keyword fallback).
 
+## Free failure detection: what nectra's real signal sees
+
+What triggers an escalation in nectra today (`src/chat.rs`, `src/headless.rs`): a **failed turn** (the provider run errored: deadline, rate limit, tool error) steps the task up the ladder; the user can ask for a stronger model (`/model`, a demanding follow-up); and a headless caller passes `--escalate-from` (optionally with `--prior-verified`, a verifier verdict). **Nothing in nectra judges whether a completed answer is right** (`Completed` is not success). In these runs the only recorded signal of that kind is `status == failed` (`error_class`). The objective check is a grader the real system does not have.
+
+Confusion matrix per rung: 'nectra would escalate' = the run's turn failed; truth = the objective check failed (the run did not pass).
+
+| rung | runs | escalate & check failed | escalate & check passed | no escalate & check failed (missed) | no escalate & check passed | recall of check failures |
+|---|---:|---:|---:|---:|---:|---:|
+| luna | 194 | 0 | 0 | 98 | 96 | 0.0% |
+| haiku | 194 | 2 | 0 | 42 | 150 | 4.5% |
+| sonnet | 194 | 1 | 0 | 42 | 151 | 2.3% |
+| opus | 194 | 1 | 0 | 46 | 147 | 2.1% |
+
+So on these runs the real signal fires on a handful of deadline failures and misses essentially every wrong answer. Cascades re-run with it (a failed turn always escalates; otherwise a wrong answer is accepted with probability 1-d, where d is the share of wrong answers some detector would catch; false alarms assumed zero; expected values are exact, not sampled). d=1 is the oracle check used above; 'real' is d=0 plus the failed-turn trigger.
+
+| cascade | detection of wrong answers | pass (expected) | pass 95% CI (task / family) | $/task | $/task 95% CI (task / family) |
+|---|---|---:|---|---:|---|
+| luna-first | oracle check (d=1) | 174.0/194 (89.7%) | 0.851-0.938 / 0.812-0.964 | 0.0591 | 0.0419-0.0782 / 0.0265-0.1022 |
+| luna-first | d=0.75 | 151.2/194 (77.9%) | 0.734-0.821 / 0.705-0.850 | 0.0327 | 0.0240-0.0425 / 0.0165-0.0536 |
+| luna-first | d=0.5 | 130.9/194 (67.5%) | 0.625-0.723 / 0.593-0.754 | 0.0169 | 0.0130-0.0214 / 0.0096-0.0254 |
+| luna-first | d=0.25 | 112.6/194 (58.1%) | 0.521-0.639 / 0.486-0.679 | 0.0088 | 0.0072-0.0107 / 0.0058-0.0125 |
+| luna-first | **real: failed turns only** | 96.0/194 (49.5%) | 0.423-0.567 / 0.374-0.605 | 0.0055 | 0.0048-0.0061 / 0.0039-0.0074 |
+| haiku-first | oracle check (d=1) | 170.0/194 (87.6%) | 0.830-0.923 / 0.784-0.954 | 0.0649 | 0.0472-0.0856 / 0.0313-0.1105 |
+| haiku-first | d=0.75 | 164.3/194 (84.7%) | 0.802-0.894 / 0.744-0.932 | 0.0448 | 0.0330-0.0572 / 0.0227-0.0742 |
+| haiku-first | d=0.5 | 159.2/194 (82.1%) | 0.771-0.870 / 0.713-0.912 | 0.0291 | 0.0221-0.0367 / 0.0161-0.0447 |
+| haiku-first | d=0.25 | 154.8/194 (79.8%) | 0.742-0.851 / 0.694-0.891 | 0.0177 | 0.0134-0.0232 / 0.0108-0.0254 |
+| haiku-first | **real: failed turns only** | 151.0/194 (77.8%) | 0.716-0.835 / 0.670-0.878 | 0.0105 | 0.0072-0.0155 / 0.0062-0.0158 |
+
+With the real signal a cascade is just its first rung (luna alone 96/194, haiku alone 150/194): the cascade's whole pass-rate advantage comes from a detector the system does not have. Any real deployment needs a verifier (tests, a grader model, the user), and its recall d sets the result between the d=0 and d=1 rows.
+
+**What is missing, and the minimal re-run.** Not recorded: any automated verdict on a completed answer (a verifier result, a test run by nectra, a user reaction). Recorded and usable: `status`, `error_class`, `answer_chars`, the answer text (`*.answer.md`) and the objective check. To measure a real verifier's recall d and false-alarm rate, no task or model needs re-running: grade the saved answers. 776 answers, about 0.84M input and 0.12M output tokens (chars/4, 400 tokens of rubric and 150 of verdict per answer). At the registry's list prices the whole set costs, by grader: haiku $0.14; sonnet $2.84; opus $5.69. Comparing each verdict with the objective check gives d and the false-alarm rate to plug into the table above.
+
+## Stop rule: capping escalations
+
+Oracle check as the trigger. 'Nobody-passed' = the 20 tasks no model passes; they climb the whole ladder under no cap. Pass lost = tasks the uncapped cascade passes and the capped one does not.
+
+| cascade | cap (max escalations) | pass | pass lost vs no cap | $/task | $/task saved | spent on nobody-passed $/task | saved there |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| luna-first | 0 | 96/194 | 78 | 0.0055 | 0.0537 | 0.0010 | 0.0379 |
+| luna-first | 1 | 159/194 | 15 | 0.0100 | 0.0491 | 0.0019 | 0.0369 |
+| luna-first | 2 | 169/194 | 5 | 0.0272 | 0.0319 | 0.0124 | 0.0265 |
+| luna-first | 3 (= no cap) | 174/194 | 0 | 0.0591 | 0.0000 | 0.0389 | 0.0000 |
+| haiku-first | 0 | 150/194 | 20 | 0.0077 | 0.0572 | 0.0010 | 0.0369 |
+| haiku-first | 1 | 165/194 | 5 | 0.0291 | 0.0358 | 0.0114 | 0.0265 |
+| haiku-first | 2 (= no cap) | 170/194 | 0 | 0.0649 | 0.0000 | 0.0379 | 0.0000 |
+
 ## Conclusion
 
 - **No classifier row beats the plain cascade.** Luna-first (no classifier) is cheaper than every Laya row and passes at least as many: $0.0591/task, 174/194, against Laya tier-start $0.0799, 170/194 and Laya + the table as on master $0.1668, 155/194. Haiku-first (170/194, $0.0649) also beats both on cost at equal or better pass. With authored labels the tier-start rule is no better (172/194, $0.0832), so label error is not the limit.
 - **Laya as it stands on master is the worst of the routed policies**: the certified table is opus-only, and opus alone passes 147/194; the table costs 2.6x haiku-first and passes 15 fewer tasks. That is the cost of requiring certification at ~22 tasks per kind, not a classifier error.
 - **The signal is not there.** Laya's predicted difficulty has AUC 0.55 / 0.49 / 0.43 for luna / haiku / sonnet failing (0.5 = nothing); the authored tier is no better. Skipping haiku needs at least 91% precision to pay (haiku is so cheap that a skip costs 11x when wrong); skipping luna needs only 29% but can save at most $0.0035/task. The most any skip rule could save over luna-first is its failed-attempt cost ($0.0054/task) plus overshoot ($0.0001).
 - **The money left on the table is elsewhere**: luna-first spends $0.0389/task climbing the full ladder on the 20 tasks no model passes. Capping at two escalations costs 5 passes and $0.0319/task saved (169/194, $0.0272). That is a stop rule, not a classifier.
+- **Free failure detection is the dominant caveat, and it is large.** nectra's own signal (a failed turn) catches 0-5% of wrong answers on these runs, so a cascade driven by it is just its first rung: luna-first 96/194 at $0.0055, haiku-first 150/194 at $0.0105 (against 174 and 170 with the objective check). Every cascade advantage above needs a verifier with high recall; at d=0.5 luna-first drops to about 131/194 and haiku-first to about 159/194. A verifier (tests, a grader model, the user) matters more than any classifier. The saved answers allow measuring a grader's d with no new model runs (cost in the section above).
 - **Where a classifier could still win**: (1) a *stop/give-up* predictor for tasks that will fail at every rung (largest unpaid cost above); (2) a *difficulty* signal with AUC well above 0.5 for luna/haiku failure (none measured here); (3) kinds or workloads where the cheap rung fails often and a mid rung is cheap relative to opus (the p* column). Caveats: one run per model and task, 194 tasks, free failure detection, no project identifier (clusters are id families), noise data empty, and costs are notional API list prices.
 
 ## Reproduce
