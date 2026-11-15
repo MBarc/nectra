@@ -1,0 +1,902 @@
+{
+ "rh-debug-11|luna": {
+  "verdict": "PASS",
+  "reason": "The answer gives the right cause: `= NULL` evaluates to unknown, so no row matches. It fixes the query to `IS NULL` in both `query.sql` and `tickets.py`, and the claimed result [1, 3, 5] matches the sample data. It has no explicit test plan, but that is minor for a fix this simple.",
+  "wall_s": 8.241678953170776,
+  "api_ms": 3530,
+  "cost_usd": 0.029656799999999997,
+  "in_tok": 15235,
+  "out_tok": 297
+ },
+ "rh-tool-13|luna": {
+  "verdict": "PASS",
+  "reason": "The answer correctly reads the docker history, names the three largest layers (pip 2.1GB, base 1.01GB, apt 486MB) and gives sound fixes: --no-cache-dir, CPU-only torch, a slim base image, a multi-stage build, apt cleanup and .dockerignore. It also covers the model and COPY layers with no invented facts, though removing git or curl in a later layer would not shrink the image.",
+  "wall_s": 11.008828163146973,
+  "api_ms": 6460,
+  "cost_usd": 0.0442408,
+  "in_tok": 16313,
+  "out_tok": 595
+ },
+ "rh-research-11|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only says a README was added. It shows no comparison of SQLite, PostgreSQL and MongoDB, no trade-offs, assumptions or uncertainty, so none of the rubric content can be checked.",
+  "wall_s": 6.091960430145264,
+  "api_ms": 1881,
+  "cost_usd": 0.11926,
+  "in_tok": 14531,
+  "out_tok": 151
+ },
+ "rh-refactor-14|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only describes the work and includes no code, so it can't be checked against the files; it also gives no incremental plan and no tests or migration risks, and its test claims can't be verified.",
+  "wall_s": 6.393337249755859,
+  "api_ms": 1995,
+  "cost_usd": 0.127844,
+  "in_tok": 15584,
+  "out_tok": 159
+ },
+ "rh-debug-19|luna": {
+  "verdict": "FAIL",
+  "reason": "It never names the shared /tmp DB file as the likely cause of parallel failures (the config singleton is per-process and cannot leak between workers), shows no fixed test code, and gives only a vague proof plan with no competing hypotheses.",
+  "wall_s": 9.44767689704895,
+  "api_ms": 6186,
+  "cost_usd": 0.025888,
+  "in_tok": 1782,
+  "out_tok": 582
+ },
+ "rh-tool-18|luna": {
+  "verdict": "FAIL",
+  "reason": "The culprit commit and float cause are correct, but the answer omits the bisect commands and output and does not show the regression test, so the bisect cannot be reproduced and the test cannot be reviewed.",
+  "wall_s": 9.370997190475464,
+  "api_ms": 6010,
+  "cost_usd": 0.028668,
+  "in_tok": 2257,
+  "out_tok": 531
+ },
+ "rh-plan-16|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only lists section headings for a file we cannot see, with no actual metrics, threshold values, rollout percentages, rollback triggers or owners to evaluate against the rubric.",
+  "wall_s": 4.827527761459351,
+  "api_ms": 2255,
+  "cost_usd": 0.011464,
+  "in_tok": 1069,
+  "out_tok": 146
+ },
+ "rh-plan-18|luna": {
+  "verdict": "FAIL",
+  "reason": "Answer only points to a file and lists section titles. It gives no actual profiling method, optimizations, rollout/rollback criteria, testing, or ownership details that can be judged.",
+  "wall_s": 5.56009578704834,
+  "api_ms": 1821,
+  "cost_usd": 0.009752,
+  "in_tok": 1030,
+  "out_tok": 76
+ },
+ "rh-research-13|luna": {
+  "verdict": "PASS",
+  "reason": "Accurately compares all three approaches on all five dimensions, covers failure modes (rolling deploys, replica lag, vendor risk) and gives a conditional recommendation; fact/judgment separation is only implicit through hedging.",
+  "wall_s": 7.274775266647339,
+  "api_ms": 4459,
+  "cost_usd": 0.024096,
+  "in_tok": 1958,
+  "out_tok": 422
+ },
+ "rh-long-09|luna": {
+  "verdict": "FAIL",
+  "reason": "Drops qualifiers that define the targets (FR-4 same-region only, the FR-3 3G profile, FR-8's 100,000-note scope, FR-12's 10 MB limit, NFR-8's Pixel 6a reference), omits the NFR-6 capacity targets, and does not flag the Section 9 open question about relaxing FR-1 to 2 s.",
+  "wall_s": 9.766770601272583,
+  "api_ms": 6841,
+  "cost_usd": 0.04424,
+  "in_tok": 3911,
+  "out_tok": 648
+ },
+ "rh-tool-02|luna": {
+  "verdict": "PASS",
+  "reason": "Correctly identifies test_two_items_discount (17.10 vs 18.00) with a valid unittest command and pinpoints the double discount at invoice.py line 16 in invoice_total; no files modified.",
+  "wall_s": 8.099560260772705,
+  "api_ms": 5113,
+  "cost_usd": 0.029783999999999998,
+  "in_tok": 2509,
+  "out_tok": 486
+ },
+ "rh-tool-21|luna": {
+  "verdict": "FAIL",
+  "reason": "The diagnosis is plausible (get() runs before the first load), but the answer never shows the cache.py fix, the passing-run sequence, or the event diff. It only links to artifacts, so the required fix and evidence can't be checked.",
+  "wall_s": 8.426817178726196,
+  "api_ms": 5190,
+  "cost_usd": 0.024096,
+  "in_tok": 1928,
+  "out_tok": 434
+ },
+ "rh-research-12|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only summarizes a referenced file without showing its content, so the comparison, failure-mode analysis, networking details, assumptions, and fact/judgment separation cannot be verified.",
+  "wall_s": 5.162618637084961,
+  "api_ms": 1806,
+  "cost_usd": 0.011040000000000001,
+  "in_tok": 1076,
+  "out_tok": 122
+ },
+ "rh-refactor-06|luna": {
+  "verdict": "FAIL",
+  "reason": "The 'after' code is elided with placeholders, so the full refactor isn't shown and its behavior can't be checked; there is also no test or rollout discussion beyond an unverifiable claim of 60 cases.",
+  "wall_s": 5.123273134231567,
+  "api_ms": 1756,
+  "cost_usd": 0.015652,
+  "in_tok": 1740,
+  "out_tok": 87
+ },
+ "rh-review-03|luna": {
+  "verdict": "PASS",
+  "reason": "Identifies the material issues with correct conditions and fixes: relaxed `ready` not publishing `config_max_conns` (fix: release/acquire), the check-then-increment admission race (fix: CAS), non-atomic histogram snapshots (fix: seqlock or mutex), independent counter resets, and the error-rate denominator mismatch; prioritization is only implicit.",
+  "wall_s": 9.994120836257935,
+  "api_ms": 6529,
+  "cost_usd": 0.036188,
+  "in_tok": 3197,
+  "out_tok": 531
+ },
+ "rh-refactor-07|luna": {
+  "verdict": "FAIL",
+  "reason": "Answer shows no code, plan, or test details; only asserts the change was made and verified, so behavior preservation and rubric items cannot be confirmed.",
+  "wall_s": 5.037309885025024,
+  "api_ms": 1581,
+  "cost_usd": 0.014535999999999999,
+  "in_tok": 1648,
+  "out_tok": 68
+ },
+ "rh-code-01|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only describes the work: no code for emails.py or test_emails.py is shown, so the claim that '3 tests pass' can't be checked; raising ValueError may also not match the intended 'reject entries' behavior.",
+  "wall_s": 5.697553873062134,
+  "api_ms": 2024,
+  "cost_usd": 0.011864,
+  "in_tok": 1089,
+  "out_tok": 158
+ },
+ "rh-debug-18|luna": {
+  "verdict": "PASS",
+  "reason": "It identifies missing or stale planner statistics after the upgrade and bulk load as the root cause, prescribes a safe ANALYZE / vacuumdb --analyze-in-stages fix, gives an EXPLAIN (ANALYZE, BUFFERS) verification plan, and covers competing hypotheses without material error.",
+  "wall_s": 7.000085115432739,
+  "api_ms": 3245,
+  "cost_usd": 0.021144,
+  "in_tok": 1869,
+  "out_tok": 310
+ },
+ "rh-plan-05|luna": {
+  "verdict": "FAIL",
+  "reason": "Answer only summarizes a file that isn't shown; no actual plan content (phases, validation/rollback criteria, removal gate details, ownership) is present to verify against the rubric.",
+  "wall_s": 5.275036811828613,
+  "api_ms": 1577,
+  "cost_usd": 0.010104,
+  "in_tok": 1069,
+  "out_tok": 78
+ },
+ "rh-code-20|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only describes an implementation; no Kotlin code, tests, or build files are shown, so ordering, backpressure, cancellation, and leak-freedom cannot be verified, and the claim that tests pass is unsupported.",
+  "wall_s": 4.724384069442749,
+  "api_ms": 1685,
+  "cost_usd": 0.010788,
+  "in_tok": 1117,
+  "out_tok": 93
+ },
+ "rh-research-04|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only says a README was added and gives none of the comparison or recommendations, so there is no content to check against the rubric.",
+  "wall_s": 4.952261686325073,
+  "api_ms": 1423,
+  "cost_usd": 0.009148,
+  "in_tok": 1002,
+  "out_tok": 57
+ },
+ "rh-research-14|luna": {
+  "verdict": "PASS",
+  "reason": "Accurate comparison of all three flows with sensible, conditioned recommendations for CLI, backend job and smart TV; weaker on failure modes and on separating uncertainty, but nothing material is wrong or missing.",
+  "wall_s": 7.1963489055633545,
+  "api_ms": 3844,
+  "cost_usd": 0.017628,
+  "in_tok": 1432,
+  "out_tok": 309
+ },
+ "rh-research-22|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only summarizes a file we cannot see and gives no 100k-user utility figures, no concrete failure modes or bounded recommendation, and no separation of fact from judgment.",
+  "wall_s": 5.56620454788208,
+  "api_ms": 2009,
+  "cost_usd": 0.012147999999999999,
+  "in_tok": 1202,
+  "out_tok": 127
+ },
+ "rh-code-05|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only describes joblease.py and the tests and includes no code, so none of the functional, concurrency, or test requirements can be checked.",
+  "wall_s": 5.183462142944336,
+  "api_ms": 1342,
+  "cost_usd": 0.0218648,
+  "in_tok": 14846,
+  "out_tok": 63
+ },
+ "rh-refactor-19|luna": {
+  "verdict": "FAIL",
+  "reason": "The answer only summarizes claimed changes, with no types, narrowing code, tests or concrete rollout steps, so it cannot be verified. It also ignores the optional `currency`, dollar-float `amount` and two-week mixed-version deploy risks.",
+  "wall_s": 6.262056589126587,
+  "api_ms": 2943,
+  "cost_usd": 0.021419999999999998,
+  "in_tok": 2121,
+  "out_tok": 223
+ },
+ "rh-review-04|haiku": {
+  "verdict": "PASS",
+  "reason": "Finds the main hazards: the ACCESS EXCLUSIVE lock held through one long transaction, lock queueing with no lock_timeout, the full-table rewrite causing bloat and WAL growth, SET NOT NULL scanning the table, CREATE INDEX blocking writes, the deploy-order failure and the hunk not matching models.py. Its online rollout (expand, then batched backfill, then a validated CHECK before NOT NULL, then CREATE INDEX CONCURRENTLY) is correct for PG14, with no material errors.",
+  "wall_s": 11.924878120422363,
+  "api_ms": 8474,
+  "cost_usd": 0.135816,
+  "in_tok": 14693,
+  "out_tok": 914
+ },
+ "rh-writing-11|haiku": {
+  "verdict": "FAIL",
+  "reason": "The answer only summarizes an email saved to a file, so tone, structure, polish and accuracy cannot be judged, and the update channels it names (newsletter, public roadmap) are unsupported.",
+  "wall_s": 5.987361669540405,
+  "api_ms": 2480,
+  "cost_usd": 0.012452000000000001,
+  "in_tok": 1100,
+  "out_tok": 183
+ },
+ "rh-refactor-11|haiku": {
+  "verdict": "PASS",
+  "reason": "The single-pass refactor claims are accurate (one allocation, no intermediate slices, one trim per email, nil input still yields a non-nil empty slice), and the extra-capacity trade-off and slices.Clip fix are correctly explained; weaknesses are that the code is not shown and the comparison test was deleted rather than kept.",
+  "wall_s": 11.165446281433105,
+  "api_ms": 7785,
+  "cost_usd": 0.029972,
+  "in_tok": 1955,
+  "out_tok": 717
+ },
+ "rh-refactor-15|haiku": {
+  "verdict": "PASS",
+  "reason": "The plan is incremental and technically sound: the frozen dataclasses and the asdict-derived CONFIG keep all 4 original tests passing, and resolve() reads CONFIG on every call so the debug-mutation test still works. It correctly identifies the import-time TAX_RATE bug and its arithmetic is right (58.97 before, 53.12 after), though it changes the US tax result inside a refactor step instead of fixing it separately. Minor gaps: imports are omitted, the mailer change is described rather than shown as code, and the 3 new tests in tests/test_settings.py are not shown.",
+  "wall_s": 16.76114845275879,
+  "api_ms": 13122,
+  "cost_usd": 0.0586928,
+  "in_tok": 16442,
+  "out_tok": 1266
+ },
+ "rh-research-13|haiku": {
+  "verdict": "PASS",
+  "reason": "Accurately compares all three approaches across latency, consistency, audit, cleanup and cost, connects to failure modes, gives bounded context-dependent recommendations, and flags unverified pricing as uncertainty.",
+  "wall_s": 5.08715033531189,
+  "api_ms": 1538,
+  "cost_usd": 0.022216,
+  "in_tok": 2558,
+  "out_tok": 88
+ },
+ "rh-review-05|haiku": {
+  "verdict": "FAIL",
+  "reason": "The clock-jump analysis, which the task explicitly asks for, has the directions swapped: a holder clock jumping backward writes an expires_at that is too early (inviting a steal), not too far in the future; and 'self-expire' on a forward jump does not exist, since the holder never checks its own expiry (a forward jump causes an over-long lease, a liveness issue). The rest of the answer is strong.",
+  "wall_s": 12.950617551803589,
+  "api_ms": 9495,
+  "cost_usd": 0.055452,
+  "in_tok": 4630,
+  "out_tok": 921
+ },
+ "rh-debug-07|haiku": {
+  "verdict": "PASS",
+  "reason": "Correctly identifies the uncalled method reference as the root cause, applies the right fix (data.strip()) at the correct line, and describes a reproducible check; competing hypotheses are unnecessary for this unambiguous bug.",
+  "wall_s": 5.472100019454956,
+  "api_ms": 2754,
+  "cost_usd": 0.01456,
+  "in_tok": 1291,
+  "out_tok": 212
+ },
+ "rh-writing-02|haiku": {
+  "verdict": "PASS",
+  "reason": "Includes all four facts (18-minute delay, no data lost, processing caught up, monitoring continues) in a calm, clear, customer-facing message, with no invented cause and placeholders flagged.",
+  "wall_s": 4.9038310050964355,
+  "api_ms": 2027,
+  "cost_usd": 0.012844000000000001,
+  "in_tok": 1164,
+  "out_tok": 177
+ },
+ "rh-long-07|haiku": {
+  "verdict": "PASS",
+  "reason": "The answer correctly identifies all five paginated endpoints (4.1, 5.1, 6.1, 7.1, 9.1) with accurate parameter names, quotes their headings, correctly excludes the non-paginated list and search endpoints, and invents nothing.",
+  "wall_s": 6.517157554626465,
+  "api_ms": 3181,
+  "cost_usd": 0.03134,
+  "in_tok": 3156,
+  "out_tok": 305
+ },
+ "rh-research-01|haiku": {
+  "verdict": "PASS",
+  "reason": "Accurately compares OS credential store, passphrase vault, and app-managed key on key management, offline use, portability and failure modes, and gives a bounded recommendation under a stated threat model; labeling of uncertainty is light but adequate, with no material errors.",
+  "wall_s": 6.901544809341431,
+  "api_ms": 3624,
+  "cost_usd": 0.026868,
+  "in_tok": 2602,
+  "out_tok": 303
+ },
+ "rh-refactor-04|haiku": {
+  "verdict": "PASS",
+  "reason": "The answer meets CONTRACT.md: the singleton is removed, from_env is added, flags= is injected with fresh-default fallbacks, CheckoutService propagates its flags, and build_app does not leak state. It covers isolation, defaults and concrete rollout risks such as positional-arg rebinding and silent default fallback. It has no material errors; the only gaps are a light staged-rollout plan and unmentioned removal of load_env.",
+  "wall_s": 10.448520183563232,
+  "api_ms": 6609,
+  "cost_usd": 0.036556,
+  "in_tok": 3148,
+  "out_tok": 569
+ },
+ "rh-plan-12|haiku": {
+  "verdict": "FAIL",
+  "reason": "Workstreams, dependencies, sizes and parallelism are solid, but there is no rollout, rollback or abort plan (no feature flag, staged release or monitoring), and ownership is only loosely addressed.",
+  "wall_s": 6.3729493618011475,
+  "api_ms": 2846,
+  "cost_usd": 0.019636,
+  "in_tok": 1883,
+  "out_tok": 229
+ },
+ "rh-review-20|haiku": {
+  "verdict": "PASS",
+  "reason": "Finds all the real holes: Sync on a non-thread-safe store, the dangling &'static from get, UB from from_utf8_unchecked, and the over-read in get_cstr. Explains the impact of each, ties put to &mut self, gives a correct patch and a clear priority order; its double-free remark is hedged and does not misstate the header.",
+  "wall_s": 11.206911563873291,
+  "api_ms": 7802,
+  "cost_usd": 0.058584,
+  "in_tok": 5719,
+  "out_tok": 642
+ },
+ "rh-tool-04|haiku": {
+  "verdict": "PASS",
+  "reason": "The call graph matches the files, the cited lines (server.py:13 dispatch, :25 log_message) are correct, and the dispatch-level timing recommendation is well justified with no edits made.",
+  "wall_s": 7.450202226638794,
+  "api_ms": 3981,
+  "cost_usd": 0.0371,
+  "in_tok": 3681,
+  "out_tok": 383
+ },
+ "rh-long-04|haiku": {
+  "verdict": "PASS",
+  "reason": "The answer correctly applies the clock offsets, identifies the cfg-882 pool shrink as root cause, dismisses orders v118 and the cache eviction with sound evidence, and gives an accurate ranked timeline; the gateway-504 lag note is speculative but marked unexplained and does not affect the causal chain.",
+  "wall_s": 14.548868656158447,
+  "api_ms": 11198,
+  "cost_usd": 0.066516,
+  "in_tok": 5363,
+  "out_tok": 1181
+ },
+ "rh-research-20|haiku": {
+  "verdict": "PASS",
+  "reason": "Covers both approaches accurately across certificate lifecycle, performance, debugging, blast radius, security and organisational fit, ties the tradeoffs to failure modes, gives a bounded recommendation with stated assumptions, and flags uncertainty; no material errors.",
+  "wall_s": 5.534595251083374,
+  "api_ms": 1846,
+  "cost_usd": 0.024096000000000003,
+  "in_tok": 2748,
+  "out_tok": 106
+ },
+ "rh-long-08|haiku": {
+  "verdict": "PASS",
+  "reason": "All counts (25 ERROR lines, 6 distinct; 9/6/4 for the top three) and first-occurrence times match the log, and the counting criteria are stated.",
+  "wall_s": 6.646163463592529,
+  "api_ms": 3337,
+  "cost_usd": 0.031672,
+  "in_tok": 3050,
+  "out_tok": 364
+ },
+ "rh-debug-17|haiku": {
+  "verdict": "PASS",
+  "reason": "The root cause is correct: the inline options object gets a new identity on each render, and setStats with a new object re-renders Dashboard, which closes the loop. Both fixes are sound and specific. No test or instrumentation plan is given, but it notes the fixes are untested and nothing material is wrong.",
+  "wall_s": 8.122396469116211,
+  "api_ms": 4744,
+  "cost_usd": 0.026892,
+  "in_tok": 2350,
+  "out_tok": 405
+ },
+ "rh-refactor-20|haiku": {
+  "verdict": "PASS",
+  "reason": "Correctly finds all three hazards (stats ABBA inversion, cross-merge deadlock, self-merge double lock); the single-mutex, atomic-counter, snapshot-merge design is sound; invariants match the baseline, including the merge eviction quirk; the semantic change under concurrency is disclosed; differential, stress, TSan and repro testing are described.",
+  "wall_s": 11.213158130645752,
+  "api_ms": 7803,
+  "cost_usd": 0.047687999999999994,
+  "in_tok": 4092,
+  "out_tok": 748
+ },
+ "rh-plan-13|haiku": {
+  "verdict": "PASS",
+  "reason": "Accurately covers rollout, per-class dual-running, monitoring and rollback (Redis noeviction/AOF, enqueue-after-commit, super_fetch), though ownership and explicit abort thresholds are thin.",
+  "wall_s": 9.073723316192627,
+  "api_ms": 5524,
+  "cost_usd": 0.02336,
+  "in_tok": 1706,
+  "out_tok": 486
+ },
+ "rh-tool-06|haiku": {
+  "verdict": "PASS",
+  "reason": "Lists all three parse_config definitions with correct line numbers (app/config.py:10, tools/migrate.py:9, app/legacy/ini_loader.py:8), flags the method case, correctly excludes the docs mention, imports, tests and parse_config_v2, and makes no changes.",
+  "wall_s": 7.642401218414307,
+  "api_ms": 4399,
+  "cost_usd": 0.023084,
+  "in_tok": 1669,
+  "out_tok": 487
+ },
+ "rh-plan-09|haiku": {
+  "verdict": "PASS",
+  "reason": "Covers the key decisions, dependency-ordered implementation and opt-in rollout with monitoring and deprecation; rollback/abort thresholds and ownership are thin but not disqualifying.",
+  "wall_s": 5.446622133255005,
+  "api_ms": 2797,
+  "cost_usd": 0.022196,
+  "in_tok": 2163,
+  "out_tok": 245
+ },
+ "rh-tool-20|haiku": {
+  "verdict": "PASS",
+  "reason": "Correctly matches all six advisories to the pinned versions and traces reachability with concrete code paths (/profile to yaml FullLoader, /status to requests with a hard-coded token). The upgrade plan is prioritised and its breaking-change notes are accurate, it makes no destructive changes, and the inaccuracies left (urllib3's minimum Python, Werkzeug 'contrib' removal version) are minor.",
+  "wall_s": 11.20270323753357,
+  "api_ms": 7466,
+  "cost_usd": 0.053428800000000005,
+  "in_tok": 17059,
+  "out_tok": 756
+ },
+ "rh-code-18|haiku": {
+  "verdict": "FAIL",
+  "reason": "The answer describes a Rust tool, its tests and a manual check, but includes no source or test code, so none of the functional, safety or test claims can be verified.",
+  "wall_s": 6.377795696258545,
+  "api_ms": 2780,
+  "cost_usd": 0.014848,
+  "in_tok": 1337,
+  "out_tok": 208
+ },
+ "rh-code-21|haiku": {
+  "verdict": "PASS",
+  "reason": "Describes a sound weighted vnode ring with add/remove, a deterministic 100k-key removal test whose 10.66% result and moved-key ownership checks are plausible, and focused tests; though the code isn't shown inline, no material error is evident.",
+  "wall_s": 8.626992225646973,
+  "api_ms": 5143,
+  "cost_usd": 0.020664,
+  "in_tok": 1529,
+  "out_tok": 422
+ },
+ "rh-plan-06|sonnet": {
+  "verdict": "PASS",
+  "reason": "Plan addresses invariants, ownership boundaries, checkpointed migration with gates and rollback, failure recovery, and observability; it is technically sound and actionable, with no material errors.",
+  "wall_s": 5.430557012557983,
+  "api_ms": 1693,
+  "cost_usd": 0.027964,
+  "in_tok": 3299,
+  "out_tok": 79
+ },
+ "rh-code-16|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The answer only describes calendar_merge.py and the tests; neither code is shown, so the implementation, edge-case handling and tests can't be checked, and the claim that all 12 tests pass is unsupported.",
+  "wall_s": 5.718912601470947,
+  "api_ms": 2755,
+  "cost_usd": 0.014312,
+  "in_tok": 1330,
+  "out_tok": 184
+ },
+ "rh-refactor-19|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The answer proposes no tests and nothing was compiled; it also switches the only consumer to the validating subscribe in phase 1, so events that fail validation (which the old handler processed) are silently dropped as emails, contradicting its low-risk, backward-compatible claim.",
+  "wall_s": 11.267438650131226,
+  "api_ms": 7746,
+  "cost_usd": 0.034935999999999995,
+  "in_tok": 2688,
+  "out_tok": 672
+ },
+ "rh-writing-16|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The answer only summarizes two files without showing the changelog or internal note text, so the deliverables can't be checked, and it asserts unsupported specifics (e.g., 'new invoices only, many see no difference') despite claiming to invent none.",
+  "wall_s": 6.784696102142334,
+  "api_ms": 3145,
+  "cost_usd": 0.014956,
+  "in_tok": 1218,
+  "out_tok": 261
+ },
+ "rh-review-19|sonnet": {
+  "verdict": "FAIL",
+  "reason": "Core findings are strong, but the answer wrongly claims api.py lacks a bus import (the full file imports it), misstates the retries as 'immediate' (they back off linearly), and misses that nothing imports handlers.py, so the subscriptions may never register.",
+  "wall_s": 8.062204599380493,
+  "api_ms": 4723,
+  "cost_usd": 0.04672,
+  "in_tok": 4711,
+  "out_tok": 452
+ },
+ "rh-tool-03|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The answerer was never given .github/workflows/ci.yml, yet the answer quotes its 'if:' condition, its triggers, and line numbers 6-7, 37, 44, 49 and 50 as if read from the file; these are invented, not repository evidence.",
+  "wall_s": 5.452418804168701,
+  "api_ms": 2563,
+  "cost_usd": 0.015748,
+  "in_tok": 1582,
+  "out_tok": 155
+ },
+ "rh-review-18|sonnet": {
+  "verdict": "PASS",
+  "reason": "Covers every material risk (brute-forceable code with no attempt or rate limits, predictable `random`, codes never invalidated after use, plaintext storage, 24-hour lifetime, user enumeration, non-constant-time comparison), explains impact and conditions, ranks findings clearly and gives a sound concrete redesign; the only error is a minor line-number slip (`reset.py:10` should be 12).",
+  "wall_s": 11.052641153335571,
+  "api_ms": 7803,
+  "cost_usd": 0.079632,
+  "in_tok": 8165,
+  "out_tok": 716
+ },
+ "rh-refactor-10|sonnet": {
+  "verdict": "FAIL",
+  "reason": "No code or diff is shown, so the claim that behaviour is preserved cannot be checked, and by its own account the OperationalError logging/StoreUnavailable and generic StoreError paths were never exercised.",
+  "wall_s": 6.7364661693573,
+  "api_ms": 3870,
+  "cost_usd": 0.025636000000000003,
+  "in_tok": 2503,
+  "out_tok": 281
+ },
+ "rh-review-09|sonnet": {
+  "verdict": "PASS",
+  "reason": "Every material risk is identified and technically accurate: NOT NULL without a default fails on existing rows, ACCESS EXCLUSIVE lock queueing, the index build holding the lock inside the transaction, and old-app inserts during the rolling deploy; the fixes (PG11 constant default, lock_timeout, CONCURRENTLY outside a transaction, invalid-index check, ordering) are precise and prioritized.",
+  "wall_s": 10.215588808059692,
+  "api_ms": 6658,
+  "cost_usd": 0.032556,
+  "in_tok": 2513,
+  "out_tok": 623
+ },
+ "rh-tool-15|sonnet": {
+  "verdict": "PASS",
+  "reason": "Ran the suite with valid per-test timing (`--durations`), gave a plausible top-5 consistent with the code, cited the correct slowest test and line, proposed a sound mock of time.sleep, and made no file edits.",
+  "wall_s": 8.993829250335693,
+  "api_ms": 5180,
+  "cost_usd": 0.029816,
+  "in_tok": 2533,
+  "out_tok": 478
+ },
+ "rh-debug-17|sonnet": {
+  "verdict": "FAIL",
+  "reason": "Root cause and both fixes are correct, but there is no test or instrumentation plan (2 rubric points), and the useMemo advice with empty deps 'if it depends on props or state' is self-contradictory.",
+  "wall_s": 8.961552619934082,
+  "api_ms": 6278,
+  "cost_usd": 0.029859999999999998,
+  "in_tok": 2141,
+  "out_tok": 637
+ },
+ "rh-review-02|sonnet": {
+  "verdict": "PASS",
+  "reason": "Correctly finds the shell injection with shell=True, the argument and option injection under sudo, the run_as_admin hazard, secrets inherited by child processes, missing timeouts, raw output being returned, and missing auth/SSRF/CSRF controls. It explains the impact, gives precise fixes, ranks the findings clearly and contains no material errors.",
+  "wall_s": 9.40819001197815,
+  "api_ms": 5467,
+  "cost_usd": 0.0393288,
+  "in_tok": 16034,
+  "out_tok": 461
+ },
+ "rh-refactor-22|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The behavior analysis is accurate, but the answer rewrites all six views in one untested change with no step-by-step migration or rollout risks, and its parity check was planned but never written or run.",
+  "wall_s": 16.183207035064697,
+  "api_ms": 12630,
+  "cost_usd": 0.04963719999999999,
+  "in_tok": 13163,
+  "out_tok": 1174
+ },
+ "rh-review-01|sonnet": {
+  "verdict": "PASS",
+  "reason": "Correctly finds every material risk: the silently dropped web opt-in, iOS decode failure on rename or null, the non-partial PATCH resetting consent via the CRM sync, the mailer emailing null (never-asked) subscribers, and KeyError on unmigrated rows. It explains the impact of each and proposes a sound additive contract with sync rules, a backfill and deprecation.",
+  "wall_s": 9.328485250473022,
+  "api_ms": 6285,
+  "cost_usd": 0.048072,
+  "in_tok": 4595,
+  "out_tok": 566
+ },
+ "rh-writing-03|sonnet": {
+  "verdict": "PASS",
+  "reason": "The summarized ADR covers context, alternatives, decision, consequences and non-goals soundly and flags the placeholder deciders, though the full text and one-page fit are unverified.",
+  "wall_s": 6.829680681228638,
+  "api_ms": 3999,
+  "cost_usd": 0.017044,
+  "in_tok": 1349,
+  "out_tok": 313
+ },
+ "rh-plan-20|sonnet": {
+  "verdict": "PASS",
+  "reason": "Covers architecture, conflict resolution, residency, failure modes, testing, and gated phased rollout with exit criteria and rollback; technically sound, though ownership details are thin.",
+  "wall_s": 6.66418194770813,
+  "api_ms": 3270,
+  "cost_usd": 0.044844,
+  "in_tok": 4919,
+  "out_tok": 275
+ },
+ "rh-tool-18|sonnet": {
+  "verdict": "PASS",
+  "reason": "Correctly identifies 'Simplify to_cents' as the first bad commit (round\u2192int truncation; 0.29*100 example is accurate), the fix and regression test are sound, and the only flaw is minor: the mixed cart actually comes out 3 cents short (2054 vs 2057) because 19.99 also truncates to 1998, not 'a cent short'.",
+  "wall_s": 11.136636972427368,
+  "api_ms": 8796,
+  "cost_usd": 0.033984,
+  "in_tok": 2344,
+  "out_tok": 762
+ },
+ "rh-debug-22|sonnet": {
+  "verdict": "FAIL",
+  "reason": "Root cause, guarantees and the ledger-based fix are solid, but there is no reproducible test or instrumentation plan, no competing hypotheses (e.g. stale replica reads, RDB restore), and it wrongly says nothing favors the most up-to-date replica when Sentinel/Cluster rank by replication offset.",
+  "wall_s": 10.339110374450684,
+  "api_ms": 6923,
+  "cost_usd": 0.03486,
+  "in_tok": 2796,
+  "out_tok": 625
+ },
+ "rh-debug-15|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The diagnosis and try/finally fix are sound, but there is no reproducible test or instrumentation plan (2-point rubric item), and the finally block calls AuditLog.record before clear(), so an exception in record would skip clear().",
+  "wall_s": 7.901695013046265,
+  "api_ms": 4100,
+  "cost_usd": 0.033928,
+  "in_tok": 3347,
+  "out_tok": 358
+ },
+ "rh-debug-07|sonnet": {
+  "verdict": "FAIL",
+  "reason": "Correct root cause and fix (line 8 to data.strip()), but no reproducible test or verification step is given, and it says it didn't run the code.",
+  "wall_s": 7.936023712158203,
+  "api_ms": 4903,
+  "cost_usd": 0.018680000000000002,
+  "in_tok": 1241,
+  "out_tok": 438
+ },
+ "rh-debug-16|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The diagnosis is sound (cron's cwd defeats the swallowed `cd`, and nvm's node is missing from cron's PATH), but the final crontab line redirects to `/var/log/backup_report.cron.log`, which the deploy user normally cannot write, so the shell fails the redirect, the job never runs, and with `MAILTO=\"\"` it fails silently again; it also ignores notes.txt's exact node path.",
+  "wall_s": 14.384016990661621,
+  "api_ms": 11051,
+  "cost_usd": 0.045764,
+  "in_tok": 3129,
+  "out_tok": 1037
+ },
+ "rh-research-01|sonnet": {
+  "verdict": "PASS",
+  "reason": "Accurate comparison of OS store, passphrase-derived key, and remote KMS across key management, offline use, portability, and failure modes, with a bounded recommendation; it only weakly separates fact from judgment and uncertainty.",
+  "wall_s": 6.4615867137908936,
+  "api_ms": 2983,
+  "cost_usd": 0.020915999999999997,
+  "in_tok": 1958,
+  "out_tok": 263
+ },
+ "rh-writing-08|sonnet": {
+  "verdict": "FAIL",
+  "reason": "The answer only describes a README written to a file; the title, summary paragraph and install command are not shown, so the requested content cannot be checked against the rubric.",
+  "wall_s": 6.645576238632202,
+  "api_ms": 3169,
+  "cost_usd": 0.013572,
+  "in_tok": 1035,
+  "out_tok": 265
+ },
+ "rh-plan-03|sonnet": {
+  "verdict": "PASS",
+  "reason": "The plan covers idempotency, reorder and burst handling, reconciliation, phased rollout with rollback, and detailed metrics and alerts; gaps are no named owners and no quantified go/no-go criteria between phases.",
+  "wall_s": 6.844983100891113,
+  "api_ms": 3642,
+  "cost_usd": 0.032012,
+  "in_tok": 3230,
+  "out_tok": 309
+ },
+ "rh-debug-05|sonnet": {
+  "verdict": "PASS",
+  "reason": "Correctly traces the root cause: per-attempt uuid retry, unfenced failover at lsn 4, and the unset lsn_at_failover fallback making rejoin blind-apply 7c1e without a floor check. It also gives plausible competing interleavings, a concrete distinguishing instrumentation plan, and safe, specific fixes, with no material errors.",
+  "wall_s": 11.382223129272461,
+  "api_ms": 8257,
+  "cost_usd": 0.052092,
+  "in_tok": 4670,
+  "out_tok": 737
+ },
+ "rh-tool-10|opus": {
+  "verdict": "FAIL",
+  "reason": "src/core/ has 2 FIXME (both in engine.py), not 1, so its row should be 3/2/5; the FIXME column also sums to 4, contradicting the stated total of 5.",
+  "wall_s": 6.286872625350952,
+  "api_ms": 3494,
+  "cost_usd": 0.019016,
+  "in_tok": 1633,
+  "out_tok": 298
+ },
+ "rh-debug-04|opus": {
+  "verdict": "PASS",
+  "reason": "Correctly derives about 1.5 KB retained per job, flags that the code shown would also retain payloads, ranks the unbounded _futures_by_id, _recent_ctx and callback\u2192ctx paths, and gives safe fixes with a tracemalloc/objgraph plan; flaws are minor (unverifiable local-probe figures, 2.2 KB loosely called a match, muddled WeakValueDictionary suggestion).",
+  "wall_s": 13.085381269454956,
+  "api_ms": 10557,
+  "cost_usd": 0.049156000000000005,
+  "in_tok": 3658,
+  "out_tok": 995
+ },
+ "rh-review-18|opus": {
+  "verdict": "PASS",
+  "reason": "It finds every material risk: brute force across one or many accounts, replay, plaintext storage, the non-secure PRNG, URL leakage, account enumeration, no rate limits and sessions that survive a reset. It explains the impact with correct numbers, ranks findings clearly and gives a sound redesign with a single-use hashed token. The only errors are minor off-by-one line numbers.",
+  "wall_s": 12.866586208343506,
+  "api_ms": 8610,
+  "cost_usd": 0.0684688,
+  "in_tok": 18664,
+  "out_tok": 866
+ },
+ "rh-writing-07|opus": {
+  "verdict": "PASS",
+  "reason": "Friendly, concise Slack draft that asks for a review today and mentions the login page and ~80 lines, with no invented facts and clear placeholders.",
+  "wall_s": 5.158893346786499,
+  "api_ms": 1926,
+  "cost_usd": 0.010916,
+  "in_tok": 1028,
+  "out_tok": 135
+ },
+ "rh-code-16|opus": {
+  "verdict": "PASS",
+  "reason": "The described design (UTC normalisation, clipping to the window, merging of overlapping and touching intervals, no zero-length gaps) and the test coverage meet the rubric with no material errors, though the code itself is not shown so this rests on the summary.",
+  "wall_s": 8.492361307144165,
+  "api_ms": 5710,
+  "cost_usd": 0.022872,
+  "in_tok": 1575,
+  "out_tok": 514
+ },
+ "rh-refactor-10|opus": {
+  "verdict": "FAIL",
+  "reason": "It shows no code to verify, invents a task requirement to use `python`, and barely covers the rubric's plan, test and rollout-risk items.",
+  "wall_s": 7.2594921588897705,
+  "api_ms": 4191,
+  "cost_usd": 0.029207999999999998,
+  "in_tok": 2732,
+  "out_tok": 368
+ },
+ "rh-long-08|opus": {
+  "verdict": "PASS",
+  "reason": "All counts (9/6/4/3/2/1, 25 ERROR lines, 6 distinct) and first-occurrence timestamps match the log, and the answer states that WARN lines were excluded.",
+  "wall_s": 6.215707063674927,
+  "api_ms": 3115,
+  "cost_usd": 0.031031999999999997,
+  "in_tok": 3085,
+  "out_tok": 318
+ },
+ "rh-research-10|opus": {
+  "verdict": "PASS",
+  "reason": "Accurate plain-language walkthrough (name, dates, chain to trusted root, revocation/CT, private-key proof) with no material errors; the rubric's comparison/recommendation criteria don't fit this explanatory task.",
+  "wall_s": 8.201322317123413,
+  "api_ms": 4768,
+  "cost_usd": 0.018068,
+  "in_tok": 1287,
+  "out_tok": 389
+ },
+ "rh-debug-07|opus": {
+  "verdict": "PASS",
+  "reason": "Correctly identifies the missing call parentheses (a bound method is returned instead of the string), notes the downstream AttributeError in first_line, applies the exact fix `return data.strip()` on the correct line, and describes a reasonable verification through report.show(); competing hypotheses are not needed for this unambiguous cause.",
+  "wall_s": 6.378509759902954,
+  "api_ms": 3760,
+  "cost_usd": 0.016496,
+  "in_tok": 1343,
+  "out_tok": 288
+ },
+ "rh-debug-23|opus": {
+  "verdict": "PASS",
+  "reason": "Correctly identifies the root cause (blocking_fetch stalls the loop) and that run_until_complete on a running loop raises RuntimeError, explains the loop/pool deadlock, and gives a safe fix (run_in_executor, direct await, run_coroutine_threadsafe with timeout); weak spots are a test that is described but not shown as reproducible code, and the edited service.py is described rather than shown.",
+  "wall_s": 13.922011375427246,
+  "api_ms": 10437,
+  "cost_usd": 0.036928,
+  "in_tok": 2227,
+  "out_tok": 956
+ },
+ "rh-plan-19|opus": {
+  "verdict": "PASS",
+  "reason": "Covers backfill, dual writes, verification, cutover, rollback and the point of no return with sound sequencing, gates and abort criteria; ownership is thin and the gh-ost foreign-key caveat is understated (gh-ost largely refuses FK tables), but neither is a material error.",
+  "wall_s": 10.918317556381226,
+  "api_ms": 7347,
+  "cost_usd": 0.048516,
+  "in_tok": 4398,
+  "out_tok": 667
+ },
+ "rh-long-04|opus": {
+  "verdict": "PASS",
+  "reason": "The clock corrections check out against the logs and traces, and the answer correctly names cfg-882's pool shrink (14:03:00Z) as the root cause. It rules out orders v118 and the cache with evidence, gives a confidence-ranked timeline and flags the unexplained ~3-minute gap and the unconfirmed small-replica inference.",
+  "wall_s": 14.835256099700928,
+  "api_ms": 11877,
+  "cost_usd": 0.073124,
+  "in_tok": 5864,
+  "out_tok": 1311
+ },
+ "rh-review-03|opus": {
+  "verdict": "PASS",
+  "reason": "Correctly identifies the relaxed-publish data race on ready/config_max_conns, the non-atomic admission check, and cross-counter snapshot skew, with sound fixes and clear priority; only some server.cpp line numbers are slightly off, which is immaterial.",
+  "wall_s": 12.983112335205078,
+  "api_ms": 9965,
+  "cost_usd": 0.055264,
+  "in_tok": 4329,
+  "out_tok": 1032
+ },
+ "rh-tool-21|opus": {
+  "verdict": "FAIL",
+  "reason": "The answer is empty, so there is no reproduction, log diff, race analysis, or cache.py fix to grade.",
+  "wall_s": 5.052857875823975,
+  "api_ms": 1518,
+  "cost_usd": 0.014328,
+  "in_tok": 1652,
+  "out_tok": 56
+ },
+ "rh-long-03|opus": {
+  "verdict": "PASS",
+  "reason": "Accurately maps all six ACs, resolves the cross-references and flags the key contradictions (4.5/6.3, 4.4/A1, 5.5/5.2/A3, 3.3/6.1, 5.3/6.4); the only flaw is minor: the no-AC list includes 5.4 and 6.5, which the AC table already maps.",
+  "wall_s": 12.016838788986206,
+  "api_ms": 8552,
+  "cost_usd": 0.051376000000000005,
+  "in_tok": 4288,
+  "out_tok": 854
+ },
+ "rh-debug-02|opus": {
+  "verdict": "FAIL",
+  "reason": "The root cause and fix are correct, but the task asks for a test and the answer only describes one; it shows no test code, so the claimed fail-before/pass-after results cannot be checked.",
+  "wall_s": 8.703068971633911,
+  "api_ms": 5365,
+  "cost_usd": 0.027464,
+  "in_tok": 2334,
+  "out_tok": 440
+ },
+ "rh-writing-20|opus": {
+  "verdict": "PASS",
+  "reason": "Covers the task with specific, blame-free, transferable lessons and a clear structure, and plainly marks the invented figures as placeholders to replace.",
+  "wall_s": 7.878014802932739,
+  "api_ms": 4286,
+  "cost_usd": 0.019632,
+  "in_tok": 1555,
+  "out_tok": 360
+ },
+ "rh-plan-04|opus": {
+  "verdict": "PASS",
+  "reason": "Covers all seven workstreams with sound detail, clear abort criteria split pre- and post-promotion, ownership and validation steps, and is honest that thresholds are placeholders; no material technical errors.",
+  "wall_s": 6.0668861865997314,
+  "api_ms": 2379,
+  "cost_usd": 0.01978,
+  "in_tok": 2011,
+  "out_tok": 185
+ },
+ "rh-code-02|opus": {
+  "verdict": "PASS",
+  "reason": "The report covers every requirement: non-mutating grouping by local date, original order kept, midnight goes to the new day, and focused boundary/DST tests; the 2026 US DST dates and America/New_York offsets are correct, though no code is shown to verify the passing-tests claim.",
+  "wall_s": 7.797359943389893,
+  "api_ms": 5165,
+  "cost_usd": 0.021456,
+  "in_tok": 1543,
+  "out_tok": 456
+ },
+ "rh-refactor-21|opus": {
+  "verdict": "PASS",
+  "reason": "Covers the target design, the characterisation-test strategy and an incremental change order; its behaviour claims (first duplicate wins, no file on unknown currency, double count on repeat main(), round(5.555,2)=5.55, float sums) are accurate for pipeline.py, and the intended behaviour changes are isolated and disclosed.",
+  "wall_s": 11.28379225730896,
+  "api_ms": 7824,
+  "cost_usd": 0.036648,
+  "in_tok": 2857,
+  "out_tok": 690
+ },
+ "rh-long-01|opus": {
+  "verdict": "PASS",
+  "reason": "Accurately synthesizes the repeated definitions and loan rules, correctly identifies projectors [9] as the single exception, flags gaps (repair cost, 'Section 2') without inventing policy; the closed-day fee paraphrase is only a minor narrowing.",
+  "wall_s": 7.099624872207642,
+  "api_ms": 3811,
+  "cost_usd": 0.024332,
+  "in_tok": 2300,
+  "out_tok": 297
+ },
+ "rh-long-22|opus": {
+  "verdict": "FAIL",
+  "reason": "The headline says six responses were marked closed/fixed, but only five were (F-01, F-02, F-04, F-07, F-09); F-03 was risk-accepted and F-06 is in progress, so the summary misstates the source even though the per-finding analysis is sound.",
+  "wall_s": 11.436369895935059,
+  "api_ms": 8123,
+  "cost_usd": 0.044424000000000005,
+  "in_tok": 3584,
+  "out_tok": 788
+ },
+ "rh-research-16|opus": {
+  "verdict": "PASS",
+  "reason": "The numbers check out (4.3B points/day, 1\u20132 B/pt compressed, 2\u20134 TB/yr) and all three options plus ClickHouse are compared accurately against cardinality, retention and freshness; the recommendation is bounded with clear fallbacks, though facts and judgment are only loosely separated.",
+  "wall_s": 7.863781452178955,
+  "api_ms": 5129,
+  "cost_usd": 0.036236000000000004,
+  "in_tok": 3388,
+  "out_tok": 457
+ },
+ "rh-long-06|opus": {
+  "verdict": "PASS",
+  "reason": "All five decisions and nine action items are accurate, with correct owners, timestamps and dates, and the HR pay question is correctly marked open; the only flaw is the summary line saying 'eight' action items when nine are listed.",
+  "wall_s": 6.668562412261963,
+  "api_ms": 4172,
+  "cost_usd": 0.031736,
+  "in_tok": 3093,
+  "out_tok": 350
+ },
+ "rh-review-22|opus": {
+  "verdict": "PASS",
+  "reason": "Accurately identifies the ownership-free DEL and TTL shorter than the work, gives concrete A/B/C/D/E interleavings including the cascading delete and pause/failover cases, and recommends idempotency keys, DB claims, fencing and an atomic Lua release with clearly stated limits and no material errors.",
+  "wall_s": 7.249399662017822,
+  "api_ms": 4644,
+  "cost_usd": 0.039760000000000004,
+  "in_tok": 3806,
+  "out_tok": 466
+ }
+}

@@ -233,6 +233,141 @@ def main():
             tag = f"{cap}" + (" (= no cap)" if cap == len(full) - 1 else "")
             w(f"| {lname} | {tag} | {pp}/{len(ids)} | {bp-pp} | {cc:.4f} | {bc-cc:.4f} | {nn:.4f} | {bn-nn:.4f} |")
 
+
+    # ---- Follow-up 4: measured verifiers (graded saved answers)
+    import math
+    gfiles = sorted(HERE.glob("verifier-grades-*.json"))
+    def wilson(k, n):
+        if n == 0: return (float("nan"),) * 2
+        z, ph = 1.96, k / n; den = 1 + z * z / n; c = (ph + z * z / (2 * n)) / den; h = z * math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n)) / den
+        return c - h, c + h
+    if gfiles:
+        G = {f.stem[len("verifier-grades-"):]: json.load(open(f)) for f in gfiles}
+        w("\n## Measured verifiers: grading the saved answers\n")
+        w("Each grader saw only the task prompt, the task's fixture files, the human rubric text and the answer (`verifier-prompt.md`, same for every grader, run through the `claude` CLI with no tools). It never saw the objective check, `must_labels`, the model name or any nectra metadata. Model/provider names in the answer text were redacted unless the task or its files use the same word (`verifier-redactions.json` logs every redaction with context). Verdict FAIL = the grader would escalate. **d** = P(FAIL | objective check failed) (recall of wrong answers); **false alarm** = P(FAIL | objective check passed). Intervals are Wilson 95%. Grader ERROR verdicts (unparseable) are excluded from rates and treated as accept in cascades. `n<20` cells are flagged.\n")
+        red = json.load(open(HERE / "verifier-redactions.json")) if (HERE / "verifier-redactions.json").exists() else {}
+        w(f"Blinding log: {sum(1 for v in red.values() if v)} of {len(red)} graded answers needed a redaction ({sum(len(v) for v in red.values())} strings; mostly product or model names inside answers). Self-identification phrases are in the log, not hidden.\n")
+        def verd(g, i, m): return G[g].get(f"{i}|{m}", {}).get("verdict")
+        w("### Recall and false alarms per producing model (self-graded shown separately from cross-graded)\n")
+        w("| grader | producing model | self/cross | wrong answers n | d (recall) | 95% CI | correct answers n | false alarm | 95% CI | errors |")
+        w("|---|---|---|---:|---:|---|---:|---:|---|---:|")
+        selfmap = {"claude-haiku-5-5": "haiku", "claude-sonnet-5-5": "sonnet", "claude-opus-5-5": "opus"}
+        for g in G:
+            for m in order:
+                bad = [i for i in ids if not T[i]["runs"][m][0] and verd(g, i, m) in ("PASS", "FAIL")]; good = [i for i in ids if T[i]["runs"][m][0] and verd(g, i, m) in ("PASS", "FAIL")]
+                if not bad and not good: continue
+                kb = sum(verd(g, i, m) == "FAIL" for i in bad); kg = sum(verd(g, i, m) == "FAIL" for i in good)
+                err = sum(verd(g, i, m) == "ERROR" for i in ids)
+                lo, hi = wilson(kb, len(bad)); lo2, hi2 = wilson(kg, len(good))
+                kind = "SELF" if selfmap.get(g) == m else "cross"
+                w(f"| {g} | {m} | {kind} | {len(bad)}{' ⚠ n<20' if len(bad) < 20 else ''} | {kb/max(len(bad),1):.1%} | {lo:.2f}-{hi:.2f} | {len(good)} | {kg/max(len(good),1):.1%} | {lo2:.2f}-{hi2:.2f} | {err} |")
+        w("\nPooled over all producing models, and split self vs cross:\n")
+        w("| grader | scope | wrong n | d | correct n | false alarm |")
+        w("|---|---|---:|---:|---:|---:|")
+        for g in G:
+            for scope, ms in (("all", order), ("self only", [m for m in order if selfmap.get(g) == m]), ("cross only", [m for m in order if selfmap.get(g) != m])):
+                pairs = [(i, m) for m in ms for i in ids if verd(g, i, m) in ("PASS", "FAIL")]
+                bad = [(i, m) for i, m in pairs if not T[i]["runs"][m][0]]; good = [(i, m) for i, m in pairs if T[i]["runs"][m][0]]
+                if not pairs: continue
+                kb = sum(verd(g, i, m) == "FAIL" for i, m in bad); kg = sum(verd(g, i, m) == "FAIL" for i, m in good)
+                lo, hi = wilson(kb, len(bad)); lo2, hi2 = wilson(kg, len(good))
+                w(f"| {g} | {scope} | {len(bad)} | {kb/max(len(bad),1):.1%} ({lo:.2f}-{hi:.2f}) | {len(good)} | {kg/max(len(good),1):.1%} ({lo2:.2f}-{hi2:.2f}) |")
+        w("\n### Per authored kind (all producing models pooled; n = wrong answers / correct answers; n<20 flagged)\n")
+        w("| grader | kind | wrong n | d | correct n | false alarm |")
+        w("|---|---|---:|---:|---:|---:|")
+        for g in G:
+            for k in kinds:
+                pairs = [(i, m) for m in order for i in ids if T[i]["kind"] == k and verd(g, i, m) in ("PASS", "FAIL")]
+                bad = [(i, m) for i, m in pairs if not T[i]["runs"][m][0]]; good = [(i, m) for i, m in pairs if T[i]["runs"][m][0]]
+                if not pairs: continue
+                kb = sum(verd(g, i, m) == "FAIL" for i, m in bad); kg = sum(verd(g, i, m) == "FAIL" for i, m in good)
+                w(f"| {g} | {k} | {len(bad)}{' ⚠ n<20' if len(bad) < 20 else ''} | {kb/max(len(bad),1):.0%} | {len(good)}{' ⚠ n<20' if len(good) < 20 else ''} | {kg/max(len(good),1):.0%} |")
+        w("\n### Grader cost, tokens and latency actually used\n")
+        w("Cost is what the CLI reported per call (list-price equivalent; it ran on the subscription). Tokens include cache reads and writes. Latency = wall seconds per graded answer.\n")
+        w("| grader | answers graded | total cost | $/answer | input tokens | output tokens | latency p50 / p90 / max (s) |")
+        w("|---|---:|---:|---:|---:|---:|---|")
+        def q(xs, p): xs = sorted(xs); return xs[min(len(xs) - 1, int(p * len(xs)))]
+        gcost = {}
+        for g in G:
+            v = list(G[g].values()); ws = [x["wall_s"] for x in v]
+            gcost[g] = sum(x["cost_usd"] for x in v) / len(v)
+            w(f"| {g} | {len(v)} | ${sum(x['cost_usd'] for x in v):.2f} | {gcost[g]:.4f} | {sum(x['in_tok'] for x in v):,} | {sum(x['out_tok'] for x in v):,} | {q(ws,.5):.1f} / {q(ws,.9):.1f} / {max(ws):.1f} |")
+        w("\n### Cascades driven by the measured verdicts\n")
+        w("Exact replay: at each rung except the last, the grader's actual verdict on that actual answer decides (FAIL, or a failed turn, escalates; a false alarm escalates a correct answer, so it costs money and does not lose a pass; a missed wrong answer is accepted and counts as a failed pass). Cost = the runs + the grader's actual cost for each graded answer, added to every graded rung. Added seconds = the grader's wall time on each graded answer (the model's own run time is not counted). Graders only cover the answers they graded; tasks with a missing verdict are dropped from that row (n shown).\n")
+        def replay(i, ladder, g):
+            spent = lat = 0.0
+            for k, m in enumerate(ladder):
+                ok, c, failed = T[i]["runs"][m][:3]; spent += c
+                if k == len(ladder) - 1: return ok, spent, lat
+                if failed: continue
+                gr = G[g].get(f"{i}|{m}")
+                if gr is None: return None
+                spent += gr["cost_usd"]; lat += gr["wall_s"]
+                if gr["verdict"] != "FAIL": return ok, spent, lat
+            return ok, spent, lat
+        w("| cascade | signal | tasks | pass | pass 95% CI (task / family) | $/task | $/task 95% CI (task / family) | added grader s/task |")
+        w("|---|---|---:|---:|---|---:|---|---:|")
+        ref = {}
+        for lname, start in (("luna-first", "luna"), ("haiku-first", "haiku")):
+            lad = up(start)
+            rowsx = [("real: failed turns only (d=0)", None), ("objective check (d=1, free)", "oracle")] + [(f"{g} (measured)", g) for g in G]
+            for label, g in rowsx:
+                if g is None: ev = {i: expected(i, lad, 0.0) + (0.0,) for i in ids}
+                elif g == "oracle": ev = {i: cascade(i, lad)[:2] + (0.0,) for i in ids}
+                else: ev = {i: replay(i, lad, g) for i in ids}
+                ev = {i: (float(v[0]), v[1], v[2]) for i, v in ev.items() if v is not None}
+                ss = sorted(ev); n_ = len(ss)
+                pas = lambda s, ev=ev: sum(ev[i][0] for i in s if i in ev) / max(1, sum(1 for i in s if i in ev)); cst = lambda s, ev=ev: sum(ev[i][1] for i in s if i in ev) / max(1, sum(1 for i in s if i in ev))
+                a, b, c2, d2 = ci(pas); e, f, gg, h = ci(cst)
+                latm = sum(ev[i][2] for i in ss) / n_
+                ref[(lname, label)] = (pas(ss), cst(ss), latm)
+                w(f"| {lname} | {label} | {n_} | {pas(ss)*n_:.0f}/{n_} ({pas(ss):.1%}) | {a:.3f}-{b:.3f} / {c2:.3f}-{d2:.3f} | {cst(ss):.4f} | {e:.4f}-{f:.4f} / {gg:.4f}-{h:.4f} | {latm:.1f} |")
+        w("\nReference rows (no verifier): " + "; ".join(f"{r['name'].split(' (')[0]} {r['passn']}/{len(ids)} at ${r['cost']:.4f}" for r in rows if r['name'].split(' (')[0] in ("laya tier-start", "laya + table as on master", "always-opus")) + f"; haiku alone {first['haiku']}/{len(ids)} at ${mean['haiku']:.4f}; luna alone {first['luna']}/{len(ids)} at ${mean['luna']:.4f}.\n")
+        # break-even
+        w("### Break-even\n")
+        w("Zero-false-alarm recall d that luna-first and haiku-first need (grader cost excluded) to reach the pass of: haiku alone, haiku-first with the free check, and sonnet-first with the free check:\n")
+        w("| cascade | to match haiku alone | to match haiku-first, free check | to match sonnet-first, free check |")
+        w("|---|---:|---:|---:|")
+        tgt = {"haiku alone": first["haiku"], "haiku-first free": next(r["passn"] for r in rows if r["name"] == "haiku-first cascade"), "sonnet-first": next(r["passn"] for r in rows if r["name"] == "sonnet-first cascade")}
+        for lname, start in (("luna-first", "luna"), ("haiku-first", "haiku")):
+            cells = []
+            for tn, tv in tgt.items():
+                hit = next((x / 100 for x in range(0, 101) if sum(expected(i, up(start), x / 100)[0] for i in ids) >= tv - 1e-9), None)
+                cells.append("not reachable" if hit is None else f"d >= {hit:.2f}")
+            w(f"| {lname} | " + " | ".join(cells) + " |")
+        w("\nMaximum grader cost per graded answer at which each measured cascade still costs no more than Laya tier-start ($" + f"{next(r['cost'] for r in rows if r['name'].startswith('laya tier-start')):.4f}" + "/task) and than haiku-first with the free check ($" + f"{next(r['cost'] for r in rows if r['name'] == 'haiku-first cascade'):.4f}" + "/task); graded answers per task come from the replay:\n")
+        w("| cascade | grader | run cost $/task (grader excluded) | graded answers/task | max grader $/answer vs Laya tier-start | max grader $/answer vs haiku-first free | measured grader $/answer |")
+        w("|---|---|---:|---:|---:|---:|---:|")
+        lay = next(r["cost"] for r in rows if r["name"].startswith("laya tier-start")); hfree = next(r["cost"] for r in rows if r["name"] == "haiku-first cascade")
+        for lname, start in (("luna-first", "luna"), ("haiku-first", "haiku")):
+            lad = up(start)
+            for g in G:
+                rr = [replay(i, lad, g) for i in ids]; rr = [x for x in rr if x]
+                if not rr: continue
+                graded = 0.0; runc = 0.0
+                for i in ids:
+                    spent = 0.0; k_ = 0
+                    for k, m in enumerate(lad):
+                        ok, c, failed = T[i]["runs"][m][:3]; spent += c
+                        if k == len(lad) - 1: break
+                        if failed: continue
+                        k_ += 1
+                        gr = G[g].get(f"{i}|{m}")
+                        if gr is None or gr["verdict"] != "FAIL": break
+                    graded += k_; runc += spent
+                graded /= len(ids); runc /= len(ids)
+                w(f"| {lname} | {g} | {runc:.4f} | {graded:.2f} | {max(0,(lay-runc)/graded):.4f} | {max(0,(hfree-runc)/graded):.4f} | {gcost[g]:.4f} |")
+
+        # verifier conclusion
+        def rf(l, g): return ref[(l, f"{g} (measured)")]
+        hh, hs, lh, ls = rf("haiku-first", "claude-haiku-5-5"), rf("haiku-first", "claude-sonnet-5-5"), rf("luna-first", "claude-haiku-5-5"), rf("luna-first", "claude-sonnet-5-5")
+        w("\n### Conclusion on verifiers\n")
+        w(f"- **Cheap-first plus a measured verifier is not better than always-haiku, and does not reach Laya's pass rate.** Always-haiku: {first['haiku']}/{len(ids)} at ${mean['haiku']:.4f}/task, no added latency. Haiku-first with a haiku grader: {hh[0]*len(ids):.0f}/{len(ids)} at ${hh[1]:.4f} (+{hh[2]:.0f} s/task); with a sonnet grader {hs[0]*len(ids):.0f}/{len(ids)} at ${hs[1]:.4f}. Luna-first with a haiku grader {lh[0]*len(ids):.0f}/{len(ids)} at ${lh[1]:.4f}; with a sonnet grader {ls[0]*len(ids):.0f}/{len(ids)} at ${ls[1]:.4f}. Laya tier-start (no verifier): 170/194 at $0.0799; the table on master: 155/194 at $0.1668. Verified cascades are cheaper than Laya on master and, for luna-first, than tier-start, but they pass 20-30 fewer tasks than tier-start and no more than haiku alone. The pass-rate gain the free-check cascades showed (174 and 170) does not survive a real grader.")
+        w("- **Why.** The graders catch most wrong luna answers (about 77% recall) but only a third to a half of the wrong answers from haiku, sonnet and opus (33-44%), and flag 13-45% of correct answers. The failures a cascade must catch to climb past haiku are exactly the ones a haiku- or sonnet-class grader cannot see. Sonnet is not clearly better than haiku as a grader (pooled recall 56% vs 53%, false alarms 22% vs 23%) at 16x the cost; opus (a 100-answer sample, wide intervals) catches more (71% recall pooled) but also flags 28% of correct answers, at $0.033 per answer, so it does not pay either.")
+        w("- **Self vs cross.** Self-graded recall is not higher than cross-graded (haiku grading haiku 41% vs haiku grading sonnet/opus 33-34%; sonnet grading sonnet 44% vs opus 40%): there is no sign of self-preference here, but intervals overlap. The apparent 'cross > self' pooled gap (56% vs 41% for haiku) is driven by luna's obviously weaker answers.")
+        w("- **Break-even.** Grader cost is not the binding constraint: haiku costs $0.0009 per answer, far under the break-even (about $0.01-0.02 per answer vs haiku-first free and Laya tier-start; sonnet at $0.014 is over the haiku-first-free line, the opus sample is not). **Recall is.** With zero false alarms, luna-first needs d >= 0.74 to match haiku alone and d >= 0.96 to match free-check haiku-first; haiku-first needs d >= 0.69 to match free-check sonnet-first. Measured recall on the answers that matter (haiku, sonnet, opus) is 33-44%, with 13-20% false alarms. To make cheap-first plus a verifier worth it, a verifier would need roughly 0.7+ recall on strong-model errors at low false alarms: tests or an executable check, not a same-class model reading the answer.")
+        w("- **Caveats.** The graders see the prompt, fixtures and rubric but cannot run anything; the objective check is itself a noisy proxy (grader FAIL on an objective PASS may be a real defect, so false alarms are overstated if the check is lenient); one run per task/model; grader verdicts are single samples (run-to-run grader noise not measured); the opus sample is 100 answers (25 per producing model) and its cascade rows cover 7 and 23 tasks only (ignore them); the sonnet grader's actual cost ($11.11) was about 4x the earlier $2.84 estimate (the CLI counts cache reads and the fixtures I included).")
+
     byname = {r["name"]: r for r in rows}
     best_casc = min((byname[n] for n in ("haiku-first cascade", "luna-first cascade", "sonnet-first cascade")), key=lambda r: r["cost"])
     w("\n## Conclusion\n")
