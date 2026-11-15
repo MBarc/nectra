@@ -7,7 +7,6 @@
 
 <div align="center">
 
-[![CI](https://github.com/MBarc/nectra/actions/workflows/ci.yml/badge.svg)](https://github.com/MBarc/nectra/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 [![Rust](https://img.shields.io/badge/built%20with-Rust-B7410E)](Cargo.toml)
 [![Windows | Linux | macOS](https://img.shields.io/badge/runs%20on-Windows%20%7C%20Linux%20%7C%20macOS-1E2433)](#which-platforms)
