@@ -817,7 +817,9 @@ fn serve_knowledge() {
 /// A file only root (administrators, on Windows) can change, and its first line.
 fn sealed_index() -> (std::path::PathBuf, String) {
     #[cfg(unix)]
-    let index = std::path::PathBuf::from("/etc/passwd");
+    // Canonical: on macOS /etc is a link to /private/etc, which the product
+    // refuses by design (no symbolic link anywhere in the path).
+    let index = fs::canonicalize("/etc/passwd").unwrap();
     #[cfg(windows)]
     let index = Path::new(&std::env::var("SystemRoot").unwrap()).join("win.ini");
     let text = fs::read_to_string(&index).unwrap();

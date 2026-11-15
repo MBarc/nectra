@@ -7,6 +7,7 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -64,7 +65,20 @@ jobs:
           sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 wine wine64
           command -v wine
           wineboot --init || true
-      - run: cargo test --locked --target x86_64-pc-windows-gnu --all-targets
+      # These tests need a real Windows: an administrator-owned C:\, a real
+      # PowerShell for junctions, ConPTY and job objects. Wine has none of them
+      # (wine's C:\ is the runner's own; the pty fixture's descendant is never
+      # seen), so they are skipped here; the windows-latest `test` job runs them.
+      - run: >-
+          cargo test --locked --target x86_64-pc-windows-gnu --all-targets --
+          --skip knowledge::tests::a_file_its_user_can_write_is_refused
+          --skip skills::tests::linking_makes_every_user_skill_visible_to_every_cli
+          --skip skills::tests::a_skill_name_is_never_run_as_a_command
+          --skip executor::tests::windows_output_until_resumes_a_job_owned_child
+          --skip native_terminal_animation_approval_resize_and_context_handoff
+          --skip completed_reply_returns_without_any_exit_keystroke
+          --skip cancelling_native_work_does_not_save_a_fake_answer
+          --skip undersized_resize_keeps_provider_work_alive
       - run: cargo build --release --locked --target x86_64-pc-windows-gnu
       - name: Run the release binary under wine
         run: wine target/x86_64-pc-windows-gnu/release/nectra.exe --version
