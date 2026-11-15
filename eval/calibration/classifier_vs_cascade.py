@@ -323,6 +323,51 @@ def main():
                 ref[(lname, label)] = (pas(ss), cst(ss), latm)
                 w(f"| {lname} | {label} | {n_} | {pas(ss)*n_:.0f}/{n_} ({pas(ss):.1%}) | {a:.3f}-{b:.3f} / {c2:.3f}-{d2:.3f} | {cst(ss):.4f} | {e:.4f}-{f:.4f} / {gg:.4f}-{h:.4f} | {latm:.1f} |")
         w("\nReference rows (no verifier): " + "; ".join(f"{r['name'].split(' (')[0]} {r['passn']}/{len(ids)} at ${r['cost']:.4f}" for r in rows if r['name'].split(' (')[0] in ("laya tier-start", "laya + table as on master", "always-opus")) + f"; haiku alone {first['haiku']}/{len(ids)} at ${mean['haiku']:.4f}; luna alone {first['luna']}/{len(ids)} at ${mean['luna']:.4f}.\n")
+
+        # ---- Like for like: Laya policies under realistic signals
+        w("\n### Like for like: Laya policies and single-model references under realistic signals\n")
+        w("The earlier Laya rows (tier-start 170/194, table on master 155/194) escalate on the **free objective check**. Here every escalating policy is replayed with the same signals and the same method as the cascades above: real (failed turns only, d=0) and each measured grader (haiku, sonnet; the opus sample covers too few answers). 'Start rung only' rows never escalate and need no signal. CIs are task-level / family-clustered; added s/task is grader wall time.\n")
+        def mk_ladders():
+            return [("laya tier-start (predicted tier)", lambda i: ladder_tier(i, "pred_tier")),
+                    ("laya + table on master (certified, opus-only)", ladder_laya_table),
+                    ("tier-start with authored tier", lambda i: ladder_tier(i, "tier"))]
+        w("| policy | signal | tasks | pass | pass 95% CI (task / family) | $/task | $/task 95% CI (task / family) | added grader s/task |")
+        w("|---|---|---:|---:|---|---:|---|---:|")
+        ref2 = {}
+        def emit(name, label, ev):
+            ev = {i: (float(v[0]), v[1], v[2]) for i, v in ev.items() if v is not None}
+            ss = sorted(ev); n_ = len(ss)
+            pas = lambda s: sum(ev[i][0] for i in s if i in ev) / max(1, sum(1 for i in s if i in ev)); cst = lambda s: sum(ev[i][1] for i in s if i in ev) / max(1, sum(1 for i in s if i in ev))
+            a, b, c2, d2 = ci(pas); e, f, gg, h = ci(cst); latm = sum(ev[i][2] for i in ss) / n_
+            ref2[(name, label)] = (pas(ss), cst(ss), latm, n_)
+            w(f"| {name} | {label} | {n_} | {pas(ss)*n_:.0f}/{n_} ({pas(ss):.1%}) | {a:.3f}-{b:.3f} / {c2:.3f}-{d2:.3f} | {cst(ss):.4f} | {e:.4f}-{f:.4f} / {gg:.4f}-{h:.4f} | {latm:.1f} |")
+        gs = [g for g in ("claude-haiku-5-5", "claude-sonnet-5-5") if g in G]
+        for name, lf in mk_ladders():
+            emit(name, "free objective check (d=1; earlier rows)", {i: cascade(i, lf(i))[:2] + (0.0,) for i in ids})
+            emit(name, "real: failed turns only (d=0)", {i: expected(i, lf(i), 0.0) + (0.0,) for i in ids})
+            for g in gs: emit(name, f"{g} (measured)", {i: replay(i, lf(i), g) for i in ids})
+        for name, lf in (("laya tier-start, start rung only (no escalation)", lambda i: ladder_tier(i, "pred_tier")[:1]),
+                         ("laya + table on master, start rung only", lambda i: ladder_laya_table(i)[:1]),
+                         ("always-luna", lambda i: ["luna"]), ("always-haiku", lambda i: ["haiku"]),
+                         ("always-sonnet", lambda i: ["sonnet"]), ("always-opus", lambda i: ["opus"])):
+            emit(name, "no escalation", {i: cascade(i, lf(i))[:2] + (0.0,) for i in ids})
+        def R2(n, l): return ref2[(n, l)]
+        pick = [(k, v) for k, v in ref2.items() if "free objective" not in k[1] and k[1] != "real: failed turns only (d=0)" or k[1] == "real: failed turns only (d=0)"]
+        real_pool = {k: v for k, v in ref2.items() if "free objective" not in k[1] and v[3] == len(ids)}
+        w("\n### Restated conclusion at real-world signals\n")
+        best_pass = max(real_pool.items(), key=lambda kv: (round(kv[1][0], 6), -kv[1][1]))
+        best_cost_at = lambda floor: min((kv for kv in real_pool.items() if kv[1][0] >= floor), key=lambda kv: kv[1][1])
+        hk, sn = R2("always-haiku", "no escalation"), R2("always-sonnet", "no escalation")
+        ts_real, ts_h, ts_s = R2("laya tier-start (predicted tier)", "real: failed turns only (d=0)"), R2("laya tier-start (predicted tier)", "claude-haiku-5-5 (measured)"), R2("laya tier-start (predicted tier)", "claude-sonnet-5-5 (measured)")
+        tr = R2("laya tier-start, start rung only (no escalation)", "no escalation")
+        mr = R2("laya + table on master", "real: failed turns only (d=0)") if ("laya + table on master", "real: failed turns only (d=0)") in ref2 else R2("laya + table on master (certified, opus-only)", "real: failed turns only (d=0)")
+        f_ = lambda v: f"{v[0]*len(ids):.0f}/{len(ids)} at ${v[1]:.4f}/task" + (f", +{v[2]:.0f} s" if v[2] else "")
+        top = best_pass[1][0]
+        value = min((kv for kv in real_pool.items() if kv[1][0] >= top - 2 / len(ids)), key=lambda kv: kv[1][1])
+        w(f"- **Best at real-world signals (every task covered):** the highest pass is {best_pass[0][0]} / {best_pass[0][1]} at {f_(best_pass[1])}. Within two tasks of it (noise at n=194), the cheapest and fastest policy is **{value[0][0]} / {value[0][1]}**: {f_(value[1])}, no grader latency. Always-haiku: {f_(hk)}; always-sonnet: {f_(sn)}. Every escalating policy with a real signal (failed turns, or a haiku/sonnet grader) lands at 73-77% pass, no better than always-haiku, at 4-20x its cost, plus about 10 s of grader latency per task when a grader is used.")
+        w(f"- **Laya's tier pick, like for like.** Tier-start with the real signal (it just runs its start rung): {f_(ts_real)}; with a haiku grader {f_(ts_h)}; with a sonnet grader {f_(ts_s)}; start rung only {f_(tr)}. Compare always-haiku ({f_(hk)}) and always-sonnet ({f_(sn)}): the tier pick adds {'something' if ts_real[0] > max(hk[0], sn[0]) + 2 / len(ids) else 'nothing measurable'} over the best single model once escalation is realistic. The 170/194 earlier figure came from the free check (a 27% escalation rate nobody can observe in production), not from the tier pick.")
+        w(f"- **The table on master** (opus-only for measured kinds): {f_(mr)} with the real signal; escalation barely matters for it (it mostly runs opus once). It is dominated by always-haiku and always-sonnet on both pass and cost.")
+
         # break-even
         w("### Break-even\n")
         w("Zero-false-alarm recall d that luna-first and haiku-first need (grader cost excluded) to reach the pass of: haiku alone, haiku-first with the free check, and sonnet-first with the free check:\n")
@@ -362,11 +407,11 @@ def main():
         def rf(l, g): return ref[(l, f"{g} (measured)")]
         hh, hs, lh, ls = rf("haiku-first", "claude-haiku-5-5"), rf("haiku-first", "claude-sonnet-5-5"), rf("luna-first", "claude-haiku-5-5"), rf("luna-first", "claude-sonnet-5-5")
         w("\n### Conclusion on verifiers\n")
-        w(f"- **Cheap-first plus a measured verifier is not better than always-haiku, and does not reach Laya's pass rate.** Always-haiku: {first['haiku']}/{len(ids)} at ${mean['haiku']:.4f}/task, no added latency. Haiku-first with a haiku grader: {hh[0]*len(ids):.0f}/{len(ids)} at ${hh[1]:.4f} (+{hh[2]:.0f} s/task); with a sonnet grader {hs[0]*len(ids):.0f}/{len(ids)} at ${hs[1]:.4f}. Luna-first with a haiku grader {lh[0]*len(ids):.0f}/{len(ids)} at ${lh[1]:.4f}; with a sonnet grader {ls[0]*len(ids):.0f}/{len(ids)} at ${ls[1]:.4f}. Laya tier-start (no verifier): 170/194 at $0.0799; the table on master: 155/194 at $0.1668. Verified cascades are cheaper than Laya on master and, for luna-first, than tier-start, but they pass 20-30 fewer tasks than tier-start and no more than haiku alone. The pass-rate gain the free-check cascades showed (174 and 170) does not survive a real grader.")
+        w(f"- **Cheap-first plus a measured verifier is not better than always-haiku, and does not reach Laya's pass rate.** Always-haiku: {first['haiku']}/{len(ids)} at ${mean['haiku']:.4f}/task, no added latency. Haiku-first with a haiku grader: {hh[0]*len(ids):.0f}/{len(ids)} at ${hh[1]:.4f} (+{hh[2]:.0f} s/task); with a sonnet grader {hs[0]*len(ids):.0f}/{len(ids)} at ${hs[1]:.4f}. Luna-first with a haiku grader {lh[0]*len(ids):.0f}/{len(ids)} at ${lh[1]:.4f}; with a sonnet grader {ls[0]*len(ids):.0f}/{len(ids)} at ${ls[1]:.4f}. The 170/194 and 155/194 figures quoted earlier for Laya tier-start and the table on master used the free check; like for like, see the next section (tier-start with real signals: 143-149/194; table on master: 147-149/194). The pass-rate gain the free-check cascades showed (174 and 170) does not survive a real grader, for Laya's policies or for the plain cascades.")
         w("- **Why.** The graders catch most wrong luna answers (about 77% recall) but only a third to a half of the wrong answers from haiku, sonnet and opus (33-44%), and flag 13-45% of correct answers. The failures a cascade must catch to climb past haiku are exactly the ones a haiku- or sonnet-class grader cannot see. Sonnet is not clearly better than haiku as a grader (pooled recall 56% vs 53%, false alarms 22% vs 23%) at 16x the cost; opus (a 100-answer sample, wide intervals) catches more (71% recall pooled) but also flags 28% of correct answers, at $0.033 per answer, so it does not pay either.")
         w("- **Self vs cross.** Self-graded recall is not higher than cross-graded (haiku grading haiku 41% vs haiku grading sonnet/opus 33-34%; sonnet grading sonnet 44% vs opus 40%): there is no sign of self-preference here, but intervals overlap. The apparent 'cross > self' pooled gap (56% vs 41% for haiku) is driven by luna's obviously weaker answers.")
         w("- **Break-even.** Grader cost is not the binding constraint: haiku costs $0.0009 per answer, far under the break-even (about $0.01-0.02 per answer vs haiku-first free and Laya tier-start; sonnet at $0.014 is over the haiku-first-free line, the opus sample is not). **Recall is.** With zero false alarms, luna-first needs d >= 0.74 to match haiku alone and d >= 0.96 to match free-check haiku-first; haiku-first needs d >= 0.69 to match free-check sonnet-first. Measured recall on the answers that matter (haiku, sonnet, opus) is 33-44%, with 13-20% false alarms. To make cheap-first plus a verifier worth it, a verifier would need roughly 0.7+ recall on strong-model errors at low false alarms: tests or an executable check, not a same-class model reading the answer.")
-        w("- **Caveats.** The graders see the prompt, fixtures and rubric but cannot run anything; the objective check is itself a noisy proxy (grader FAIL on an objective PASS may be a real defect, so false alarms are overstated if the check is lenient); one run per task/model; grader verdicts are single samples (run-to-run grader noise not measured); the opus sample is 100 answers (25 per producing model) and its cascade rows cover 7 and 23 tasks only (ignore them); the sonnet grader's actual cost ($11.11) was about 4x the earlier $2.84 estimate (the CLI counts cache reads and the fixtures I included).")
+        w("- **Caveats.** The graders see the prompt, fixtures and rubric but cannot run anything; the objective check is itself a noisy proxy (grader FAIL on an objective PASS may be a real defect, so false alarms are overstated if the check is lenient); one run per task/model; grader verdicts are single samples (run-to-run grader noise not measured); the opus sample is 100 answers (25 per producing model) and its cascade rows cover 7 and 23 tasks only (ignore them); grading cost $15.13 in all (haiku $0.70, sonnet $11.11, opus sample $3.32) against an estimate of about $3 for haiku plus sonnet: the estimate counted answer, prompt and rubric text only (0.84M input tokens), but each call also carried the task's fixture files (~0.3M tokens in all) and the `claude` CLI's own overhead (cache creation/reads on every call), and the real input totalled 2.7-3.0M tokens per grader; sonnet's list rate is ~15x haiku's, which turns that into $11 (the opus sample was outside the estimate).")
 
     byname = {r["name"]: r for r in rows}
     best_casc = min((byname[n] for n in ("haiku-first cascade", "luna-first cascade", "sonnet-first cascade")), key=lambda r: r["cost"])
