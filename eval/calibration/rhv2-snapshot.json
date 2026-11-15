@@ -1,0 +1,5197 @@
+{
+ "table": [
+  [
+   "code_generation",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "code_generation",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "code_generation",
+   "demanding",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "code_review",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "code_review",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "code_review",
+   "demanding",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "debugging",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "debugging",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "debugging",
+   "demanding",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "planning",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "planning",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "planning",
+   "demanding",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "refactoring",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "refactoring",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "refactoring",
+   "demanding",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "research",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "research",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "research",
+   "demanding",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "writing",
+   "simple",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "writing",
+   "normal",
+   [
+    "opus"
+   ]
+  ],
+  [
+   "writing",
+   "demanding",
+   [
+    "opus"
+   ]
+  ]
+ ],
+ "tasks": {
+  "rh-code-01": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": null,
+   "pred_kind": "code_generation",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     false,
+     0.005375780000000001
+    ],
+    "luna": [
+     false,
+     0.004980559999999999
+    ],
+    "opus": [
+     false,
+     0.1586112
+    ],
+    "sonnet": [
+     false,
+     0.078076
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-02": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.44,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00716955
+    ],
+    "luna": [
+     false,
+     0.01153756
+    ],
+    "opus": [
+     true,
+     0.2531432
+    ],
+    "sonnet": [
+     false,
+     0.1010336
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-04": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.68,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.01064754
+    ],
+    "luna": [
+     false,
+     0.006790399999999999
+    ],
+    "opus": [
+     false,
+     0.3151966
+    ],
+    "sonnet": [
+     false,
+     0.10226160000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-05": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.99,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.01171147
+    ],
+    "luna": [
+     true,
+     0.0073271199999999995
+    ],
+    "opus": [
+     true,
+     0.239293
+    ],
+    "sonnet": [
+     true,
+     0.09629339999999999
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-code-07": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.01,
+   "pred_kind": "code_generation",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00690943
+    ],
+    "luna": [
+     true,
+     0.00703356
+    ],
+    "opus": [
+     true,
+     0.18482479999999998
+    ],
+    "sonnet": [
+     true,
+     0.0881004
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-08": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.01,
+   "pred_kind": "code_generation",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.004135010000000001
+    ],
+    "luna": [
+     true,
+     0.0022610399999999998
+    ],
+    "opus": [
+     true,
+     0.15028439999999998
+    ],
+    "sonnet": [
+     true,
+     0.06719960000000001
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-09": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.01,
+   "pred_kind": "code_generation",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     false,
+     0.00723687
+    ],
+    "luna": [
+     false,
+     0.004722280000000001
+    ],
+    "opus": [
+     false,
+     0.17935279999999998
+    ],
+    "sonnet": [
+     false,
+     0.077451
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-10": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.41,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00390329
+    ],
+    "luna": [
+     true,
+     0.00232744
+    ],
+    "opus": [
+     true,
+     0.165589
+    ],
+    "sonnet": [
+     true,
+     0.0614604
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-11": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.49,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00889942
+    ],
+    "luna": [
+     false,
+     0.009244720000000001
+    ],
+    "opus": [
+     false,
+     0.2164154
+    ],
+    "sonnet": [
+     true,
+     0.0997284
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-12": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.01,
+   "pred_kind": "code_generation",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00569311
+    ],
+    "luna": [
+     true,
+     0.00497208
+    ],
+    "opus": [
+     true,
+     0.181137
+    ],
+    "sonnet": [
+     true,
+     0.0821458
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-code-13": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.9,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.014452540000000002
+    ],
+    "luna": [
+     false,
+     0.0084858
+    ],
+    "opus": [
+     false,
+     0.3503748
+    ],
+    "sonnet": [
+     false,
+     0.1127026
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-14": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.49,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0141417
+    ],
+    "luna": [
+     true,
+     0.008400280000000001
+    ],
+    "opus": [
+     true,
+     0.2441518
+    ],
+    "sonnet": [
+     true,
+     0.106502
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-15": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.89,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.01543617
+    ],
+    "luna": [
+     false,
+     0.008690880000000002
+    ],
+    "opus": [
+     false,
+     0.3163996
+    ],
+    "sonnet": [
+     false,
+     0.124768
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-16": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.57,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00726904
+    ],
+    "luna": [
+     true,
+     0.00927576
+    ],
+    "opus": [
+     true,
+     0.217997
+    ],
+    "sonnet": [
+     true,
+     0.093366
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-17": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.01219557
+    ],
+    "luna": [
+     false,
+     0.012485360000000001
+    ],
+    "opus": [
+     false,
+     0.3451048
+    ],
+    "sonnet": [
+     false,
+     0.1020592
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-18": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.51,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.01592054
+    ],
+    "luna": [
+     true,
+     0.01276392
+    ],
+    "opus": [
+     false,
+     0.2735238
+    ],
+    "sonnet": [
+     false,
+     0.1155936
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-code-19": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.99,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.02525893
+    ],
+    "luna": [
+     true,
+     0.0156404
+    ],
+    "opus": [
+     true,
+     0.5225896
+    ],
+    "sonnet": [
+     true,
+     0.1203504
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-code-20": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.99,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.03548518
+    ],
+    "luna": [
+     false,
+     0.03949732
+    ],
+    "opus": [
+     false,
+     0.524119
+    ],
+    "sonnet": [
+     false,
+     0.22323520000000002
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-code-21": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.98,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.012006200000000002
+    ],
+    "luna": [
+     false,
+     0.01093084
+    ],
+    "opus": [
+     false,
+     0.33623359999999997
+    ],
+    "sonnet": [
+     false,
+     0.1183908
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-code-22": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.99,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.03683023
+    ],
+    "luna": [
+     false,
+     0.011470719999999998
+    ],
+    "opus": [
+     true,
+     0.5792694
+    ],
+    "sonnet": [
+     true,
+     0.1776726
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-code-23": {
+   "family": "rh-code",
+   "kind": "code_generation",
+   "pred_difficulty": 0.82,
+   "pred_kind": "code_generation",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.014346649999999999
+    ],
+    "luna": [
+     true,
+     0.012272880000000002
+    ],
+    "opus": [
+     true,
+     0.35648779999999997
+    ],
+    "sonnet": [
+     true,
+     0.1269584
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-01": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.52,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.006401950000000001
+    ],
+    "luna": [
+     true,
+     0.004707520000000001
+    ],
+    "opus": [
+     true,
+     0.1912118
+    ],
+    "sonnet": [
+     true,
+     0.10484660000000001
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-02": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.5,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.006615520000000001
+    ],
+    "luna": [
+     true,
+     0.00397448
+    ],
+    "opus": [
+     true,
+     0.1962174
+    ],
+    "sonnet": [
+     true,
+     0.10714539999999999
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-03": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.67,
+   "pred_kind": "debugging",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00634383
+    ],
+    "luna": [
+     true,
+     0.00652024
+    ],
+    "opus": [
+     true,
+     0.2172548
+    ],
+    "sonnet": [
+     true,
+     0.0919782
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-04": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.51,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.008393049999999999
+    ],
+    "luna": [
+     true,
+     0.00276776
+    ],
+    "opus": [
+     true,
+     0.2344622
+    ],
+    "sonnet": [
+     true,
+     0.08106160000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-05": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "code_generation",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.008395030000000001
+    ],
+    "luna": [
+     false,
+     0.00286576
+    ],
+    "opus": [
+     false,
+     0.39649959999999995
+    ],
+    "sonnet": [
+     true,
+     0.099024
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-06": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.51,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00633122
+    ],
+    "luna": [
+     true,
+     0.00276172
+    ],
+    "opus": [
+     false,
+     0.17413679999999998
+    ],
+    "sonnet": [
+     true,
+     0.0833668
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-07": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.0040764700000000004
+    ],
+    "luna": [
+     true,
+     0.00313388
+    ],
+    "opus": [
+     true,
+     0.1384696
+    ],
+    "sonnet": [
+     true,
+     0.0646666
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-08": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.01,
+   "pred_kind": "debugging",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.0025442200000000002
+    ],
+    "luna": [
+     false,
+     0.0007932000000000001
+    ],
+    "opus": [
+     true,
+     0.0906348
+    ],
+    "sonnet": [
+     true,
+     0.043872
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-09": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.33,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.004445540000000001
+    ],
+    "luna": [
+     true,
+     0.0020767199999999998
+    ],
+    "opus": [
+     true,
+     0.1442226
+    ],
+    "sonnet": [
+     true,
+     0.0664328
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-10": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     false,
+     0.0024182200000000004
+    ],
+    "luna": [
+     false,
+     0.000882
+    ],
+    "opus": [
+     true,
+     0.0934628
+    ],
+    "sonnet": [
+     true,
+     0.04629
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-11": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00528421
+    ],
+    "luna": [
+     true,
+     0.00302636
+    ],
+    "opus": [
+     true,
+     0.1378294
+    ],
+    "sonnet": [
+     true,
+     0.074844
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-12": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "code_generation",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00568685
+    ],
+    "luna": [
+     true,
+     0.00333984
+    ],
+    "opus": [
+     true,
+     0.1728208
+    ],
+    "sonnet": [
+     true,
+     0.07215880000000001
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-debug-14": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00746013
+    ],
+    "luna": [
+     true,
+     0.00588348
+    ],
+    "opus": [
+     true,
+     0.25712
+    ],
+    "sonnet": [
+     true,
+     0.1486216
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-15": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00684256
+    ],
+    "luna": [
+     true,
+     0.00248296
+    ],
+    "opus": [
+     false,
+     0.2163702
+    ],
+    "sonnet": [
+     false,
+     0.1005842
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-16": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "general",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.0088258
+    ],
+    "luna": [
+     true,
+     0.003383
+    ],
+    "opus": [
+     true,
+     0.165027
+    ],
+    "sonnet": [
+     true,
+     0.07292539999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-17": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00429005
+    ],
+    "luna": [
+     true,
+     0.00223096
+    ],
+    "opus": [
+     true,
+     0.13393839999999999
+    ],
+    "sonnet": [
+     true,
+     0.06721919999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-18": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "general",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00378682
+    ],
+    "luna": [
+     true,
+     0.0018088000000000002
+    ],
+    "opus": [
+     true,
+     0.1279148
+    ],
+    "sonnet": [
+     true,
+     0.053728
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-debug-19": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.0070809
+    ],
+    "luna": [
+     true,
+     0.00430232
+    ],
+    "opus": [
+     true,
+     0.2159884
+    ],
+    "sonnet": [
+     true,
+     0.089206
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-20": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00542343
+    ],
+    "luna": [
+     false,
+     0.00262896
+    ],
+    "opus": [
+     true,
+     0.2477762
+    ],
+    "sonnet": [
+     true,
+     0.10682180000000001
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-21": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.54,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00537882
+    ],
+    "luna": [
+     false,
+     0.00488756
+    ],
+    "opus": [
+     false,
+     0.29224059999999996
+    ],
+    "sonnet": [
+     true,
+     0.09541519999999999
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-22": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.00569184
+    ],
+    "luna": [
+     false,
+     0.00518308
+    ],
+    "opus": [
+     true,
+     0.19748220000000002
+    ],
+    "sonnet": [
+     false,
+     0.060148
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-debug-23": {
+   "family": "rh-debug",
+   "kind": "debugging",
+   "pred_difficulty": 0.52,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.008702380000000001
+    ],
+    "luna": [
+     true,
+     0.00525484
+    ],
+    "opus": [
+     true,
+     0.1872798
+    ],
+    "sonnet": [
+     true,
+     0.0974544
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-long-01": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00355819
+    ],
+    "luna": [
+     false,
+     0.00145176
+    ],
+    "opus": [
+     false,
+     0.12838639999999998
+    ],
+    "sonnet": [
+     false,
+     0.0655902
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-02": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0090171
+    ],
+    "luna": [
+     false,
+     0.006769280000000001
+    ],
+    "opus": [
+     false,
+     0.318724
+    ],
+    "sonnet": [
+     false,
+     0.108776
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-03": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00646763
+    ],
+    "luna": [
+     false,
+     0.00365036
+    ],
+    "opus": [
+     true,
+     0.1827028
+    ],
+    "sonnet": [
+     true,
+     0.0974892
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-04": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00786068
+    ],
+    "luna": [
+     false,
+     0.00637136
+    ],
+    "opus": [
+     true,
+     0.2094288
+    ],
+    "sonnet": [
+     false,
+     0.1005332
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-long-05": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.49,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00525905
+    ],
+    "luna": [
+     false,
+     0.00859332
+    ],
+    "opus": [
+     true,
+     0.2339552
+    ],
+    "sonnet": [
+     true,
+     0.0978166
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-long-06": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.24,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00397469
+    ],
+    "luna": [
+     true,
+     0.00188396
+    ],
+    "opus": [
+     false,
+     0.14424679999999998
+    ],
+    "sonnet": [
+     false,
+     0.0702358
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-07": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00387659
+    ],
+    "luna": [
+     true,
+     0.00161556
+    ],
+    "opus": [
+     true,
+     0.1371514
+    ],
+    "sonnet": [
+     true,
+     0.0717998
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-08": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.49,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00512015
+    ],
+    "luna": [
+     true,
+     0.0033877200000000003
+    ],
+    "opus": [
+     true,
+     0.147228
+    ],
+    "sonnet": [
+     true,
+     0.076898
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-09": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     false,
+     0.00522273
+    ],
+    "luna": [
+     true,
+     0.0033322
+    ],
+    "opus": [
+     true,
+     0.1773556
+    ],
+    "sonnet": [
+     true,
+     0.086566
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-10": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     false,
+     0.00515475
+    ],
+    "luna": [
+     false,
+     0.00417128
+    ],
+    "opus": [
+     false,
+     0.1725286
+    ],
+    "sonnet": [
+     false,
+     0.0869066
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-11": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00430642
+    ],
+    "luna": [
+     false,
+     0.0018151600000000001
+    ],
+    "opus": [
+     false,
+     0.1560592
+    ],
+    "sonnet": [
+     false,
+     0.0773678
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-long-12": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00472514
+    ],
+    "luna": [
+     true,
+     0.0023453599999999995
+    ],
+    "opus": [
+     true,
+     0.1487464
+    ],
+    "sonnet": [
+     true,
+     0.0770752
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-13": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.51,
+   "pred_kind": "architecture",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00788542
+    ],
+    "luna": [
+     false,
+     0.00362396
+    ],
+    "opus": [
+     false,
+     0.1872448
+    ],
+    "sonnet": [
+     true,
+     0.0959092
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-14": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.005875450000000001
+    ],
+    "luna": [
+     true,
+     0.00530792
+    ],
+    "opus": [
+     true,
+     0.19527060000000002
+    ],
+    "sonnet": [
+     true,
+     0.091051
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-15": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00822992
+    ],
+    "luna": [
+     true,
+     0.005513359999999999
+    ],
+    "opus": [
+     false,
+     0.18998320000000002
+    ],
+    "sonnet": [
+     false,
+     0.08053460000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-16": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.005841150000000001
+    ],
+    "luna": [
+     true,
+     0.00370996
+    ],
+    "opus": [
+     true,
+     0.17855020000000002
+    ],
+    "sonnet": [
+     true,
+     0.0757914
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-17": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.49,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00534382
+    ],
+    "luna": [
+     true,
+     0.0030123199999999998
+    ],
+    "opus": [
+     true,
+     0.1559738
+    ],
+    "sonnet": [
+     true,
+     0.07469719999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-18": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.01209933
+    ],
+    "luna": [
+     false,
+     0.0063114
+    ],
+    "opus": [
+     false,
+     0.2815196
+    ],
+    "sonnet": [
+     false,
+     0.1428458
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-long-19": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00931732
+    ],
+    "luna": [
+     true,
+     0.00383004
+    ],
+    "opus": [
+     true,
+     0.250079
+    ],
+    "sonnet": [
+     true,
+     0.114596
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-long-20": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.007028110000000001
+    ],
+    "luna": [
+     true,
+     0.00527852
+    ],
+    "opus": [
+     true,
+     0.19243739999999998
+    ],
+    "sonnet": [
+     true,
+     0.0980038
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-long-21": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.35,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.012095810000000002
+    ],
+    "luna": [
+     true,
+     0.00465428
+    ],
+    "opus": [
+     true,
+     0.23047820000000002
+    ],
+    "sonnet": [
+     true,
+     0.1093672
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-long-22": {
+   "family": "rh-long",
+   "kind": "long_context",
+   "pred_difficulty": 0.5,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.009279059999999999
+    ],
+    "luna": [
+     false,
+     0.00790876
+    ],
+    "opus": [
+     true,
+     0.3146116
+    ],
+    "sonnet": [
+     true,
+     0.1240808
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-01": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.5,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00538159
+    ],
+    "luna": [
+     false,
+     0.00651536
+    ],
+    "opus": [
+     true,
+     0.15394560000000002
+    ],
+    "sonnet": [
+     true,
+     0.07824260000000001
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-03": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.74,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00947531
+    ],
+    "luna": [
+     true,
+     0.00587568
+    ],
+    "opus": [
+     true,
+     0.2622618
+    ],
+    "sonnet": [
+     true,
+     0.0657
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-04": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00852692
+    ],
+    "luna": [
+     true,
+     0.0072419599999999995
+    ],
+    "opus": [
+     true,
+     0.3204554
+    ],
+    "sonnet": [
+     true,
+     0.0782
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-05": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00907144
+    ],
+    "luna": [
+     true,
+     0.00579608
+    ],
+    "opus": [
+     true,
+     0.317853
+    ],
+    "sonnet": [
+     true,
+     0.07278
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-06": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00819676
+    ],
+    "luna": [
+     false,
+     0.005702560000000001
+    ],
+    "opus": [
+     true,
+     0.18354320000000002
+    ],
+    "sonnet": [
+     true,
+     0.065436
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-07": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.5,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.004740360000000001
+    ],
+    "luna": [
+     false,
+     0.0012316
+    ],
+    "opus": [
+     true,
+     0.1120788
+    ],
+    "sonnet": [
+     true,
+     0.052378
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-08": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.53,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0027287
+    ],
+    "luna": [
+     true,
+     0.0009534000000000001
+    ],
+    "opus": [
+     true,
+     0.1057548
+    ],
+    "sonnet": [
+     true,
+     0.050762
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-09": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.51,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00389376
+    ],
+    "luna": [
+     false,
+     0.00462112
+    ],
+    "opus": [
+     true,
+     0.137864
+    ],
+    "sonnet": [
+     true,
+     0.06438
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-10": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.44,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00598626
+    ],
+    "luna": [
+     false,
+     0.00432012
+    ],
+    "opus": [
+     true,
+     0.2268858
+    ],
+    "sonnet": [
+     true,
+     0.07903160000000001
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-11": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.5,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0034726
+    ],
+    "luna": [
+     true,
+     0.0011392000000000002
+    ],
+    "opus": [
+     true,
+     0.140859
+    ],
+    "sonnet": [
+     true,
+     0.053892
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-12": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.01,
+   "pred_kind": "planning",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00398562
+    ],
+    "luna": [
+     true,
+     0.0016477600000000003
+    ],
+    "opus": [
+     true,
+     0.1289148
+    ],
+    "sonnet": [
+     true,
+     0.048628
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-plan-13": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.98,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.01033241
+    ],
+    "luna": [
+     true,
+     0.006995200000000001
+    ],
+    "opus": [
+     true,
+     0.3330282
+    ],
+    "sonnet": [
+     true,
+     0.07482
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-14": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.98,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.006165950000000001
+    ],
+    "luna": [
+     true,
+     0.005972760000000001
+    ],
+    "opus": [
+     true,
+     0.19277460000000002
+    ],
+    "sonnet": [
+     true,
+     0.08653419999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-15": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.54,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00834362
+    ],
+    "luna": [
+     true,
+     0.006724719999999999
+    ],
+    "opus": [
+     true,
+     0.2733514
+    ],
+    "sonnet": [
+     true,
+     0.070994
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-16": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00934654
+    ],
+    "luna": [
+     false,
+     0.0052984
+    ],
+    "opus": [
+     true,
+     0.2651886
+    ],
+    "sonnet": [
+     true,
+     0.066802
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-17": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.97,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00431375
+    ],
+    "luna": [
+     false,
+     0.00417088
+    ],
+    "opus": [
+     true,
+     0.14347220000000002
+    ],
+    "sonnet": [
+     true,
+     0.056568
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-18": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.5,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00420917
+    ],
+    "luna": [
+     false,
+     0.00458288
+    ],
+    "opus": [
+     true,
+     0.150827
+    ],
+    "sonnet": [
+     true,
+     0.056998
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-plan-19": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": null,
+   "pred_kind": "writing",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.0067635
+    ],
+    "luna": [
+     true,
+     0.00517792
+    ],
+    "opus": [
+     true,
+     0.2516994
+    ],
+    "sonnet": [
+     true,
+     0.07982
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-20": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.008636310000000001
+    ],
+    "luna": [
+     false,
+     0.00615208
+    ],
+    "opus": [
+     true,
+     0.4044892
+    ],
+    "sonnet": [
+     true,
+     0.081594
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-21": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.9,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00636138
+    ],
+    "luna": [
+     false,
+     0.0069882799999999995
+    ],
+    "opus": [
+     true,
+     0.243828
+    ],
+    "sonnet": [
+     true,
+     0.072456
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-22": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00866928
+    ],
+    "luna": [
+     true,
+     0.0018005999999999999
+    ],
+    "opus": [
+     true,
+     0.253868
+    ],
+    "sonnet": [
+     true,
+     0.06693
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-plan-23": {
+   "family": "rh-plan",
+   "kind": "planning",
+   "pred_difficulty": 0.99,
+   "pred_kind": "planning",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0044923
+    ],
+    "luna": [
+     false,
+     0.0060666800000000005
+    ],
+    "opus": [
+     true,
+     0.191372
+    ],
+    "sonnet": [
+     true,
+     0.075322
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-refactor-01": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.9,
+   "pred_kind": "refactoring",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0134222
+    ],
+    "luna": [
+     false,
+     0.01036104
+    ],
+    "opus": [
+     false,
+     0.2439906
+    ],
+    "sonnet": [
+     true,
+     0.14294079999999998
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-02": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     false,
+     0.009059290000000001
+    ],
+    "luna": [
+     true,
+     0.005718440000000001
+    ],
+    "opus": [
+     true,
+     0.2674026
+    ],
+    "sonnet": [
+     true,
+     0.098158
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-03": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.5,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.01580445
+    ],
+    "luna": [
+     true,
+     0.010133719999999999
+    ],
+    "opus": [
+     false,
+     0.36122340000000003
+    ],
+    "sonnet": [
+     true,
+     0.11477419999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-04": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.46,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00797302
+    ],
+    "luna": [
+     false,
+     0.00661628
+    ],
+    "opus": [
+     true,
+     0.2355638
+    ],
+    "sonnet": [
+     true,
+     0.1107542
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-05": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.62,
+   "pred_kind": "refactoring",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.01001363
+    ],
+    "luna": [
+     false,
+     0.01518112
+    ],
+    "opus": [
+     true,
+     0.5141766
+    ],
+    "sonnet": [
+     true,
+     0.13923660000000002
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-refactor-06": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.0,
+   "pred_kind": "refactoring",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.01032733
+    ],
+    "luna": [
+     false,
+     0.008879599999999998
+    ],
+    "opus": [
+     false,
+     0.21990379999999998
+    ],
+    "sonnet": [
+     true,
+     0.11011739999999999
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-07": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.32,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.004443440000000001
+    ],
+    "luna": [
+     false,
+     0.0039061599999999997
+    ],
+    "opus": [
+     true,
+     0.14571920000000002
+    ],
+    "sonnet": [
+     true,
+     0.0744988
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-08": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.5,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00494641
+    ],
+    "luna": [
+     true,
+     0.00329968
+    ],
+    "opus": [
+     true,
+     0.19436
+    ],
+    "sonnet": [
+     true,
+     0.0739252
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-09": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.17,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00737752
+    ],
+    "luna": [
+     false,
+     0.0064916
+    ],
+    "opus": [
+     false,
+     0.1801398
+    ],
+    "sonnet": [
+     true,
+     0.0858178
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-10": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.5,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0058113900000000005
+    ],
+    "luna": [
+     true,
+     0.0049285200000000005
+    ],
+    "opus": [
+     true,
+     0.2126024
+    ],
+    "sonnet": [
+     true,
+     0.1039944
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-11": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": null,
+   "pred_kind": "refactoring",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.005941780000000001
+    ],
+    "luna": [
+     false,
+     0.00470668
+    ],
+    "opus": [
+     true,
+     0.2240158
+    ],
+    "sonnet": [
+     true,
+     0.0856636
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-refactor-12": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": null,
+   "pred_kind": "architecture",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.02984225
+    ],
+    "luna": [
+     false,
+     0.01808264
+    ],
+    "opus": [
+     true,
+     0.398019
+    ],
+    "sonnet": [
+     false,
+     0.1399544
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-13": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.51,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00799967
+    ],
+    "luna": [
+     false,
+     0.00594796
+    ],
+    "opus": [
+     false,
+     0.21371679999999998
+    ],
+    "sonnet": [
+     true,
+     0.124893
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-14": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.6,
+   "pred_kind": "refactoring",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.00673554
+    ],
+    "luna": [
+     false,
+     0.008257599999999999
+    ],
+    "opus": [
+     false,
+     0.191672
+    ],
+    "sonnet": [
+     false,
+     0.0875586
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-15": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.01,
+   "pred_kind": "refactoring",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.01165765
+    ],
+    "luna": [
+     false,
+     0.010145
+    ],
+    "opus": [
+     true,
+     0.2615706
+    ],
+    "sonnet": [
+     false,
+     0.1395774
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-16": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.5,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.02317679
+    ],
+    "luna": [
+     false,
+     0.02005924
+    ],
+    "opus": [
+     false,
+     0.4806352
+    ],
+    "sonnet": [
+     false,
+     0.218166
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-17": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.55,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0127382
+    ],
+    "luna": [
+     false,
+     0.0146498
+    ],
+    "opus": [
+     true,
+     0.26662040000000004
+    ],
+    "sonnet": [
+     true,
+     0.1313028
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-refactor-18": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.67,
+   "pred_kind": "refactoring",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.03816928
+    ],
+    "luna": [
+     false,
+     0.01607892
+    ],
+    "opus": [
+     true,
+     0.5924508
+    ],
+    "sonnet": [
+     true,
+     0.27714059999999996
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-refactor-19": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.5,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.01790908
+    ],
+    "luna": [
+     false,
+     0.01303316
+    ],
+    "opus": [
+     false,
+     0.5123856
+    ],
+    "sonnet": [
+     true,
+     0.12425539999999999
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-refactor-20": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": null,
+   "pred_kind": "debugging",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.01828938
+    ],
+    "luna": [
+     false,
+     0.00834012
+    ],
+    "opus": [
+     false,
+     0.4288294
+    ],
+    "sonnet": [
+     true,
+     0.130244
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-refactor-21": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.92,
+   "pred_kind": "refactoring",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.01078512
+    ],
+    "luna": [
+     false,
+     0.02126132
+    ],
+    "opus": [
+     false,
+     0.47769659999999997
+    ],
+    "sonnet": [
+     false,
+     0.14497179999999998
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-refactor-22": {
+   "family": "rh-refactor",
+   "kind": "refactoring",
+   "pred_difficulty": 0.5,
+   "pred_kind": "refactoring",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.04876603
+    ],
+    "luna": [
+     false,
+     0.013435279999999999
+    ],
+    "opus": [
+     true,
+     1.0280234
+    ],
+    "sonnet": [
+     true,
+     0.139538
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-research-01": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0037678
+    ],
+    "luna": [
+     false,
+     0.0042722
+    ],
+    "opus": [
+     true,
+     0.1118428
+    ],
+    "sonnet": [
+     true,
+     0.061316
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-02": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.98,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0031355
+    ],
+    "luna": [
+     true,
+     0.001013
+    ],
+    "opus": [
+     true,
+     0.1146108
+    ],
+    "sonnet": [
+     true,
+     0.061768
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-03": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00681696
+    ],
+    "luna": [
+     false,
+     0.004945
+    ],
+    "opus": [
+     true,
+     0.16806220000000002
+    ],
+    "sonnet": [
+     true,
+     0.060346
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-04": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.96,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.003432
+    ],
+    "luna": [
+     false,
+     0.0032905600000000005
+    ],
+    "opus": [
+     true,
+     0.156876
+    ],
+    "sonnet": [
+     true,
+     0.055392
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-05": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0041951
+    ],
+    "luna": [
+     false,
+     0.004939280000000001
+    ],
+    "opus": [
+     true,
+     0.154165
+    ],
+    "sonnet": [
+     true,
+     0.064092
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-research-06": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.01,
+   "pred_kind": "general",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.0026444
+    ],
+    "luna": [
+     false,
+     0.0008046
+    ],
+    "opus": [
+     true,
+     0.0966468
+    ],
+    "sonnet": [
+     true,
+     0.047164
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-07": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.49,
+   "pred_kind": "general",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0035733
+    ],
+    "luna": [
+     true,
+     0.0011518000000000001
+    ],
+    "opus": [
+     true,
+     0.1161508
+    ],
+    "sonnet": [
+     true,
+     0.060962
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-08": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.51,
+   "pred_kind": "architecture",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0029146000000000003
+    ],
+    "luna": [
+     true,
+     0.0007908
+    ],
+    "opus": [
+     true,
+     0.09685880000000001
+    ],
+    "sonnet": [
+     true,
+     0.048196
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-09": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.5,
+   "pred_kind": "research",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0032535
+    ],
+    "luna": [
+     true,
+     0.001051
+    ],
+    "opus": [
+     true,
+     0.1115908
+    ],
+    "sonnet": [
+     true,
+     0.05243
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-10": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.002416
+    ],
+    "luna": [
+     false,
+     0.00223728
+    ],
+    "opus": [
+     false,
+     0.0905748
+    ],
+    "sonnet": [
+     false,
+     0.045792
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-11": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.5,
+   "pred_kind": "research",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.0026123
+    ],
+    "luna": [
+     false,
+     0.0024468000000000003
+    ],
+    "opus": [
+     false,
+     0.0953948
+    ],
+    "sonnet": [
+     false,
+     0.047566
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-research-12": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.95,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.0076974899999999995
+    ],
+    "luna": [
+     false,
+     0.00447732
+    ],
+    "opus": [
+     true,
+     0.1825914
+    ],
+    "sonnet": [
+     false,
+     0.067142
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-13": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.98,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0038908000000000002
+    ],
+    "luna": [
+     true,
+     0.0023022
+    ],
+    "opus": [
+     false,
+     0.1429796
+    ],
+    "sonnet": [
+     true,
+     0.053664
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-14": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.73,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0033938
+    ],
+    "luna": [
+     true,
+     0.0017217599999999997
+    ],
+    "opus": [
+     true,
+     0.11832680000000001
+    ],
+    "sonnet": [
+     true,
+     0.056284
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-15": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.004357700000000001
+    ],
+    "luna": [
+     false,
+     0.0041486399999999994
+    ],
+    "opus": [
+     true,
+     0.1928236
+    ],
+    "sonnet": [
+     true,
+     0.063146
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-16": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.97,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0041251000000000005
+    ],
+    "luna": [
+     true,
+     0.00792528
+    ],
+    "opus": [
+     true,
+     0.17293820000000001
+    ],
+    "sonnet": [
+     true,
+     0.064508
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-17": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.5,
+   "pred_kind": "architecture",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00364
+    ],
+    "luna": [
+     true,
+     0.0013978
+    ],
+    "opus": [
+     true,
+     0.1094788
+    ],
+    "sonnet": [
+     true,
+     0.053692
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-18": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.94,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.005336200000000001
+    ],
+    "luna": [
+     false,
+     0.00287976
+    ],
+    "opus": [
+     true,
+     0.14577479999999998
+    ],
+    "sonnet": [
+     true,
+     0.060672
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-research-19": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.99,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.004574600000000001
+    ],
+    "luna": [
+     true,
+     0.0021631999999999997
+    ],
+    "opus": [
+     true,
+     0.173601
+    ],
+    "sonnet": [
+     true,
+     0.075962
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-research-20": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.98,
+   "pred_kind": "architecture",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.004147200000000001
+    ],
+    "luna": [
+     false,
+     0.004772360000000001
+    ],
+    "opus": [
+     true,
+     0.1739466
+    ],
+    "sonnet": [
+     true,
+     0.064722
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-research-21": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.51,
+   "pred_kind": "architecture",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0041042000000000006
+    ],
+    "luna": [
+     true,
+     0.00465416
+    ],
+    "opus": [
+     true,
+     0.2040216
+    ],
+    "sonnet": [
+     true,
+     0.06055
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-research-22": {
+   "family": "rh-research",
+   "kind": "research",
+   "pred_difficulty": 0.92,
+   "pred_kind": "research",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0052075
+    ],
+    "luna": [
+     false,
+     0.01031556
+    ],
+    "opus": [
+     true,
+     0.239721
+    ],
+    "sonnet": [
+     true,
+     0.075788
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-review-01": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.007835680000000001
+    ],
+    "luna": [
+     true,
+     0.00271176
+    ],
+    "opus": [
+     true,
+     0.1719904
+    ],
+    "sonnet": [
+     true,
+     0.0790986
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-02": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": null,
+   "pred_kind": "code_review",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00591771
+    ],
+    "luna": [
+     true,
+     0.00325704
+    ],
+    "opus": [
+     true,
+     0.1958018
+    ],
+    "sonnet": [
+     true,
+     0.0758148
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-03": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.93,
+   "pred_kind": "code_review",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00620482
+    ],
+    "luna": [
+     false,
+     0.00220096
+    ],
+    "opus": [
+     true,
+     0.186054
+    ],
+    "sonnet": [
+     true,
+     0.07601619999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-04": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00657315
+    ],
+    "luna": [
+     true,
+     0.0039248
+    ],
+    "opus": [
+     true,
+     0.1824988
+    ],
+    "sonnet": [
+     true,
+     0.0782044
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-05": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.99,
+   "pred_kind": "code_review",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00761938
+    ],
+    "luna": [
+     true,
+     0.0048461599999999995
+    ],
+    "opus": [
+     true,
+     0.2267952
+    ],
+    "sonnet": [
+     true,
+     0.0805622
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-review-06": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": null,
+   "pred_kind": "code_review",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.005432220000000001
+    ],
+    "luna": [
+     false,
+     0.0016409600000000001
+    ],
+    "opus": [
+     true,
+     0.1556078
+    ],
+    "sonnet": [
+     true,
+     0.0759562
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-07": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.49,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.004396700000000001
+    ],
+    "luna": [
+     true,
+     0.00174696
+    ],
+    "opus": [
+     true,
+     0.1434154
+    ],
+    "sonnet": [
+     true,
+     0.0654824
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-08": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00837309
+    ],
+    "luna": [
+     false,
+     0.00824452
+    ],
+    "opus": [
+     true,
+     0.3656446
+    ],
+    "sonnet": [
+     true,
+     0.0826262
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-09": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00518958
+    ],
+    "luna": [
+     true,
+     0.0031937600000000003
+    ],
+    "opus": [
+     true,
+     0.1815258
+    ],
+    "sonnet": [
+     true,
+     0.0778002
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-10": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.48,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00449724
+    ],
+    "luna": [
+     true,
+     0.00225484
+    ],
+    "opus": [
+     false,
+     0.15053139999999998
+    ],
+    "sonnet": [
+     true,
+     0.06719839999999999
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-11": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00515966
+    ],
+    "luna": [
+     true,
+     0.00185396
+    ],
+    "opus": [
+     true,
+     0.15314
+    ],
+    "sonnet": [
+     true,
+     0.0704096
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-review-12": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00562924
+    ],
+    "luna": [
+     true,
+     0.00466832
+    ],
+    "opus": [
+     true,
+     0.1801472
+    ],
+    "sonnet": [
+     true,
+     0.074535
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-13": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00866908
+    ],
+    "luna": [
+     true,
+     0.0038685600000000005
+    ],
+    "opus": [
+     true,
+     0.1656094
+    ],
+    "sonnet": [
+     true,
+     0.11150739999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-14": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.004729389999999999
+    ],
+    "luna": [
+     true,
+     0.0018821600000000001
+    ],
+    "opus": [
+     true,
+     0.15498520000000002
+    ],
+    "sonnet": [
+     true,
+     0.0726474
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-15": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.48,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.004239460000000001
+    ],
+    "luna": [
+     true,
+     0.00258332
+    ],
+    "opus": [
+     true,
+     0.165797
+    ],
+    "sonnet": [
+     true,
+     0.08005419999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-16": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.54,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00656675
+    ],
+    "luna": [
+     true,
+     0.0020159600000000002
+    ],
+    "opus": [
+     true,
+     0.1745736
+    ],
+    "sonnet": [
+     true,
+     0.0698094
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-17": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.007663530000000001
+    ],
+    "luna": [
+     false,
+     0.0027086
+    ],
+    "opus": [
+     true,
+     0.1707144
+    ],
+    "sonnet": [
+     true,
+     0.0770612
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-review-18": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.47,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.014080380000000002
+    ],
+    "luna": [
+     true,
+     0.004565799999999999
+    ],
+    "opus": [
+     true,
+     0.214739
+    ],
+    "sonnet": [
+     true,
+     0.09079580000000001
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-review-19": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.73,
+   "pred_kind": "code_review",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.005758630000000001
+    ],
+    "luna": [
+     false,
+     0.00476348
+    ],
+    "opus": [
+     true,
+     0.17274520000000002
+    ],
+    "sonnet": [
+     true,
+     0.07869
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-review-20": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": 0.49,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00666059
+    ],
+    "luna": [
+     true,
+     0.006184
+    ],
+    "opus": [
+     true,
+     0.2098584
+    ],
+    "sonnet": [
+     true,
+     0.081763
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-review-21": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": null,
+   "pred_kind": "code_review",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00594882
+    ],
+    "luna": [
+     true,
+     0.00307824
+    ],
+    "opus": [
+     true,
+     0.16682139999999998
+    ],
+    "sonnet": [
+     true,
+     0.07854639999999999
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-review-22": {
+   "family": "rh-review",
+   "kind": "code_review",
+   "pred_difficulty": null,
+   "pred_kind": "architecture",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00563323
+    ],
+    "luna": [
+     true,
+     0.00338112
+    ],
+    "opus": [
+     true,
+     0.1828858
+    ],
+    "sonnet": [
+     false,
+     0.0818594
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-tool-01": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": null,
+   "pred_kind": "research",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     false,
+     0.00519349
+    ],
+    "luna": [
+     true,
+     0.00277048
+    ],
+    "opus": [
+     false,
+     0.144104
+    ],
+    "sonnet": [
+     false,
+     0.0849602
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-tool-03": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0038663400000000002
+    ],
+    "luna": [
+     true,
+     0.00217728
+    ],
+    "opus": [
+     true,
+     0.1351822
+    ],
+    "sonnet": [
+     true,
+     0.06434240000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-04": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00479506
+    ],
+    "luna": [
+     true,
+     0.00280852
+    ],
+    "opus": [
+     false,
+     0.1491738
+    ],
+    "sonnet": [
+     false,
+     0.0770464
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-05": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": null,
+   "pred_kind": "code_generation",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     false,
+     0.010801709999999999
+    ],
+    "luna": [
+     false,
+     0.0121506
+    ],
+    "opus": [
+     true,
+     0.2865592
+    ],
+    "sonnet": [
+     false,
+     0.13359320000000002
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-tool-06": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.03,
+   "pred_kind": "data_analysis",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     false,
+     0.00328748
+    ],
+    "luna": [
+     false,
+     0.0012303600000000002
+    ],
+    "opus": [
+     false,
+     0.1183298
+    ],
+    "sonnet": [
+     false,
+     0.0592366
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-tool-07": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.0037301900000000004
+    ],
+    "luna": [
+     true,
+     0.00188924
+    ],
+    "opus": [
+     true,
+     0.1288408
+    ],
+    "sonnet": [
+     true,
+     0.0658402
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-tool-08": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.49,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00334607
+    ],
+    "luna": [
+     true,
+     0.00144076
+    ],
+    "opus": [
+     true,
+     0.120521
+    ],
+    "sonnet": [
+     false,
+     0.0676638
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-tool-09": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.01,
+   "pred_kind": "data_analysis",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00380815
+    ],
+    "luna": [
+     true,
+     0.00159676
+    ],
+    "opus": [
+     false,
+     0.138413
+    ],
+    "sonnet": [
+     true,
+     0.0664522
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-tool-10": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.25,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00347844
+    ],
+    "luna": [
+     false,
+     0.0030816800000000003
+    ],
+    "opus": [
+     false,
+     0.1259084
+    ],
+    "sonnet": [
+     false,
+     0.0786878
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-tool-11": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00513779
+    ],
+    "luna": [
+     false,
+     0.0032494800000000003
+    ],
+    "opus": [
+     false,
+     0.1642764
+    ],
+    "sonnet": [
+     false,
+     0.0797542
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-12": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.004861790000000001
+    ],
+    "luna": [
+     false,
+     0.006497200000000001
+    ],
+    "opus": [
+     true,
+     0.171522
+    ],
+    "sonnet": [
+     true,
+     0.0781214
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-13": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": null,
+   "pred_kind": "code_generation",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.00560642
+    ],
+    "luna": [
+     true,
+     0.0031096400000000003
+    ],
+    "opus": [
+     true,
+     0.1704114
+    ],
+    "sonnet": [
+     true,
+     0.0710184
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-14": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": null,
+   "pred_kind": "research",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.005774
+    ],
+    "luna": [
+     true,
+     0.01081984
+    ],
+    "opus": [
+     true,
+     0.172341
+    ],
+    "sonnet": [
+     true,
+     0.0842416
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-15": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0061945
+    ],
+    "luna": [
+     true,
+     0.0037338000000000002
+    ],
+    "opus": [
+     true,
+     0.152563
+    ],
+    "sonnet": [
+     true,
+     0.08425719999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-16": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "data_analysis",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.0039466300000000005
+    ],
+    "luna": [
+     true,
+     0.0021707600000000003
+    ],
+    "opus": [
+     true,
+     0.1451806
+    ],
+    "sonnet": [
+     true,
+     0.06624680000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-17": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.01,
+   "pred_kind": "data_analysis",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.005534140000000001
+    ],
+    "luna": [
+     false,
+     0.00203352
+    ],
+    "opus": [
+     true,
+     0.167331
+    ],
+    "sonnet": [
+     true,
+     0.0718352
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-tool-18": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.49,
+   "pred_kind": "debugging",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00655066
+    ],
+    "luna": [
+     false,
+     0.00512948
+    ],
+    "opus": [
+     true,
+     0.16740660000000002
+    ],
+    "sonnet": [
+     true,
+     0.0831272
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-tool-19": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.53,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.02314166
+    ],
+    "luna": [
+     false,
+     0.0168882
+    ],
+    "opus": [
+     true,
+     0.3226602
+    ],
+    "sonnet": [
+     true,
+     0.1384618
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-tool-20": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.5,
+   "pred_kind": "code_review",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.01027731
+    ],
+    "luna": [
+     false,
+     0.00664456
+    ],
+    "opus": [
+     true,
+     0.295509
+    ],
+    "sonnet": [
+     true,
+     0.123377
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-tool-21": {
+   "family": "rh-tool",
+   "kind": "tool_use",
+   "pred_difficulty": 0.51,
+   "pred_kind": "code_generation",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.01406373
+    ],
+    "luna": [
+     false,
+     0.026450440000000002
+    ],
+    "opus": [
+     false,
+     0.2612098
+    ],
+    "sonnet": [
+     false,
+     0.1420784
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-writing-01": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.0,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00433466
+    ],
+    "luna": [
+     true,
+     0.0031816400000000003
+    ],
+    "opus": [
+     true,
+     0.1454052
+    ],
+    "sonnet": [
+     true,
+     0.0671312
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-02": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.41,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00330373
+    ],
+    "luna": [
+     false,
+     0.0016932400000000002
+    ],
+    "opus": [
+     true,
+     0.1303972
+    ],
+    "sonnet": [
+     true,
+     0.043998
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-03": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.96,
+   "pred_kind": "writing",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     false,
+     0.004846780000000001
+    ],
+    "luna": [
+     false,
+     0.00356408
+    ],
+    "opus": [
+     true,
+     0.1799206
+    ],
+    "sonnet": [
+     true,
+     0.0807532
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-05": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.98,
+   "pred_kind": "writing",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.0075084800000000005
+    ],
+    "luna": [
+     true,
+     0.005206200000000001
+    ],
+    "opus": [
+     true,
+     0.33331859999999996
+    ],
+    "sonnet": [
+     true,
+     0.091486
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-writing-06": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.00394624
+    ],
+    "luna": [
+     false,
+     0.0007612000000000001
+    ],
+    "opus": [
+     true,
+     0.11970360000000001
+    ],
+    "sonnet": [
+     true,
+     0.044528
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-07": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.0023429
+    ],
+    "luna": [
+     true,
+     0.0007194
+    ],
+    "opus": [
+     true,
+     0.0852468
+    ],
+    "sonnet": [
+     true,
+     0.042816
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-08": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     false,
+     0.0037692600000000004
+    ],
+    "luna": [
+     false,
+     0.00216916
+    ],
+    "opus": [
+     true,
+     0.13620020000000002
+    ],
+    "sonnet": [
+     false,
+     0.0597374
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-09": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.005096890000000001
+    ],
+    "luna": [
+     true,
+     0.00269308
+    ],
+    "opus": [
+     true,
+     0.1177986
+    ],
+    "sonnet": [
+     true,
+     0.044404
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-10": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.0022618
+    ],
+    "luna": [
+     true,
+     0.0006917999999999999
+    ],
+    "opus": [
+     true,
+     0.0835548
+    ],
+    "sonnet": [
+     true,
+     0.041822
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-11": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.01,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.003952560000000001
+    ],
+    "luna": [
+     false,
+     0.00333008
+    ],
+    "opus": [
+     true,
+     0.1500678
+    ],
+    "sonnet": [
+     false,
+     0.046604
+    ]
+   },
+   "tier": "simple"
+  },
+  "rh-writing-12": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.5,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.0058144799999999995
+    ],
+    "luna": [
+     false,
+     0.00467072
+    ],
+    "opus": [
+     false,
+     0.239878
+    ],
+    "sonnet": [
+     false,
+     0.0820038
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-13": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.5,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.009201299999999999
+    ],
+    "luna": [
+     false,
+     0.00557852
+    ],
+    "opus": [
+     false,
+     0.290226
+    ],
+    "sonnet": [
+     false,
+     0.1017976
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-14": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.54,
+   "pred_kind": "architecture",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00627767
+    ],
+    "luna": [
+     false,
+     0.00449484
+    ],
+    "opus": [
+     true,
+     0.236434
+    ],
+    "sonnet": [
+     true,
+     0.09729639999999999
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-15": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": null,
+   "pred_kind": "writing",
+   "pred_tier": null,
+   "runs": {
+    "haiku": [
+     true,
+     0.004875610000000001
+    ],
+    "luna": [
+     true,
+     0.00477992
+    ],
+    "opus": [
+     true,
+     0.1907962
+    ],
+    "sonnet": [
+     true,
+     0.0882672
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-16": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.04,
+   "pred_kind": "writing",
+   "pred_tier": "simple",
+   "runs": {
+    "haiku": [
+     true,
+     0.0052863400000000005
+    ],
+    "luna": [
+     false,
+     0.0037888
+    ],
+    "opus": [
+     true,
+     0.19265
+    ],
+    "sonnet": [
+     true,
+     0.07941160000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-17": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.51,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.008567479999999999
+    ],
+    "luna": [
+     false,
+     0.00634612
+    ],
+    "opus": [
+     false,
+     0.35121779999999997
+    ],
+    "sonnet": [
+     false,
+     0.10845880000000001
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-18": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.62,
+   "pred_kind": "writing",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.00536511
+    ],
+    "luna": [
+     false,
+     0.00323468
+    ],
+    "opus": [
+     true,
+     0.1089388
+    ],
+    "sonnet": [
+     true,
+     0.052234
+    ]
+   },
+   "tier": "normal"
+  },
+  "rh-writing-19": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.51,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00772501
+    ],
+    "luna": [
+     false,
+     0.00493688
+    ],
+    "opus": [
+     true,
+     0.24358739999999998
+    ],
+    "sonnet": [
+     false,
+     0.0926358
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-writing-20": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.5,
+   "pred_kind": "writing",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     true,
+     0.00594
+    ],
+    "luna": [
+     false,
+     0.00548372
+    ],
+    "opus": [
+     false,
+     0.249507
+    ],
+    "sonnet": [
+     true,
+     0.06063
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-writing-21": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.5,
+   "pred_kind": "planning",
+   "pred_tier": "normal",
+   "runs": {
+    "haiku": [
+     false,
+     0.00700189
+    ],
+    "luna": [
+     false,
+     0.00404728
+    ],
+    "opus": [
+     true,
+     0.2519902
+    ],
+    "sonnet": [
+     true,
+     0.097536
+    ]
+   },
+   "tier": "demanding"
+  },
+  "rh-writing-22": {
+   "family": "rh-writing",
+   "kind": "writing",
+   "pred_difficulty": 0.71,
+   "pred_kind": "writing",
+   "pred_tier": "demanding",
+   "runs": {
+    "haiku": [
+     true,
+     0.01021962
+    ],
+    "luna": [
+     false,
+     0.00768724
+    ],
+    "opus": [
+     true,
+     0.35241059999999996
+    ],
+    "sonnet": [
+     true,
+     0.1289076
+    ]
+   },
+   "tier": "demanding"
+  }
+ }
+}
