@@ -1,10 +1,8 @@
 name: cli-compat
 # Provider CLIs ship often and Nectra relies on their flags, settings files and
-# terminal behaviour, so check every day against their latest releases.
-on:
-  schedule:
-    - cron: "17 7 * * *"
-  workflow_dispatch:
+# terminal behaviour. Run this by hand against their latest releases; it no
+# longer runs on a schedule (GitHub Actions is for releases only).
+on: workflow_dispatch
 permissions:
   contents: read
 jobs:

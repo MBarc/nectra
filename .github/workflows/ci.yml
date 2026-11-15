@@ -1,5 +1,7 @@
 name: ci
-on: [push, pull_request]
+# CI runs on builder (the merge gate); GitHub Actions is for releases only.
+# Run this by hand from the Actions tab when wanted.
+on: workflow_dispatch
 permissions:
   contents: read
 jobs:

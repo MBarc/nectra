@@ -517,8 +517,10 @@ cargo build --release --locked
 ```
 
 Commit `Cargo.lock` for reproducible dependency resolution. The repository has
-GitHub Actions workflows for CI, tagged releases and a daily check against the
-latest provider CLIs, but Actions is not running on this repository yet.
+GitHub Actions workflows for CI, tagged releases and a check against the latest
+provider CLIs. The CI and CLI-compat workflows run only when dispatched by hand;
+the merge gate (fmt, clippy `-D warnings`, tests) is run locally on the build
+machine. Actions is used for tagged releases.
 Releases are currently built by hand: Windows x64, Linux x64 and macOS Intel and
 Apple Silicon archives, each with a SHA-256 sidecar.
 
