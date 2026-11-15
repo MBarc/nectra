@@ -17,13 +17,15 @@ use std::{
     time::Duration,
 };
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, LocalFree, GetLastError, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE},
+    Foundation::{
+        CloseHandle, GetLastError, LocalFree, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE,
+    },
     Security::{
         Authorization::{
-            ConvertSidToStringSidW, GetSecurityInfo, SE_KERNEL_OBJECT, ConvertStringSecurityDescriptorToSecurityDescriptorW,
-            SDDL_REVISION_1,
+            ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
+            GetSecurityInfo, SDDL_REVISION_1, SE_KERNEL_OBJECT,
         },
-        EqualSid, GetTokenInformation, OWNER_SECURITY_INFORMATION, TokenUser, SECURITY_ATTRIBUTES,
+        EqualSid, GetTokenInformation, TokenUser, OWNER_SECURITY_INFORMATION, SECURITY_ATTRIBUTES,
         TOKEN_QUERY, TOKEN_USER,
     },
     Storage::FileSystem::{
@@ -32,13 +34,10 @@ use windows_sys::Win32::{
     },
     System::{
         Pipes::{
-            ConnectNamedPipe, CreateNamedPipeW, WaitNamedPipeW,
-            PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES,
-            PIPE_WAIT,
+            ConnectNamedPipe, CreateNamedPipeW, WaitNamedPipeW, PIPE_READMODE_BYTE,
+            PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
         },
-        Threading::{
-            GetCurrentProcess, OpenProcessToken,
-        },
+        Threading::{GetCurrentProcess, OpenProcessToken},
     },
 };
 
@@ -52,7 +51,8 @@ fn token_user(token: HANDLE) -> Option<Vec<u64>> {
         return None;
     }
     let mut buf = vec![0u64; (len as usize).div_ceil(8)];
-    let ok = unsafe { GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) };
+    let ok =
+        unsafe { GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) };
     (ok != 0).then_some(buf)
 }
 fn sid_of(buf: &[u64]) -> *mut core::ffi::c_void {
@@ -157,8 +157,8 @@ pub fn connect(ep: &Endpoint) -> io::Result<Conn> {
             &mut descriptor,
         )
     };
-    let same = rc == 0
-        && matches!(own_user(), Some(me) if unsafe { EqualSid(sid_of(&me), owner) } != 0);
+    let same =
+        rc == 0 && matches!(own_user(), Some(me) if unsafe { EqualSid(sid_of(&me), owner) } != 0);
     if !descriptor.is_null() {
         unsafe { LocalFree(descriptor) };
     }
@@ -183,7 +183,12 @@ fn create_instance(name: &[u16], sa: &SECURITY_ATTRIBUTES, first: bool) -> io::R
     let h = unsafe {
         CreateNamedPipeW(
             name.as_ptr(),
-            PIPE_ACCESS_DUPLEX | if first { FILE_FLAG_FIRST_PIPE_INSTANCE } else { 0 },
+            PIPE_ACCESS_DUPLEX
+                | if first {
+                    FILE_FLAG_FIRST_PIPE_INSTANCE
+                } else {
+                    0
+                },
             PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
             PIPE_UNLIMITED_INSTANCES,
             64 * 1024,

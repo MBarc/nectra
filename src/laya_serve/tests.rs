@@ -21,9 +21,8 @@ impl Fake {
 }
 fn expected(prompt: &str, previous: Option<&str>, roles: &[&str]) -> Answer {
     let h = sha_hex(&[prompt, previous.unwrap_or("-")]);
-    let f = |i: usize| {
-        u64::from_str_radix(&h[i * 8..i * 8 + 8], 16).unwrap() as f64 / u32::MAX as f64
-    };
+    let f =
+        |i: usize| u64::from_str_radix(&h[i * 8..i * 8 + 8], 16).unwrap() as f64 / u32::MAX as f64;
     Answer {
         task: if f(0) < 0.5 {
             TaskType::Debugging

@@ -1449,8 +1449,7 @@ Connection: close
         fs::write(tampered.path().join("tokenizer_config.json"), b"{}").unwrap();
         let url = serve(tampered.path().to_path_buf());
         let fresh = tempfile::tempdir().unwrap();
-        let err = download_from(&url, fresh.path(), &mut Vec::new())
-            .expect_err("must refuse");
+        let err = download_from(&url, fresh.path(), &mut Vec::new()).expect_err("must refuse");
         assert!(format!("{err:#}").contains("checksum mismatch"), "{err:#}");
         assert!(!fresh
             .path()

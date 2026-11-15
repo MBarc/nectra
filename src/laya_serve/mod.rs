@@ -218,7 +218,10 @@ fn handle(shared: &Shared, conn: os::Conn, endpoint: &Endpoint) {
     let mut reader = BufReader::new(conn);
     while let Ok(Some(line)) = read_line(&mut reader) {
         let reply = match serde_json::from_str::<Request>(&line) {
-            Err(e) => send(&mut writer, &serde_json::json!({"error": format!("bad request: {e}")})),
+            Err(e) => send(
+                &mut writer,
+                &serde_json::json!({"error": format!("bad request: {e}")}),
+            ),
             Ok(Request::Hello) => send(&mut writer, &shared.hello()),
             Ok(Request::Stop) => {
                 shared.stop.store(true, Ordering::SeqCst);
@@ -235,7 +238,14 @@ fn handle(shared: &Shared, conn: os::Conn, endpoint: &Endpoint) {
             }) => {
                 let started = Instant::now();
                 shared.touch();
-                let reply = ask(shared, &prompt, previous.as_deref(), &roles, deadline_ms, started);
+                let reply = ask(
+                    shared,
+                    &prompt,
+                    previous.as_deref(),
+                    &roles,
+                    deadline_ms,
+                    started,
+                );
                 shared.requests.fetch_add(1, Ordering::Relaxed);
                 shared.touch();
                 match reply {
@@ -447,9 +457,12 @@ impl Client {
         // Backstop for transports with no read timeout.
         match rx.recv_timeout(self.hello_timeout + self.timeout + Duration::from_millis(500)) {
             Ok(step) => step,
-            Err(_) if phase.load(Ordering::SeqCst) == IN_ASK => Step::Outcome(Outcome::Failed(
-                format!("Laya timed out: no answer within {} ms", self.timeout.as_millis()),
-            )),
+            Err(_) if phase.load(Ordering::SeqCst) == IN_ASK => {
+                Step::Outcome(Outcome::Failed(format!(
+                    "Laya timed out: no answer within {} ms",
+                    self.timeout.as_millis()
+                )))
+            }
             Err(_) => Step::Outcome(Outcome::Local("the server does not answer".into())),
         }
     }
@@ -518,7 +531,8 @@ fn exchange(
         Err(e) if matches!(e.kind(), NotFound | ConnectionRefused) => return Step::Absent,
         Err(e) => return Step::Outcome(Outcome::Local(format!("cannot connect: {e}"))),
     };
-    let broken = |e: std::io::Error| Step::Outcome(Outcome::Local(format!("the server failed: {e}")));
+    let broken =
+        |e: std::io::Error| Step::Outcome(Outcome::Local(format!("the server failed: {e}")));
     let _ = conn.set_timeout(hello_timeout);
     let Ok(mut writer) = conn.try_clone() else {
         return Step::Outcome(Outcome::Local("cannot duplicate the connection".into()));
@@ -530,7 +544,9 @@ fn exchange(
     let hello = match read_line(&mut reader) {
         Ok(Some(line)) => match serde_json::from_str::<Hello>(&line) {
             Ok(h) => h,
-            Err(_) => return Step::Outcome(Outcome::Local("the server speaks another protocol".into())),
+            Err(_) => {
+                return Step::Outcome(Outcome::Local("the server speaks another protocol".into()))
+            }
         },
         // Exited between our connect and its answer (idle exit): not running.
         Ok(None) => return Step::Absent,
@@ -559,7 +575,7 @@ fn exchange(
             return Step::Outcome(Outcome::Local(format!(
                 "the server failed to load the model: {}",
                 hello.error.unwrap_or_default()
-            )))
+            )));
         }
         _ => return Step::Loading,
     }
@@ -581,16 +597,24 @@ fn exchange(
         Ok(Some(line)) => match serde_json::from_str::<Reply>(&line) {
             Ok(Reply::Answer(a)) => Step::Answer(a),
             Ok(Reply::Error { error }) if error == "loading" => Step::Loading,
-            Ok(Reply::Error { error }) if error.starts_with("timed out") => Step::Outcome(
-                Outcome::Failed(format!("Laya timed out: no answer within {} ms", timeout.as_millis())),
-            ),
-            Ok(Reply::Error { error }) => Step::Outcome(Outcome::Failed(format!("Laya failed: {error}"))),
+            Ok(Reply::Error { error }) if error.starts_with("timed out") => {
+                Step::Outcome(Outcome::Failed(format!(
+                    "Laya timed out: no answer within {} ms",
+                    timeout.as_millis()
+                )))
+            }
+            Ok(Reply::Error { error }) => {
+                Step::Outcome(Outcome::Failed(format!("Laya failed: {error}")))
+            }
             Err(_) => Step::Outcome(Outcome::Local("the server sent an unreadable reply".into())),
         },
         Ok(None) => Step::Outcome(Outcome::Local("the server hung up".into())),
-        Err(e) if matches!(e.kind(), WouldBlock | TimedOut) => Step::Outcome(Outcome::Failed(
-            format!("Laya timed out: no answer within {} ms", timeout.as_millis()),
-        )),
+        Err(e) if matches!(e.kind(), WouldBlock | TimedOut) => {
+            Step::Outcome(Outcome::Failed(format!(
+                "Laya timed out: no answer within {} ms",
+                timeout.as_millis()
+            )))
+        }
         Err(e) => broken(e),
     }
 }
@@ -696,7 +720,12 @@ pub fn stop() -> Result<serde_json::Value> {
 fn oneshot(ep: &Endpoint, req: &Request) -> Result<Option<String>> {
     let conn = match os::connect(ep) {
         Ok(c) => c,
-        Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused) => {
+        Err(e)
+            if matches!(
+                e.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
+            ) =>
+        {
             return Ok(None)
         }
         Err(e) => return Err(e).context("connecting to the Laya server"),
