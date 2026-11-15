@@ -43,6 +43,11 @@ fn main() {
     for mode in ["ok", "cancel", "bad"] {
         exercise(mode);
     }
+    // The wine job sets this: wine has no ConPTY to deliver the interrupt.
+    if std::env::var_os("NECTRA_SKIP_PTY").is_some() {
+        println!("skipped: terminal Ctrl+C (needs a real console)");
+        return;
+    }
     exercise_terminal_interrupt(false);
     #[cfg(windows)]
     exercise_terminal_interrupt(true);

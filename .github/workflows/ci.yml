@@ -69,7 +69,11 @@ jobs:
       # PowerShell for junctions, ConPTY and job objects. Wine has none of them
       # (wine's C:\ is the runner's own; the pty fixture's descendant is never
       # seen), so they are skipped here; the windows-latest `test` job runs them.
-      - run: >-
+      - env:
+          # tests/headless.rs scenarios that read win.ini as the sealed index.
+          NECTRA_SKIP_PTY: "1"
+          NECTRA_SKIP_SCENARIOS: "gives Claude the knowledge index;get the index before the prompt;gives Ollama the knowledge index"
+        run: >-
           cargo test --locked --target x86_64-pc-windows-gnu --all-targets --
           --skip knowledge::tests::a_file_its_user_can_write_is_refused
           --skip skills::tests::linking_makes_every_user_skill_visible_to_every_cli

@@ -72,7 +72,14 @@ fn main() {
             serve_refused_knowledge,
         ),
     ];
+    // NECTRA_SKIP_SCENARIOS="a;b": skip scenarios whose name contains one of
+    // these. The wine job skips the ones that need an administrator-owned C:\.
+    let skip = std::env::var("NECTRA_SKIP_SCENARIOS").unwrap_or_default();
     for (name, scenario) in scenarios {
+        if skip.split(';').any(|s| !s.is_empty() && name.contains(s)) {
+            println!("skipped: {name}");
+            continue;
+        }
         scenario();
         println!("ok: {name}");
     }
@@ -992,8 +999,10 @@ fn serve_ollama_knowledge() {
 fn ollama_serve(index: Option<&Path>) -> Vec<Value> {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
+    // Roomy: macOS's /etc/passwd (the knowledge index here) is several KB.
     let server = std::thread::spawn(move || {
-        let show = json!({"capabilities":["completion"],"model_info":{"test.context_length":8192}});
+        let show =
+            json!({"capabilities":["completion"],"model_info":{"test.context_length":131072}});
         let chat = "{\"message\":{\"content\":\"Hello\"},\"done\":false}
 {\"message\":{\"content\":\"!\"},\"done\":true}
 ";
@@ -1045,7 +1054,7 @@ Connection: close
     let ollama = format!(
         "[ollama]
 base_url = \"{url}\"
-models = [{{name = \"test:latest\", context_tokens = 8192}}]
+models = [{{name = \"test:latest\", context_tokens = 131072}}]
 "
     );
     fs::write(&config, text + &ollama).unwrap();

@@ -294,6 +294,8 @@ fn every_decision_is_logged_with_its_outcome_and_the_fallback_linked() {
         &mut backend,
     )
     .unwrap();
+    // Windows byte-range locks are mandatory: release the session's lock before reading its file.
+    drop(session);
     let text = std::fs::read_to_string(&path).unwrap();
     assert!(!text.contains("prompt_text"), "no prompt text by default");
     let logged = nectra::decisions::read_log(&text, "s");
@@ -335,6 +337,8 @@ fn a_switch_after_a_failed_turn_links_to_the_failed_decision() {
         &mut backend,
     )
     .unwrap();
+    // Windows byte-range locks are mandatory: release the session's lock before reading its file.
+    drop(session);
     let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
     assert_eq!(logged.len(), 2, "{logged:?}");
     assert_eq!(
@@ -366,6 +370,8 @@ fn a_switch_after_clear_does_not_link_to_the_earlier_decision() {
         &mut Mock::default(),
     )
     .unwrap();
+    // Windows byte-range locks are mandatory: release the session's lock before reading its file.
+    drop(session);
     let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
     assert_eq!(logged.len(), 2);
     assert!(logged[0].user_action.is_none() && logged[0].follow_up.is_none());
@@ -1292,6 +1298,8 @@ fn a_tool_error_steps_the_task_up_its_ladder_and_links_the_decisions() {
     )
     .unwrap();
     assert_eq!(backend.models, ["haiku", "sonnet"]);
+    // Windows byte-range locks are mandatory: release the session's lock before reading its file.
+    drop(session);
     let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
     assert_eq!(logged.len(), 2, "{logged:?}");
     assert_eq!(
@@ -1379,6 +1387,8 @@ fn a_user_switch_is_logged_as_an_escalation() {
         &mut backend,
     )
     .unwrap();
+    // Windows byte-range locks are mandatory: release the session's lock before reading its file.
+    drop(session);
     let logged = nectra::decisions::read_log(&fs::read_to_string(&path).unwrap(), "s");
     assert_eq!(
         logged[0].user_action,
