@@ -42,6 +42,7 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
     let mut parser = vt100::Parser::new(28, 100, 1000);
     let mut output = Vec::new();
     let start = Instant::now();
+    let mut query_tail: Vec<u8> = Vec::new();
     let mut approved = false;
     let mut inspected = false;
     let mut returned = false;
@@ -52,9 +53,15 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
     while start.elapsed() < Duration::from_secs(30) {
         if let Ok(bytes) = rx.recv_timeout(Duration::from_millis(30)) {
             // On Unix the outer crossterm cursor-position query requires a reply.
-            if bytes.windows(4).any(|w| w == b"\x1b[6n") {
+            // A PTY read may split the four bytes of the query (macOS does, under
+            // load), so look across the chunk boundary and answer every query once;
+            // an unanswered one stalls Nectra's pane for crossterm's two-second timeout.
+            let mut window = query_tail.clone();
+            window.extend_from_slice(&bytes);
+            for _ in 0..window.windows(4).filter(|w| *w == b"\x1b[6n").count() {
                 input.write_all(b"\x1b[28;1R").unwrap();
             }
+            query_tail = window[window.len().saturating_sub(3)..].to_vec();
             parser.process(&bytes);
             output.extend_from_slice(&bytes);
             assert!(output.len() < 4 * 1024 * 1024, "unbounded UI output");
@@ -180,7 +187,7 @@ fn exercise(resize: bool, cancel: bool, undersize: bool) {
     }
     assert!(
         animation_frames.len() >= 2 && approved && returned,
-        "native animation/input was not observed: {}",
+        "native animation/input was not observed (frames {animation_frames:?}, approved {approved}, returned {returned}, status {status:?}): {}",
         String::from_utf8_lossy(&output)
     );
     assert_eq!(
