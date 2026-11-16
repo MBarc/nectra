@@ -598,6 +598,11 @@ fn with_ladder(env: &Env) {
         "data_analysis",
         "general",
     ];
+    // The measured table is opt-in (routing.use_table), as is dropping the default model.
+    let config = env.dir.path().join("config.toml");
+    let routing = fs::read_to_string(&config).unwrap()
+        + "\n[routing]\ndefault_model = \"\"\nuse_table = true\n";
+    fs::write(&config, routing).unwrap();
     let path = env.dir.path().join("models.toml");
     let mut text = fs::read_to_string(&path).unwrap();
     for kind in kinds {

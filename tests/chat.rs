@@ -1,4 +1,11 @@
 use anyhow::{bail, Result};
+
+fn legacy_config(table: bool) -> String {
+    // The scoring heuristic (no default model) and, if asked, the measured table.
+    include_str!("../config/nectra.toml")
+        .replace("default_model = \"haiku\"", "default_model = \"\"")
+        .replace("use_table = false", &format!("use_table = {table}"))
+}
 use nectra::{
     chat::{self, Backend, ChatOptions},
     cli::Mode,
@@ -14,11 +21,7 @@ use std::{
 
 fn fixture() -> (tempfile::TempDir, Config, Registry) {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(false)).unwrap();
     fs::write(
         dir.path().join("models.toml"),
         include_str!("../config/models.toml"),
@@ -890,6 +893,42 @@ fn switching_mid_task_hands_over_a_note_from_the_outgoing_model() {
 }
 
 #[test]
+fn chat_starts_on_haiku_and_the_users_steering_still_moves_it() {
+    // The shipped defaults: no legacy fixture.
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("config.toml"),
+        include_str!("../config/nectra.toml"),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("models.toml"),
+        include_str!("../config/models.toml"),
+    )
+    .unwrap();
+    let cfg = Config::from_path(&dir.path().join("config.toml")).unwrap();
+    let reg = Registry::load(&cfg).unwrap();
+    let mut session = Session::create(&dir.path().join("d.jsonl"), dir.path()).unwrap();
+    let mut backend = Mock::default();
+    chat::run_loop(
+        &cfg,
+        &reg,
+        ChatOptions {
+            mode: Mode::Balanced,
+            ..options()
+        },
+        &mut session,
+        &mut Cursor::new(
+            "fix the failing test in parser.rs\nand the second one\n/model opus\nnow do that again\n/quit\n",
+        ),
+        &mut vec![],
+        &mut backend,
+    )
+    .unwrap();
+    assert_eq!(backend.models, ["haiku", "haiku", "opus"]);
+}
+
+#[test]
 fn mode_best_escapes_a_sticky_cheap_model() {
     let (dir, cfg, reg) = fixture();
     let mut session = Session::create(&dir.path().join("mode.jsonl"), dir.path()).unwrap();
@@ -1257,7 +1296,7 @@ fn fixture_with_ladder(max_escalations: u32) -> (tempfile::TempDir, Config, Regi
         .collect();
     fs::write(
         dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml").replacen(
+        legacy_config(true).replacen(
             "[routing]",
             &format!("[routing]\nmax_escalations = {max_escalations}"),
             1,

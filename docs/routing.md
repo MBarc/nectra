@@ -161,6 +161,40 @@ follow_up}}` in a session log) so a decision is never rewritten; the latest wins
 `follow_up` links a failed decision to the fallback that replaced it, and a decision
 to the `/again` retry or switch that followed it.
 
+## The default route
+
+A plain request goes to **haiku** (`[routing] default_model = "haiku"`, a registry id). Nothing else is
+consulted for it: no classifier verdict, no table. This is what the offline comparison in
+[`eval/calibration/CLASSIFIER-VS-CASCADE.md`](../eval/calibration/CLASSIFIER-VS-CASCADE.md) supports: on 194
+rh-v2 tasks, with the escalation signals a real deployment has (failed turns, or a haiku or sonnet grader reading
+the answer), no routed policy beat always-haiku (150/194 at $0.008 per task). Laya's tier pick and the certified
+table both came out dearer for the same or fewer passes. The calibration numbers that said otherwise assumed a free
+check of every answer.
+
+What still chooses, exactly as before:
+
+- `/model ID`, `--model`, `--provider` and `/provider`;
+- `--mode fast|best` (the default is `balanced`; any other mode scores the models as it always did);
+- demanding wording in the prompt ("complex", "end to end", "escalate", ...);
+- a retry after a failure, `--escalate-from`, `/mode best` and the user switching model mid-task: the failed model
+  is never picked again and the heuristic scoring picks the next one.
+
+If `default_model` is not eligible (for example `--provider openai` leaves it out) the scoring heuristic picks.
+
+**Opt-ins** (nothing was deleted):
+
+```toml
+[routing]
+default_model = ""     # "" turns the default off: the scoring heuristic picks, as in 0.5.0-alpha.2 and earlier
+use_table = true       # consult the measured task x tier table (next section); off by default
+[classifier]
+backend = "laya"       # the local Laya classifier; choosing it also turns the default model off
+```
+
+The table and Laya are meant to be re-enabled when there is data that justifies them: a per-kind table needs
+roughly 124 paired tasks to certify a model cheaper than opus, and a verifier whose recall on strong-model errors is
+well above the 33-44% measured for haiku and sonnet graders.
+
 ## Task x tier table
 
 Laya supplies the task **kind** and a difficulty **tier** with its confidence; a

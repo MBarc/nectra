@@ -169,7 +169,11 @@ pub fn route_summarized_steered(
         difficulty,
         ..
     } = classification;
-    let table_in = table_inputs(task, prompt, classifier, tier, confidence, difficulty, cfg);
+    let table_in = if cfg.inner.routing.use_table {
+        table_inputs(task, prompt, classifier, tier, confidence, difficulty, cfg)
+    } else {
+        None
+    };
     let wanted = provider.map(|p| match p {
         ProviderArg::Anthropic => Provider::Anthropic,
         ProviderArg::Openai => Provider::Openai,
@@ -300,6 +304,28 @@ pub fn route_summarized_steered(
         }
     }
     candidates.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.id.cmp(&b.0.id)));
+    // The default route: a plain request goes to the default model. Anything
+    // the user steered keeps the scoring below: a named model or provider, a
+    // non-balanced mode, demanding wording, a retry after a failure, Laya
+    // opted in (`classifier.backend = "laya"`) or the default turned off.
+    let default_pick = (model.is_none()
+        && wanted.is_none()
+        && mode == Mode::Balanced
+        && !demanding
+        && steer.above.is_none()
+        && steer.attempted.is_empty()
+        && cfg.inner.classifier.backend != crate::config::ClassifierBackend::Laya
+        && !cfg.inner.routing.default_model.is_empty())
+    .then(|| {
+        candidates
+            .iter()
+            .position(|(m, _)| m.id == cfg.inner.routing.default_model)
+    })
+    .flatten();
+    if let Some(at) = default_pick {
+        let picked = candidates.remove(at);
+        candidates.insert(0, picked);
+    }
     // The measured table decides when it has an entry for this kind and tier;
     // a pinned model is the user's word and skips it.
     let ladder = match (&table_in, model.is_none()) {
@@ -324,8 +350,9 @@ pub fn route_summarized_steered(
     }
     let (winner, score) = candidates[0];
     let margin = candidates.get(1).map(|c| (score - c.1).max(0.0));
-    let ambiguous =
-        ladder.is_none() && margin.is_some_and(|m| m < cfg.inner.routing.confidence_margin);
+    let ambiguous = ladder.is_none()
+        && default_pick.is_none()
+        && margin.is_some_and(|m| m < cfg.inner.routing.confidence_margin);
     let overridden = model.is_some() || provider.is_some();
     let reason = format!(
         "{why}; {}{}",
@@ -356,6 +383,11 @@ pub fn route_summarized_steered(
                 } else {
                     String::new()
                 }
+            )
+        } else if default_pick.is_some() {
+            format!(
+                "default model {} (routing.default_model; /model or --model to choose another)",
+                winner.id
             )
         } else if ambiguous {
             "close heuristic scores; use --model to choose explicitly".to_string()
@@ -388,6 +420,8 @@ pub fn route_summarized_steered(
                 ""
             }
         )
+    } else if default_pick.is_some() {
+        "default model".to_string()
     } else if unclaimed {
         "strongest available".to_string()
     } else if ambiguous {

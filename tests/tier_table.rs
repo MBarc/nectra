@@ -11,6 +11,13 @@ use nectra::{
 };
 use std::fs;
 
+fn legacy_config(table: bool) -> String {
+    // The scoring heuristic (no default model) and, if asked, the measured table.
+    include_str!("../config/nectra.toml")
+        .replace("default_model = \"haiku\"", "default_model = \"\"")
+        .replace("use_table = false", &format!("use_table = {table}"))
+}
+
 fn rung(model: &str, pass: f64) -> Rung {
     Rung {
         model: model.into(),
@@ -47,7 +54,7 @@ fn setup(
     classifier: &str,
 ) -> (tempfile::TempDir, Config, Registry) {
     let dir = tempfile::tempdir().unwrap();
-    let mut config = include_str!("../config/nectra.toml").to_string();
+    let mut config = legacy_config(true).to_string();
     config = config.replacen("[routing]", &format!("[routing]\n{routing}"), 1);
     config.push_str(&format!("\n[classifier]\n{classifier}\n"));
     fs::write(dir.path().join("config.toml"), config).unwrap();
@@ -249,11 +256,7 @@ fn a_retry_steps_up_and_stops_at_the_top() {
 fn a_table_naming_an_unknown_model_loses_that_rung_at_load() {
     let bad = vec![entry("normal", &["sonnet", "no-such-model"])];
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(true)).unwrap();
     fs::write(
         dir.path().join("models.toml"),
         table::splice(include_str!("../config/models.toml"), &bad).unwrap(),
@@ -268,11 +271,7 @@ fn a_table_naming_an_unknown_model_loses_that_rung_at_load() {
 #[test]
 fn the_documented_example_imports_and_routes() {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(true)).unwrap();
     fs::write(
         dir.path().join("models.toml"),
         include_str!("../config/models.toml"),
@@ -345,11 +344,7 @@ fn the_documented_example_imports_and_routes() {
 #[test]
 fn an_import_that_would_duplicate_a_hand_written_entry_is_refused() {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(true)).unwrap();
     let hand = "\n[[table]]\nkind = \"debugging\"\ntier = \"normal\"\n[[table.ladder]]\nmodel = \"sonnet\"\nn = 5\npass_rate = 0.5\nci = [0.2, 0.8]\nrun = \"hand\"\n";
     let models = format!("{}{hand}", include_str!("../config/models.toml"));
     fs::write(dir.path().join("models.toml"), &models).unwrap();
@@ -372,11 +367,7 @@ fn an_import_that_would_duplicate_a_hand_written_entry_is_refused() {
 #[test]
 fn a_rung_naming_a_removed_model_is_dropped_with_one_warning_and_import_still_repairs() {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(true)).unwrap();
     let rung = |m: &str| {
         format!(
             "[[table.ladder]]\nmodel = \"{m}\"\nn = 30\npass_rate = 0.8\nci = [0.6, 0.9]\nrun = \"r\"\n"
@@ -484,11 +475,7 @@ fn exhausting_every_candidate_is_an_explicit_ladder_limit() {
 
 fn with_models(extra: &str) -> (tempfile::TempDir, Config, Registry) {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(true)).unwrap();
     fs::write(
         dir.path().join("models.toml"),
         format!("{}\n{extra}", include_str!("../config/models.toml")),
@@ -519,11 +506,7 @@ fn a_model_too_small_for_the_input_is_filtered_out() {
 #[test]
 fn context_tokens_needs_a_source() {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(true)).unwrap();
     // Drop every source: a model with context_tokens but no source must be rejected.
     let text: String = include_str!("../config/models.toml")
         .lines()

@@ -4,6 +4,11 @@ Changes to the `nectra run` contract (flags, events, exit codes) are always list
 
 ## Unreleased
 
+- **Default route is haiku.** `[routing] default_model = "haiku"`: a plain request goes there; `/model`, `--model`,
+  `--mode`, demanding wording and retries after a failure (and `--escalate-from`) behave as before. The measured
+  table is now opt-in (`routing.use_table = true`) and Laya is opt-in (`classifier.backend = "laya"`, which also turns
+  the default off); `default_model = ""` restores the old scoring. Nothing removed. Why: docs/routing.md,
+  eval/calibration/CLASSIFIER-VS-CASCADE.md.
 - Escalation fixes after review: one immutable ladder per task and a task-wide tried-model
   set (`nectra run --attempted MODEL`, `--cell KIND:TIER`), retries by measured quality,
   `--mode best` = highest measured pass rate, `top2` = the dearer pick, an explicit

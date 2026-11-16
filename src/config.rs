@@ -48,6 +48,16 @@ pub struct RoutingConfig {
     pub hedge_margin_below: f64,
     /// Most rungs one task may climb after failures; 0 turns escalation off.
     pub max_escalations: u32,
+    /// The model a plain request goes to (a registry id). The default, `haiku`,
+    /// is what the offline comparison in eval/calibration/CLASSIFIER-VS-CASCADE.md
+    /// supports: with a realistic escalation signal nothing routed beat it on
+    /// pass rate per dollar. `/model`, `--model`, `--mode`, demanding wording and
+    /// retries after a failure still choose as before; `classifier.backend =
+    /// "laya"` also turns this off, and `""` does too (the scoring heuristic picks).
+    pub default_model: String,
+    /// Consult the measured task x tier table (`[[table]]` in models.toml).
+    /// Off by default: the certified table is opus-only at the data we have.
+    pub use_table: bool,
 }
 /// What to do when the tier is a close call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -77,6 +87,8 @@ impl Default for RoutingConfig {
             hedge_confidence_below: 0.6,
             hedge_margin_below: 0.05,
             max_escalations: 2,
+            default_model: "haiku".into(),
+            use_table: false,
         }
     }
 }

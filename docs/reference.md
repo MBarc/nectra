@@ -416,6 +416,10 @@ to that directory, or use `--config config/nectra.toml` explicitly.
 Relative registry paths resolve beside the config file. Embedded mode always uses
 the embedded registry, even if an unrelated `models.toml` exists in the current directory.
 
+`routing.default_model` (default `haiku`) is where a plain request goes; `routing.use_table` (default false)
+turns on the measured table, and `classifier.backend = "laya"` or `default_model = ""` brings back the scoring
+heuristic. See [the default route](routing.md#the-default-route).
+
 The CLI mode overrides `routing.default_mode`. Invalid modes, unknown fields,
 duplicate model IDs, unsupported provider/runtime pairs, nonfinite scores and
 malformed effort values fail early. Config inspection and doctor do not require

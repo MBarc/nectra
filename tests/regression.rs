@@ -1,4 +1,11 @@
 use clap::Parser;
+
+fn legacy_config(table: bool) -> String {
+    // The scoring heuristic (no default model) and, if asked, the measured table.
+    include_str!("../config/nectra.toml")
+        .replace("default_model = \"haiku\"", "default_model = \"\"")
+        .replace("use_table = false", &format!("use_table = {table}"))
+}
 use nectra::{
     classifier,
     cli::{Cli, Mode, ProviderArg},
@@ -15,11 +22,7 @@ use std::{
 
 fn fixture() -> (tempfile::TempDir, Config, Registry) {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("config.toml"),
-        include_str!("../config/nectra.toml"),
-    )
-    .unwrap();
+    fs::write(dir.path().join("config.toml"), legacy_config(false)).unwrap();
     fs::write(
         dir.path().join("models.toml"),
         include_str!("../config/models.toml"),
@@ -428,6 +431,7 @@ fn work_on_code_never_goes_to_a_chat_only_model_when_one_can_act() {
     use nectra::ollama::{LocalModel, LocalPolicy, OllamaConfig};
     for policy in [LocalPolicy::PreferLocal, LocalPolicy::LocalOnly] {
         let mut cfg = Config::from_defaults().unwrap();
+        cfg.inner.routing.default_model = String::new();
         cfg.inner.ollama = Some(OllamaConfig {
             base_url: "http://localhost:11434".into(),
             models: vec![LocalModel::new("test:latest".into(), 8192)],

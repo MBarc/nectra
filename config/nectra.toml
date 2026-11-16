@@ -11,5 +11,10 @@ command = "codex"
 extra_args = []
 
 [routing]
+# A plain request goes to this model (a registry id). "" = let the scoring heuristic pick.
+# /model, --model, --mode, demanding wording and retries after a failure still choose as before.
+default_model = "haiku"
+# Consult the measured task x tier table in models.toml (off: its data is opus-only).
+use_table = false
 confidence_margin = 0.035
 default_mode = "balanced"

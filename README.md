@@ -121,6 +121,11 @@ cache carries over. So Nectra routes per task, not per message:
 Each of these can be switched off in `[routing]`: `sticky`, `resume_sessions`,
 `handoff_summary`.
 
+A plain request starts on **haiku**; `/model`, `--mode`, demanding wording and retries after a
+failure move it up. Laya and the measured table are opt-in (`classifier.backend = "laya"`,
+`routing.use_table`); [why](docs/routing.md#the-default-route) and
+[the numbers](eval/calibration/CLASSIFIER-VS-CASCADE.md).
+
 ## Measured savings
 
 We ran 51 scripted coding chats through Nectra, on three workloads from a quick
